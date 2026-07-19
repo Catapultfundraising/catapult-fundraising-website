@@ -6,33 +6,27 @@ import { TestimonialStrip } from "@/components/testimonial-strip";
 export const metadata = {
   title: "Results & Case Studies | Catapult Fundraising",
   description:
-    "Representative outcomes from Catapult's capital campaign and annual fund calling programs across nonprofit sectors nationwide.",
+    "Representative outcomes from Catapult's capital campaign, annual fund, and mid-level donor engagement programs across nonprofit sectors nationwide.",
 };
 
-const CASE_STUDIES = [
+const MID_LEVEL_RESULTS = [
   {
-    sector: "Human Services",
-    goal: "$12M Capital Campaign",
+    sector: "Mid-Level Donor Engagement",
+    goal: "Average Gift Growth",
     result:
-      "Quiet phase secured 78% of goal from 40 major donors within 20 months; public-phase calling added another 14% while onboarding 900+ new donors.",
+      "Personalized outreach from a dedicated Engagement Officer, paired with a story-driven pre-call letter, increased average mid-level gift size by 20-30% at renewal.",
   },
   {
-    sector: "Faith-Based Organization",
-    goal: "$8M Facilities Campaign",
+    sector: "Mid-Level Donor Engagement",
+    goal: "Donor Engagement Lift",
     result:
-      "Feasibility study reset an unrealistic $15M goal to an achievable $8M target; campaign closed above goal with a Steering Committee-led quiet phase.",
+      "Layering calls, letters, digital voicemail, and text touchpoints doubled meaningful donor engagement compared to mail-only outreach, a 100% increase in response.",
   },
   {
-    sector: "Behavioral Health Nonprofit",
-    goal: "Annual Fund Growth",
+    sector: "Mid-Level Donor Engagement",
+    goal: "Major Gift Pipeline",
     result:
-      "AF Connect segmentation and personalized asks lifted average gift size and reactivated a lapsed-donor segment representing 22% of prior-year revenue.",
-  },
-  {
-    sector: "Arts & Culture Center",
-    goal: "Capital + Endowment Campaign",
-    result:
-      "Combined capital and endowment case statement clarified donor intent options, accelerating major gift commitments during the quiet phase.",
+      "Structured qualification conversations identified passion and capacity among existing mid-level donors, building a qualified pipeline of future major gift prospects.",
   },
 ];
 
@@ -46,10 +40,13 @@ export default function ResultsPage() {
       />
 
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
-        <div className="grid gap-6 sm:grid-cols-2">
-          {CASE_STUDIES.map((cs) => (
+        <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          Mid-Level Donor Engagement
+        </p>
+        <div className="mt-6 grid gap-6 sm:grid-cols-3">
+          {MID_LEVEL_RESULTS.map((cs) => (
             <div
-              key={cs.sector}
+              key={cs.goal}
               className="rounded-2xl border border-[rgb(var(--line))] bg-white p-8"
             >
               <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">

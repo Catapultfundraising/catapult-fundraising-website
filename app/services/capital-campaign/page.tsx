@@ -43,8 +43,8 @@ export default function CapitalCampaignPage() {
     <>
       <PageHero
         eyebrow="Capital Campaign Services"
-        title="The only firm that stays with your campaign from the first feasibility interview to the final pledge."
-        description="We wrap every capital campaign in a public-phase calling program, so the momentum built in the quiet phase doesn't stall once the campaign goes public."
+        title="The full-service firm that carries your campaign from first feasibility call to final pledge."
+        description="Catapult is the only national firm that plans your capital campaign from the earliest quiet-phase strategy through a professionally staffed public-phase calling program, wrapping every campaign in one accountable partner instead of three vendors."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/62ebe036-cc54-4a61-8952-61060ecd662c.jpeg"
       />
       <ServiceDetail
