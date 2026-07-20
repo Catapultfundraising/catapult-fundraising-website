@@ -11,9 +11,9 @@ export function SiteFooter() {
           <Image
             src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png"
             alt="Catapult Fundraising"
-            width={440}
-            height={380}
-            className="h-32 w-auto"
+            width={880}
+            height={760}
+            className="h-64 w-auto"
           />
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-[rgb(var(--paper))]/70">
             Full-service capital campaign counsel and donor calling programs
