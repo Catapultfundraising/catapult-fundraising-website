@@ -73,7 +73,7 @@ const LEADERSHIP = [
   {
     name: "Bates Childress",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e3391243-ef29-44b0-b8cd-f1efe82bbfaf.png",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/c0b126bb-6f76-4372-b724-d6e128af69f3.png",
     bio: "In more than 40 years of nonprofit work, Bates has stewarded donor relationships that resulted in seven-figure gifts, the kind of outcome that only comes from genuine, patient trust-building. A member of AFP, Together SC, and the Charleston Metropolitan Chamber of Commerce, Bates brings a steady, principled hand to every legacy giving conversation Catapult leads.",
   },
   {
@@ -153,8 +153,8 @@ export default function AboutPage() {
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--navy))]/5">
                 <v.icon className="h-5 w-5 text-[rgb(var(--brass))]" />
               </span>
-              <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">{v.title}</h3>
-              <p className="mt-3 text-base leading-relaxed text-[rgb(var(--ink))]/70">{v.description}</p>
+              <h3 className="mt-6 font-display text-[25px] text-[rgb(var(--navy))]">{v.title}</h3>
+              <p className="mt-3 text-xl leading-relaxed text-[rgb(var(--ink))]/70">{v.description}</p>
             </div>
           ))}
         </div>
@@ -162,10 +162,10 @@ export default function AboutPage() {
 
       <section className="border-t border-[rgb(var(--line))] bg-white py-14 lg:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-10">
-          <p className="font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+          <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
             Leadership
           </p>
-          <h2 className="mt-4 max-w-3xl font-display text-5xl tracking-tight text-[rgb(var(--navy))] sm:text-6xl">
+          <h2 className="mt-4 max-w-3xl font-display text-6xl tracking-tight text-[rgb(var(--navy))] sm:text-[75px]">
             A team of storytellers, strategists, and lifelong believers in the mission.
           </h2>
 
@@ -182,11 +182,11 @@ export default function AboutPage() {
                   />
                   <div className="pointer-events-none absolute inset-0 rounded-full ring-1 ring-inset ring-[rgb(var(--navy))]/10" />
                 </div>
-                <h3 className="mt-5 font-display text-xl text-[rgb(var(--navy))]">{member.name}</h3>
-                <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+                <h3 className="mt-5 font-display text-[25px] text-[rgb(var(--navy))]">{member.name}</h3>
+                <p className="text-[15px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
                   {member.role}
                 </p>
-                <p className="mt-3 text-base leading-relaxed text-[rgb(var(--ink))]/70">{member.bio}</p>
+                <p className="mt-3 text-xl leading-relaxed text-[rgb(var(--ink))]/70">{member.bio}</p>
               </div>
             ))}
           </div>
