@@ -1,8 +1,8 @@
 export const SERVICE_LINKS = [
   { href: "/services/capital-campaign", label: "Capital Campaigns" },
-  { href: "/services/annual-fund", label: "Annual Fund Calling" },
-  { href: "/services/donor-engagement", label: "Donor Engagement" },
   { href: "/services/legacy-giving", label: "Legacy Giving" },
+  { href: "/services/donor-engagement", label: "Donor Engagement" },
+  { href: "/services/annual-fund", label: "Annual Fund Calling" },
 ];
 
 export const NAV_LINKS = [

@@ -25,16 +25,16 @@ export function ServiceDetail({
         <div className="space-y-14 lg:col-span-2">
           {sections.map((section) => (
             <div key={section.title}>
-              <h2 className="font-display text-2xl text-[rgb(var(--navy))] sm:text-3xl">
+              <h2 className="font-display text-3xl text-[rgb(var(--navy))] sm:text-[37.5px]">
                 {section.title}
               </h2>
-              <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+              <p className="mt-4 text-[22.5px] leading-relaxed text-[rgb(var(--ink))]/70">
                 {section.description}
               </p>
               {section.bullets && (
                 <ul className="mt-5 space-y-3">
                   {section.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-3 text-base text-[rgb(var(--ink))]/75">
+                    <li key={b} className="flex items-start gap-3 text-xl text-[rgb(var(--ink))]/75">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
                       {b}
                     </li>
@@ -49,10 +49,10 @@ export function ServiceDetail({
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--navy))]/5">
             <Icon className="h-5 w-5 text-[rgb(var(--brass))]" />
           </span>
-          <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">{sidebarTitle}</h3>
+          <h3 className="mt-6 font-display text-[25px] text-[rgb(var(--navy))]">{sidebarTitle}</h3>
           <ul className="mt-5 space-y-3">
             {sidebarItems.map((item) => (
-              <li key={item} className="flex items-start gap-2 text-base text-[rgb(var(--ink))]/70">
+              <li key={item} className="flex items-start gap-2 text-xl text-[rgb(var(--ink))]/70">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
                 {item}
               </li>
