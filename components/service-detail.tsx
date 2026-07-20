@@ -28,13 +28,13 @@ export function ServiceDetail({
               <h2 className="font-display text-2xl text-[rgb(var(--navy))] sm:text-3xl">
                 {section.title}
               </h2>
-              <p className="mt-4 text-base leading-relaxed text-[rgb(var(--ink))]/70">
+              <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
                 {section.description}
               </p>
               {section.bullets && (
                 <ul className="mt-5 space-y-3">
                   {section.bullets.map((b) => (
-                    <li key={b} className="flex items-start gap-3 text-sm text-[rgb(var(--ink))]/75">
+                    <li key={b} className="flex items-start gap-3 text-base text-[rgb(var(--ink))]/75">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
                       {b}
                     </li>
@@ -52,7 +52,7 @@ export function ServiceDetail({
           <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">{sidebarTitle}</h3>
           <ul className="mt-5 space-y-3">
             {sidebarItems.map((item) => (
-              <li key={item} className="flex items-start gap-2 text-sm text-[rgb(var(--ink))]/70">
+              <li key={item} className="flex items-start gap-2 text-base text-[rgb(var(--ink))]/70">
                 <Check className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
                 {item}
               </li>

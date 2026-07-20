@@ -11,12 +11,12 @@ const SERVICES = [
     href: "/services/capital-campaign",
   },
   {
-    icon: Phone,
-    label: "Community & Annual Fund",
-    title: "Annual Fund Calling",
+    icon: Landmark,
+    label: "Bequests & Deferred Gifts",
+    title: "Legacy & Planned Giving",
     description:
-      "Trained Engagement Officers treat every prospect like a major donor-in-waiting, with segmented outreach, personalized asks, and digital stewardship included.",
-    href: "/services/annual-fund",
+      "Legacy Call identifies and closes bequests, beneficiary designations, and other deferred gifts from your most loyal, longest-tenured donors.",
+    href: "/services/legacy-giving",
   },
   {
     icon: Users2,
@@ -27,12 +27,12 @@ const SERVICES = [
     href: "/services/donor-engagement",
   },
   {
-    icon: Landmark,
-    label: "Bequests & Deferred Gifts",
-    title: "Legacy & Planned Giving",
+    icon: Phone,
+    label: "Community & Annual Fund",
+    title: "Annual Fund Calling",
     description:
-      "Legacy Call identifies and closes bequests, beneficiary designations, and other deferred gifts from your most loyal, longest-tenured donors.",
-    href: "/services/legacy-giving",
+      "Trained Engagement Officers treat every prospect like a major donor-in-waiting, with segmented outreach, personalized asks, and digital stewardship included.",
+    href: "/services/annual-fund",
   },
 ];
 
@@ -67,7 +67,7 @@ export function ServicesOverview() {
               <h3 className="mt-6 font-display text-2xl text-[rgb(var(--navy))]">
                 {service.title}
               </h3>
-              <p className="mt-4 text-sm leading-relaxed text-[rgb(var(--ink))]/70">
+              <p className="mt-4 text-base leading-relaxed text-[rgb(var(--ink))]/70">
                 {service.description}
               </p>
             </div>
