@@ -20,6 +20,9 @@ const SERVICE_OPTIONS = [...SERVICE_LINKS.map((s) => s.label), "Not sure yet"];
 const FIELD_CLASS =
   "border-[rgb(var(--brass))]/40 bg-[rgb(var(--navy))] text-[rgb(var(--brass-light))] placeholder:text-[rgb(var(--brass-light))]/40 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
 
+const CTA_BUTTON_CLASS =
+  "group inline-flex items-center justify-center gap-2 rounded-full bg-[rgb(var(--brass))] px-8 py-6 text-base font-bold uppercase tracking-wide text-[rgb(var(--navy-deep))] shadow-lg shadow-[rgb(var(--brass))]/20 transition-transform hover:scale-[1.02] hover:bg-[rgb(var(--brass-light))]";
+
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -71,7 +74,7 @@ export function ContactForm() {
           </a>
           .
         </p>
-        <Button variant="outline" onClick={() => setSubmitted(false)}>
+        <Button onClick={() => setSubmitted(false)} className={CTA_BUTTON_CLASS}>
           Send another message
         </Button>
       </div>
@@ -179,7 +182,7 @@ export function ContactForm() {
         type="submit"
         size="lg"
         disabled={submitting}
-        className="group inline-flex w-full items-center justify-center gap-2 rounded-full bg-[rgb(var(--brass))] px-8 py-6 text-base font-bold uppercase tracking-wide text-[rgb(var(--navy-deep))] shadow-lg shadow-[rgb(var(--brass))]/20 transition-transform hover:scale-[1.02] hover:bg-[rgb(var(--brass-light))] sm:w-auto"
+        className={cn(CTA_BUTTON_CLASS, "w-full sm:w-auto")}
       >
         {submitting ? "Submitting..." : "Submit"}
         <Send className="h-5 w-5 transition-transform group-hover:translate-x-1" />
