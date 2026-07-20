@@ -14,13 +14,13 @@ const LEADERSHIP = [
     name: "Amy Wiles",
     role: "Chief Campaign Strategist",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5d012009-fb65-41ce-adba-7819535c7e20.jpeg",
-    bio: "Amy turns a feasibility study into a movement. With 25 years in the nonprofit sector, she has the rare gift of translating a bold mission into a campaign plan that staff, volunteers, and donors all rally behind. Named 2025 Outstanding Fundraising Professional by AFP Las Vegas and a graduate of both the Jameson Fellowship and Leadership Las Vegas, Amy leads Catapult's strategy team with the belief that the best campaigns aren't just well-planned. They're well-loved by everyone who's part of them.",
+    bio: "Amy turns a feasibility study into a movement. With 25 years in the nonprofit sector, she has the rare gift of translating a bold mission into a campaign plan that staff, volunteers, and donors all rally behind. She has guided organizations through capital campaigns ranging from six figures to nine, building case statements that hold up under a board's toughest questions and gift charts that hold up even better in public phase. Named 2025 Outstanding Fundraising Professional by AFP Las Vegas and a graduate of both the Jameson Fellowship and Leadership Las Vegas, Amy leads Catapult's strategy team with the belief that the best campaigns aren't just well-planned. They're well-loved by everyone who's part of them, built around real donors, not just a spreadsheet.",
   },
   {
     name: "Zina Birmingham",
     role: "Chief Operating Officer",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d2caf01e-236d-4ea0-87e2-ea32a2651ac6.jpeg",
-    bio: "Zina started as a student Engagement Officer, the same seat every one of Catapult's fundraising specialists sits in today, and rose through every leadership role the company offers on her way to COO. That path shows: she's helped raise nearly half a billion dollars for clients over the last quarter century, and she still runs operations like someone who remembers exactly what it feels like to be on the phone making the ask. Her promise to every client is simple: the machine behind the mission will never let you down.",
+    bio: "Zina started as a student Engagement Officer, the same seat every one of Catapult's fundraising specialists sits in today, and rose through every leadership role the company offers on her way to COO. That path shows: she's helped raise nearly half a billion dollars for clients over the last quarter century, and she still runs operations like someone who remembers exactly what it feels like to be on the phone making the ask. A hands-on operator with a reputation for fixing problems before clients ever notice them, Zina built the training systems and quality standards that every Catapult Engagement Officer still follows today. Her promise to every client is simple: the machine behind the mission will never let you down.",
   },
   {
     name: "Maria Healy",
@@ -73,7 +73,7 @@ const LEADERSHIP = [
   {
     name: "Bates Childress",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/10a05952-f7c0-4eee-9f19-04b217075d1.jpeg",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e3391243-ef29-44b0-b8cd-f1efe82bbfaf.png",
     bio: "In more than 40 years of nonprofit work, Bates has stewarded donor relationships that resulted in seven-figure gifts, the kind of outcome that only comes from genuine, patient trust-building. A member of AFP, Together SC, and the Charleston Metropolitan Chamber of Commerce, Bates brings a steady, principled hand to every legacy giving conversation Catapult leads.",
   },
   {
@@ -154,7 +154,7 @@ export default function AboutPage() {
                 <v.icon className="h-5 w-5 text-[rgb(var(--brass))]" />
               </span>
               <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">{v.title}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-[rgb(var(--ink))]/70">{v.description}</p>
+              <p className="mt-3 text-base leading-relaxed text-[rgb(var(--ink))]/70">{v.description}</p>
             </div>
           ))}
         </div>
@@ -186,7 +186,7 @@ export default function AboutPage() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
                   {member.role}
                 </p>
-                <p className="mt-3 text-sm leading-relaxed text-[rgb(var(--ink))]/70">{member.bio}</p>
+                <p className="mt-3 text-base leading-relaxed text-[rgb(var(--ink))]/70">{member.bio}</p>
               </div>
             ))}
           </div>
