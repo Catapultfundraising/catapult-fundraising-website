@@ -100,7 +100,7 @@ export default function ResultsPage() {
           <div className="mt-10 grid gap-10 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-[rgb(var(--line))] shadow-sm lg:col-start-1">
               <Image
-                src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d97f64ed-c5c0-4c43-8f37-e6f98fbc3073.png"
+                src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/95a7f165-7aa3-4ddc-b0fb-a4021fc35995.png"
                 alt="The Mid-Level Donor Engagement Journey: an eight-stage pathway to a confirmed increased gift"
                 width={1024}
                 height={1536}
