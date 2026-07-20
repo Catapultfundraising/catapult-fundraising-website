@@ -24,8 +24,8 @@ export default function ContactPage() {
             <div className="flex items-start gap-3">
               <Phone className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/50">Call us</p>
-                <a href={`tel:${FIRM_PHONE_HREF}`} className="font-display text-xl text-[rgb(var(--navy))]">
+                <p className="text-[17.5px] font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/50">Call us</p>
+                <a href={`tel:${FIRM_PHONE_HREF}`} className="font-display text-[25px] text-[rgb(var(--navy))]">
                   {FIRM_PHONE}
                 </a>
               </div>
@@ -33,8 +33,8 @@ export default function ContactPage() {
             <div className="flex items-start gap-3">
               <Mail className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/50">Email us</p>
-                <a href={`mailto:${FIRM_EMAIL}`} className="font-display text-xl text-[rgb(var(--navy))]">
+                <p className="text-[17.5px] font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/50">Email us</p>
+                <a href={`mailto:${FIRM_EMAIL}`} className="font-display text-[25px] text-[rgb(var(--navy))]">
                   {FIRM_EMAIL}
                 </a>
               </div>
@@ -42,8 +42,8 @@ export default function ContactPage() {
             <div className="flex items-start gap-3">
               <MapPin className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/50">Visit us</p>
-                <p className="font-display text-xl text-[rgb(var(--navy))]">
+                <p className="text-[17.5px] font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/50">Visit us</p>
+                <p className="font-display text-[25px] text-[rgb(var(--navy))]">
                   {FIRM_ADDRESS_LINES.map((line) => (
                     <span key={line} className="block">
                       {line}
