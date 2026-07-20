@@ -15,38 +15,37 @@ export function Hero() {
             Capital Campaign & Donor Engagement Consultants
           </p>
           <h1 className="mt-4 font-display text-5xl leading-[1.05] tracking-tight text-balance sm:text-6xl lg:text-7xl">
-            The full-service firm that carries your campaign from{" "}
-            <span className="italic text-[rgb(var(--brass-light))]">first feasibility call</span>{" "}
-            to final pledge.
+            The full-service partner that grows your donor base at{" "}
+            <span className="italic text-[rgb(var(--brass-light))]">every stage</span>{" "}
+            of the giving journey.
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-[rgb(var(--paper))]/75">
-            Catapult is the only national firm that plans your capital
-            campaign from the earliest quiet-phase strategy through a
-            professionally staffed public-phase calling program, wrapping
-            every campaign in one accountable partner instead of three
-            vendors.
+            Capital campaign counsel, annual fund calling, mid-level donor
+            engagement, and legacy giving. Catapult plans, staffs, and manages
+            the programs that turn first-time donors into lifelong supporters,
+            all through one accountable team instead of three vendors.
           </p>
           <div className="mt-8 flex flex-wrap items-center gap-5">
             <Link
               href="/contact"
               className="group inline-flex items-center gap-2 rounded-full bg-[rgb(var(--brass))] px-7 py-3.5 text-sm font-semibold text-[rgb(var(--navy-deep))] transition-transform hover:scale-[1.02]"
             >
-              Schedule a Feasibility Conversation
+              Schedule a Conversation
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </Link>
             <Link
               href="/results"
               className="text-sm font-semibold text-[rgb(var(--paper))]/85 underline decoration-[rgb(var(--brass-light))]/60 underline-offset-8 hover:text-[rgb(var(--paper))]"
             >
-              See campaign results
+              See client results
             </Link>
           </div>
         </div>
 
         <dl className="reveal mt-12 grid grid-cols-2 gap-8 border-t border-[rgb(var(--paper))]/15 pt-8 sm:grid-cols-4">
           {[
-            { value: "$400M+", label: "Active campaign portfolio" },
-            { value: "18–24 mo.", label: "Typical quiet-phase runway" },
+            { value: "$400M+", label: "In campaigns & programs managed" },
+            { value: "20–30%", label: "Average gift growth in donor engagement" },
             { value: "10–20%", label: "Raised in public-phase calling" },
             { value: "40+", label: "Donor research sources" },
           ].map((stat) => (
