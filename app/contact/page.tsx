@@ -6,7 +6,7 @@ import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS } from "@/lib/con
 export const metadata = {
   title: "Contact | Catapult Fundraising",
   description:
-    "Start a conversation about your capital campaign, feasibility study, or annual fund calling program with Catapult Fundraising.",
+    "Start a conversation about capital campaign counsel, annual fund calling, mid-level donor engagement, or legacy giving with Catapult Fundraising.",
 };
 
 export default function ContactPage() {
@@ -14,8 +14,8 @@ export default function ContactPage() {
     <>
       <PageHero
         eyebrow="Contact"
-        title="Let's talk about your campaign."
-        description="Whether you're exploring a feasibility study or ready to launch a public-phase calling program, we respond to every inquiry within one business day."
+        title="Let's talk about growing your donor base."
+        description="Whether you're exploring a feasibility study, launching a public-phase calling program, building a mid-level donor pipeline, or growing legacy gifts, we respond to every inquiry within one business day."
       />
 
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
