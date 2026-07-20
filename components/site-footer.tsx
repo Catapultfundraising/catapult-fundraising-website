@@ -69,7 +69,7 @@ export function SiteFooter() {
             &copy; {new Date().getFullYear()} Catapult Fundraising. All rights reserved.
           </p>
           <p className="text-xs text-[rgb(var(--paper))]/50">
-            Offices in Henderson, NV &middot; New Jersey &middot; Texas
+            Offices in Nevada &middot; New Jersey &middot; Texas
           </p>
         </div>
       </div>
