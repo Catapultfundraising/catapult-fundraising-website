@@ -1,9 +1,18 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 export function Hero() {
   return (
     <section className="relative overflow-hidden bg-[rgb(var(--navy))] text-[rgb(var(--paper))]">
+      <Image
+        src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e656b128-f2e0-427e-a4c2-07e58fa6812e.png"
+        alt=""
+        fill
+        priority
+        className="object-cover opacity-30"
+      />
+      <div className="absolute inset-0 bg-gradient-to-r from-[rgb(var(--navy))] via-[rgb(var(--navy))]/85 to-[rgb(var(--navy))]/40" />
       <div className="grain absolute inset-0" />
       <div
         className="pointer-events-none absolute -right-40 -top-40 h-[520px] w-[520px] rounded-full opacity-30 blur-3xl"
