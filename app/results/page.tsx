@@ -6,10 +6,22 @@ import { TestimonialStrip } from "@/components/testimonial-strip";
 export const metadata = {
   title: "Results & Case Studies | Catapult Fundraising",
   description:
-    "Representative outcomes from Catapult's capital campaign, annual fund, and mid-level donor engagement programs across nonprofit sectors nationwide.",
+    "Representative outcomes from Catapult's capital campaign, annual fund, mid-level donor engagement, and legacy giving programs across nonprofit sectors nationwide.",
 };
 
-const MID_LEVEL_RESULTS = [
+const SERVICE_RESULTS = [
+  {
+    sector: "Capital Campaign Counsel",
+    goal: "Feasibility to Public Phase",
+    result:
+      "Structured feasibility studies and quiet-phase major gift strategy carried clients through an 18–24 month runway into a confidently launched public phase.",
+  },
+  {
+    sector: "Annual Fund Calling",
+    goal: "Participation & Retention",
+    result:
+      "Trained Engagement Officers running segmented outreach and personalized asks lifted annual fund participation and donor retention above industry norms.",
+  },
   {
     sector: "Mid-Level Donor Engagement",
     goal: "Average Gift Growth",
@@ -28,6 +40,12 @@ const MID_LEVEL_RESULTS = [
     result:
       "Structured qualification conversations identified passion and capacity among existing mid-level donors, building a qualified pipeline of future major gift prospects.",
   },
+  {
+    sector: "Legacy & Planned Giving",
+    goal: "Bequest Identification",
+    result:
+      "Legacy Call conversations with long-tenured donors identified and closed bequests and beneficiary designations that would otherwise have gone unrecorded.",
+  },
 ];
 
 export default function ResultsPage() {
@@ -36,17 +54,17 @@ export default function ResultsPage() {
       <PageHero
         eyebrow="Results"
         title="Representative outcomes from campaigns we've carried start to finish."
-        description="Every nonprofit's numbers are confidential to their board, but the patterns below reflect the kind of results clients see when planning, major gifts, and public-phase calling are handled by one accountable team."
+        description="Every nonprofit's numbers are confidential to their board, but the patterns below reflect the kind of results clients see across all four of our services when planning, major gifts, and public-phase calling are handled by one accountable team."
       />
 
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
-        <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
-          Mid-Level Donor Engagement
+        <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          Results Across Every Service
         </p>
-        <div className="mt-6 grid gap-6 sm:grid-cols-3">
-          {MID_LEVEL_RESULTS.map((cs) => (
+        <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {SERVICE_RESULTS.map((cs) => (
             <div
-              key={cs.goal}
+              key={`${cs.sector}-${cs.goal}`}
               className="rounded-2xl border border-[rgb(var(--line))] bg-white p-8"
             >
               <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
@@ -55,7 +73,7 @@ export default function ResultsPage() {
               <h3 className="mt-3 font-display text-2xl text-[rgb(var(--navy))]">
                 {cs.goal}
               </h3>
-              <p className="mt-4 text-sm leading-relaxed text-[rgb(var(--ink))]/70">
+              <p className="mt-4 text-base leading-relaxed text-[rgb(var(--ink))]/70">
                 {cs.result}
               </p>
             </div>
