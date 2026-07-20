@@ -17,10 +17,10 @@ const SERVICE_RESULTS = [
       "Structured feasibility studies and quiet-phase major gift strategy carried clients through an 18–24 month runway into a confidently launched public phase.",
   },
   {
-    sector: "Annual Fund Calling",
-    goal: "Participation & Retention",
+    sector: "Legacy & Planned Giving",
+    goal: "Bequest Identification",
     result:
-      "Trained Engagement Officers running segmented outreach and personalized asks lifted annual fund participation and donor retention above industry norms.",
+      "Legacy Call conversations with long-tenured donors identified and closed bequests and beneficiary designations that would otherwise have gone unrecorded.",
   },
   {
     sector: "Mid-Level Donor Engagement",
@@ -41,10 +41,10 @@ const SERVICE_RESULTS = [
       "Structured qualification conversations identified passion and capacity among existing mid-level donors, building a qualified pipeline of future major gift prospects.",
   },
   {
-    sector: "Legacy & Planned Giving",
-    goal: "Bequest Identification",
+    sector: "Annual Fund Calling",
+    goal: "Participation & Retention",
     result:
-      "Legacy Call conversations with long-tenured donors identified and closed bequests and beneficiary designations that would otherwise have gone unrecorded.",
+      "Trained Engagement Officers running segmented outreach and personalized asks lifted annual fund participation and donor retention above industry norms.",
   },
 ];
 
@@ -58,7 +58,7 @@ export default function ResultsPage() {
       />
 
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
-        <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        <p className="text-[17.5px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
           Results Across Every Service
         </p>
         <div className="mt-6 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -67,19 +67,19 @@ export default function ResultsPage() {
               key={`${cs.sector}-${cs.goal}`}
               className="rounded-2xl border border-[rgb(var(--line))] bg-white p-8"
             >
-              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+              <p className="text-[15px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
                 {cs.sector}
               </p>
-              <h3 className="mt-3 font-display text-2xl text-[rgb(var(--navy))]">
+              <h3 className="mt-3 font-display text-3xl text-[rgb(var(--navy))]">
                 {cs.goal}
               </h3>
-              <p className="mt-4 text-base leading-relaxed text-[rgb(var(--ink))]/70">
+              <p className="mt-4 text-xl leading-relaxed text-[rgb(var(--ink))]/70">
                 {cs.result}
               </p>
             </div>
           ))}
         </div>
-        <p className="mt-8 text-xs text-[rgb(var(--ink))]/40">
+        <p className="mt-8 text-[15px] text-[rgb(var(--ink))]/40">
           Figures are illustrative composites reflecting typical program outcomes.
           Ask us for named, board-approved case studies specific to your sector.
         </p>
@@ -87,10 +87,10 @@ export default function ResultsPage() {
 
       <section className="border-t border-[rgb(var(--line))] bg-[rgb(var(--paper))] py-14 lg:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-10">
-          <p className="font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+          <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
             How Our Services Fit Together
           </p>
-          <h2 className="mt-4 max-w-2xl font-display text-5xl tracking-tight text-[rgb(var(--navy))] sm:text-6xl">
+          <h2 className="mt-4 max-w-2xl font-display text-6xl tracking-tight text-[rgb(var(--navy))] sm:text-[75px]">
             A quick look at what we do and how a legacy gift comes together.
           </h2>
 
