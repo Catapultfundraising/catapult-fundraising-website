@@ -3,10 +3,20 @@ import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
 import { Landmark } from "lucide-react";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 export const metadata = {
   title: "Legacy & Planned Giving Programs | Catapult Fundraising",
   description:
     "Catapult's Legacy Call program uncovers bequests, beneficiary designations, and other deferred gifts from your most loyal donors, the segment most capital campaigns never fully engage.",
+  keywords: [
+    "legacy giving consultant",
+    "planned giving program",
+    "Legacy Call",
+    "bequest fundraising",
+    "nonprofit planned giving",
+  ],
+  alternates: { canonical: "/services/legacy-giving" },
 };
 
 const SECTIONS = [
@@ -42,9 +52,62 @@ const SECTIONS = [
   },
 ];
 
+const FAQS = [
+  {
+    question: "What is Legacy Call?",
+    answer:
+      "Legacy Call is Catapult's full-service, two-tier planned giving methodology for identifying and closing bequests, beneficiary designations, life-income gifts, and other deferred commitments from an organization's most loyal donors.",
+  },
+  {
+    question: "How much is an average planned gift commitment?",
+    answer:
+      "Through the Legacy Call process, the average confirmed gift commitment is roughly $48,500, often 200-300 times a donor's largest annual gift.",
+  },
+  {
+    question: "How does the Legacy Call process work?",
+    answer:
+      "It follows a seven-step journey: prospect identification, donor list review, a pre-call letter, qualification calls from a trained Stewardship Officer, referral to a Gift Planning Specialist, confirmation and reporting, and a warm hand-off to the organization's internal planned giving team.",
+  },
+];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Service",
+      name: "Legacy & Planned Giving (Legacy Call)",
+      serviceType: "Nonprofit planned giving and legacy gift program",
+      url: `${SITE_URL}/services/legacy-giving`,
+      provider: { "@type": "ProfessionalService", name: "Catapult Fundraising", url: SITE_URL },
+      areaServed: { "@type": "Country", name: "United States" },
+      description:
+        "Catapult's Legacy Call program uncovers bequests, beneficiary designations, and other deferred gifts from an organization's most loyal donors.",
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQS.map((f) => ({
+        "@type": "Question",
+        name: f.question,
+        acceptedAnswer: { "@type": "Answer", text: f.answer },
+      })),
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Legacy & Planned Giving", item: `${SITE_URL}/services/legacy-giving` },
+      ],
+    },
+  ],
+};
+
 export default function LegacyGivingPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PageHero
         eyebrow="Legacy & Planned Giving"
         title="Your most loyal donors are ready for a legacy conversation. Legacy Call finds them."

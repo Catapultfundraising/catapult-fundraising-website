@@ -3,10 +3,20 @@ import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
 import { Users2 } from "lucide-react";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 export const metadata = {
   title: "Mid-Level Donor Engagement | Catapult Fundraising",
   description:
     "A multi-channel Donor Engagement program that upgrades mid-level donors, deepens retention, and builds a qualified major-gift pipeline.",
+  keywords: [
+    "mid-level donor engagement",
+    "donor engagement officer program",
+    "major gift pipeline",
+    "donor upgrade program",
+    "nonprofit donor retention",
+  ],
+  alternates: { canonical: "/services/donor-engagement" },
 };
 
 const SECTIONS = [
@@ -50,9 +60,62 @@ const SECTIONS = [
   },
 ];
 
+const FAQS = [
+  {
+    question: "What is mid-level donor engagement?",
+    answer:
+      "Mid-level donor engagement is a fundraising program for donors between annual fund and major gift status, too significant for a form letter but not yet assigned a major gift officer. Catapult's program assigns a dedicated Engagement Officer to build the relationship before asking for the next gift.",
+  },
+  {
+    question: "How many stages does Catapult's Donor Engagement program have?",
+    answer:
+      "The program moves donors through 8 stages: identification and prioritization, list review and approval, a leadership introduction letter, a qualification call, a pre-call letter, the gift phase, fulfillment and reporting, and ongoing stewardship.",
+  },
+  {
+    question: "What results does mid-level donor engagement typically produce?",
+    answer:
+      "Clients typically see 20-30% average gift growth at renewal and up to a 100% increase in meaningful donor engagement compared to mail-only outreach, while building a qualified pipeline of future major gift prospects.",
+  },
+];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Service",
+      name: "Mid-Level Donor Engagement",
+      serviceType: "Nonprofit mid-level donor engagement program",
+      url: `${SITE_URL}/services/donor-engagement`,
+      provider: { "@type": "ProfessionalService", name: "Catapult Fundraising", url: SITE_URL },
+      areaServed: { "@type": "Country", name: "United States" },
+      description:
+        "A multi-channel Donor Engagement program that upgrades mid-level donors, deepens retention, and builds a qualified major-gift pipeline.",
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQS.map((f) => ({
+        "@type": "Question",
+        name: f.question,
+        acceptedAnswer: { "@type": "Answer", text: f.answer },
+      })),
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Mid-Level Donor Engagement", item: `${SITE_URL}/services/donor-engagement` },
+      ],
+    },
+  ],
+};
+
 export default function DonorEngagementPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PageHero
         eyebrow="Mid-Level Donor Engagement"
         title="Turn your best-kept fundraising secret — mid-level donors — into your next major gift pipeline."

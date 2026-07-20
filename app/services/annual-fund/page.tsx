@@ -3,10 +3,20 @@ import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
 import { PhoneCall } from "lucide-react";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 export const metadata = {
   title: "Annual Fund Calling Services (AF Connect) | Catapult Fundraising",
   description:
     "High-end annual fund calling that treats every donor like a major gift prospect, with segmented outreach, personalized ask amounts, and digital stewardship included.",
+  keywords: [
+    "annual fund calling services",
+    "AF Connect",
+    "donor calling program",
+    "nonprofit phonathon",
+    "annual fund consultant",
+  ],
+  alternates: { canonical: "/services/annual-fund" },
 };
 
 const SECTIONS = [
@@ -48,9 +58,62 @@ const SECTIONS = [
   },
 ];
 
+const FAQS = [
+  {
+    question: "What is AF Connect?",
+    answer:
+      "AF Connect is Catapult's high-end annual fund calling program. It combines mission-trained Engagement Officers, donor database segmentation, personalized ask amounts, and digital stewardship (text, email, ringless voicemail, and social) at no additional fee.",
+  },
+  {
+    question: "How many times will a donor be contacted?",
+    answer:
+      "AF Connect uses 3 to 15 or more differentiated calling attempts per donor, paired with personalized pre- and post-call letters and emails, to reach and steward each prospect appropriately.",
+  },
+  {
+    question: "How quickly are donors thanked after giving?",
+    answer:
+      "Thank-you letters are sent within 24–48 hours of contact, and fulfillment services help maximize collection of pledged dollars.",
+  },
+];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "Service",
+      name: "Annual Fund Calling (AF Connect)",
+      serviceType: "Nonprofit annual fund calling program",
+      url: `${SITE_URL}/services/annual-fund`,
+      provider: { "@type": "ProfessionalService", name: "Catapult Fundraising", url: SITE_URL },
+      areaServed: { "@type": "Country", name: "United States" },
+      description:
+        "High-end annual fund calling that treats every donor like a major gift prospect, with segmented outreach, personalized ask amounts, and digital stewardship included.",
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQS.map((f) => ({
+        "@type": "Question",
+        name: f.question,
+        acceptedAnswer: { "@type": "Answer", text: f.answer },
+      })),
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Annual Fund Calling", item: `${SITE_URL}/services/annual-fund` },
+      ],
+    },
+  ],
+};
+
 export default function AnnualFundPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PageHero
         eyebrow="Annual Fund Calling"
         title="Every donor deserves a face-to-face-quality conversation — even on the phone."
