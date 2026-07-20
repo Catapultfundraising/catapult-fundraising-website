@@ -23,16 +23,16 @@ export function TestimonialStrip() {
   return (
     <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
-        <p className="font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+        <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
           What Clients Say
         </p>
         <div className="mt-12 grid gap-10 lg:grid-cols-3">
           {QUOTES.map((t) => (
             <figure key={t.name} className="flex flex-col justify-between">
-              <blockquote className="font-display text-xl leading-snug text-[rgb(var(--navy))] text-balance">
+              <blockquote className="font-display text-[25px] leading-snug text-[rgb(var(--navy))] text-balance">
                 &ldquo;{t.quote}&rdquo;
               </blockquote>
-              <figcaption className="mt-6 text-sm text-[rgb(var(--ink))]/60">
+              <figcaption className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
                 <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
                 <br />
                 {t.org}
@@ -40,7 +40,7 @@ export function TestimonialStrip() {
             </figure>
           ))}
         </div>
-        <p className="mt-10 text-xs text-[rgb(var(--ink))]/40">
+        <p className="mt-10 text-[15px] text-[rgb(var(--ink))]/40">
           Representative feedback shared with client permission. Named case studies available on request.
         </p>
       </div>

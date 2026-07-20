@@ -40,10 +40,10 @@ export function ServicesOverview() {
   return (
     <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-20">
       <div className="max-w-2xl">
-        <p className="font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+        <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
           What We Do
         </p>
-        <h2 className="mt-4 font-display text-5xl tracking-tight text-[rgb(var(--navy))] sm:text-6xl">
+        <h2 className="mt-4 font-display text-6xl tracking-tight text-[rgb(var(--navy))] sm:text-[75px]">
           Four ways we grow your donor base — one accountable partner.
         </h2>
       </div>
@@ -60,18 +60,18 @@ export function ServicesOverview() {
                 <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--navy))]/5">
                   <service.icon className="h-5 w-5 text-[rgb(var(--brass))]" />
                 </span>
-                <span className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--navy))]/50">
+                <span className="text-[15px] font-semibold uppercase tracking-wider text-[rgb(var(--navy))]/50">
                   {service.label}
                 </span>
               </div>
-              <h3 className="mt-6 font-display text-2xl text-[rgb(var(--navy))]">
+              <h3 className="mt-6 font-display text-3xl text-[rgb(var(--navy))]">
                 {service.title}
               </h3>
-              <p className="mt-4 text-base leading-relaxed text-[rgb(var(--ink))]/70">
+              <p className="mt-4 text-xl leading-relaxed text-[rgb(var(--ink))]/70">
                 {service.description}
               </p>
             </div>
-            <div className="mt-8 flex items-center gap-2 text-sm font-semibold text-[rgb(var(--navy))]">
+            <div className="mt-8 flex items-center gap-2 text-[17.5px] font-semibold text-[rgb(var(--navy))]">
               Learn more
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
             </div>

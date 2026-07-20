@@ -37,10 +37,10 @@ export function SectorsServed() {
   return (
     <section className="border-t border-[rgb(var(--line))] bg-white py-14 lg:py-16">
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
-        <p className="font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+        <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
           Who We Serve
         </p>
-        <h2 className="mt-4 max-w-2xl font-display text-5xl tracking-tight text-[rgb(var(--navy))] sm:text-6xl">
+        <h2 className="mt-4 max-w-2xl font-display text-6xl tracking-tight text-[rgb(var(--navy))] sm:text-[75px]">
           Sectors where donor loyalty runs deep.
         </h2>
 
@@ -59,8 +59,8 @@ export function SectorsServed() {
               />
               <div className="absolute inset-0 bg-gradient-to-t from-[rgb(var(--navy-deep))]/90 via-[rgb(var(--navy-deep))]/10 to-transparent" />
               <div className="absolute inset-x-0 bottom-0 p-6">
-                <h3 className="font-display text-xl text-[rgb(var(--paper))]">{sector.title}</h3>
-                <p className="mt-1 text-sm text-[rgb(var(--paper))]/75">{sector.description}</p>
+                <h3 className="font-display text-[25px] text-[rgb(var(--paper))]">{sector.title}</h3>
+                <p className="mt-1 text-[17.5px] text-[rgb(var(--paper))]/75">{sector.description}</p>
               </div>
             </div>
           ))}

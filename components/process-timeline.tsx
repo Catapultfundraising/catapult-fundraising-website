@@ -30,10 +30,10 @@ export function ProcessTimeline() {
     <section className="bg-[rgb(var(--paper))] py-14 lg:py-20">
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
         <div className="max-w-2xl">
-          <p className="font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+          <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
             How A Campaign Moves
           </p>
-          <h2 className="mt-4 font-display text-5xl tracking-tight text-[rgb(var(--navy))] sm:text-6xl">
+          <h2 className="mt-4 font-display text-6xl tracking-tight text-[rgb(var(--navy))] sm:text-[75px]">
             Four phases. One firm carrying you through all of them.
           </h2>
         </div>
@@ -44,16 +44,16 @@ export function ProcessTimeline() {
               key={step.phase}
               className="relative border-b border-[rgb(var(--line))] px-2 py-8 lg:border-b-0 lg:border-r lg:px-8 lg:last:border-r-0"
             >
-              <span className="font-display text-5xl text-[rgb(var(--navy))]/10">
+              <span className="font-display text-6xl text-[rgb(var(--navy))]/10">
                 {String(i + 1).padStart(2, "0")}
               </span>
-              <p className="mt-4 text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+              <p className="mt-4 text-[15px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
                 {step.phase}
               </p>
-              <h3 className="mt-2 font-display text-xl text-[rgb(var(--navy))]">
+              <h3 className="mt-2 font-display text-[25px] text-[rgb(var(--navy))]">
                 {step.title}
               </h3>
-              <p className="mt-3 text-sm leading-relaxed text-[rgb(var(--ink))]/65">
+              <p className="mt-3 text-[17.5px] leading-relaxed text-[rgb(var(--ink))]/65">
                 {step.description}
               </p>
             </div>
