@@ -162,7 +162,7 @@ export function ContactForm() {
         </div>
       </div>
 
-      <div className="space-y-2 mt-64 sm:mt-32">
+      <div className="space-y-2 mt-[26rem] sm:mt-[15rem]">
         <Label htmlFor="message">Tell us about your goal and timeline</Label>
         <Textarea
           id="message"
