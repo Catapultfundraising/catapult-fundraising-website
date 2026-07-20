@@ -13,11 +13,11 @@ const SECTIONS = [
   {
     title: "The Untapped Gift Behind Every Loyal Donor",
     description:
-      "Planned giving prospects rarely make large outright gifts, but their loyalty often translates into deferred commitments worth 200–300 times their largest annual gift. Legacy Call is Catapult's full-service, two-tier methodology for identifying and closing bequests, beneficiary designations, life-income gifts, and other planned commitments.",
+      "Planned giving prospects rarely make large outright gifts, but their loyalty often translates into deferred commitments worth 200-300 times their largest annual gift. Legacy Call is Catapult's full-service, two-tier methodology for identifying and closing bequests, beneficiary designations, life-income gifts, and other planned commitments.",
     bullets: [
       "41% of planned giving donors give 10+ consecutive years to the organizations they value",
-      "Tier 1 qualifying calls reach 60–70% of prospects, with 10–15% positive response",
-      "Tier 2 gift-planning follow-up closes 25–32% of qualified leads",
+      "Tier 1 qualifying calls reach 60-70% of prospects, with 10-15% positive response",
+      "Tier 2 gift-planning follow-up closes 25-32% of qualified leads",
       "Average confirmed gift commitment: roughly $48,500",
     ],
   },
@@ -49,7 +49,7 @@ export default function LegacyGivingPage() {
         eyebrow="Legacy & Planned Giving"
         title="Your most loyal donors are ready for a legacy conversation. Legacy Call finds them."
         description="A full-service, two-tier planned giving methodology, not a single survey, that uncovers bequests and deferred gifts most capital campaigns leave on the table."
-        backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e6d5927c-17e7-4f71-93d5-86fdf9bbdae6.jpeg"
+        backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a0d01eb-79d6-4dfe-b7ce-54b1b8418ee0.png"
       />
       <ServiceDetail
         sections={SECTIONS}
