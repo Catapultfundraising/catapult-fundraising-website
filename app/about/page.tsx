@@ -56,7 +56,7 @@ const LEADERSHIP = [
     name: "Jackie Goodman",
     role: "Client Coordinator",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/347971f4-d87c-44cb-a58f-4c481c0f7c96.jpeg",
-    bio: "For over three years, Jackie built and led Catapult's research team, the behind-the-scenes work that gives every Engagement Officer the donor insight they need before they ever pick up the phone. She's since brought that same precision to campaign accounts, pairing a background in real estate with a genuine talent for putting the right technology to work. Whatever the tool, Jackie finds the smartest way to help a mission move forward.",
+    bio: "For over three years, Jackie led major gift research for Catapult's campaign services team, the deep prospect intelligence that shapes every feasibility study and quiet-phase strategy. She's since brought that same precision to campaign accounts, pairing a background in real estate with a genuine talent for putting the right technology to work. Whatever the tool, Jackie finds the smartest way to help a mission move forward.",
   },
   {
     name: "David Beasley, PhD",
