@@ -53,6 +53,12 @@ const LEADERSHIP = [
     bio: "For nearly a decade, Kayla has led Catapult's engagement team, training hundreds of Engagement Officers and personally shaping what a great donor conversation sounds like. She believes every single call is a chance to make someone's day, not just their ask, and that belief is exactly why Catapult's donor experience feels different from a typical outreach program.",
   },
   {
+    name: "Jackie Goodman",
+    role: "Client Coordinator",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/347971f4-d87c-44cb-a58f-4c481c0f7c96.jpeg",
+    bio: "For over three years, Jackie built and led Catapult's research team, the behind-the-scenes work that gives every Engagement Officer the donor insight they need before they ever pick up the phone. She's since brought that same precision to campaign accounts, pairing a background in real estate with a genuine talent for putting the right technology to work. Whatever the tool, Jackie finds the smartest way to help a mission move forward.",
+  },
+  {
     name: "David Beasley, PhD",
     role: "Senior Writer",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8d8748a2-f549-470b-ad9f-57fffa2b0e71.jpeg",
@@ -67,7 +73,7 @@ const LEADERSHIP = [
   {
     name: "Bates Childress",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/10a05952-f7c0-4eee-9f19-04b2170751d1.jpeg",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/10a05952-f7c0-4eee-9f19-04b217075d1.jpeg",
     bio: "In more than 40 years of nonprofit work, Bates has stewarded donor relationships that resulted in seven-figure gifts, the kind of outcome that only comes from genuine, patient trust-building. A member of AFP, Together SC, and the Charleston Metropolitan Chamber of Commerce, Bates brings a steady, principled hand to every legacy giving conversation Catapult leads.",
   },
   {
@@ -110,6 +116,12 @@ const VALUES = [
       "Trained and monitored Engagement Officers, along with transparent reporting, mean your board sees exactly how the campaign is progressing at every stage.",
   },
 ];
+
+export const metadata = {
+  title: "About Catapult Fundraising | Leadership & Team",
+  description:
+    "Catapult Fundraising was founded to close a gap in the industry: firms that plan campaigns rarely execute the public phase, and calling firms rarely understand campaign strategy. We do both, as one accountable team.",
+};
 
 export default function AboutPage() {
   return (
@@ -174,9 +186,7 @@ export default function AboutPage() {
                 <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
                   {member.role}
                 </p>
-                <p className="mt-3 text-sm leading-relaxed text-[rgb(var(--ink))]/70">
-                  {member.bio}
-                </p>
+                <p className="mt-3 text-sm leading-relaxed text-[rgb(var(--ink))]/70">{member.bio}</p>
               </div>
             ))}
           </div>
