@@ -7,7 +7,7 @@ const SERVICES = [
     label: "Planning Through Public Phase",
     title: "Capital Campaign Counsel",
     description:
-      "Feasibility studies, case development, and quiet-phase major gift strategy, carried through an 18–24 month runway into public-phase calling.",
+      "Feasibility studies, case development, and quiet-phase major gift strategy, carried through a 24–36 month runway into public-phase calling.",
     href: "/services/capital-campaign",
   },
   {

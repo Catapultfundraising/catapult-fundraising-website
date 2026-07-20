@@ -14,7 +14,7 @@ const SERVICE_RESULTS = [
     sector: "Capital Campaign Counsel",
     goal: "Feasibility to Public Phase",
     result:
-      "Structured feasibility studies and quiet-phase major gift strategy carried clients through an 18–24 month runway into a confidently launched public phase.",
+      "Structured feasibility studies and quiet-phase major gift strategy carried clients through a 24–36 month runway into a confidently launched public phase.",
   },
   {
     sector: "Legacy & Planned Giving",

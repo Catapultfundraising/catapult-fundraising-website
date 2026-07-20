@@ -6,10 +6,16 @@ const STEPS = [
       "We interview leadership and top prospects, stress-test the campaign goal, and draft the case statement, budget, and gift table before a dollar is asked.",
   },
   {
+    phase: "Campaign Planning",
+    title: "Data, Materials & Committee Prep",
+    description:
+      "Over a focused 3-6 months, we prioritize prospect data, draft and finalize campaign materials, and recruit and train the Campaign Committee before quiet-phase solicitation begins.",
+  },
+  {
     phase: "Quiet Phase",
     title: "Major Gift Solicitation",
     description:
-      "Over 18–24 months, your Campaign Chair and Steering Committee secure the majority of the goal from identified individual, foundation, and corporate donors.",
+      "Over 24–36 months, your Campaign Chair and Steering Committee secure the majority of the goal from identified individual, foundation, and corporate donors.",
   },
   {
     phase: "Campaign Connect",
@@ -34,15 +40,15 @@ export function ProcessTimeline() {
             How A Campaign Moves
           </p>
           <h2 className="mt-4 font-display text-6xl tracking-tight text-[rgb(var(--navy))] sm:text-[75px]">
-            Four phases. One firm carrying you through all of them.
+            Five phases. One firm carrying you through all of them.
           </h2>
         </div>
 
-        <div className="mt-16 grid gap-0 border-t border-[rgb(var(--line))] lg:grid-cols-4">
+        <div className="mt-16 grid gap-0 border-t border-[rgb(var(--line))] lg:grid-cols-5">
           {STEPS.map((step, i) => (
             <div
               key={step.phase}
-              className="relative border-b border-[rgb(var(--line))] px-2 py-8 lg:border-b-0 lg:border-r lg:px-8 lg:last:border-r-0"
+              className="relative border-b border-[rgb(var(--line))] px-2 py-8 lg:border-b-0 lg:border-r lg:px-6 lg:last:border-r-0"
             >
               <span className="font-display text-6xl text-[rgb(var(--navy))]/10">
                 {String(i + 1).padStart(2, "0")}

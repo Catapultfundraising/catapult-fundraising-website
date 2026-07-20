@@ -27,7 +27,7 @@ const SECTIONS = [
       "With the feasibility findings confirmed, we turn strategy into an execution-ready blueprint. Over a focused 3-6 month runway, we prioritize prospect data, finalize campaign materials, and build the committee structure the quiet phase will run on.",
     bullets: [
       "Prospect data review and prioritization",
-      "Finalizing case statements, pledge materials, and campaign collateral",
+      "Drafting and finalizing campaign materials and collateral",
       "Recruiting and training the Campaign Committee",
       "Building the detailed campaign timeline, budget, and gift table",
     ],
@@ -35,7 +35,7 @@ const SECTIONS = [
   {
     title: "Quiet Phase: Major Gift Solicitation",
     description:
-      "Over a typical 18-24 month runway, we work alongside your Campaign Chair and Steering Committee to identify and solicit major gifts from individuals, foundations, and corporations, securing the majority of the campaign goal before the public announcement.",
+      "Over a typical 24-36 month runway, we work alongside your Campaign Chair and Steering Committee to identify and solicit major gifts from individuals, foundations, and corporations, securing the majority of the campaign goal before the public announcement.",
   },
   {
     title: "Campaign Connect: Public or Community Phase",
