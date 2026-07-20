@@ -7,6 +7,12 @@ export const metadata = {
   title: "Contact | Catapult Fundraising",
   description:
     "Start a conversation about capital campaign counsel, annual fund calling, mid-level donor engagement, or legacy giving with Catapult Fundraising.",
+  keywords: [
+    "contact fundraising consultant",
+    "nonprofit fundraising consultation",
+    "Henderson NV fundraising firm",
+  ],
+  alternates: { canonical: "/contact" },
 };
 
 export default function ContactPage() {

@@ -7,6 +7,13 @@ export const metadata = {
   title: "Results & Case Studies | Catapult Fundraising",
   description:
     "Representative outcomes from Catapult's capital campaign, annual fund, mid-level donor engagement, and legacy giving programs across nonprofit sectors nationwide.",
+  keywords: [
+    "fundraising results",
+    "capital campaign case studies",
+    "nonprofit fundraising outcomes",
+    "donor engagement results",
+  ],
+  alternates: { canonical: "/results" },
 };
 
 const SERVICE_RESULTS = [

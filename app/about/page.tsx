@@ -121,6 +121,13 @@ export const metadata = {
   title: "About Catapult Fundraising | Leadership & Team",
   description:
     "Catapult Fundraising was founded to close a gap in the industry: firms that plan campaigns rarely execute the public phase, and calling firms rarely understand campaign strategy. We do both, as one accountable team.",
+  keywords: [
+    "nonprofit fundraising consultant",
+    "capital campaign consulting firm",
+    "fundraising leadership team",
+    "Catapult Fundraising",
+  ],
+  alternates: { canonical: "/about" },
 };
 
 export default function AboutPage() {
