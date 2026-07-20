@@ -15,6 +15,11 @@ export const FIRM_PHONE = "(702) 508-0101";
 export const FIRM_PHONE_HREF = "+17025080101";
 export const FIRM_EMAIL = "info@catapultfr.com";
 export const FIRM_ADDRESS = "2551 N. Green Valley Parkway, Suite 202B, Henderson, NV 89014";
+export const FIRM_ADDRESS_LINES = [
+  "2551 N. Green Valley Parkway",
+  "Suite 202B",
+  "Henderson, NV 89014",
+];
 
 // Where new website leads (contact form submissions) are routed.
 export const LEAD_EMAILS = ["anthonya@catapultfr.com", "jeffg@catapultfr.com"];

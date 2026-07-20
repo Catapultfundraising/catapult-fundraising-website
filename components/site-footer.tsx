@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Phone, Mail, MapPin } from "lucide-react";
-import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS } from "@/lib/constants";
+import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
 
 export function SiteFooter() {
   return (
@@ -30,8 +30,8 @@ export function SiteFooter() {
             <li><Link href="/services/capital-campaign" className="hover:text-[rgb(var(--paper))]">Capital Campaign Counsel</Link></li>
             <li><Link href="/services/annual-fund" className="hover:text-[rgb(var(--paper))]">Annual Fund Calling</Link></li>
             <li><Link href="/services/donor-engagement" className="hover:text-[rgb(var(--paper))]">Mid-Level Donor Engagement</Link></li>
-            <li><Link href="/services/legacy-giving" className="hover:text-[rgb(var(--paper))]">Legacy &amp; Planned Giving</Link></li>
-            <li><Link href="/results" className="hover:text-[rgb(var(--paper))]">Results &amp; Case Studies</Link></li>
+            <li><Link href="/services/legacy-giving" className="hover:text-[rgb(var(--paper))]">Legacy & Planned Giving</Link></li>
+            <li><Link href="/results" className="hover:text-[rgb(var(--paper))]">Results & Case Studies</Link></li>
             <li><Link href="/about" className="hover:text-[rgb(var(--paper))]">About Catapult</Link></li>
           </ul>
         </div>
@@ -51,7 +51,13 @@ export function SiteFooter() {
             </li>
             <li className="flex items-start gap-2">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(var(--brass-light))]" />
-              <span>{FIRM_ADDRESS}</span>
+              <span>
+                {FIRM_ADDRESS_LINES.map((line) => (
+                  <span key={line} className="block">
+                    {line}
+                  </span>
+                ))}
+              </span>
             </li>
           </ul>
         </div>
