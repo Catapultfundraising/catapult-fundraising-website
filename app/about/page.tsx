@@ -37,7 +37,7 @@ const LEADERSHIP = [
   {
     name: "Jeff J. Grandy, M.Ed",
     role: "Vice President of Client Development",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e821505f-122b-4c3a-a1f8-373a7ff021b0.jpeg",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/75ce0b22-bb4f-47a7-9c41-a1ca202b3b8a.png",
     bio: "Jeff has spent 15 years proving that fundraising can be taught, mentored, and passed forward. He's an instructor in UNLV's Nonprofit Management program and a past president of AFP's Texas Coastal Bend chapter. He brings that same teaching instinct to every new Catapult partnership: helping first-time clients understand not just what will happen in their campaign, but why each step matters.",
   },
   {
