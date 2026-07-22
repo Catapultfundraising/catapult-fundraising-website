@@ -89,6 +89,24 @@ const LEADERSHIP = [
     bio: "Carrie has spent over three decades in development, 22 of them focused specifically on planned giving, and served on the board of the National Capital Gift Planning Council. A William & Mary graduate, she approaches every legacy conversation the same way: with patience, precision, and a genuine belief that a donor's story deserves to be heard before it's ever asked to be funded.",
   },
   {
+    name: "Dan Pinto",
+    role: "Consultant",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/de8ab53f-a927-4086-bf7f-89510e808f93.png",
+    bio: "Dan spent a decade as Director of Planned Giving at Rider University, where he raised over $50 million in new planned and major gifts and secured the largest blended gift in the University's history. A Certified Financial Planner and former Merrill Lynch advisor, Dan pairs financial fluency with an actor's gift for connection, honed across 25 years on national television, to help donors feel genuinely heard.",
+  },
+  {
+    name: "Ray Watts, CSPG",
+    role: "Consultant",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/93fc12f0-62c6-4631-be2d-bcd563837737.png",
+    bio: "Ray led the fundraising team behind Claremont McKenna College's historic $1.076 billion campaign, the first liberal arts college ever to surpass $1 billion in a single effort. A Certified Specialist in Planned Giving with more than two decades at Redlands and Claremont McKenna, Ray brings seasoned campaign leadership and a lifelong commitment to philanthropic education to every client relationship.",
+  },
+  {
+    name: "Jon Dize, CFRE",
+    role: "Consultant",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/c547d066-0b78-4b4c-b63d-d9049e63ba6f.png",
+    bio: "Jon has spent over three decades building fundraising programs from the ground up, from founding North Street Development Advisors to creating a statewide scholarship granting organization from scratch. A CFRE with deep roots in faith-based and educational institutions, Jon brings a builder's instinct for capital campaigns, planned giving, and advancement offices that need to be started, or started over.",
+  },
+  {
     name: "Desiree Potter",
     role: "Information Services Manager",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/768c6544-4e82-46d2-a2b4-4b94266168e1.jpeg",
