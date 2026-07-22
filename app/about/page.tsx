@@ -79,7 +79,7 @@ const LEADERSHIP = [
   {
     name: "Ray Watts, CSPG",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/44804e96-f09d-45cb-9513-c80bae2ea668.png",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/85b8144f-928e-43a2-b168-1beb8164686c.png",
     bio: "Ray led the fundraising team behind Claremont McKenna College's historic $1.076 billion campaign, the first liberal arts college ever to surpass $1 billion in a single effort. A Certified Specialist in Planned Giving with more than two decades at Redlands and Claremont McKenna, Ray brings seasoned campaign leadership and a lifelong commitment to philanthropic education to every client relationship.",
   },
   {
