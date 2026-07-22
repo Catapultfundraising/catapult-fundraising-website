@@ -65,45 +65,27 @@ const LEADERSHIP = [
     bio: "David turns a case for support into a case donors can't put down. With degrees from Roanoke College, Virginia Commonwealth University, and a PhD from UNLV, he's as much a coach as a writer, pushing clients to find the sharpest, truest version of their own story, then putting it on the page in language that moves people to give.",
   },
   {
-    name: "Rita Corwin",
-    role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d31927ff-6c4d-4db2-ad9d-35198d35fdfe.jpeg",
-    bio: "Rita has spent over 20 years helping donors turn lifelong loyalty into lasting legacy gifts. As Principal of Corwin Consulting, LLC and a graduate of Union College and NYU Stern, she brings a rare fluency in both the emotional and technical sides of planned giving, exactly what it takes to help a donor feel confident making the biggest gift of their life.",
-  },
-  {
     name: "Bates Childress",
     role: "Consultant",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/c0b126bb-6f76-4372-b724-d6e128af69f3.png",
     bio: "In more than 40 years of nonprofit work, Bates has stewarded donor relationships that resulted in seven-figure gifts, the kind of outcome that only comes from genuine, patient trust-building. A member of AFP, Together SC, and the Charleston Metropolitan Chamber of Commerce, Bates brings a steady, principled hand to every legacy giving conversation Catapult leads.",
   },
   {
-    name: "Julie Carter",
-    role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1ebaf04f-fbc4-4fea-a57e-375036a26735.jpeg",
-    bio: "Julie has spent over 30 years in fundraising, including nearly a decade as President of the Carter Consulting Group and service on the board of the Association of Philanthropic Counsel. Her clients count on her for one thing above all: an unshakeable sense of what a planned gift conversation should feel like: never transactional, always personal.",
-  },
-  {
-    name: "Carrie Harrison",
-    role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f501f568-1aae-4c5f-b2c4-7364a36621db.jpeg",
-    bio: "Carrie has spent over three decades in development, 22 of them focused specifically on planned giving, and served on the board of the National Capital Gift Planning Council. A William & Mary graduate, she approaches every legacy conversation the same way: with patience, precision, and a genuine belief that a donor's story deserves to be heard before it's ever asked to be funded.",
-  },
-  {
     name: "Dan Pinto",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/de8ab53f-a927-4086-bf7f-89510e808f93.png",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8b66f133-e393-4ec8-8c5a-3c124738f6f8.png",
     bio: "Dan spent a decade as Director of Planned Giving at Rider University, where he raised over $50 million in new planned and major gifts and secured the largest blended gift in the University's history. A Certified Financial Planner and former Merrill Lynch advisor, Dan pairs financial fluency with an actor's gift for connection, honed across 25 years on national television, to help donors feel genuinely heard.",
   },
   {
     name: "Ray Watts, CSPG",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/93fc12f0-62c6-4631-be2d-bcd563837737.png",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8d2da9a0-eaff-4f70-9ed6-b67723be173e.png",
     bio: "Ray led the fundraising team behind Claremont McKenna College's historic $1.076 billion campaign, the first liberal arts college ever to surpass $1 billion in a single effort. A Certified Specialist in Planned Giving with more than two decades at Redlands and Claremont McKenna, Ray brings seasoned campaign leadership and a lifelong commitment to philanthropic education to every client relationship.",
   },
   {
     name: "Jon Dize, CFRE",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/c547d066-0b78-4b4c-b63d-d9049e63ba6f.png",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/abaf257f-8665-4d3e-8f7f-3e917d44456e.png",
     bio: "Jon has spent over three decades building fundraising programs from the ground up, from founding North Street Development Advisors to creating a statewide scholarship granting organization from scratch. A CFRE with deep roots in faith-based and educational institutions, Jon brings a builder's instinct for capital campaigns, planned giving, and advancement offices that need to be started, or started over.",
   },
   {
