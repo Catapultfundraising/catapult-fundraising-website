@@ -10,7 +10,7 @@ const OG_IMAGE = "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttm
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
   title: {
-    default: "Catapult Fundraising | Capital Campaign & Donor Calling Consultants",
+    default: "Catapult Fundraising | Capital Campaign and Donor Engagement Consultants",
     template: "%s | Catapult Fundraising",
   },
   description:
@@ -78,14 +78,14 @@ export const metadata: Metadata = {
     locale: "en_US",
     url: SITE_URL,
     siteName: "Catapult Fundraising",
-    title: "Catapult Fundraising | Capital Campaign & Donor Calling Consultants",
+    title: "Catapult Fundraising | Capital Campaign and Donor Engagement Consultants",
     description:
       "Full-service capital campaign counsel, annual fund calling, mid-level donor engagement, and legacy giving, all from one accountable nonprofit fundraising partner.",
     images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: "Catapult Fundraising" }],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Catapult Fundraising | Capital Campaign & Donor Calling Consultants",
+    title: "Catapult Fundraising | Capital Campaign and Donor Engagement Consultants",
     description:
       "Full-service capital campaign counsel, annual fund calling, mid-level donor engagement, and legacy giving, all from one accountable nonprofit fundraising partner.",
     images: [OG_IMAGE],

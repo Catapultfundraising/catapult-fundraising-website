@@ -12,6 +12,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/services/legacy-giving",
     "/services/donor-engagement",
     "/services/annual-fund",
+    "/blog",
+    "/blog/catapult-vs-fundraising-consultants",
+    "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices",
   ];
 
   return routes.map((route) => ({
