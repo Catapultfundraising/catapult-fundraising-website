@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
     formData.append("_template", "table");
     formData.append("_captcha", "false");
 
-    const attachmentBlob = new Blob([workbookBuffer], {
+    const attachmentBlob = new Blob([new Uint8Array(workbookBuffer)], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
     formData.append(
