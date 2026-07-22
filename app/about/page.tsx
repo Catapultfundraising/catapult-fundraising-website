@@ -65,6 +65,12 @@ const LEADERSHIP = [
     bio: "Behind every flawless campaign letter and perfectly segmented donor list is Desiree. With nearly 15 years of database leadership experience, she's the reason Catapult's personalization actually works at scale, turning raw donor data into the kind of precision that makes a mailed letter feel like it was written just for an audience of one, every single time.",
   },
   {
+    name: "Sean Jones",
+    role: "Data Entry Supervisor",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/59e4123c-9bb7-421a-b0e3-2553517230db.png",
+    bio: "Sean built a 19-year career in higher education data management before joining Catapult, where he designs custom Microsoft Access databases and automated reporting for every client campaign. He spent nearly two decades at UNLV's Financial Aid office, rising through five roles and supervising staff of up to 11 people. A UNLV philosophy graduate, Sean brings that same rigor to every donor database he builds.",
+  },
+  {
     name: "Jackie Goodman",
     role: "Client Coordinator",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/347971f4-d87c-44cb-a58f-4c481c0f7c96.jpeg",
