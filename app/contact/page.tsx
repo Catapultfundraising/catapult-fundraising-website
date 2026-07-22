@@ -49,7 +49,7 @@ export default function ContactPage() {
               <MapPin className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />
               <div>
                 <p className="text-[17.5px] font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/50">Visit us</p>
-                <p className="font-display text-[25px] text-[rgb(var(--navy))]">
+                <p className="font-display text-lg text-[rgb(var(--navy))]">
                   {FIRM_ADDRESS_LINES.map((line) => (
                     <span key={line} className="block">
                       {line}

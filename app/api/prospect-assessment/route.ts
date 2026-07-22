@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { LEAD_EMAILS } from "@/lib/constants";
-import {
-  TIER_1_LABEL,
-  TIER_1_ROWS,
-  TIER_2_LABEL,
-  TIER_2_ROWS,
-  type TierData,
-  type TierRow,
-} from "@/lib/prospect-assessment";
+import { TIER_CONFIGS, type TierData, type TierRow } from "@/lib/prospect-assessment";
+
+function sanitizeSheetName(name: string, fallback: string) {
+  const cleaned = (name || "").replace(/[:\\/?*[\]]/g, "").trim();
+  const base = cleaned || fallback;
+  return base.slice(0, 31);
+}
 
 function appendTierFields(
   fields: Record<string, string>,
@@ -53,10 +52,11 @@ function buildWorkbook(payload: {
   title: string;
   email: string;
   phone: string;
+  fiscalYear: string;
   caseForSupport: string;
   solicitationHistory: string;
-  tier1?: TierData;
-  tier2?: TierData;
+  tierLabels: Record<string, string>;
+  tiersData: Record<string, TierData>;
 }) {
   const wb = XLSX.utils.book_new();
 
@@ -66,21 +66,30 @@ function buildWorkbook(payload: {
     ["Title", payload.title || ""],
     ["Email Address", payload.email],
     ["Telephone", payload.phone || ""],
+    ["Fiscal Year", payload.fiscalYear || ""],
     ["Case for Support", payload.caseForSupport || ""],
     ["Prior Solicitation History", payload.solicitationHistory || ""],
   ]);
   XLSX.utils.book_append_sheet(wb, infoSheet, "Organization Info");
 
-  XLSX.utils.book_append_sheet(
-    wb,
-    buildTierSheet(TIER_1_LABEL, TIER_1_ROWS, payload.tier1),
-    "$1-$999"
-  );
-  XLSX.utils.book_append_sheet(
-    wb,
-    buildTierSheet(TIER_2_LABEL, TIER_2_ROWS, payload.tier2),
-    "$1,000-$9,999"
-  );
+  const usedNames = new Set<string>();
+  TIER_CONFIGS.forEach((tier, index) => {
+    const rawLabel = payload.tierLabels?.[tier.id] || tier.defaultLabel;
+    const displayLabel = rawLabel || `Tier ${index + 1}`;
+    let sheetName = sanitizeSheetName(displayLabel, `Tier ${index + 1}`);
+    let suffix = 2;
+    while (usedNames.has(sheetName.toLowerCase())) {
+      sheetName = `${sanitizeSheetName(displayLabel, `Tier ${index + 1}`).slice(0, 28)} ${suffix}`;
+      suffix += 1;
+    }
+    usedNames.add(sheetName.toLowerCase());
+
+    XLSX.utils.book_append_sheet(
+      wb,
+      buildTierSheet(displayLabel, tier.rows, payload.tiersData?.[tier.id]),
+      sheetName
+    );
+  });
 
   return wb;
 }
@@ -98,10 +107,11 @@ export async function POST(req: NextRequest) {
       title,
       email,
       phone,
+      fiscalYear,
       caseForSupport,
       solicitationHistory,
-      tier1,
-      tier2,
+      tierLabels,
+      tiersData,
     } = body || {};
 
     if (!orgName || !contactName || !email) {
@@ -117,12 +127,16 @@ export async function POST(req: NextRequest) {
       Title: title || "",
       "Email Address": email,
       Telephone: phone || "",
+      "Fiscal Year": fiscalYear || "",
       "Case for Support": caseForSupport || "",
       "Prior Solicitation History": solicitationHistory || "",
     };
 
-    appendTierFields(fields, TIER_1_LABEL, TIER_1_ROWS, tier1);
-    appendTierFields(fields, TIER_2_LABEL, TIER_2_ROWS, tier2);
+    TIER_CONFIGS.forEach((tier, index) => {
+      const rawLabel = tierLabels?.[tier.id] || tier.defaultLabel;
+      const displayLabel = rawLabel || `Donor Tier ${index + 1}`;
+      appendTierFields(fields, displayLabel, tier.rows, tiersData?.[tier.id]);
+    });
 
     const workbook = buildWorkbook({
       orgName,
@@ -130,10 +144,11 @@ export async function POST(req: NextRequest) {
       title,
       email,
       phone,
+      fiscalYear,
       caseForSupport,
       solicitationHistory,
-      tier1,
-      tier2,
+      tierLabels: tierLabels || {},
+      tiersData: tiersData || {},
     });
     const workbookBuffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" }) as Buffer;
 

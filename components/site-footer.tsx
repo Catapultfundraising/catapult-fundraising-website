@@ -16,7 +16,7 @@ export function SiteFooter() {
             className="h-64 w-auto"
           />
           <p className="mt-4 max-w-sm text-sm leading-relaxed text-[rgb(var(--paper))]/70">
-            Full-service capital campaign counsel and donor calling programs
+            Full-service capital campaign counsel and donor engagement programs
             for nonprofits ready to catapult their giving to the next level,
             from feasibility study through the final pledge.
           </p>

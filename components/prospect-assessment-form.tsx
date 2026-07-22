@@ -8,11 +8,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { Send, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
-  TIER_1_LABEL,
-  TIER_1_ROWS,
-  TIER_2_LABEL,
-  TIER_2_ROWS,
-  emptyTierData,
+  TIER_CONFIGS,
+  defaultTierLabels,
+  emptyAllTierData,
   type TierRow,
   type TierData,
 } from "@/lib/prospect-assessment";
@@ -20,16 +18,25 @@ import {
 const FIELD_CLASS =
   "border-[rgb(var(--line))] bg-white text-[rgb(var(--navy))] placeholder:text-[rgb(var(--ink))]/30 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
 
+const HEADER_FIELD_CLASS =
+  "border-0 border-b border-[rgb(var(--brass))]/50 bg-transparent px-0 text-[25px] font-display text-[rgb(var(--paper))] placeholder:text-[rgb(var(--paper))]/40 rounded-none focus-visible:ring-0 focus-visible:border-[rgb(var(--brass))]";
+
 const CTA_BUTTON_CLASS =
   "group inline-flex items-center justify-center gap-2 rounded-full bg-[rgb(var(--brass))] px-8 py-6 text-base font-bold uppercase tracking-wide text-[rgb(var(--navy-deep))] shadow-lg shadow-[rgb(var(--brass))]/20 transition-transform hover:scale-[1.02] hover:bg-[rgb(var(--brass-light))]";
 
 function TierTable({
-  label,
+  index,
+  rangeValue,
+  rangePlaceholder,
+  onRangeChange,
   rows,
   data,
   onChange,
 }: {
-  label: string;
+  index: number;
+  rangeValue: string;
+  rangePlaceholder: string;
+  onRangeChange: (value: string) => void;
   rows: TierRow[];
   data: TierData;
   onChange: (key: string, field: "count" | "avgGift", value: string) => void;
@@ -42,8 +49,16 @@ function TierTable({
   return (
     <div className="overflow-hidden rounded-2xl border border-[rgb(var(--line))]">
       <div className="bg-[rgb(var(--navy))] px-5 py-4">
-        <h3 className="font-display text-xl text-[rgb(var(--paper))]">{label}</h3>
-        <p className="text-sm text-[rgb(var(--paper))]/70">All Individual Records Activity</p>
+        <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--paper))]/50">
+          Donor Tier {index + 1} — enter your dollar range
+        </p>
+        <Input
+          value={rangeValue}
+          onChange={(e) => onRangeChange(e.target.value)}
+          placeholder={rangePlaceholder}
+          className={HEADER_FIELD_CLASS}
+        />
+        <p className="mt-2 text-sm text-[rgb(var(--paper))]/70">All Individual Records Activity</p>
       </div>
       <div className="hidden grid-cols-[1.2fr_1fr_1fr_1fr] gap-2 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))] px-5 py-3 text-xs font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/50 sm:grid">
         <span>Constituent</span>
@@ -109,17 +124,24 @@ export function ProspectAssessmentForm() {
   const [title, setTitle] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [fiscalYear, setFiscalYear] = useState("");
   const [caseForSupport, setCaseForSupport] = useState("");
   const [solicitationHistory, setSolicitationHistory] = useState("");
-  const [tier1, setTier1] = useState<TierData>(emptyTierData(TIER_1_ROWS));
-  const [tier2, setTier2] = useState<TierData>(emptyTierData(TIER_2_ROWS));
+  const [tierLabels, setTierLabels] = useState<Record<string, string>>(() => defaultTierLabels());
+  const [tiersData, setTiersData] = useState<Record<string, TierData>>(() => emptyAllTierData());
 
-  const updateTier =
-    (setTier: React.Dispatch<React.SetStateAction<TierData>>) =>
-    (key: string, field: "count" | "avgGift", value: string) => {
-      setTier((prev) => ({
+  const updateTierLabel = (tierId: string) => (value: string) => {
+    setTierLabels((prev) => ({ ...prev, [tierId]: value }));
+  };
+
+  const updateTierData =
+    (tierId: string) => (key: string, field: "count" | "avgGift", value: string) => {
+      setTiersData((prev) => ({
         ...prev,
-        [key]: { ...prev[key], [field]: value },
+        [tierId]: {
+          ...prev[tierId],
+          [key]: { ...prev[tierId]?.[key], [field]: value },
+        },
       }));
     };
 
@@ -134,10 +156,11 @@ export function ProspectAssessmentForm() {
       title,
       email,
       phone,
+      fiscalYear,
       caseForSupport,
       solicitationHistory,
-      tier1,
-      tier2,
+      tierLabels,
+      tiersData,
     };
 
     try {
@@ -186,7 +209,7 @@ export function ProspectAssessmentForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="contactName">Name</Label>
+            <Label htmlFor="contactName">Contact Name</Label>
             <Input
               id="contactName"
               required
@@ -220,17 +243,29 @@ export function ProspectAssessmentForm() {
             />
           </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="email">Email address</Label>
-          <Input
-            id="email"
-            type="email"
-            required
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            placeholder="jane@nonprofit.org"
-            className={FIELD_CLASS}
-          />
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email address</Label>
+            <Input
+              id="email"
+              type="email"
+              required
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="jane@nonprofit.org"
+              className={FIELD_CLASS}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="fiscalYear">What is your fiscal year?</Label>
+            <Input
+              id="fiscalYear"
+              value={fiscalYear}
+              onChange={(e) => setFiscalYear(e.target.value)}
+              placeholder="e.g. July 1 - June 30, or FY26"
+              className={FIELD_CLASS}
+            />
+          </div>
         </div>
       </div>
 
@@ -264,22 +299,23 @@ export function ProspectAssessmentForm() {
         <div>
           <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Donor giving data</h2>
           <p className="mt-2 max-w-2xl text-sm text-[rgb(var(--ink))]/65">
-            Enter the record count and average gift for each donor segment below, mirroring your database export.
-            Leave any row blank if the data is not available.
+            Enter your own dollar range for each donor tier below, along with the record count and average gift for
+            each donor segment, mirroring your database export. Six tiers are provided so you can break the data
+            down as far as you'd like, leave any tier or row blank if it doesn't apply.
           </p>
         </div>
-        <TierTable
-          label={TIER_1_LABEL}
-          rows={TIER_1_ROWS}
-          data={tier1}
-          onChange={updateTier(setTier1)}
-        />
-        <TierTable
-          label={TIER_2_LABEL}
-          rows={TIER_2_ROWS}
-          data={tier2}
-          onChange={updateTier(setTier2)}
-        />
+        {TIER_CONFIGS.map((tier, index) => (
+          <TierTable
+            key={tier.id}
+            index={index}
+            rangeValue={tierLabels[tier.id] ?? ""}
+            rangePlaceholder={tier.placeholder}
+            onRangeChange={updateTierLabel(tier.id)}
+            rows={tier.rows}
+            data={tiersData[tier.id] ?? {}}
+            onChange={updateTierData(tier.id)}
+          />
+        ))}
       </div>
 
       {error && <p className="text-sm font-medium text-red-600">{error}</p>}
