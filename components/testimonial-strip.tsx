@@ -1,21 +1,27 @@
 const QUOTES = [
   {
     quote:
-      "Catapult treated every prospect like a major donor-in-waiting. Our participation rate, and our base of new donors, grew faster than in any prior campaign.",
-    name: "Board Chair",
-    org: "Regional Human Services Nonprofit",
-  },
-  {
-    quote:
-      "They were the only firm willing to stay with us from the feasibility study all the way through the public phase calling. One team, one accountable partner.",
+      "They were the only firm willing to stay with us from the feasibility study all the way through the public phase calling. One team, one accountable partner from start to finish.",
     name: "Executive Director",
-    org: "Community Foundation Client",
+    org: "Capital Campaign Client",
   },
   {
     quote:
-      "The digital stewardship layer, texts, ringless voicemail, thank-you emails, made our donors feel cared for at every touchpoint, not just asked.",
-    name: "Development Director",
-    org: "Faith-Based Capital Campaign",
+      "Legacy Call was a gamechanger for us. As a small shop, it helped us reach a much wider audience of planned giving donors, and the response was incredible: several new gifts and a full pool of new prospects.",
+    name: "Colleen Schulman, CFRE, CSPG",
+    org: "Chief Philanthropy Officer, PBS KVIE",
+  },
+  {
+    quote:
+      "Catapult's fractional officers seamlessly amplified our staff capacity. We grew our total donor households, increased funds raised from our mid-level base, and strengthened our major gifts pipeline. True partners, not just a vendor.",
+    name: "Christine Ann Stevens",
+    org: "VP of Development, LA Opera",
+  },
+  {
+    quote:
+      "Catapult's multi-channel outreach, phone, text, and email woven into one plan, increased both donor participation and dollars raised. Their callers are exceptionally well-trained, authentic, and a true extension of our advancement team.",
+    name: "Erica Kobbe",
+    org: "Sr. Annual Giving Officer, Sacramento State University",
   },
 ];
 
@@ -26,7 +32,7 @@ export function TestimonialStrip() {
         <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
           What Clients Say
         </p>
-        <div className="mt-12 grid gap-10 lg:grid-cols-3">
+        <div className="mt-12 grid gap-10 sm:grid-cols-2">
           {QUOTES.map((t) => (
             <figure key={t.name} className="flex flex-col justify-between">
               <blockquote className="font-display text-[25px] leading-snug text-[rgb(var(--navy))] text-balance">
@@ -41,7 +47,7 @@ export function TestimonialStrip() {
           ))}
         </div>
         <p className="mt-10 text-[15px] text-[rgb(var(--ink))]/40">
-          Representative feedback shared with client permission. Named case studies available on request.
+          Shared with client permission. Capital campaign case study coming soon.
         </p>
       </div>
     </section>

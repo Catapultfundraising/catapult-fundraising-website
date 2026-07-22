@@ -66,7 +66,7 @@ const LEADERSHIP = [
   },
   {
     name: "Sean Jones",
-    role: "Data Entry Supervisor",
+    role: "Database Manager",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/59e4123c-9bb7-421a-b0e3-2553517230db.png",
     bio: "Sean built a 19-year career in higher education data management before joining Catapult, where he designs custom Microsoft Access databases and automated reporting for every client campaign. He spent nearly two decades at UNLV's Financial Aid office, rising through five roles and supervising staff of up to 11 people. A UNLV philosophy graduate, Sean brings that same rigor to every donor database he builds.",
   },
