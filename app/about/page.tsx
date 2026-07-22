@@ -79,13 +79,13 @@ const LEADERSHIP = [
   {
     name: "Ray Watts, CSPG",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8d2da9a0-eaff-4f70-9ed6-b67723be173e.png",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/44804e96-f09d-45cb-9513-c80bae2ea668.png",
     bio: "Ray led the fundraising team behind Claremont McKenna College's historic $1.076 billion campaign, the first liberal arts college ever to surpass $1 billion in a single effort. A Certified Specialist in Planned Giving with more than two decades at Redlands and Claremont McKenna, Ray brings seasoned campaign leadership and a lifelong commitment to philanthropic education to every client relationship.",
   },
   {
     name: "Jon Dize, CFRE",
     role: "Consultant",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/abaf257f-8665-4d3e-8f7f-3e917d44456e.png",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d5717b38-3d6a-417f-8b20-f515128a38ea.png",
     bio: "Jon has spent over three decades building fundraising programs from the ground up, from founding North Street Development Advisors to creating a statewide scholarship granting organization from scratch. A CFRE with deep roots in faith-based and educational institutions, Jon brings a builder's instinct for capital campaigns, planned giving, and advancement offices that need to be started, or started over.",
   },
   {
