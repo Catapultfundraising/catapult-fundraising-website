@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Send, CheckCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { LEAD_EMAILS } from "@/lib/constants";
 import {
   TIER_1_LABEL,
   TIER_1_ROWS,
@@ -152,12 +151,7 @@ export function ProspectAssessmentForm() {
 
       setSubmitted(true);
     } catch {
-      const subject = encodeURIComponent(`Prospect Research Intake - ${orgName || "New Organization"}`);
-      const body = encodeURIComponent(
-        `Organization: ${orgName}\nContact Name: ${contactName}\nTitle: ${title}\nEmail: ${email}\nPhone: ${phone}\n\nCase for Support:\n${caseForSupport}\n\nPrior Solicitation History:\n${solicitationHistory}\n\n(Donor giving data was entered on the web form and could not be auto-sent; please follow up with ${contactName || "the submitter"} for those figures.)`
-      );
-      window.location.href = `mailto:${LEAD_EMAILS.join(",")}?subject=${subject}&body=${body}`;
-      setSubmitted(true);
+      setError("Something went wrong sending your information. Please try submitting again.");
     } finally {
       setSubmitting(false);
     }
