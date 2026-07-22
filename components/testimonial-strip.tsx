@@ -15,7 +15,7 @@ const QUOTES = [
     quote:
       "Catapult's fractional officers seamlessly amplified our staff capacity. We grew our total donor households, increased funds raised from our mid-level base, and strengthened our major gifts pipeline. True partners, not just a vendor.",
     name: "Christine Ann Stevens",
-    org: "VP of Development, LA Opera",
+    org: "VP of Development, LA Opera; former Sr. Director of Development, Houston Symphony",
   },
   {
     quote:
