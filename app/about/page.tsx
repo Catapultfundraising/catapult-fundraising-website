@@ -59,6 +59,12 @@ const LEADERSHIP = [
     bio: "For nearly a decade, Kayla has led Catapult's engagement team, training hundreds of Engagement Officers and personally shaping what a great donor conversation sounds like. She believes every single call is a chance to make someone's day, not just their ask, and that belief is exactly why Catapult's donor experience feels different from a typical outreach program.",
   },
   {
+    name: "Desiree Potter",
+    role: "Information Services Manager",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/768c6544-4e82-46d2-a2b4-4b94266168e1.jpeg",
+    bio: "Behind every flawless campaign letter and perfectly segmented donor list is Desiree. With nearly 15 years of database leadership experience, she's the reason Catapult's personalization actually works at scale, turning raw donor data into the kind of precision that makes a mailed letter feel like it was written for an audience of one.",
+  },
+  {
     name: "Jackie Goodman",
     role: "Client Coordinator",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/347971f4-d87c-44cb-a58f-4c481c0f7c96.jpeg",
@@ -93,12 +99,6 @@ const LEADERSHIP = [
     role: "Consultant",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d5717b38-3d6a-417f-8b20-f515128a38ea.png",
     bio: "Jon has spent over three decades building fundraising programs from the ground up, from founding North Street Development Advisors to creating a statewide scholarship granting organization from scratch. A CFRE with deep roots in faith-based and educational institutions, Jon brings a builder's instinct for capital campaigns, planned giving, and advancement offices that need to be started, or started over.",
-  },
-  {
-    name: "Desiree Potter",
-    role: "Information Services Manager",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/768c6544-4e82-46d2-a2b4-4b94266168e1.jpeg",
-    bio: "Behind every flawless campaign letter and perfectly segmented donor list is Desiree. With nearly 15 years of database leadership experience, she's the reason Catapult's personalization actually works at scale, turning raw donor data into the kind of precision that makes a mailed letter feel like it was written for an audience of one.",
   },
 ];
 
