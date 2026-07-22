@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 const SERVICE_OPTIONS = [...SERVICE_LINKS.map((s) => s.label), "Not sure yet"];
 
 const FIELD_CLASS =
-  "border-[rgb(var(--brass))]/40 bg-[rgb(var(--navy))] text-[rgb(var(--brass-light))] placeholder:text-[rgb(var(--brass-light))]/40 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
+  "border-[rgb(var(--line))] bg-white text-[rgb(var(--navy))] placeholder:text-[rgb(var(--ink))]/30 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
 
 const CTA_BUTTON_CLASS =
   "group inline-flex items-center justify-center gap-2 rounded-full bg-[rgb(var(--brass))] px-8 py-6 text-base font-bold uppercase tracking-wide text-[rgb(var(--navy-deep))] shadow-lg shadow-[rgb(var(--brass))]/20 transition-transform hover:scale-[1.02] hover:bg-[rgb(var(--brass-light))]";
@@ -83,60 +83,56 @@ export function ContactForm() {
   }
 
   return (
-    <form
-      onSubmit={handleSubmit}
-      className="space-y-10 rounded-2xl border border-[rgb(var(--line))] bg-[#b28c46]/10 p-8 lg:p-10"
-    >
-      <div className="grid gap-8 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="name">Your name</Label>
-          <Input
-            id="name"
-            required
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Jane Smith"
-            className={FIELD_CLASS}
-          />
+    <form onSubmit={handleSubmit} className="space-y-8">
+      <div className="space-y-6 rounded-2xl border border-[rgb(var(--line))] bg-white p-8 lg:p-10">
+        <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Your information</h2>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="name">Your name</Label>
+            <Input
+              id="name"
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Jane Smith"
+              className={FIELD_CLASS}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="title">Title</Label>
+            <Input
+              id="title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Executive Director"
+              className={FIELD_CLASS}
+            />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Label htmlFor="title">Title</Label>
-          <Input
-            id="title"
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Executive Director"
-            className={FIELD_CLASS}
-          />
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="org">Organization</Label>
+            <Input
+              id="org"
+              required
+              value={org}
+              onChange={(e) => setOrg(e.target.value)}
+              placeholder="Your nonprofit"
+              className={FIELD_CLASS}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+              placeholder="(702) 555-0100"
+              className={FIELD_CLASS}
+            />
+          </div>
         </div>
-      </div>
-
-      <div className="grid gap-8 sm:grid-cols-2">
-        <div className="space-y-2">
-          <Label htmlFor="org">Organization</Label>
-          <Input
-            id="org"
-            required
-            value={org}
-            onChange={(e) => setOrg(e.target.value)}
-            placeholder="Your nonprofit"
-            className={FIELD_CLASS}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="phone">Phone number</Label>
-          <Input
-            id="phone"
-            type="tel"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-            placeholder="(702) 555-0100"
-            className={FIELD_CLASS}
-          />
-        </div>
-      </div>
-
-      <div className="grid gap-8 sm:grid-cols-2">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
@@ -149,6 +145,10 @@ export function ContactForm() {
             className={FIELD_CLASS}
           />
         </div>
+      </div>
+
+      <div className="space-y-6 rounded-2xl border border-[rgb(var(--line))] bg-white p-8 lg:p-10">
+        <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Your goal</h2>
         <div className="space-y-2">
           <Label htmlFor="service">What services are you interested in?</Label>
           <Select value={service} onValueChange={setService}>
@@ -164,19 +164,18 @@ export function ContactForm() {
             </SelectContent>
           </Select>
         </div>
-      </div>
-
-      <div className="space-y-2 mt-10 sm:mt-8">
-        <Label htmlFor="message">Tell us about your goal and timeline</Label>
-        <Textarea
-          id="message"
-          required
-          rows={5}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          placeholder="Campaign goal, timeline, board readiness, prior campaign history..."
-          className={FIELD_CLASS}
-        />
+        <div className="space-y-2">
+          <Label htmlFor="message">Tell us about your goal and timeline</Label>
+          <Textarea
+            id="message"
+            required
+            rows={5}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            placeholder="Campaign goal, timeline, board readiness, prior campaign history..."
+            className={FIELD_CLASS}
+          />
+        </div>
       </div>
 
       <Button
