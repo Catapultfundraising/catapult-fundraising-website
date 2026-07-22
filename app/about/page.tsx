@@ -17,16 +17,16 @@ const LEADERSHIP = [
     bio: "Amy turns a feasibility study into a movement. With over 30 years in the nonprofit sector, she has the rare gift of translating a bold mission into a campaign plan that staff, volunteers, and donors all rally behind. She has guided organizations through capital campaigns ranging from six figures to nine, building case statements that hold up under a board's toughest questions and gift charts that hold up even better in public phase. Named 2025 Outstanding Fundraising Professional by AFP Las Vegas and a graduate of both the Jameson Fellowship and Leadership Las Vegas, Amy leads Catapult's strategy team with the belief that the best campaigns aren't just well-planned. They're well-loved by everyone who's part of them, built around real donors, not just a spreadsheet.",
   },
   {
-    name: "Sharice Lance",
-    role: "Chief Financial Officer",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/45df83ce-1dcc-4520-9c32-bfa24a0c4576.png",
-    bio: "Sharice brings more than 25 years of finance and operations leadership to Catapult, the same discipline that turns big campaign goals into believable numbers a board can stand behind. She spent six years as Managing Director of Henderson International School and two years as President of the International Academy of Design and Technology, an $8 million division within a $1.7 billion educational institution, and before that served as VP of Finance at Career Education Corporation. She started her career as an Assistant Controller at Jones Lang LaSalle, learning early that disciplined financial stewardship is what lets a mission grow responsibly. As Catapult's CFO, Sharice makes sure every campaign dollar raised is tracked, reported, and put to work exactly as donors intended.",
-  },
-  {
     name: "Zina Birmingham",
     role: "Chief Operating Officer",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d2caf01e-236d-4ea0-87e2-ea32a2651ac6.jpeg",
     bio: "Zina started as a student Engagement Officer, the same seat every one of Catapult's fundraising specialists sits in today, and rose through every leadership role the company offers on her way to COO. That path shows: she's helped raise nearly half a billion dollars for clients over the last quarter century, and she still runs operations like someone who remembers exactly what it feels like to be on the phone making the ask. A hands-on operator with a reputation for fixing problems before clients ever notice them, Zina built the training systems and quality standards that every Catapult Engagement Officer still follows today. Her promise to every client is simple: the machine behind the mission will never let you down.",
+  },
+  {
+    name: "Sharice Lance",
+    role: "Chief Financial Officer",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/45df83ce-1dcc-4520-9c32-bfa24a0c4576.png",
+    bio: "Sharice brings more than 25 years of finance and operations leadership to Catapult. She spent six years as Managing Director of Henderson International School and two years as President of the International Academy of Design and Technology, an $8 million division within a $1.7 billion institution. As Catapult's CFO, Sharice keeps the firm's own finances sound and stable.",
   },
   {
     name: "Maria Healy",
