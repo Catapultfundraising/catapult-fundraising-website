@@ -108,11 +108,11 @@ export function BrandResources() {
         <ResourceCard
           icon={Share2}
           title="LinkedIn & Facebook header"
-          description="The official high-resolution cover banner for our LinkedIn company page and Facebook page, featuring just the large, bold Catapult Fundraising headline and tagline for maximum legibility at small display sizes. Upload the same image to both for a consistent look."
+          description="The official cover banner sized to LinkedIn's exact 1584×396 banner dimensions, built from our website hero photo with the centered headline 'The full-service partner that grows your donor base at every stage of the giving journey.' Upload the same image to both LinkedIn and Facebook for a consistent look."
           links={[
             {
               label: "Download Cover Image (.png)",
-              href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a0daa2de-32f0-44ce-96b5-4dea052aed83.png",
+              href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ca30c11c-b1db-40c2-8538-c6f95db16bee.png",
             },
           ]}
         />
