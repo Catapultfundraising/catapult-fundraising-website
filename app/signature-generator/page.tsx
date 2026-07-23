@@ -1,5 +1,6 @@
 import { PageHero } from "@/components/page-hero";
 import { SignatureGeneratorForm } from "@/components/signature-generator-form";
+import { BrandResources } from "@/components/brand-resources";
 
 export const metadata = {
   title: "Email Signature Generator | Catapult Fundraising",
@@ -17,6 +18,7 @@ export default function SignatureGeneratorPage() {
       />
       <section className="mx-auto max-w-6xl px-6 py-14 lg:px-10 lg:py-16">
         <SignatureGeneratorForm />
+        <BrandResources />
       </section>
     </>
   );
