@@ -137,21 +137,23 @@ export function SignatureGeneratorForm() {
   const handleCopy = async () => {
     setCopyError("");
     try {
-      if (navigator.clipboard && "write" in navigator.clipboard) {
-        const blob = new Blob([signatureHtml], { type: "text/html" });
-        const textBlob = new Blob([`${fullName}\n${title}\n${email}`], { type: "text/plain" });
-        await navigator.clipboard.write([
-          new ClipboardItem({ "text/html": blob, "text/plain": textBlob }),
-        ]);
-      } else {
-        await navigator.clipboard.writeText(signatureHtml);
-      }
+      const blob = new Blob([signatureHtml], { type: "text/html" });
+      const textBlob = new Blob([`${fullName}\n${title}\n${email}`], { type: "text/plain" });
+      await navigator.clipboard.write([
+        new ClipboardItem({ "text/html": blob, "text/plain": textBlob }),
+      ]);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
     } catch {
-      setCopyError(
-        "Couldn't copy automatically. Select the preview below, right-click, and choose Copy instead."
-      );
+      try {
+        await navigator.clipboard.writeText(signatureHtml);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+      } catch {
+        setCopyError(
+          "Couldn't copy automatically. Select the preview below, right-click, and choose Copy instead."
+        );
+      }
     }
   };
 
