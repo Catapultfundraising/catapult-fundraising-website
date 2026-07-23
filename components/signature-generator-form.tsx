@@ -59,7 +59,7 @@ function buildSignatureHtml(data: SignatureData) {
   return `<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-family:Arial, Helvetica, sans-serif;">
   <tr>
     <td style="vertical-align:top;padding-right:18px;border-right:3px solid #B28C46;">
-      <img src="${LOGO_URL}" alt="Catapult Fundraising" width="180" style="display:block;width:180px;height:auto;">
+      <img src="${LOGO_URL}" alt="Catapult Fundraising" width="260" style="display:block;width:260px;height:auto;">
     </td>
     <td style="vertical-align:top;padding-left:18px;">
       <div style="font-family:Georgia, 'Times New Roman', serif;font-size:19px;font-weight:bold;color:#15212E;line-height:1.2;">
@@ -84,9 +84,9 @@ function buildSignatureHtml(data: SignatureData) {
         <tr>
           <td style="padding-right:8px;">
             <a href="${data.linkedinUrl}" style="text-decoration:none;">
-              <table cellpadding="0" cellspacing="0" border="0" style="background:#15212E;border-radius:4px;">
+              <table cellpadding="0" cellspacing="0" border="0" style="background:#B28C46;border-radius:4px;">
                 <tr>
-                  <td style="padding:6px 12px;font-family:Arial, Helvetica, sans-serif;font-size:11px;font-weight:bold;color:#ffffff;letter-spacing:0.3px;">
+                  <td style="padding:6px 12px;font-family:Arial, Helvetica, sans-serif;font-size:11px;font-weight:bold;color:#15212E;letter-spacing:0.3px;">
                     LinkedIn
                   </td>
                 </tr>
