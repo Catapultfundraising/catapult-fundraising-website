@@ -92,11 +92,15 @@ export function BrandResources() {
         <ResourceCard
           icon={ImageIcon}
           title="Logo files"
-          description="The full logo package, including the primary logo used on our letterhead, email signature, and website header, plus horizontal, vertical, and icon-only versions in color and white, and print-ready vector files."
+          description="The full logo package in high resolution, including the primary logo used on our letterhead, email signature, and website header (both a white-background version and a transparent-background version), plus horizontal, vertical, and icon-only versions in color and white, and print-ready vector files."
           links={[
             {
               label: "Download Logo Package (.zip)",
-              href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f753ed6a-27d2-42a8-894e-729525755063.zip",
+              href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/446f6865-2069-425e-91e4-61a334f434b8.zip",
+            },
+            {
+              label: "Download Transparent Logo (.png)",
+              href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8d3afdfe-f114-40a4-836f-5bdb7b44ecb0.png",
             },
           ]}
         />
