@@ -60,12 +60,12 @@ export function SiteHeader() {
           />
         </Link>
 
-        <nav className="hidden min-w-0 items-center gap-12 lg:flex">
+        <nav className="hidden min-w-0 items-center gap-6 lg:flex xl:gap-8">
           {homeLink && (
             <Link
               href={homeLink.href}
               className={cn(
-                "whitespace-nowrap text-xl font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "whitespace-nowrap text-base font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
                 pathname === homeLink.href && "text-[rgb(var(--navy))]"
               )}
             >
@@ -77,13 +77,13 @@ export function SiteHeader() {
             <button
               onClick={() => setServicesOpen((v) => !v)}
               className={cn(
-                "flex items-center gap-1 whitespace-nowrap text-xl font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "flex items-center gap-1 whitespace-nowrap text-base font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
                 isServiceActive && "text-[rgb(var(--navy))]"
               )}
             >
               Services
               <ChevronDown
-                className={cn("h-5 w-5 transition-transform", servicesOpen && "rotate-180")}
+                className={cn("h-4 w-4 transition-transform", servicesOpen && "rotate-180")}
               />
             </button>
             {servicesOpen && (
@@ -95,7 +95,7 @@ export function SiteHeader() {
                       href={link.href}
                       onClick={() => setServicesOpen(false)}
                       className={cn(
-                        "block rounded-lg px-4 py-3 text-lg font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                        "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
                         pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
                       )}
                     >
@@ -111,13 +111,13 @@ export function SiteHeader() {
             <button
               onClick={() => setInsightsOpen((v) => !v)}
               className={cn(
-                "flex items-center gap-1 whitespace-nowrap text-xl font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "flex items-center gap-1 whitespace-nowrap text-base font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
                 isInsightsActive && "text-[rgb(var(--navy))]"
               )}
             >
               Insights
               <ChevronDown
-                className={cn("h-5 w-5 transition-transform", insightsOpen && "rotate-180")}
+                className={cn("h-4 w-4 transition-transform", insightsOpen && "rotate-180")}
               />
             </button>
             {insightsOpen && (
@@ -127,7 +127,7 @@ export function SiteHeader() {
                     href="/insights"
                     onClick={() => setInsightsOpen(false)}
                     className={cn(
-                      "block rounded-lg px-4 py-3 text-lg font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                      "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
                       pathname === "/insights" && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
                     )}
                   >
@@ -139,7 +139,7 @@ export function SiteHeader() {
                       href={link.href}
                       onClick={() => setInsightsOpen(false)}
                       className={cn(
-                        "block rounded-lg px-4 py-3 text-lg font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                        "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
                         pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
                       )}
                     >
@@ -156,7 +156,7 @@ export function SiteHeader() {
               key={link.href}
               href={link.href}
               className={cn(
-                "whitespace-nowrap text-xl font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "whitespace-nowrap text-base font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
                 pathname === link.href && "text-[rgb(var(--navy))]"
               )}
             >

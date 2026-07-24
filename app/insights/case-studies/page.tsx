@@ -15,8 +15,8 @@ export default function CaseStudiesPage() {
     <>
       <PageHero
         eyebrow="Insights / Case Studies"
-        title="Documented results from campaigns we've carried start to finish."
-        description="Every engagement is confidential to the client board, but these results reflect what's possible when planning, calling, and gift-planning specialists work as one accountable team."
+        title="Documented results from our partnerships."
+        description="These results reflect what's possible when planning with a strong partnership between the consulting firm and the client."
       />
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
         <div className="grid gap-8 sm:grid-cols-2">
