@@ -42,18 +42,24 @@ async function sendEmailNotification(fields: {
   // Referer by default, which FormSubmit rejects with:
   // "Make sure you open this page through a web server..." — silently
   // failing to deliver the email. Setting these headers explicitly fixes it.
-  const formSubmitRes = await fetch(
-    `https://formsubmit.co/ajax/${encodeURIComponent(primaryEmail)}`,
-    {
-      method: "POST",
-      headers: {
-        Accept: "application/json",
-        Referer: `${SITE_URL}/contact`,
-        Origin: SITE_URL,
-      },
-      body: formData,
-    }
-  );
+  let formSubmitRes: Response;
+  try {
+    formSubmitRes = await fetch(
+      `https://formsubmit.co/ajax/${encodeURIComponent(primaryEmail)}`,
+      {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          Referer: `${SITE_URL}/contact`,
+          Origin: SITE_URL,
+        },
+        body: formData,
+      }
+    );
+  } catch (fetchErr) {
+    console.error("FormSubmit fetch threw:", fetchErr);
+    return { sent: false, error: `fetch_threw: ${String(fetchErr)}` };
+  }
 
   const rawBody = await formSubmitRes.text();
   let parsed: { success?: string | boolean; message?: string } = {};
@@ -71,7 +77,7 @@ async function sendEmailNotification(fields: {
 
   if (!succeeded) {
     console.error("FormSubmit error:", formSubmitRes.status, rawBody);
-    return { sent: false, error: parsed.message || rawBody };
+    return { sent: false, error: `status_${formSubmitRes.status}: ${parsed.message || rawBody}` };
   }
 
   return { sent: true };
@@ -102,8 +108,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           ok: false,
-          error:
-            "Email delivery failed. The destination inbox may need to activate this form — check for a 'FormSubmit - Activate your form' email.",
+          error: "Email delivery failed.",
+          debug: emailResult.error,
         },
         { status: 502 }
       );
@@ -188,7 +194,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Contact form error:", err);
     return NextResponse.json(
-      { error: "Something went wrong submitting the form." },
+      { error: "Something went wrong submitting the form.", debug: String(err) },
       { status: 500 }
     );
   }
