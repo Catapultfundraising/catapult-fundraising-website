@@ -10,6 +10,60 @@ const nextConfig = {
       },
     ],
   },
+  async redirects() {
+    return [
+      {
+        source: "/legacycall",
+        destination: "/services/legacy-giving",
+        permanent: true,
+      },
+      {
+        source: "/capitalcampaignservices",
+        destination: "/services/capital-campaign",
+        permanent: true,
+      },
+      {
+        source: "/annualfundconnect",
+        destination: "/services/annual-fund",
+        permanent: true,
+      },
+      {
+        source: "/ourteam",
+        destination: "/about",
+        permanent: true,
+      },
+      {
+        source: "/capacitybuilding",
+        destination: "/services/capital-campaign",
+        permanent: true,
+      },
+      {
+        source: "/donorengagement",
+        destination: "/services/donor-engagement",
+        permanent: true,
+      },
+      {
+        source: "/aboutus",
+        destination: "/about",
+        permanent: true,
+      },
+      {
+        source: "/contactus",
+        destination: "/contact",
+        permanent: true,
+      },
+      {
+        source: "/testimonials",
+        destination: "/results",
+        permanent: true,
+      },
+      {
+        source: "/home",
+        destination: "/",
+        permanent: true,
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;
