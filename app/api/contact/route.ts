@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LEAD_EMAILS } from "@/lib/constants";
 
-const SITE_URL = "https://www.catapultfr.com";
-
 // Splits a full name into first/last for HubSpot's contact schema.
 function splitName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
   const firstname = parts.shift() || "";
   const lastname = parts.join(" ");
   return { firstname, lastname };
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br />");
 }
 
 async function sendEmailNotification(fields: {
@@ -20,64 +26,45 @@ async function sendEmailNotification(fields: {
   service: string;
   message: string;
 }) {
-  const [primaryEmail, ...ccEmails] = LEAD_EMAILS;
+  const apiKey = process.env.RESEND_API_KEY;
 
-  const formData = new FormData();
-  formData.append("Name", fields.name);
-  formData.append("Title", fields.title || "");
-  formData.append("Organization", fields.org || "");
-  formData.append("Email", fields.email);
-  formData.append("Phone", fields.phone || "");
-  formData.append("Service interested in", fields.service || "Not specified");
-  formData.append("Message", fields.message);
-  formData.append("_subject", `New website inquiry from ${fields.name}${fields.org ? ` (${fields.org})` : ""}`);
-  formData.append("_cc", ccEmails.join(","));
-  formData.append("_replyto", fields.email);
-  formData.append("_template", "table");
-  formData.append("_captcha", "false");
-
-  // FormSubmit's AJAX endpoint requires a Referer/Origin that matches a
-  // browser page load. Server-to-server requests (like this one, sent from
-  // the Vercel serverless function rather than the user's browser) have no
-  // Referer by default, which FormSubmit rejects with:
-  // "Make sure you open this page through a web server..." — silently
-  // failing to deliver the email. Setting these headers explicitly fixes it.
-  let formSubmitRes: Response;
-  try {
-    formSubmitRes = await fetch(
-      `https://formsubmit.co/ajax/${encodeURIComponent(primaryEmail)}`,
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          Referer: `${SITE_URL}/contact`,
-          Origin: SITE_URL,
-        },
-        body: formData,
-      }
-    );
-  } catch (fetchErr) {
-    console.error("FormSubmit fetch threw:", fetchErr);
-    return { sent: false, error: `fetch_threw: ${String(fetchErr)}` };
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY is not set; skipping email notification.");
+    return { sent: false, error: "RESEND_API_KEY is not configured." };
   }
 
-  const rawBody = await formSubmitRes.text();
-  let parsed: { success?: string | boolean; message?: string } = {};
-  try {
-    parsed = JSON.parse(rawBody);
-  } catch {
-    // non-JSON response, fall through to the ok-check below
-  }
+  const html = `
+    <h2>New website inquiry</h2>
+    <table cellpadding="6" cellspacing="0" style="border-collapse:collapse">
+      <tr><td><strong>Name</strong></td><td>${escapeHtml(fields.name)}</td></tr>
+      <tr><td><strong>Title</strong></td><td>${escapeHtml(fields.title || "")}</td></tr>
+      <tr><td><strong>Organization</strong></td><td>${escapeHtml(fields.org || "")}</td></tr>
+      <tr><td><strong>Email</strong></td><td>${escapeHtml(fields.email)}</td></tr>
+      <tr><td><strong>Phone</strong></td><td>${escapeHtml(fields.phone || "")}</td></tr>
+      <tr><td><strong>Service interested in</strong></td><td>${escapeHtml(fields.service || "Not specified")}</td></tr>
+      <tr><td><strong>Message</strong></td><td>${escapeHtml(fields.message)}</td></tr>
+    </table>
+  `;
 
-  // FormSubmit can return HTTP 200 with a body indicating logical failure
-  // (e.g. { success: "false", message: "This form needs Activation..." }),
-  // so checking formSubmitRes.ok alone is not sufficient.
-  const succeeded =
-    formSubmitRes.ok && parsed.success !== "false" && parsed.success !== false;
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Catapult Fundraising Website <onboarding@resend.dev>",
+      to: LEAD_EMAILS,
+      reply_to: fields.email,
+      subject: `New website inquiry from ${fields.name}${fields.org ? ` (${fields.org})` : ""}`,
+      html,
+    }),
+  });
 
-  if (!succeeded) {
-    console.error("FormSubmit error:", formSubmitRes.status, rawBody);
-    return { sent: false, error: `status_${formSubmitRes.status}: ${parsed.message || rawBody}` };
+  if (!res.ok) {
+    const errorBody = await res.text();
+    console.error("Resend API error:", res.status, errorBody);
+    return { sent: false, error: `status_${res.status}: ${errorBody}` };
   }
 
   return { sent: true };
@@ -105,11 +92,12 @@ export async function POST(req: NextRequest) {
     });
 
     if (!emailResult.sent) {
+      console.error("Contact form email delivery failed:", emailResult.error);
       return NextResponse.json(
         {
           ok: false,
-          error: "Email delivery failed.",
-          debug: emailResult.error,
+          error:
+            "Email delivery failed. Please try again, or email us directly.",
         },
         { status: 502 }
       );
@@ -194,7 +182,7 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("Contact form error:", err);
     return NextResponse.json(
-      { error: "Something went wrong submitting the form.", debug: String(err) },
+      { error: "Something went wrong submitting the form." },
       { status: 500 }
     );
   }
