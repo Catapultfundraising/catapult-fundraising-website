@@ -48,7 +48,7 @@ const SHEETS: Sheet[] = [
     icon: HelpCircle,
     title: "Frequently Asked Questions",
     description: "Answers to the questions we hear most from boards and staff.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4dec95de-7df4-4497-9dfb-c39a0bf6b8ec.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e33e438b-c066-455b-849f-8be015b1684c.pdf",
   },
 ];
 
