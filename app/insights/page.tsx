@@ -17,7 +17,7 @@ const ARTICLE_PREVIEWS = [
     slug: "key-steps-for-soliciting-major-donors",
     title: "Key Steps for Soliciting Major Donors",
     description:
-      "Diane Carlson's “four-right rule” for turning long-time supporters into major gift donors.",
+      "Catapult's “four-right rule” for turning long-time supporters into major gift donors.",
     readTime: "4 min read",
   },
   {
