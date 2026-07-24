@@ -13,7 +13,6 @@ export const INSIGHTS_LINKS = [
 export const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
-  { href: "/contact", label: "Contact" },
 ];
 
 export const FIRM_PHONE = "(702) 508-0101";

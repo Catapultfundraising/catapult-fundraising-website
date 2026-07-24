@@ -65,7 +65,7 @@ export function SiteHeader() {
             <Link
               href={homeLink.href}
               className={cn(
-                "whitespace-nowrap text-base font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
                 pathname === homeLink.href && "text-[rgb(var(--navy))]"
               )}
             >
@@ -77,7 +77,7 @@ export function SiteHeader() {
             <button
               onClick={() => setServicesOpen((v) => !v)}
               className={cn(
-                "flex items-center gap-1 whitespace-nowrap text-base font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "flex items-center gap-1 whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
                 isServiceActive && "text-[rgb(var(--navy))]"
               )}
             >
@@ -107,11 +107,24 @@ export function SiteHeader() {
             )}
           </div>
 
+          {restLinks.map((link) => (
+            <Link
+              key={link.href}
+              href={link.href}
+              className={cn(
+                "whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                pathname === link.href && "text-[rgb(var(--navy))]"
+              )}
+            >
+              {link.label}
+            </Link>
+          ))}
+
           <div className="relative" ref={insightsRef}>
             <button
               onClick={() => setInsightsOpen((v) => !v)}
               className={cn(
-                "flex items-center gap-1 whitespace-nowrap text-base font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "flex items-center gap-1 whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
                 isInsightsActive && "text-[rgb(var(--navy))]"
               )}
             >
@@ -151,18 +164,6 @@ export function SiteHeader() {
             )}
           </div>
 
-          {restLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={cn(
-                "whitespace-nowrap text-base font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
-                pathname === link.href && "text-[rgb(var(--navy))]"
-              )}
-            >
-              {link.label}
-            </Link>
-          ))}
         </nav>
 
         <div className="hidden shrink-0 items-center gap-4 lg:flex">
@@ -227,6 +228,17 @@ export function SiteHeader() {
               </div>
             )}
 
+            {restLinks.map((link) => (
+              <Link
+                key={link.href}
+                href={link.href}
+                onClick={() => setOpen(false)}
+                className="py-2 text-lg font-medium text-[rgb(var(--navy))]"
+              >
+                {link.label}
+              </Link>
+            ))}
+
             <button
               onClick={() => setMobileInsightsOpen((v) => !v)}
               className="flex items-center justify-between py-2 text-lg font-medium text-[rgb(var(--navy))]"
@@ -257,17 +269,6 @@ export function SiteHeader() {
                 ))}
               </div>
             )}
-
-            {restLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                onClick={() => setOpen(false)}
-                className="py-2 text-lg font-medium text-[rgb(var(--navy))]"
-              >
-                {link.label}
-              </Link>
-            ))}
 
             <a
               href={`tel:${FIRM_PHONE_HREF}`}
