@@ -198,7 +198,7 @@ export function SiteHeader() {
               <Link
                 href={homeLink.href}
                 onClick={() => setOpen(false)}
-                className="py-2 text-lg font-medium text-[rgb(var(--navy))]"
+                className="py-2 text-lg font-bold text-[rgb(var(--navy))]"
               >
                 {homeLink.label}
               </Link>
@@ -206,7 +206,7 @@ export function SiteHeader() {
 
             <button
               onClick={() => setMobileServicesOpen((v) => !v)}
-              className="flex items-center justify-between py-2 text-lg font-medium text-[rgb(var(--navy))]"
+              className="flex items-center justify-between py-2 text-lg font-bold text-[rgb(var(--navy))]"
             >
               Services
               <ChevronDown
@@ -233,7 +233,7 @@ export function SiteHeader() {
                 key={link.href}
                 href={link.href}
                 onClick={() => setOpen(false)}
-                className="py-2 text-lg font-medium text-[rgb(var(--navy))]"
+                className="py-2 text-lg font-bold text-[rgb(var(--navy))]"
               >
                 {link.label}
               </Link>
@@ -241,7 +241,7 @@ export function SiteHeader() {
 
             <button
               onClick={() => setMobileInsightsOpen((v) => !v)}
-              className="flex items-center justify-between py-2 text-lg font-medium text-[rgb(var(--navy))]"
+              className="flex items-center justify-between py-2 text-lg font-bold text-[rgb(var(--navy))]"
             >
               Insights
               <ChevronDown
