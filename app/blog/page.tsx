@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 export const metadata = {
   title: "Fundraising Insights & Best Practices | Catapult Fundraising",
   description:
-    "Practical guidance on capital campaigns, major gift asks, legacy giving, and multi-channel donor engagement, plus how Catapult Fundraising compares to other nonprofit fundraising consultants.",
+    "Practical guidance on capital campaigns, major gift asks, legacy giving, multicultural fundraising, and multi-channel donor engagement, plus how Catapult Fundraising compares to other nonprofit fundraising consultants.",
   keywords: [
     "nonprofit fundraising blog",
     "capital campaign best practices",
@@ -16,6 +16,7 @@ export const metadata = {
     "major donor solicitation",
     "telefundraising best practices",
     "multi-channel fundraising",
+    "Latino philanthropy",
   ],
   alternates: { canonical: "/blog" },
 };
@@ -28,6 +29,13 @@ const POSTS = [
     description:
       "Feasibility studies, gift charts, donor upgrade paths, and legacy call scripts, the practical playbook nonprofits use to raise more at every donor level.",
     readTime: "14 min read",
+  },
+  {
+    slug: "understanding-latino-philanthropy",
+    title: "Understanding Latino Philanthropy: Lessons for Nonprofit Fundraisers",
+    description:
+      "Anthony Alonso on why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates.",
+    readTime: "7 min read",
   },
   {
     slug: "the-ask-ladder-structuring-a-major-gift-solicitation",

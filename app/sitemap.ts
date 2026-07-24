@@ -22,6 +22,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/insights/case-studies/af-connect-special-olympics-indiana",
     "/blog",
     "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices",
+    "/blog/understanding-latino-philanthropy",
     "/blog/the-ask-ladder-structuring-a-major-gift-solicitation",
     "/blog/planning-a-capital-campaign-gift-chart-quiet-phase",
     "/blog/growing-your-legacy-society-why-arent-we-asking",
