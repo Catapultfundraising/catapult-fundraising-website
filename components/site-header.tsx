@@ -60,12 +60,12 @@ export function SiteHeader() {
           />
         </Link>
 
-        <nav className="hidden min-w-0 items-center gap-6 lg:flex xl:gap-8">
+        <nav className="hidden min-w-0 items-center lg:flex">
           {homeLink && (
             <Link
               href={homeLink.href}
               className={cn(
-                "whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "whitespace-nowrap px-3 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4",
                 pathname === homeLink.href && "text-[rgb(var(--navy))]"
               )}
             >
@@ -73,7 +73,7 @@ export function SiteHeader() {
             </Link>
           )}
 
-          <div className="relative" ref={servicesRef}>
+          <div className="relative px-3 xl:px-4" ref={servicesRef}>
             <button
               onClick={() => setServicesOpen((v) => !v)}
               className={cn(
@@ -112,7 +112,7 @@ export function SiteHeader() {
               key={link.href}
               href={link.href}
               className={cn(
-                "whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                "whitespace-nowrap px-3 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4",
                 pathname === link.href && "text-[rgb(var(--navy))]"
               )}
             >
@@ -120,7 +120,7 @@ export function SiteHeader() {
             </Link>
           ))}
 
-          <div className="relative" ref={insightsRef}>
+          <div className="relative px-3 xl:px-4" ref={insightsRef}>
             <button
               onClick={() => setInsightsOpen((v) => !v)}
               className={cn(
