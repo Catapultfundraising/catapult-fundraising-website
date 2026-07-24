@@ -22,13 +22,6 @@ export const metadata = {
 
 const POSTS = [
   {
-    slug: "catapult-vs-fundraising-consultants",
-    title: "Catapult Fundraising vs. Other Fundraising Consultants: What Sets Us Apart",
-    description:
-      "Most firms plan a campaign or make the calls, rarely both. See how Catapult's one-firm, every-phase model compares to campaign-only counsel, calling-only vendors, and major gift specialists.",
-    readTime: "11 min read",
-  },
-  {
     slug: "capital-campaign-donor-engagement-legacy-giving-best-practices",
     title:
       "Capital Campaigns, Mid-Level Donor Engagement, and Legacy Giving: A Best Practices Guide",
