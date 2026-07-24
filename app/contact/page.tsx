@@ -3,6 +3,8 @@ import { ContactForm } from "@/components/contact-form";
 import { Phone, Mail, MapPin } from "lucide-react";
 import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 export const metadata = {
   title: "Contact | Catapult Fundraising",
   description:
@@ -15,9 +17,60 @@ export const metadata = {
   alternates: { canonical: "/contact" },
 };
 
+const FAQS = [
+  {
+    question: "How quickly does Catapult Fundraising respond to inquiries?",
+    answer:
+      "We respond to every inquiry within one business day, whether you're exploring a feasibility study, launching a public-phase calling program, or building a mid-level donor pipeline.",
+  },
+  {
+    question: "What areas does Catapult Fundraising serve?",
+    answer:
+      "Catapult Fundraising is headquartered in Henderson, Nevada, with additional locations in New Jersey and Texas, and we work with nonprofit clients nationwide on capital campaigns, legacy giving, donor engagement, and annual fund calling.",
+  },
+  {
+    question: "What should I include when reaching out to Catapult?",
+    answer:
+      "Let us know your organization's mission, the type of program you're considering (capital campaign, legacy giving, donor engagement, or annual fund calling), and your rough timeline so we can point you to the right consultant.",
+  },
+];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "ContactPage",
+      "@id": `${SITE_URL}/contact#webpage`,
+      url: `${SITE_URL}/contact`,
+      name: "Contact | Catapult Fundraising",
+      isPartOf: { "@id": `${SITE_URL}/#organization` },
+      about: { "@id": `${SITE_URL}/#organization` },
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Contact", item: `${SITE_URL}/contact` },
+      ],
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQS.map((f) => ({
+        "@type": "Question",
+        name: f.question,
+        acceptedAnswer: { "@type": "Answer", text: f.answer },
+      })),
+    },
+  ],
+};
+
 export default function ContactPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PageHero
         eyebrow="Contact"
         title="Let's talk about growing your donor base."
