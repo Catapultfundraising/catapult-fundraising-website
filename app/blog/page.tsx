@@ -6,7 +6,7 @@ import { ArrowRight } from "lucide-react";
 export const metadata = {
   title: "Fundraising Insights & Best Practices | Catapult Fundraising",
   description:
-    "Practical guidance on capital campaigns, mid-level donor engagement, and legacy giving, plus how Catapult Fundraising compares to other nonprofit fundraising consultants.",
+    "Practical guidance on capital campaigns, major gift asks, legacy giving, and multi-channel donor engagement, plus how Catapult Fundraising compares to other nonprofit fundraising consultants.",
   keywords: [
     "nonprofit fundraising blog",
     "capital campaign best practices",
@@ -28,6 +28,34 @@ const POSTS = [
     description:
       "Feasibility studies, gift charts, donor upgrade paths, and legacy call scripts, the practical playbook nonprofits use to raise more at every donor level.",
     readTime: "14 min read",
+  },
+  {
+    slug: "the-ask-ladder-structuring-a-major-gift-solicitation",
+    title: "The Ask Ladder: How to Structure a Major Gift Solicitation",
+    description:
+      "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
+    readTime: "6 min read",
+  },
+  {
+    slug: "planning-a-capital-campaign-gift-chart-quiet-phase",
+    title: "Planning a Capital Campaign: The Gift Chart and Quiet Phase",
+    description:
+      "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign.",
+    readTime: "6 min read",
+  },
+  {
+    slug: "growing-your-legacy-society-why-arent-we-asking",
+    title: "Growing Your Legacy Society: Why Aren't We Asking?",
+    description:
+      "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
+    readTime: "6 min read",
+  },
+  {
+    slug: "seven-touchpoints-donor-loyalty-between-asks",
+    title: "Seven Touchpoints: Building Donor Loyalty Between Asks",
+    description:
+      "The low-cost touchpoints, from the 'five by ten' calling habit to digital voicemail drops, that build donor loyalty and quietly upgrade mid-level gifts.",
+    readTime: "5 min read",
   },
   {
     slug: "key-steps-for-soliciting-major-donors",
