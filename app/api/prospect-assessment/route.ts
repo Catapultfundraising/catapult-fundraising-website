@@ -3,6 +3,8 @@ import * as XLSX from "xlsx";
 import { LEAD_EMAILS } from "@/lib/constants";
 import { TIER_CONFIGS, type TierData, type TierRow } from "@/lib/prospect-assessment";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 function sanitizeSheetName(name: string, fallback: string) {
   const cleaned = (name || "").replace(/[:\\/?*[\]]/g, "").trim();
   const base = cleaned || fallback;
@@ -172,22 +174,48 @@ export async function POST(req: NextRequest) {
       `Prospect-Counts-and-Average-Gift-Sizes-${sanitizeFilename(orgName)}.xlsx`
     );
 
+    // FormSubmit's AJAX endpoint requires a Referer/Origin that matches a
+    // browser page load. Server-to-server requests (like this one, sent from
+    // the Vercel serverless function rather than the user's browser) have no
+    // Referer by default, which FormSubmit rejects with:
+    // "Make sure you open this page through a web server..." — silently
+    // failing to deliver the email. Setting these headers explicitly fixes it.
     const formSubmitRes = await fetch(
       `https://formsubmit.co/ajax/${encodeURIComponent(primaryEmail)}`,
       {
         method: "POST",
         headers: {
           Accept: "application/json",
+          Referer: `${SITE_URL}/prospect-assessment`,
+          Origin: SITE_URL,
         },
         body: formData,
       }
     );
 
-    if (!formSubmitRes.ok) {
-      const errorBody = await formSubmitRes.text();
-      console.error("FormSubmit error:", formSubmitRes.status, errorBody);
+    const rawBody = await formSubmitRes.text();
+    let parsed: { success?: string | boolean; message?: string } = {};
+    try {
+      parsed = JSON.parse(rawBody);
+    } catch {
+      // non-JSON response, fall through to the ok-check below
+    }
+
+    // FormSubmit can return HTTP 200 with a body indicating logical failure
+    // (e.g. { success: "false", message: "This form needs Activation..." }),
+    // so checking formSubmitRes.ok alone is not sufficient.
+    const succeeded =
+      formSubmitRes.ok && parsed.success !== "false" && parsed.success !== false;
+
+    if (!succeeded) {
+      console.error("FormSubmit error:", formSubmitRes.status, rawBody);
       return NextResponse.json(
-        { ok: false, error: "Email delivery failed." },
+        {
+          ok: false,
+          error:
+            parsed.message ||
+            "Email delivery failed. The destination inbox may need to activate this form — check for a 'FormSubmit - Activate your form' email.",
+        },
         { status: 502 }
       );
     }
