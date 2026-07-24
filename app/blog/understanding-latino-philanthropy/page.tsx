@@ -52,7 +52,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
       <PageHero
         eyebrow="Insights"
         title="Understanding Latino philanthropy: lessons for nonprofit fundraisers."
-        description="Anthony Alonso's mother has asked him the same question for thirty-five years: do people really give? The truth is she gives every week, she just never called it philanthropy."
+        description="Anthony Alonso's mother asked him the same question for thirty-five years: do people really give? The truth is she gave every week, she just never called it philanthropy."
       />
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
@@ -66,8 +66,8 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         </p>
 
         <blockquote className="mt-6 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
-          My mother still asks me, thirty-five years into my career, &ldquo;do people really
-          give?&rdquo; And yet she gives every single week. We simply haven&rsquo;t educated this
+          My mother asked me, for thirty-five years into my career, &ldquo;do people really
+          give?&rdquo; And yet she gave every single week. We simply haven&rsquo;t educated this
           market on the difference their gifts already make.
         </blockquote>
 
