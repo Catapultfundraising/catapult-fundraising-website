@@ -42,8 +42,6 @@ const jsonLd = {
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
-  datePublished: "2022-04-01",
-  dateModified: "2026-07-24",
 };
 
 export default function MultiChannelFundraisingPost() {
@@ -302,11 +300,6 @@ export default function MultiChannelFundraisingPost() {
             AFP Las Vegas Chapter.
           </p>
         </div>
-
-        <p className="mt-8 border-t border-[rgb(var(--line))] pt-6 text-sm text-[rgb(var(--ink))]/40">
-          Originally published as Sponsored Content: Catapult Fundraising in Advancing
-          Philanthropy, April 2022.
-        </p>
       </article>
 
       <CtaBand />
