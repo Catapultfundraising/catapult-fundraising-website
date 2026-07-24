@@ -46,6 +46,12 @@ async function sendEmailNotification(fields: {
     </table>
   `;
 
+  // NOTE: Resend's sandbox sender (onboarding@resend.dev) can only deliver to
+  // the email address the Resend account was signed up with. Sending to
+  // additional recipients (e.g. a second team member) requires verifying a
+  // custom domain at resend.com/domains and sending "from" that domain
+  // instead. Until then, only the first LEAD_EMAILS address is used here to
+  // avoid Resend rejecting the whole request with a 403 validation error.
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -54,7 +60,7 @@ async function sendEmailNotification(fields: {
     },
     body: JSON.stringify({
       from: "Catapult Fundraising Website <onboarding@resend.dev>",
-      to: LEAD_EMAILS,
+      to: [LEAD_EMAILS[0]],
       reply_to: fields.email,
       subject: `New website inquiry from ${fields.name}${fields.org ? ` (${fields.org})` : ""}`,
       html,
