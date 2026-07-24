@@ -42,8 +42,6 @@ const jsonLd = {
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
-  datePublished: "2020-01-01",
-  dateModified: "2026-07-24",
 };
 
 export default function HowToEffectivelyUseThePhoneTodayPost() {
@@ -128,11 +126,6 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
             Start a conversation with Catapult Fundraising
           </Link>
           .
-        </p>
-
-        <p className="mt-12 border-t border-[rgb(var(--line))] pt-6 text-sm text-[rgb(var(--ink))]/40">
-          Source: Anthony R. Alonso, President, Catapult Fundraising, Henderson, NV. Originally
-          published in Successful Fundraising © 2020.
         </p>
       </article>
 
