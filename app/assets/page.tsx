@@ -1,6 +1,7 @@
 import { PageHero } from "@/components/page-hero";
 import { SignatureGeneratorForm } from "@/components/signature-generator-form";
 import { BrandResources } from "@/components/brand-resources";
+import { BrandColors } from "@/components/brand-colors";
 import { OneSheets } from "@/components/one-sheets";
 import { SocialKit } from "@/components/social-kit";
 
@@ -22,6 +23,7 @@ export default function AssetsPage() {
       <section className="mx-auto max-w-6xl px-6 py-14 lg:px-10 lg:py-16">
         <SignatureGeneratorForm />
         <BrandResources />
+        <BrandColors />
         <OneSheets />
         <SocialKit />
       </section>
