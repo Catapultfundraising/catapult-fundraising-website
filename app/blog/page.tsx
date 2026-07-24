@@ -13,6 +13,9 @@ export const metadata = {
     "mid-level donor engagement best practices",
     "legacy giving best practices",
     "fundraising consultant comparison",
+    "major donor solicitation",
+    "telefundraising best practices",
+    "multi-channel fundraising",
   ],
   alternates: { canonical: "/blog" },
 };
@@ -27,10 +30,32 @@ const POSTS = [
   },
   {
     slug: "capital-campaign-donor-engagement-legacy-giving-best-practices",
-    title: "Capital Campaigns, Mid-Level Donor Engagement, and Legacy Giving: A Best Practices Guide",
+    title:
+      "Capital Campaigns, Mid-Level Donor Engagement, and Legacy Giving: A Best Practices Guide",
     description:
       "Feasibility studies, gift charts, donor upgrade paths, and legacy call scripts, the practical playbook nonprofits use to raise more at every donor level.",
     readTime: "14 min read",
+  },
+  {
+    slug: "key-steps-for-soliciting-major-donors",
+    title: "Key Steps for Soliciting Major Donors",
+    description:
+      "Diane Carlson's “four-right rule” for turning long-time supporters into major gift donors: the right person asking the right prospect for the right amount at the right time.",
+    readTime: "4 min read",
+  },
+  {
+    slug: "how-to-effectively-use-the-phone-today",
+    title: "How to Effectively Use the Phone Today",
+    description:
+      "Anthony R. Alonso on why telefundraising is far from dead, and the two-step, personalized method that lifts gift sizes 25 to 30 percent.",
+    readTime: "3 min read",
+  },
+  {
+    slug: "multi-channel-fundraising-are-you-missing-the-mark",
+    title: "Multi-Channel Fundraising — Are You Missing the Mark?",
+    description:
+      "Anthony Alonso on why digital fundraising alone can't upgrade donors or build a major gift pipeline, and the segmentation, storytelling, and calling strategy that can.",
+    readTime: "6 min read",
   },
 ];
 
