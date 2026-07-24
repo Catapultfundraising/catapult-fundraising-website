@@ -6,19 +6,31 @@ import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
 import { Menu, X, Phone, ChevronDown } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SERVICE_LINKS, NAV_LINKS, FIRM_PHONE, FIRM_PHONE_HREF } from "@/lib/constants";
+import {
+  SERVICE_LINKS,
+  INSIGHTS_LINKS,
+  NAV_LINKS,
+  FIRM_PHONE,
+  FIRM_PHONE_HREF,
+} from "@/lib/constants";
 
 export function SiteHeader() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
+  const [insightsOpen, setInsightsOpen] = useState(false);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [mobileInsightsOpen, setMobileInsightsOpen] = useState(false);
+  const servicesRef = useRef<HTMLDivElement>(null);
+  const insightsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+      if (servicesRef.current && !servicesRef.current.contains(e.target as Node)) {
         setServicesOpen(false);
+      }
+      if (insightsRef.current && !insightsRef.current.contains(e.target as Node)) {
+        setInsightsOpen(false);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
@@ -26,6 +38,7 @@ export function SiteHeader() {
   }, []);
 
   const isServiceActive = pathname.startsWith("/services");
+  const isInsightsActive = pathname.startsWith("/insights") || pathname.startsWith("/blog");
   const homeLink = NAV_LINKS.find((link) => link.href === "/");
   const restLinks = NAV_LINKS.filter((link) => link.href !== "/");
 
@@ -60,7 +73,7 @@ export function SiteHeader() {
             </Link>
           )}
 
-          <div className="relative" ref={dropdownRef}>
+          <div className="relative" ref={servicesRef}>
             <button
               onClick={() => setServicesOpen((v) => !v)}
               className={cn(
@@ -81,6 +94,50 @@ export function SiteHeader() {
                       key={link.href}
                       href={link.href}
                       onClick={() => setServicesOpen(false)}
+                      className={cn(
+                        "block rounded-lg px-4 py-3 text-lg font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                        pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                      )}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="relative" ref={insightsRef}>
+            <button
+              onClick={() => setInsightsOpen((v) => !v)}
+              className={cn(
+                "flex items-center gap-1 whitespace-nowrap text-xl font-medium tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                isInsightsActive && "text-[rgb(var(--navy))]"
+              )}
+            >
+              Insights
+              <ChevronDown
+                className={cn("h-5 w-5 transition-transform", insightsOpen && "rotate-180")}
+              />
+            </button>
+            {insightsOpen && (
+              <div className="absolute left-1/2 top-full w-72 -translate-x-1/2 pt-3">
+                <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
+                  <Link
+                    href="/insights"
+                    onClick={() => setInsightsOpen(false)}
+                    className={cn(
+                      "block rounded-lg px-4 py-3 text-lg font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                      pathname === "/insights" && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                    )}
+                  >
+                    All Insights
+                  </Link>
+                  {INSIGHTS_LINKS.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setInsightsOpen(false)}
                       className={cn(
                         "block rounded-lg px-4 py-3 text-lg font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
                         pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
@@ -158,6 +215,37 @@ export function SiteHeader() {
             {mobileServicesOpen && (
               <div className="flex flex-col gap-0.5 border-l-2 border-[rgb(var(--line))] pl-4">
                 {SERVICE_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className="py-1.5 text-xs font-medium text-[rgb(var(--navy))]/75"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setMobileInsightsOpen((v) => !v)}
+              className="flex items-center justify-between py-2 text-lg font-medium text-[rgb(var(--navy))]"
+            >
+              Insights
+              <ChevronDown
+                className={cn("h-5 w-5 transition-transform", mobileInsightsOpen && "rotate-180")}
+              />
+            </button>
+            {mobileInsightsOpen && (
+              <div className="flex flex-col gap-0.5 border-l-2 border-[rgb(var(--line))] pl-4">
+                <Link
+                  href="/insights"
+                  onClick={() => setOpen(false)}
+                  className="py-1.5 text-xs font-medium text-[rgb(var(--navy))]/75"
+                >
+                  All Insights
+                </Link>
+                {INSIGHTS_LINKS.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}
