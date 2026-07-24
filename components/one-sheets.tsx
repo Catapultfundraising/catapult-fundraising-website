@@ -41,8 +41,8 @@ const SHEETS: Sheet[] = [
   {
     icon: UserCircle,
     title: "Leadership Bios",
-    description: "Professional bios for our full leadership and consulting team.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e9e42b4b-1b7e-4d64-820a-7e0a3feba07a.pdf",
+    description: "Professional bios for our President/CEO and senior leadership team.",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/95a291b9-afbc-4e96-bfe2-daff2a86b6b1.pdf",
   },
   {
     icon: HelpCircle,
