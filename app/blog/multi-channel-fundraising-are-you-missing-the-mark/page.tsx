@@ -283,23 +283,6 @@ export default function MultiChannelFundraisingPost() {
           </Link>
           .
         </p>
-
-        <div className="mt-12 rounded-2xl border border-[rgb(var(--line))] bg-[rgb(var(--paper))] p-8">
-          <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
-            About the Author
-          </p>
-          <p className="mt-3 font-display text-lg text-[rgb(var(--navy))]">Anthony Alonso</p>
-          <p className="mt-2 text-sm leading-relaxed text-[rgb(var(--ink))]/70">
-            Anthony Alonso is a fundraising consultant with over three decades of expertise in
-            direct marketing and telefundraising. Prior to co-founding Catapult Fundraising,
-            Anthony served as the founder and president of Advantage Plus Consulting for over 20
-            years. Anthony has served on the boards of AFP New Jersey, The Giving Institute, Giving
-            USA, and the AFP Foundation for Philanthropy, and was a founding member of the AFP
-            Industry Partners Council. He is a proud recipient of the AFP New Jersey Chapter Award
-            for Consulting Excellence. Anthony currently serves as immediate past president of the
-            AFP Las Vegas Chapter.
-          </p>
-        </div>
       </article>
 
       <CtaBand />

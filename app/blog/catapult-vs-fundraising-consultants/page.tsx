@@ -22,6 +22,7 @@ export const metadata = {
     "capital campaign and donor engagement consultants",
   ],
   alternates: { canonical: `/blog/${SLUG}` },
+  robots: { index: false, follow: false },
   openGraph: {
     type: "article",
     title: "Catapult Fundraising vs. Other Fundraising Consultants: What Sets Us Apart",
