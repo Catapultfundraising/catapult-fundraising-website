@@ -18,7 +18,7 @@ export default function JagDashboardPage() {
       <section className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
         <div className="overflow-hidden rounded-2xl border border-black/10 shadow-sm">
           <iframe
-            src="https://dashboard.catapultfr.com"
+            src="https://jag-nevada-tracker.vercel.app"
             title="JAG Nevada Interview Tracker"
             className="h-[2400px] w-full border-0"
             loading="lazy"
