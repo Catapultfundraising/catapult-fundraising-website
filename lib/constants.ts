@@ -5,6 +5,11 @@ export const SERVICE_LINKS = [
   { href: "/services/annual-fund", label: "Annual Fund Calling" },
 ];
 
+export const INSIGHTS_LINKS = [
+  { href: "/blog", label: "Articles" },
+  { href: "/insights/case-studies", label: "Case Studies" },
+];
+
 export const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },
