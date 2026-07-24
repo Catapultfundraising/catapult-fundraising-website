@@ -3,12 +3,14 @@ import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { Building, Users, Award } from "lucide-react";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 const LEADERSHIP = [
   {
     name: "Anthony R. Alonso",
     role: "President & CEO",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5ac6ad8e-2df9-495a-812f-da0bf44735b9.png",
-    bio: "Every great campaign needs someone who believes, without a doubt, that a community's generosity is bigger than anyone has yet imagined. That's Anthony. In 35 years of fundraising, he's helped organizations raise over a billion dollars in the last decade alone, but the number he's proudest of is the one no spreadsheet can capture: the trust of every board and every donor who took a chance on a bigger vision because he asked them to. A former AFP Las Vegas Chapter President and twice honored for excellence in philanthropy, Anthony also serves as Board Chair of the Salvation Army of Southern Nevada, living out in his own community, the same conviction he brings to every client: that the right ask, made with heart, changes everything.",
+    bio: "Every great campaign needs someone who believes, without a doubt, that a community's generosity is bigger than anyone has yet imagined. That's Anthony. In 35 years of fundraising, he's helped organizations raise over a billion dollars in the last decade alone, but the number he's proudest of is the one no spreadsheet can capture: the trust of every board and every donor who took a chance on a bigger vision because he asked them to. A former AFP Las Vegas Chapter President and twice honored for excellence in philanthropy, Anthony also serves as Board Chair of the Salvation Army of Southern Nevada, living out in his own community the same conviction he brings to every client: that the right ask, made with heart, changes everything.",
   },
   {
     name: "Amy Wiles",
@@ -142,9 +144,51 @@ export const metadata = {
   alternates: { canonical: "/about" },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "AboutPage",
+      "@id": `${SITE_URL}/about#webpage`,
+      url: `${SITE_URL}/about`,
+      name: "About Catapult Fundraising | Leadership & Team",
+      description:
+        "Catapult Fundraising was founded to close a gap in the industry: firms that plan campaigns rarely execute the public phase, and calling firms rarely understand campaign strategy. We do both, as one accountable team.",
+      isPartOf: { "@id": `${SITE_URL}/#organization` },
+      about: { "@id": `${SITE_URL}/#organization` },
+      breadcrumb: { "@id": `${SITE_URL}/about#breadcrumb` },
+    },
+    {
+      "@type": "BreadcrumbList",
+      "@id": `${SITE_URL}/about#breadcrumb`,
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "About", item: `${SITE_URL}/about` },
+      ],
+    },
+    {
+      "@type": "Organization",
+      "@id": `${SITE_URL}/#organization`,
+      name: "Catapult Fundraising",
+      url: SITE_URL,
+      employee: LEADERSHIP.map((member) => ({
+        "@type": "Person",
+        name: member.name,
+        jobTitle: member.role,
+        image: member.photo,
+        worksFor: { "@id": `${SITE_URL}/#organization` },
+      })),
+    },
+  ],
+};
+
 export default function AboutPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PageHero
         eyebrow="About Catapult"
         title="Built on the belief that proven fundraising practice catapults donors to their next level of giving."
@@ -181,7 +225,7 @@ export default function AboutPage() {
 
       <section className="border-t border-[rgb(var(--line))] bg-white py-14 lg:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-10">
-          <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+          <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
             Leadership
           </p>
           <h2 className="mt-4 max-w-3xl font-display text-6xl tracking-tight text-[rgb(var(--navy))] sm:text-[75px]">
@@ -207,7 +251,7 @@ export default function AboutPage() {
                 </p>
                 <p className="mt-3 text-xl leading-relaxed text-[rgb(var(--ink))]/70">{member.bio}</p>
               </div>
-           ))}
+            ))}
           </div>
         </div>
       </section>
