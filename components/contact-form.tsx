@@ -12,7 +12,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Send, CheckCircle } from "lucide-react";
+import { Send, CheckCircle, AlertCircle } from "lucide-react";
 import { LEAD_EMAILS, SERVICE_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
@@ -27,6 +27,7 @@ const CTA_BUTTON_CLASS =
 export function ContactForm() {
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [title, setTitle] = useState("");
   const [org, setOrg] = useState("");
@@ -38,6 +39,7 @@ export function ContactForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
+    setErrorMessage(null);
 
     try {
       const res = await fetch("/api/contact", {
@@ -46,16 +48,17 @@ export function ContactForm() {
         body: JSON.stringify({ name, title, org, email, phone, service, message }),
       });
 
-      if (!res.ok) throw new Error("Request failed");
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok || data?.ok === false) {
+        throw new Error(data?.error || "Request failed");
+      }
 
       setSubmitted(true);
     } catch {
-      const subject = encodeURIComponent(`New inquiry from ${name}${org ? ` (${org})` : ""}`);
-      const body = encodeURIComponent(
-        `Name: ${name}\nTitle: ${title}\nOrganization: ${org}\nEmail: ${email}\nPhone: ${phone}\nService interested in: ${service}\n\nMessage:\n${message}`
+      setErrorMessage(
+        `Something went wrong sending your message. Please try again, or email us directly at ${LEAD_EMAILS[0]}.`
       );
-      window.location.href = `mailto:${LEAD_EMAILS.join(",")}?subject=${subject}&body=${body}`;
-      setSubmitted(true);
     } finally {
       setSubmitting(false);
     }
@@ -84,6 +87,13 @@ export function ContactForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
+      {errorMessage && (
+        <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
+          <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />
+          <p>{errorMessage}</p>
+        </div>
+      )}
+
       <div className="space-y-6 rounded-2xl border border-[rgb(var(--line))] bg-white p-8 lg:p-10">
         <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Your information</h2>
         <div className="grid gap-6 sm:grid-cols-2">
