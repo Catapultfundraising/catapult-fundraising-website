@@ -3,6 +3,8 @@ import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { TestimonialStrip } from "@/components/testimonial-strip";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 export const metadata = {
   title: "Results & Case Studies | Catapult Fundraising",
   description:
@@ -55,9 +57,60 @@ const SERVICE_RESULTS = [
   },
 ];
 
+const FAQS = [
+  {
+    question: "What results can nonprofits expect from a capital campaign with Catapult?",
+    answer:
+      "Clients typically move through a 24–36 month feasibility-to-public-phase runway, with quiet-phase major gift strategy building the foundation for a confidently launched public phase.",
+  },
+  {
+    question: "Does Catapult Fundraising work with nonprofits outside Nevada?",
+    answer:
+      "Yes. While Catapult is headquartered in Henderson, Nevada, with additional locations in New Jersey and Texas, we work with nonprofit clients nationwide across capital campaigns, legacy giving, donor engagement, and annual fund calling.",
+  },
+  {
+    question: "How is fundraising success measured across Catapult's programs?",
+    answer:
+      "We track metrics specific to each service: gift-chart progress and public-phase totals for capital campaigns, average gift growth and engagement lift for mid-level donor programs, bequest identification for legacy giving, and participation and retention rates for annual fund calling.",
+  },
+];
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "CollectionPage",
+      "@id": `${SITE_URL}/results#webpage`,
+      url: `${SITE_URL}/results`,
+      name: "Results & Case Studies | Catapult Fundraising",
+      isPartOf: { "@id": `${SITE_URL}/#organization` },
+      about: { "@id": `${SITE_URL}/#organization` },
+    },
+    {
+      "@type": "BreadcrumbList",
+      itemListElement: [
+        { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Results", item: `${SITE_URL}/results` },
+      ],
+    },
+    {
+      "@type": "FAQPage",
+      mainEntity: FAQS.map((f) => ({
+        "@type": "Question",
+        name: f.question,
+        acceptedAnswer: { "@type": "Answer", text: f.answer },
+      })),
+    },
+  ],
+};
+
 export default function ResultsPage() {
   return (
     <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <PageHero
         eyebrow="Results"
         title="Representative outcomes from campaigns we've carried start to finish."
@@ -94,7 +147,7 @@ export default function ResultsPage() {
 
       <section className="border-t border-[rgb(var(--line))] bg-[rgb(var(--paper))] py-14 lg:py-16">
         <div className="mx-auto max-w-7xl px-6 lg:px-10">
-          <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+          <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
             How Our Services Fit Together
           </p>
           <h2 className="mt-4 max-w-2xl font-display text-6xl tracking-tight text-[rgb(var(--navy))] sm:text-[75px]">
