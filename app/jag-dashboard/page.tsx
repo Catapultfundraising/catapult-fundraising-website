@@ -1,4 +1,4 @@
-import { redirect } from "next/navigation";
+import { PageHero } from "@/components/page-hero";
 
 export const metadata = {
   title: "JAG Nevada Interview Tracker | Catapult Fundraising",
@@ -8,5 +8,23 @@ export const metadata = {
 };
 
 export default function JagDashboardPage() {
-  redirect("https://dashboard.catapultfr.com");
+  return (
+    <>
+      <PageHero
+        eyebrow="JAG Nevada · Donor Assessment Study"
+        title="Weekly Interview &amp; Calling Status"
+        description="Live tracker of prospect outreach, completed interviews, and feedback trends for the JAG Nevada donor assessment study."
+      />
+      <section className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
+        <div className="overflow-hidden rounded-2xl border border-black/10 shadow-sm">
+          <iframe
+            src="https://dashboard.catapultfr.com"
+            title="JAG Nevada Interview Tracker"
+            className="h-[2400px] w-full border-0"
+            loading="lazy"
+          />
+        </div>
+      </section>
+    </>
+  );
 }
