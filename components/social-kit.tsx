@@ -26,8 +26,8 @@ const ITEMS: Item[] = [
   {
     icon: CalendarDays,
     title: "3-Month Content Calendar",
-    description: "27 branded, ready-to-post square graphics covering the company, our services, and blog articles — one post every 3-4 days. Includes a posting-schedule spreadsheet (dates, platforms, captions, hashtags) plus a written, on-brand short write-up for every single post, all built to drive traffic to the new site.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0a716f5d-122e-496a-87c8-0079fe4c95a7.zip",
+    description: "27 branded, ready-to-post square graphics built from real photos from our own site — covering the company, our services, and blog articles, one post every 3-4 days. Includes a posting-schedule spreadsheet (dates, platforms, captions, hashtags) plus a written, on-brand short write-up for every single post.",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f50196c3-e3f2-4a11-a0e4-d0f97ed19db4.zip",
     label: "Download Kit (.zip)",
   },
 ];
