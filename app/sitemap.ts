@@ -2,6 +2,28 @@ import type { MetadataRoute } from "next";
 
 const SITE_URL = "https://www.catapultfr.com";
 
+const HIGH_PRIORITY_WEEKLY = new Set([
+  "/services/capital-campaign",
+  "/services/legacy-giving",
+  "/services/donor-engagement",
+  "/services/annual-fund",
+]);
+
+const SUPPORTING_MONTHLY = new Set(["/about", "/contact", "/results"]);
+
+function priorityFor(route: string): number {
+  if (route === "") return 1;
+  if (HIGH_PRIORITY_WEEKLY.has(route)) return 0.9;
+  if (SUPPORTING_MONTHLY.has(route)) return 0.8;
+  if (route === "/insights" || route === "/blog" || route === "/insights/case-studies") return 0.7;
+  return 0.6;
+}
+
+function frequencyFor(route: string): "weekly" | "monthly" {
+  if (route === "" || HIGH_PRIORITY_WEEKLY.has(route)) return "weekly";
+  return "monthly";
+}
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     "",
@@ -35,7 +57,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   return routes.map((route) => ({
     url: `${SITE_URL}${route}`,
     lastModified: new Date(),
-    changeFrequency: route === "" ? "weekly" : "monthly",
-    priority: route === "" ? 1 : 0.8,
+    changeFrequency: frequencyFor(route),
+    priority: priorityFor(route),
   }));
 }
