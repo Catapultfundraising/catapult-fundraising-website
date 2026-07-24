@@ -12,9 +12,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/services/legacy-giving",
     "/services/donor-engagement",
     "/services/annual-fund",
+    "/insights",
+    "/insights/case-studies",
+    "/insights/case-studies/legacy-call-northeast-university",
     "/blog",
     "/blog/catapult-vs-fundraising-consultants",
     "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices",
+    "/blog/key-steps-for-soliciting-major-donors",
+    "/blog/how-to-effectively-use-the-phone-today",
+    "/blog/multi-channel-fundraising-are-you-missing-the-mark",
   ];
 
   return routes.map((route) => ({

@@ -6,7 +6,7 @@ import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/l
 export function SiteFooter() {
   return (
     <footer className="border-t border-[rgb(var(--line))] bg-[rgb(var(--navy))] text-[rgb(var(--paper))]">
-      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-4 lg:px-10">
+      <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-5 lg:px-10">
         <div className="lg:col-span-2">
           <Image
             src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png"
@@ -28,11 +28,22 @@ export function SiteFooter() {
           </h3>
           <ul className="mt-4 space-y-3 text-sm text-[rgb(var(--paper))]/70">
             <li><Link href="/services/capital-campaign" className="hover:text-[rgb(var(--paper))]">Capital Campaign Counsel</Link></li>
-            <li><Link href="/services/legacy-giving" className="hover:text-[rgb(var(--paper))]">Legacy & Planned Giving</Link></li>
+            <li><Link href="/services/legacy-giving" className="hover:text-[rgb(var(--paper))]">Legacy &amp; Planned Giving</Link></li>
             <li><Link href="/services/donor-engagement" className="hover:text-[rgb(var(--paper))]">Mid-Level Donor Engagement</Link></li>
             <li><Link href="/services/annual-fund" className="hover:text-[rgb(var(--paper))]">Annual Fund Calling</Link></li>
-            <li><Link href="/results" className="hover:text-[rgb(var(--paper))]">Results & Case Studies</Link></li>
             <li><Link href="/about" className="hover:text-[rgb(var(--paper))]">About Catapult</Link></li>
+          </ul>
+        </div>
+
+        <div>
+          <h3 className="font-display text-base sm:text-lg uppercase tracking-widest text-[rgb(var(--brass-light))]">
+            Insights
+          </h3>
+          <ul className="mt-4 space-y-3 text-sm text-[rgb(var(--paper))]/70">
+            <li><Link href="/insights" className="hover:text-[rgb(var(--paper))]">All Insights</Link></li>
+            <li><Link href="/blog" className="hover:text-[rgb(var(--paper))]">Articles</Link></li>
+            <li><Link href="/insights/case-studies" className="hover:text-[rgb(var(--paper))]">Case Studies</Link></li>
+            <li><Link href="/results" className="hover:text-[rgb(var(--paper))]">Results Overview</Link></li>
           </ul>
         </div>
 
