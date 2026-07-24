@@ -16,7 +16,7 @@ export default function CaseStudiesPage() {
       <PageHero
         eyebrow="Insights / Case Studies"
         title="Documented results from our partnerships."
-        description="These results reflect what's possible when planning with a strong partnership between the consulting firm and the client."
+        description="Millions of dollars in confirmed gifts, re-energized donor bases, and pipelines built for the future — this is what happens when strategic planning meets disciplined execution and a true partnership between consulting firm and client. See what's possible for your organization."
       />
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
         <div className="grid gap-8 sm:grid-cols-2">
