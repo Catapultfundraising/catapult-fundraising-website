@@ -100,7 +100,7 @@ const jsonLd = {
   name: "Catapult Fundraising",
   alternateName: "Catapult Fundraising Consulting",
   url: SITE_URL,
-  logo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+  logo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/42ba78de-233b-4e8c-9f6c-bbdd4f9ab4ff.png",
   image: OG_IMAGE,
   description:
     "Catapult Fundraising is a full-service fundraising consulting firm guiding nonprofits from feasibility study through public-phase calling, specializing in capital campaigns, annual fund calling, mid-level donor engagement, and legacy and planned giving.",
