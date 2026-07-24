@@ -1,4 +1,4 @@
-import { Download, Building2, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Quote, Target } from "lucide-react";
+import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target } from "lucide-react";
 
 interface Sheet {
   icon: React.ComponentType<{ className?: string }>;
@@ -9,12 +9,6 @@ interface Sheet {
 
 const SHEETS: Sheet[] = [
   {
-    icon: Building2,
-    title: "About Catapult",
-    description: "Company overview, core differentiators, and key stats.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2e141b7c-1bae-49c9-8ec8-576a628628d2.pdf",
-  },
-  {
     icon: Layers,
     title: "All Services",
     description: "Every service line and the 5-phase campaign process.",
@@ -24,7 +18,7 @@ const SHEETS: Sheet[] = [
     icon: Target,
     title: "Capital Campaign",
     description: "Feasibility, campaign planning, quiet phase, and public-phase calling.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/aecd3613-93b3-4eab-abf0-c629023d0dd5.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/11aeb739-6d95-4f17-a4ac-f632a0564639.pdf",
   },
   {
     icon: Gift,
@@ -48,19 +42,13 @@ const SHEETS: Sheet[] = [
     icon: UserCircle,
     title: "Leadership Bios",
     description: "Expanded bios for our President/CEO and senior leadership team — designed to print two-sided.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ae08344d-1307-46f3-bf87-9c28f9d7f30d.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/b6a0a544-9958-4afe-968f-9c52b81e7bb6.pdf",
   },
   {
     icon: HelpCircle,
     title: "Frequently Asked Questions",
     description: "Answers to the questions we hear most from boards and staff.",
     href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4dec95de-7df4-4497-9dfb-c39a0bf6b8ec.pdf",
-  },
-  {
-    icon: Quote,
-    title: "What Our Clients Are Saying",
-    description: "Real testimonials from the boards and teams we've partnered with.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a5d3f8dc-6447-486f-b076-bf1947e8a768.pdf",
   },
 ];
 
