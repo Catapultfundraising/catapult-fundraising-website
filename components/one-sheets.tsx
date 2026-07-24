@@ -1,4 +1,4 @@
-import { Download, Building2, Layers, Gift, Users, Phone, UserCircle, HelpCircle, BarChart3, Quote } from "lucide-react";
+import { Download, Building2, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Quote, Target } from "lucide-react";
 
 interface Sheet {
   icon: React.ComponentType<{ className?: string }>;
@@ -18,43 +18,43 @@ const SHEETS: Sheet[] = [
     icon: Layers,
     title: "All Services",
     description: "Every service line and the 5-phase campaign process.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/c20c4727-a78d-4e11-bce9-eabf2d971d78.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/585ad107-29bb-4a12-bf02-2409e1c3e6fe.pdf",
+  },
+  {
+    icon: Target,
+    title: "Capital Campaign",
+    description: "Feasibility, campaign planning, quiet phase, and public-phase calling.",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/aecd3613-93b3-4eab-abf0-c629023d0dd5.pdf",
   },
   {
     icon: Gift,
     title: "Legacy Call",
     description: "Our planned giving methodology and the 7-step donor journey.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/10d7cea3-70c4-4573-a9e3-d34241e1962f.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/dfc72dfc-b983-4b26-be0c-d24412c7b20f.pdf",
   },
   {
     icon: Users,
     title: "Donor Engagement",
     description: "The 8-stage mid-level donor engagement journey.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ef58e8d6-7fab-41f7-9438-7dfab301b63d.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3f4609a6-f4eb-49cf-a735-370e8df65ea7.pdf",
   },
   {
     icon: Phone,
     title: "Annual Fund Calling",
     description: "The AF Connect program and included digital enhancements.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fe1bfc97-861e-48dd-a373-ad4eb306d495.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6e6f835b-c93d-4d90-bfac-f7e221d6dee8.pdf",
   },
   {
     icon: UserCircle,
     title: "Leadership Bios",
     description: "Expanded bios for our President/CEO and senior leadership team — designed to print two-sided.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/09c34999-c1de-4727-9a7f-7285269e54db.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ae08344d-1307-46f3-bf87-9c28f9d7f30d.pdf",
   },
   {
     icon: HelpCircle,
     title: "Frequently Asked Questions",
     description: "Answers to the questions we hear most from boards and staff.",
     href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4dec95de-7df4-4497-9dfb-c39a0bf6b8ec.pdf",
-  },
-  {
-    icon: BarChart3,
-    title: "Case Studies",
-    description: "Documented results from our client partnerships.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/64b257a9-fcae-40f6-b7e8-adcd6ed19cbf.pdf",
   },
   {
     icon: Quote,
