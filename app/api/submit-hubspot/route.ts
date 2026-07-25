@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { TIER_CONFIGS, type TierData } from "@/lib/prospect-assessment";
+import { LEAD_EMAILS } from "@/lib/constants";
 
 const HUBSPOT_TOKEN = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
 const HUBSPOT_CONTACTS_BASE = "https://api.hubapi.com/crm/v3/objects/contacts";
@@ -74,6 +75,73 @@ function buildNoteBody(fields: {
     lines.push("Donor Tier Data:", fields.tierSummary);
   }
   return lines.join("\n");
+}
+
+function escapeHtml(value: string) {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/\n/g, "<br />");
+}
+
+async function sendEmailNotification(fields: {
+  orgName: string;
+  contactName: string;
+  title: string;
+  email: string;
+  phone: string;
+  fiscalYear: string;
+  caseForSupport: string;
+  solicitationHistory: string;
+  tierSummary: string;
+}) {
+  const apiKey = process.env.RESEND_API_KEY;
+
+  if (!apiKey) {
+    console.warn("RESEND_API_KEY is not set; skipping email notification for /submit.");
+    return { sent: false, error: "RESEND_API_KEY is not configured." };
+  }
+
+  const html = `
+    <h2>New Prospect Research Intake submission</h2>
+    <table cellpadding="6" cellspacing="0" style="border-collapse:collapse">
+      <tr><td><strong>Organization</strong></td><td>${escapeHtml(fields.orgName)}</td></tr>
+      <tr><td><strong>Contact</strong></td><td>${escapeHtml(fields.contactName)}${fields.title ? ` — ${escapeHtml(fields.title)}` : ""}</td></tr>
+      <tr><td><strong>Email</strong></td><td>${escapeHtml(fields.email)}</td></tr>
+      <tr><td><strong>Phone</strong></td><td>${escapeHtml(fields.phone || "")}</td></tr>
+      <tr><td><strong>Fiscal Year</strong></td><td>${escapeHtml(fields.fiscalYear || "")}</td></tr>
+      <tr><td><strong>Case for Support</strong></td><td>${escapeHtml(fields.caseForSupport || "")}</td></tr>
+      <tr><td><strong>Prior Solicitation History</strong></td><td>${escapeHtml(fields.solicitationHistory || "")}</td></tr>
+      <tr><td><strong>Donor Tier Data</strong></td><td>${escapeHtml(fields.tierSummary || "")}</td></tr>
+    </table>
+  `;
+
+  // Same constraint as /api/contact: Resend's sandbox sender can only deliver
+  // to the address the Resend account was signed up with, so only the first
+  // LEAD_EMAILS address is used here.
+  const res = await fetch("https://api.resend.com/emails", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      from: "Catapult Fundraising Website <onboarding@resend.dev>",
+      to: [LEAD_EMAILS[0]],
+      reply_to: fields.email,
+      subject: `New Prospect Research Intake — ${fields.orgName}`,
+      html,
+    }),
+  });
+
+  if (!res.ok) {
+    const errorBody = await res.text();
+    console.error("Resend API error (submit-hubspot):", res.status, errorBody);
+    return { sent: false, error: `status_${res.status}: ${errorBody}` };
+  }
+
+  return { sent: true };
 }
 
 async function createSubmissionNote({
@@ -183,6 +251,23 @@ export async function POST(req: NextRequest) {
       tierSummary,
     });
 
+    // Fire the email notification in parallel with the HubSpot sync — a slow
+    // or failed email should never block the actual contact create/update.
+    const emailPromise = sendEmailNotification({
+      orgName,
+      contactName,
+      title: title || "",
+      email,
+      phone: phone || "",
+      fiscalYear: fiscalYear || "",
+      caseForSupport: caseForSupport || "",
+      solicitationHistory: solicitationHistory || "",
+      tierSummary,
+    }).catch((err) => {
+      console.error("Email notification threw (submit-hubspot):", err);
+      return { sent: false, error: String(err) };
+    });
+
     // Try create first.
     const createRes = await fetch(HUBSPOT_CONTACTS_BASE, {
       method: "POST",
@@ -190,10 +275,15 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ properties }),
     });
 
+    const emailResult = await emailPromise;
+    if (!emailResult.sent) {
+      console.error("Email notification failed (submit-hubspot):", emailResult.error);
+    }
+
     if (createRes.ok) {
       const created = await createRes.json();
       await createSubmissionNote({ contactId: created.id, noteBody });
-      return NextResponse.json({ ok: true, hubspotContactId: created.id });
+      return NextResponse.json({ ok: true, hubspotContactId: created.id, emailSent: emailResult.sent });
     }
 
     // If the contact already exists (409 CONFLICT), fall back to updating it by email.
@@ -210,7 +300,12 @@ export async function POST(req: NextRequest) {
       if (updateRes.ok) {
         const updated = await updateRes.json();
         await createSubmissionNote({ contactId: updated.id, noteBody });
-        return NextResponse.json({ ok: true, hubspotContactId: updated.id, updated: true });
+        return NextResponse.json({
+          ok: true,
+          hubspotContactId: updated.id,
+          updated: true,
+          emailSent: emailResult.sent,
+        });
       }
 
       const updateErrorBody = await updateRes.text();
