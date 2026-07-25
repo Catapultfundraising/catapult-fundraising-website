@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -6,6 +7,7 @@ import { FIRM_PHONE, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
 const OG_IMAGE = "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e656b128-f2e0-427e-a4c2-07e58fa6812e.png";
+const HUBSPOT_PORTAL_ID = "3043836";
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -182,6 +184,11 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        />
+        <Script
+          id="hs-script-loader"
+          strategy="afterInteractive"
+          src={`https://js.hs-scripts.com/${HUBSPOT_PORTAL_ID}.js`}
         />
         <SiteHeader />
         <main>{children}</main>
