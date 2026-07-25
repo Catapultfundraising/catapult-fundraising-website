@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { TIER_CONFIGS, type TierData } from "@/lib/prospect-assessment";
 
 const HUBSPOT_TOKEN = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
-const HUBSPOT_API_BASE = "https://api.hubapi.com/crm/v3/objects/contacts";
+const HUBSPOT_CONTACTS_BASE = "https://api.hubapi.com/crm/v3/objects/contacts";
+const HUBSPOT_NOTES_BASE = "https://api.hubapi.com/crm/v3/objects/notes";
+const NOTE_TO_CONTACT_ASSOCIATION_TYPE_ID = 202;
 
 function buildTierSummary(
   tierLabels: Record<string, string>,
@@ -41,6 +43,81 @@ function splitName(contactName: string) {
   return { firstname: parts.slice(0, -1).join(" "), lastname: parts[parts.length - 1] };
 }
 
+function buildNoteBody(fields: {
+  orgName: string;
+  contactName: string;
+  title: string;
+  email: string;
+  phone: string;
+  fiscalYear: string;
+  caseForSupport: string;
+  solicitationHistory: string;
+  tierSummary: string;
+}) {
+  const lines = [
+    "Prospect Research Intake Form Submission",
+    "",
+    `Organization: ${fields.orgName}`,
+    `Contact: ${fields.contactName}${fields.title ? `, ${fields.title}` : ""}`,
+    `Email: ${fields.email}`,
+  ];
+  if (fields.phone) lines.push(`Phone: ${fields.phone}`);
+  if (fields.fiscalYear) lines.push(`Fiscal Year: ${fields.fiscalYear}`);
+  lines.push("");
+  if (fields.caseForSupport) {
+    lines.push("Case for Support:", fields.caseForSupport, "");
+  }
+  if (fields.solicitationHistory) {
+    lines.push("Prior Solicitation History:", fields.solicitationHistory, "");
+  }
+  if (fields.tierSummary) {
+    lines.push("Donor Tier Data:", fields.tierSummary);
+  }
+  return lines.join("\n");
+}
+
+async function createSubmissionNote({
+  contactId,
+  noteBody,
+}: {
+  contactId: string;
+  noteBody: string;
+}) {
+  try {
+    const res = await fetch(HUBSPOT_NOTES_BASE, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${HUBSPOT_TOKEN}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        properties: {
+          hs_timestamp: new Date().toISOString(),
+          hs_note_body: noteBody,
+        },
+        associations: [
+          {
+            to: { id: contactId },
+            types: [
+              {
+                associationCategory: "HUBSPOT_DEFINED",
+                associationTypeId: NOTE_TO_CONTACT_ASSOCIATION_TYPE_ID,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("HubSpot note creation error:", res.status, body);
+    }
+  } catch (err) {
+    // Never let a note-logging failure break the actual contact create/update.
+    console.error("HubSpot note creation threw:", err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   if (!HUBSPOT_TOKEN) {
     console.error("HUBSPOT_PRIVATE_APP_TOKEN is not configured.");
@@ -73,6 +150,7 @@ export async function POST(req: NextRequest) {
     }
 
     const { firstname, lastname } = splitName(contactName);
+    const tierSummary = buildTierSummary(tierLabels || {}, tiersData || {});
 
     const properties: Record<string, string> = {
       email,
@@ -85,7 +163,7 @@ export async function POST(req: NextRequest) {
       prospect_fiscal_year: fiscalYear || "",
       prospect_case_for_support: caseForSupport || "",
       prospect_solicitation_history: solicitationHistory || "",
-      prospect_tier_summary: buildTierSummary(tierLabels || {}, tiersData || {}),
+      prospect_tier_summary: tierSummary,
     };
 
     const authHeaders = {
@@ -93,8 +171,20 @@ export async function POST(req: NextRequest) {
       "Content-Type": "application/json",
     };
 
+    const noteBody = buildNoteBody({
+      orgName,
+      contactName,
+      title: title || "",
+      email,
+      phone: phone || "",
+      fiscalYear: fiscalYear || "",
+      caseForSupport: caseForSupport || "",
+      solicitationHistory: solicitationHistory || "",
+      tierSummary,
+    });
+
     // Try create first.
-    const createRes = await fetch(HUBSPOT_API_BASE, {
+    const createRes = await fetch(HUBSPOT_CONTACTS_BASE, {
       method: "POST",
       headers: authHeaders,
       body: JSON.stringify({ properties }),
@@ -102,13 +192,14 @@ export async function POST(req: NextRequest) {
 
     if (createRes.ok) {
       const created = await createRes.json();
+      await createSubmissionNote({ contactId: created.id, noteBody });
       return NextResponse.json({ ok: true, hubspotContactId: created.id });
     }
 
     // If the contact already exists (409 CONFLICT), fall back to updating it by email.
     if (createRes.status === 409) {
       const updateRes = await fetch(
-        `${HUBSPOT_API_BASE}/${encodeURIComponent(email)}?idProperty=email`,
+        `${HUBSPOT_CONTACTS_BASE}/${encodeURIComponent(email)}?idProperty=email`,
         {
           method: "PATCH",
           headers: authHeaders,
@@ -118,6 +209,7 @@ export async function POST(req: NextRequest) {
 
       if (updateRes.ok) {
         const updated = await updateRes.json();
+        await createSubmissionNote({ contactId: updated.id, noteBody });
         return NextResponse.json({ ok: true, hubspotContactId: updated.id, updated: true });
       }
 
