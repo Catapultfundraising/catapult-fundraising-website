@@ -43,6 +43,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/insights/case-studies/legacy-call-presidential-library",
     "/insights/case-studies/af-connect-special-olympics-indiana",
     "/blog",
+    "/blog/how-much-does-a-capital-campaign-cost",
     "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices",
     "/blog/understanding-latino-philanthropy",
     "/blog/the-ask-ladder-structuring-a-major-gift-solicitation",

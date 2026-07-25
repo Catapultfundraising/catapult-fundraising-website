@@ -23,6 +23,13 @@ export const metadata = {
 
 const POSTS = [
   {
+    slug: "how-much-does-a-capital-campaign-cost",
+    title: "How Much Does a Capital Campaign Cost?",
+    description:
+      "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
+    readTime: "5 min read",
+  },
+  {
     slug: "capital-campaign-donor-engagement-legacy-giving-best-practices",
     title:
       "Capital Campaigns, Mid-Level Donor Engagement, and Legacy Giving: A Best Practices Guide",
