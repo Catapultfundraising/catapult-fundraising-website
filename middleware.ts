@@ -1,10 +1,27 @@
 import { NextRequest, NextResponse } from "next/server";
 
-const COOKIE_NAME = "catapult_assets_auth";
+const GATES = [
+  {
+    matchPrefix: "/assets",
+    loginPath: "/assets/login",
+    apiPath: "/api/assets-login",
+    cookieName: "catapult_assets_auth",
+    passwordEnv: "ASSETS_PASSWORD",
+    secretEnv: "ASSETS_AUTH_SECRET",
+  },
+  {
+    matchPrefix: "/jag-dashboard",
+    loginPath: "/jag-dashboard/login",
+    apiPath: "/api/jag-login",
+    cookieName: "catapult_jag_auth",
+    passwordEnv: "JAG_DASHBOARD_PASSWORD",
+    secretEnv: "JAG_DASHBOARD_AUTH_SECRET",
+  },
+];
 
-async function expectedCookieValue(): Promise<string> {
-  const password = process.env.ASSETS_PASSWORD ?? "";
-  const secret = process.env.ASSETS_AUTH_SECRET ?? "";
+async function expectedCookieValue(passwordEnv: string, secretEnv: string): Promise<string> {
+  const password = process.env[passwordEnv] ?? "";
+  const secret = process.env[secretEnv] ?? "";
   const enc = new TextEncoder();
   const data = enc.encode(`${password}:${secret}`);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -16,23 +33,28 @@ async function expectedCookieValue(): Promise<string> {
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Never gate the login page itself or its API route.
-  if (pathname.startsWith("/assets/login") || pathname.startsWith("/api/assets-login")) {
+  const gate = GATES.find((g) => pathname.startsWith(g.matchPrefix));
+  if (!gate) {
     return NextResponse.next();
   }
 
-  const cookie = req.cookies.get(COOKIE_NAME)?.value;
-  const expected = await expectedCookieValue();
+  // Never gate the login page itself or its API route.
+  if (pathname.startsWith(gate.loginPath) || pathname.startsWith(gate.apiPath)) {
+    return NextResponse.next();
+  }
+
+  const cookie = req.cookies.get(gate.cookieName)?.value;
+  const expected = await expectedCookieValue(gate.passwordEnv, gate.secretEnv);
 
   if (cookie && expected && cookie === expected) {
     return NextResponse.next();
   }
 
-  const loginUrl = new URL("/assets/login", req.url);
+  const loginUrl = new URL(gate.loginPath, req.url);
   loginUrl.searchParams.set("redirect", pathname);
   return NextResponse.redirect(loginUrl);
 }
 
 export const config = {
-  matcher: ["/assets", "/assets/:path*"],
+  matcher: ["/assets", "/assets/:path*", "/jag-dashboard", "/jag-dashboard/:path*"],
 };
