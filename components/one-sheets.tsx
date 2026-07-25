@@ -1,4 +1,4 @@
-import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen } from "lucide-react";
+import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen, BookOpen } from "lucide-react";
 
 interface Sheet {
   icon: React.ComponentType<{ className?: string }>;
@@ -55,6 +55,12 @@ const SHEETS: Sheet[] = [
     title: "Presentation Folder",
     description: "Print-ready two-pocket presentation folder — front, back, and interior spread with business card slits, packaged as a single print-vendor handoff PDF.",
     href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/188c0865-e285-488d-89e4-d117e598126c.pdf",
+  },
+  {
+    icon: BookOpen,
+    title: "Trifold Brochure",
+    description: "6-panel conference leave-behind covering all four services, our capital campaign process, and results — built for heavy-stock glossy print.",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ed339692-e8a0-497a-b410-126a3055728d.pdf",
   },
 ];
 
