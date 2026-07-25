@@ -20,24 +20,31 @@ const FRONT_IMAGE_URL =
 const LOGO_LOCKUP_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
 
+// Source front artwork is 1792x1024 (aspect 1.75), matching the 3.5x2in TRIM
+// exactly. To bleed it correctly we scale it to fully COVER the larger
+// 270x162pt bleed canvas (aspect 1.667) and center-crop the small overflow,
+// the same way CSS `background-size: cover` works, so the design runs flush
+// to every edge with no visible paper-color margin around it.
+const FRONT_IMAGE_ASPECT = 1792 / 1024;
+const FRONT_COVER_H = BLEED_H;
+const FRONT_COVER_W = FRONT_COVER_H * FRONT_IMAGE_ASPECT;
+const FRONT_COVER_X = (BLEED_W - FRONT_COVER_W) / 2;
+const FRONT_COVER_Y = 0;
+
 const styles = StyleSheet.create({
   bleedPage: {
     backgroundColor: PAPER,
-  },
-  trimBox: {
-    position: "absolute",
-    left: TRIM_X,
-    top: TRIM_Y,
-    width: TRIM_W,
-    height: TRIM_H,
   },
   cropMark: {
     position: "absolute",
     backgroundColor: "#999999",
   },
   frontImage: {
-    width: TRIM_W,
-    height: TRIM_H,
+    position: "absolute",
+    left: FRONT_COVER_X,
+    top: FRONT_COVER_Y,
+    width: FRONT_COVER_W,
+    height: FRONT_COVER_H,
   },
   backLogo: {
     position: "absolute",
@@ -127,9 +134,7 @@ function CropMarks() {
 function FrontPage({ includeCropMarks }: { includeCropMarks: boolean }) {
   return (
     <Page size={[BLEED_W, BLEED_H]} style={styles.bleedPage}>
-      <View style={styles.trimBox}>
-        <Image src={FRONT_IMAGE_URL} style={styles.frontImage} />
-      </View>
+      <Image src={FRONT_IMAGE_URL} style={styles.frontImage} />
       {includeCropMarks && <CropMarks />}
     </Page>
   );
