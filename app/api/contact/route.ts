@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LEAD_EMAILS } from "@/lib/constants";
 
+const HUBSPOT_NOTES_BASE = "https://api.hubapi.com/crm/v3/objects/notes";
+const NOTE_TO_CONTACT_ASSOCIATION_TYPE_ID = 202;
+
 // Splits a full name into first/last for HubSpot's contact schema.
 function splitName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
@@ -76,6 +79,67 @@ async function sendEmailNotification(fields: {
   return { sent: true };
 }
 
+function buildNoteBody(fields: {
+  name: string;
+  title: string;
+  org: string;
+  email: string;
+  phone: string;
+  service: string;
+  message: string;
+}) {
+  const lines = ["Contact Form Submission", "", `Name: ${fields.name}${fields.title ? `, ${fields.title}` : ""}`];
+  if (fields.org) lines.push(`Organization: ${fields.org}`);
+  lines.push(`Email: ${fields.email}`);
+  if (fields.phone) lines.push(`Phone: ${fields.phone}`);
+  lines.push(`Service interested in: ${fields.service || "Not specified"}`, "", "Message:", fields.message);
+  return lines.join("\n");
+}
+
+async function createSubmissionNote({
+  token,
+  contactId,
+  noteBody,
+}: {
+  token: string;
+  contactId: string;
+  noteBody: string;
+}) {
+  try {
+    const res = await fetch(HUBSPOT_NOTES_BASE, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        properties: {
+          hs_timestamp: new Date().toISOString(),
+          hs_note_body: noteBody,
+        },
+        associations: [
+          {
+            to: { id: contactId },
+            types: [
+              {
+                associationCategory: "HUBSPOT_DEFINED",
+                associationTypeId: NOTE_TO_CONTACT_ASSOCIATION_TYPE_ID,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const body = await res.text();
+      console.error("HubSpot note creation error:", res.status, body);
+    }
+  } catch (err) {
+    // Never let a note-logging failure break the actual contact create/update.
+    console.error("HubSpot note creation threw:", err);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { name, title, org, email, phone, service, message } = await req.json();
@@ -117,7 +181,15 @@ export async function POST(req: NextRequest) {
     }
 
     const { firstname, lastname } = splitName(name);
-    const noteBody = `Service interested in: ${service || "Not specified"}\n\n${message}`;
+    const noteBody = buildNoteBody({
+      name,
+      title: title || "",
+      org: org || "",
+      email,
+      phone: phone || "",
+      service: service || "",
+      message,
+    });
 
     const hubspotRes = await fetch(
       "https://api.hubapi.com/crm/v3/objects/contacts",
@@ -172,6 +244,7 @@ export async function POST(req: NextRequest) {
           );
 
           if (updateRes.ok) {
+            await createSubmissionNote({ token, contactId: existingId, noteBody });
             return NextResponse.json({ ok: true, emailSent: true, hubspotSynced: true, updated: true });
           }
         }
@@ -183,6 +256,9 @@ export async function POST(req: NextRequest) {
         { status: 200 }
       );
     }
+
+    const created = await hubspotRes.json();
+    await createSubmissionNote({ token, contactId: created.id, noteBody });
 
     return NextResponse.json({ ok: true, emailSent: true, hubspotSynced: true });
   } catch (err) {
