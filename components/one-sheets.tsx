@@ -54,13 +54,13 @@ const SHEETS: Sheet[] = [
     icon: FolderOpen,
     title: "Presentation Folder",
     description: "Print-ready two-pocket presentation folder — front, back, and interior spread with business card slits, packaged as a single print-vendor handoff PDF.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/188c0865-e285-488d-89e4-d117e598126c.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/65b2e7da-f119-43dd-89a6-bbc6084ea890.pdf",
   },
   {
     icon: BookOpen,
     title: "Trifold Brochure",
     description: "6-panel conference leave-behind covering all four services, our capital campaign process, and results — built for heavy-stock glossy print.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ed339692-e8a0-497a-b410-126a3055728d.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/eb45ccc8-2fbb-4885-ade4-90b467adc406.pdf",
   },
 ];
 
