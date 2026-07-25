@@ -1,4 +1,4 @@
-import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target } from "lucide-react";
+import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen } from "lucide-react";
 
 interface Sheet {
   icon: React.ComponentType<{ className?: string }>;
@@ -49,6 +49,12 @@ const SHEETS: Sheet[] = [
     title: "Frequently Asked Questions",
     description: "Answers to the questions we hear most from boards and staff.",
     href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/668503da-58eb-42ff-9869-7554ecad759a.pdf",
+  },
+  {
+    icon: FolderOpen,
+    title: "Presentation Folder",
+    description: "Print-ready two-pocket presentation folder — front, back, and interior spread with business card slits, packaged as a single print-vendor handoff PDF.",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/188c0865-e285-488d-89e4-d117e598126c.pdf",
   },
 ];
 
