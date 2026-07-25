@@ -68,6 +68,16 @@ const FAQS = [
     answer:
       "It follows a seven-step journey: prospect identification, donor list review, a pre-call letter, qualification calls from a trained Stewardship Officer, referral to a Gift Planning Specialist, confirmation and reporting, and a warm hand-off to the organization's internal planned giving team.",
   },
+  {
+    question: "Who is a good prospect for Legacy Call?",
+    answer:
+      "The best Legacy Call prospects are an organization's most loyal, longest-tenured donors, often those who have given consistently for 10 or more years but at modest annual levels. Their loyalty frequently signals capacity for a much larger deferred gift than their giving history alone would suggest.",
+  },
+  {
+    question: "How is Legacy Call different from a traditional planned giving newsletter or mailing?",
+    answer:
+      "Unlike a static newsletter or mailing, Legacy Call is a live, two-tier phone-based methodology: trained Stewardship Officers have real qualifying conversations with donors, and qualified leads are handed to a Gift Planning Specialist for a genuine planned-giving conversation, not just information delivery.",
+  },
 ];
 
 const jsonLd = {

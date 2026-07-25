@@ -76,6 +76,16 @@ const FAQS = [
     answer:
       "Clients typically see 20-30% average gift growth at renewal and up to a 100% increase in meaningful donor engagement compared to mail-only outreach, while building a qualified pipeline of future major gift prospects.",
   },
+  {
+    question: "How is Donor Engagement different from assigning a major gift officer?",
+    answer:
+      "A major gift officer typically manages a portfolio of already-identified major donors. Catapult's Donor Engagement program works one tier below that, identifying and cultivating mid-level donors who aren't yet qualified for major gift portfolios, so your major gift team receives a pipeline of warmed, qualified prospects.",
+  },
+  {
+    question: "How much does the Donor Engagement program cost?",
+    answer:
+      "Pricing depends on the size of the donor segment engaged, the number of Engagement Officer touchpoints, and program length. Catapult builds a customized proposal after reviewing your donor file and goals.",
+  },
 ];
 
 const jsonLd = {

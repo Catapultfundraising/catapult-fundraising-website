@@ -76,6 +76,16 @@ const FAQS = [
     answer:
       "Campaign Planning is the second phase of a Catapult capital campaign, typically lasting 3-6 months. It includes prospect data prioritization, drafting and finalizing campaign materials and collateral, and recruiting and training the Campaign Committee, among other preparation tasks, before the quiet phase begins.",
   },
+  {
+    question: "What is the difference between a capital campaign and an annual fund?",
+    answer:
+      "A capital campaign is a time-bound effort to raise a specific dollar goal for a building project, endowment, or major program, typically running several years through feasibility, quiet, and public phases. An annual fund is an ongoing yearly appeal to unrestricted operating support. Many organizations run both simultaneously, and Catapult coordinates the two so they reinforce rather than compete with each other.",
+  },
+  {
+    question: "How much does it cost to hire a capital campaign consultant?",
+    answer:
+      "Capital campaign consulting fees vary based on campaign goal, timeline, and scope of services, from feasibility study alone through full quiet-phase and public-phase management. Catapult provides a customized proposal after an initial conversation about your organization's goals and readiness.",
+  },
 ];
 
 const jsonLd = {

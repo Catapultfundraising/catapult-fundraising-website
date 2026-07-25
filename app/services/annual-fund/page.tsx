@@ -74,6 +74,16 @@ const FAQS = [
     answer:
       "Thank-you letters are sent within 24–48 hours of contact, and fulfillment services help maximize collection of pledged dollars.",
   },
+  {
+    question: "How is AF Connect different from a traditional phonathon?",
+    answer:
+      "A traditional phonathon prioritizes call volume and a fixed script. AF Connect trains Engagement Officers on your specific mission and case, personalizes ask amounts from five-year giving history, and layers in digital stewardship (text, email, ringless voicemail, social) at no additional fee, treating every donor like a future major gift prospect.",
+  },
+  {
+    question: "What size organization is AF Connect right for?",
+    answer:
+      "AF Connect scales to organizations of many sizes, from a few hundred to tens of thousands of annual fund donors. The program design, segmentation, and calling attempts are adjusted to fit your database size and budget.",
+  },
 ];
 
 const jsonLd = {
