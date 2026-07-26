@@ -62,6 +62,21 @@ const nextConfig = {
         destination: "/",
         permanent: true,
       },
+      {
+        source: "/services",
+        destination: "/services/capital-campaign",
+        permanent: true,
+      },
+      {
+        source: "/mission-and-vision",
+        destination: "/",
+        permanent: true,
+      },
+      {
+        source: "/newsandevents",
+        destination: "/insights",
+        permanent: true,
+      },
     ];
   },
 };
