@@ -82,6 +82,11 @@ const nextConfig = {
         destination: "/contact",
         permanent: true,
       },
+      {
+        source: "/copy-of-services",
+        destination: "/services/capital-campaign",
+        permanent: true,
+      },
     ];
   },
 };
