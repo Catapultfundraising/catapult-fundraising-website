@@ -92,6 +92,11 @@ const nextConfig = {
         destination: "/services/capital-campaign",
         permanent: true,
       },
+      {
+        source: "/apply-for-job",
+        destination: "/apply",
+        permanent: true,
+      },
     ];
   },
 };
