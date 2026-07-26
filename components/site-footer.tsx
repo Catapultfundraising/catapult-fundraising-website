@@ -84,6 +84,7 @@ export function SiteFooter() {
             <li><Link href="/insights" className="hover:text-[rgb(var(--paper))]">Insights</Link></li>
             <li><Link href="/cookie-policy" className="hover:text-[rgb(var(--paper))]">Cookie Policy</Link></li>
             <li><Link href="/data-privacy" className="hover:text-[rgb(var(--paper))]">Data Privacy</Link></li>
+            <li><Link href="/data-privacy#addendum-3" className="hover:text-[rgb(var(--paper))]">Privacy Policy</Link></li>
             <li><Link href="/sms-terms" className="hover:text-[rgb(var(--paper))]">SMS Terms</Link></li>
           </ul>
           <p className="text-xs text-[rgb(var(--paper))]/50">

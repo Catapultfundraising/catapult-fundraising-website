@@ -385,6 +385,174 @@ export default function DataPrivacyPage() {
               the client.
             </p>
           </div>
+
+          <div id="addendum-3">
+            <h2 className="font-display text-2xl">Addendum 3: Privacy Policy (Updated)</h2>
+            <p className="text-sm text-[rgb(var(--ink))]/60">Last Updated: June 23, 2026</p>
+            <p>
+              Catapult Fundraising ("we," "our," or "us") is committed to protecting your
+              privacy. This Privacy Policy explains how we collect, use, disclose, and safeguard
+              your information when you visit our website Catapultfr.com. Please read this
+              Privacy Policy carefully. If you do not agree with the terms, please do not access
+              the site.
+            </p>
+
+            <h3 className="font-display text-xl">1. Information We Collect</h3>
+            <p>
+              We may collect information about you in a variety of ways. The information we may
+              collect includes:
+            </p>
+            <p>
+              <strong>Personal Data.</strong> Name, email address, phone number, mailing address,
+              and other information you voluntarily provide through forms, subscriptions, or
+              service requests.
+            </p>
+            <p>
+              <strong>Derivative Data.</strong> IP address, browser type, operating system,
+              access times, and pages viewed.
+            </p>
+            <p>
+              <strong>Financial Data.</strong> Payment information processed through third-party
+              payment processors.
+            </p>
+            <p>
+              <strong>Mobile Device Data.</strong> Device identifiers, model, and location data
+              if enabled.
+            </p>
+            <p>
+              <strong>SMS Messaging Data.</strong> If you opt in to SMS messaging, we collect your
+              mobile phone number, your SMS opt-in and consent records, records of SMS messages
+              sent and received, and information you voluntarily provide via SMS.
+            </p>
+
+            <h3 className="font-display text-xl">2. How We Use Your Information</h3>
+            <p>We use your information to:</p>
+            <ul className="list-disc space-y-2 pl-6">
+              <li>Provide and manage services</li>
+              <li>Respond to inquiries and support requests</li>
+              <li>Process transactions</li>
+              <li>Improve website performance</li>
+              <li>Send updates and communications</li>
+              <li>Prevent fraud and maintain security</li>
+              <li>Send SMS/text messages when you have provided consent</li>
+            </ul>
+            <p>
+              SMS messages may include appointment reminders, scheduling updates, service
+              communications, and other messages you have agreed to receive.
+            </p>
+
+            <h3 className="font-display text-xl">3. Disclosure of Your Information</h3>
+            <p>We may share information in the following limited situations:</p>
+            <p>
+              <strong>Service Providers (Strictly Limited Use).</strong> We may share information
+              with third-party vendors who provide services on our behalf, such as SMS message
+              delivery platforms, customer support systems, email services, hosting and analytics
+              providers, and payment processors. These vendors may only access data as needed to
+              perform contracted services on our behalf and are strictly prohibited from using
+              the data for their own purposes, including marketing or analytics unrelated to
+              service delivery.
+            </p>
+            <p>
+              <strong>Legal Requirements.</strong> We may disclose information if required by law
+              or to protect legal rights.
+            </p>
+            <p>
+              <strong>Business Transfers.</strong> If we undergo a merger, acquisition, or sale of
+              assets, your information may be transferred. Any receiving entity will be required
+              to honor this Privacy Policy.
+            </p>
+            <p>
+              <strong>Affiliates.</strong> We may share information with affiliated companies
+              under common ownership or control only as necessary to operate our business and
+              subject to this Privacy Policy.
+            </p>
+            <p>
+              <strong>Marketing Communications.</strong> With your consent, we may send you
+              marketing communications. We do not sell personal data.
+            </p>
+
+            <h3 className="font-display text-xl">4. SMS Messaging Privacy (Strict Compliance Section)</h3>
+            <p>
+              If you opt in to receive SMS/text messages from Catapult Fundraising, the following
+              applies:
+            </p>
+            <p>
+              <strong>SMS Data We Collect.</strong> We collect and maintain your mobile phone
+              number, SMS opt-in and consent records, SMS message history, and information
+              provided via SMS.
+            </p>
+            <p>
+              <strong>How We Use SMS Data.</strong> We use SMS-related data only to send
+              appointment reminders and updates, provide customer support, communicate regarding
+              services or events, and deliver messages you explicitly consented to receive.
+            </p>
+            <p>
+              <strong>Strict No-Sharing / No-Transfer Policy.</strong> We do not sell, rent,
+              share, transfer, or disclose consumer SMS/mobile data, opt-in data, or consent
+              records to any external organization for marketing, promotional, or unrelated
+              purposes. SMS opt-in data and consent records are never used for external
+              marketing or shared for third-party benefit.
+            </p>
+            <p>
+              <strong>Permitted Vendor Access (Strictly Controlled).</strong> We may allow limited
+              access to SMS-related data only to vendors that are contractually required to
+              support SMS delivery (such as messaging platforms and carriers). Such vendors may
+              only use data to provide contracted SMS delivery or technical support, are strictly
+              prohibited from using data for their own marketing or independent purposes, and
+              must comply with confidentiality and data protection obligations.
+            </p>
+            <p>
+              <strong>Administrative, Technical, and Organizational Safeguards.</strong> We
+              maintain reasonable safeguards to protect SMS and mobile data, including:
+            </p>
+            <ul className="list-disc space-y-2 pl-6">
+              <li><strong>Access controls:</strong> Only authorized personnel may access SMS-related data.</li>
+              <li><strong>Staff authorization limits:</strong> Access is restricted based on job responsibility and necessity.</li>
+              <li><strong>Vendor-use restrictions:</strong> Vendors are contractually limited to service delivery only and cannot repurpose data.</li>
+              <li><strong>Internal monitoring practices:</strong> We limit and monitor access to sensitive communication data to prevent unauthorized use or disclosure.</li>
+            </ul>
+            <p>
+              <strong>Opt-Out.</strong> You may opt out at any time by replying STOP to any SMS
+              message. You may receive one final confirmation message after opting out. For help,
+              reply HELP or contact{" "}
+              <a href={`mailto:${FIRM_EMAIL}`} className="underline underline-offset-2">
+                {FIRM_EMAIL}
+              </a>{" "}
+              or 702-508-0101. Message and data rates may apply.
+            </p>
+
+            <h3 className="font-display text-xl">5. Security of Your Information</h3>
+            <p>
+              We use administrative, technical, and physical safeguards to protect your
+              information. While we take reasonable steps to secure data, no system is completely
+              secure.
+            </p>
+
+            <h3 className="font-display text-xl">6. Children's Privacy</h3>
+            <p>We do not knowingly collect information from children under 13.</p>
+
+            <h3 className="font-display text-xl">7. Changes to This Privacy Policy</h3>
+            <p>
+              We may update this Privacy Policy from time to time. Updates will be posted with a
+              revised "Last Updated" date.
+            </p>
+
+            <h3 className="font-display text-xl">8. Contact Us</h3>
+            <p>
+              Catapult Fundraising
+              <br />
+              2551 N Green Valley Pkwy, Suite 202B
+              <br />
+              Henderson, NV 89014
+              <br />
+              Email:{" "}
+              <a href={`mailto:${FIRM_EMAIL}`} className="underline underline-offset-2">
+                {FIRM_EMAIL}
+              </a>
+              <br />
+              Phone: 702-508-0101
+            </p>
+          </div>
         </div>
       </section>
     </>
