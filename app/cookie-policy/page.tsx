@@ -43,13 +43,26 @@ export default function CookiePolicyPage() {
                 always active and cannot be switched off.
               </li>
               <li>
-                <strong>Analytics cookies (HubSpot)</strong> are set only if you choose
-                "Accept All" in our cookie banner. HubSpot's tracking script records
-                pages visited, time on site, referral source, and return visits so we
-                can understand how prospective clients find and use our site, and so
-                we can follow up appropriately with visitors who submit our contact
-                or assessment forms. HubSpot cookies may include <code>hubspotutk</code>,{" "}
-                <code>__hstc</code>, and <code>__hssc</code>.
+                <strong>Analytics &amp; conversion-tracking cookies</strong> are set only
+                if you choose "Accept All" in our cookie banner:
+                <ul className="mt-2 list-disc space-y-2 pl-6">
+                  <li>
+                    <strong>HubSpot</strong> records pages visited, time on site, referral
+                    source, and return visits so we can understand how prospective
+                    clients find and use our site, and follow up appropriately with
+                    visitors who submit our contact or assessment forms. Cookies may
+                    include <code>hubspotutk</code>, <code>__hstc</code>, and{" "}
+                    <code>__hssc</code>.
+                  </li>
+                  <li>
+                    <strong>LinkedIn Insight Tag</strong> helps us understand traffic
+                    from LinkedIn and measure the effectiveness of any LinkedIn content
+                    or advertising, in aggregate and anonymized form. Cookies may
+                    include <code>bcookie</code>, <code>li_sugr</code>,{" "}
+                    <code>UserMatchHistory</code>, <code>AnalyticsSyncHistory</code>, and{" "}
+                    <code>lidc</code>.
+                  </li>
+                </ul>
               </li>
             </ul>
           </div>
@@ -57,10 +70,11 @@ export default function CookiePolicyPage() {
           <div>
             <h2 className="font-display text-2xl">What we don't do</h2>
             <p>
-              We do not use third-party advertising or retargeting cookies, and we do
-              not sell visitor data. Information submitted through our contact or
-              prospect assessment forms is used only to respond to your inquiry and
-              is stored in our HubSpot CRM.
+              We do not use third-party display advertising or retargeting cookies
+              beyond LinkedIn's Insight Tag, and we do not sell visitor data.
+              Information submitted through our contact or prospect assessment forms
+              is used only to respond to your inquiry and is stored in our HubSpot
+              CRM.
             </p>
           </div>
 

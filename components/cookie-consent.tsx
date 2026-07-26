@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
-import { HUBSPOT_PORTAL_ID } from "@/lib/constants";
+import { HUBSPOT_PORTAL_ID, LINKEDIN_PARTNER_ID } from "@/lib/constants";
 
 const CONSENT_KEY = "catapult_cookie_consent";
 
@@ -31,11 +31,41 @@ export function CookieConsent() {
   return (
     <>
       {consent === "accepted" && (
-        <Script
-          id="hs-script-loader"
-          strategy="afterInteractive"
-          src={`https://js.hs-scripts.com/${HUBSPOT_PORTAL_ID}.js`}
-        />
+        <>
+          <Script
+            id="hs-script-loader"
+            strategy="afterInteractive"
+            src={`https://js.hs-scripts.com/${HUBSPOT_PORTAL_ID}.js`}
+          />
+          <Script id="li-insight-tag" strategy="afterInteractive">
+            {`
+              _linkedin_partner_id = "${LINKEDIN_PARTNER_ID}";
+              window._linkedin_data_partner_ids = window._linkedin_data_partner_ids || [];
+              window._linkedin_data_partner_ids.push(_linkedin_partner_id);
+              (function(l) {
+                if (!l) {
+                  window.lintrk = function(a, b) { window.lintrk.q.push([a, b]) };
+                  window.lintrk.q = [];
+                }
+                var s = document.getElementsByTagName("script")[0];
+                var b = document.createElement("script");
+                b.type = "text/javascript"; b.async = true;
+                b.src = "https://snap.licdn.com/li.lms-analytics/insight.min.js";
+                s.parentNode.insertBefore(b, s);
+              })(window.lintrk);
+            `}
+          </Script>
+          <noscript>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              height="1"
+              width="1"
+              style={{ display: "none" }}
+              alt=""
+              src={`https://px.ads.linkedin.com/collect/?pid=${LINKEDIN_PARTNER_ID}&fmt=gif`}
+            />
+          </noscript>
+        </>
       )}
 
       {visible && (
@@ -48,8 +78,8 @@ export function CookieConsent() {
           <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-sm leading-relaxed text-[rgb(var(--paper))]/80">
               We use cookies to understand site traffic and improve your experience.
-              Essential cookies keep the site running; analytics cookies (via HubSpot)
-              are only set if you accept. See our{" "}
+              Essential cookies keep the site running; analytics and LinkedIn
+              conversion-tracking cookies are only set if you accept. See our{" "}
               <Link
                 href="/cookie-policy"
                 className="underline underline-offset-2 hover:text-[rgb(var(--brass-light))]"

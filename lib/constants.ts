@@ -31,3 +31,6 @@ export const LEAD_EMAILS = ["anthonya@catapultfr.com", "jeffg@catapultfr.com"];
 // HubSpot tracking script portal ID. Loaded only after a visitor accepts
 // analytics cookies via the CookieConsent banner (see components/cookie-consent.tsx).
 export const HUBSPOT_PORTAL_ID = "3043836";
+
+// LinkedIn Insight Tag partner ID. Also gated behind cookie consent.
+export const LINKEDIN_PARTNER_ID = "9688940";
