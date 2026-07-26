@@ -14,7 +14,7 @@ const FIELD_CLASS =
 const CTA_BUTTON_CLASS =
   "group inline-flex items-center justify-center gap-2 rounded-full bg-[rgb(var(--brass))] px-8 py-6 text-base font-bold uppercase tracking-wide text-[rgb(var(--navy-deep))] shadow-lg shadow-[rgb(var(--brass))]/20 transition-transform hover:scale-[1.02] hover:bg-[rgb(var(--brass-light))]";
 
-const SUPPORT_EMAIL = "info@catapultfr.com";
+const SUPPORT_EMAIL = "recruiter@catapultfr.com";
 
 export function JobApplicationForm() {
   const [submitted, setSubmitted] = useState(false);
