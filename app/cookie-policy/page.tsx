@@ -47,6 +47,12 @@ export default function CookiePolicyPage() {
                 if you choose "Accept All" in our cookie banner:
                 <ul className="mt-2 list-disc space-y-2 pl-6">
                   <li>
+                    <strong>Google Analytics (GA4)</strong> records pages visited, session
+                    duration, traffic source, and general device/location information so
+                    we can understand how visitors find and use our site. Cookies may
+                    include <code>_ga</code>, <code>_ga_*</code>, and <code>_gid</code>.
+                  </li>
+                  <li>
                     <strong>HubSpot</strong> records pages visited, time on site, referral
                     source, and return visits so we can understand how prospective
                     clients find and use our site, and follow up appropriately with

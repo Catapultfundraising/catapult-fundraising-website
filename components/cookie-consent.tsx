@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
-import { HUBSPOT_PORTAL_ID, LINKEDIN_PARTNER_ID } from "@/lib/constants";
+import { HUBSPOT_PORTAL_ID, LINKEDIN_PARTNER_ID, GA4_MEASUREMENT_ID } from "@/lib/constants";
 
 const CONSENT_KEY = "catapult_cookie_consent";
 
@@ -32,6 +32,19 @@ export function CookieConsent() {
     <>
       {consent === "accepted" && (
         <>
+          <Script
+            id="ga4-loader"
+            strategy="afterInteractive"
+            src={`https://www.googletagmanager.com/gtag/js?id=${GA4_MEASUREMENT_ID}`}
+          />
+          <Script id="ga4-init" strategy="afterInteractive">
+            {`
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GA4_MEASUREMENT_ID}');
+            `}
+          </Script>
           <Script
             id="hs-script-loader"
             strategy="afterInteractive"
@@ -78,8 +91,8 @@ export function CookieConsent() {
           <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-sm leading-relaxed text-[rgb(var(--paper))]/80">
               We use cookies to understand site traffic and improve your experience.
-              Essential cookies keep the site running; analytics and LinkedIn
-              conversion-tracking cookies are only set if you accept. See our{" "}
+              Essential cookies keep the site running; Google Analytics, HubSpot,
+              and LinkedIn tracking cookies are only set if you accept. See our{" "}
               <Link
                 href="/cookie-policy"
                 className="underline underline-offset-2 hover:text-[rgb(var(--brass-light))]"

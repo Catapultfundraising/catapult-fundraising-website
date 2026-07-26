@@ -34,3 +34,6 @@ export const HUBSPOT_PORTAL_ID = "3043836";
 
 // LinkedIn Insight Tag partner ID. Also gated behind cookie consent.
 export const LINKEDIN_PARTNER_ID = "9688940";
+
+// Google Analytics 4 Measurement ID. Also gated behind cookie consent.
+export const GA4_MEASUREMENT_ID = "G-E2KGR5T6R1";
