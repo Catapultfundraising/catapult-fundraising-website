@@ -15,11 +15,19 @@ export function SiteFooter() {
             height={760}
             className="h-64 w-auto"
           />
-          <p className="mt-4 max-w-sm text-sm leading-relaxed text-[rgb(var(--paper))]/70">
-            Full-service capital campaign counsel and donor engagement programs
-            for nonprofits ready to catapult their giving to the next level,
-            from feasibility study through the final pledge.
-          </p>
+          <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+            <p className="max-w-sm text-sm leading-relaxed text-[rgb(var(--paper))]/70">
+              Full-service capital campaign counsel and donor engagement programs
+              for nonprofits ready to catapult their giving to the next level,
+              from feasibility study through the final pledge.
+            </p>
+            <Link
+              href="/apply"
+              className="group inline-flex shrink-0 items-center gap-2 self-start rounded-full bg-[rgb(var(--brass))] px-6 py-3 text-sm font-semibold text-[rgb(var(--navy-deep))] transition-transform hover:scale-[1.02] hover:bg-[rgb(var(--brass-light))]"
+            >
+              Apply for a Job
+            </Link>
+          </div>
         </div>
 
         <div>
