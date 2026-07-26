@@ -18,7 +18,7 @@ export default function DataPrivacyPage() {
         description="How Catapult Fundraising, Inc. collects, uses, and protects the personal information you provide on catapultfr.com."
       />
       <section className="mx-auto max-w-3xl px-6 py-16 lg:px-10">
-        <div className="prose prose-neutral max-w-none space-y-8 text-[rgb(var(--ink))]">
+        <div className="prose prose-neutral max-w-none space-y-10 text-[rgb(var(--ink))] [&_h2]:mt-10 [&_h3]:mt-6 [&_p]:mt-4 [&_p:first-child]:mt-0 [&_ul]:mt-3 [&_li]:mt-2">
           <p className="text-sm text-[rgb(var(--ink))]/60">Effective Date: January 2016 (Updated 2025)</p>
 
           <p>
