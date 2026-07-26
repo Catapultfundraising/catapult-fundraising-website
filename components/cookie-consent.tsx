@@ -91,15 +91,15 @@ export function CookieConsent() {
           <div className="mx-auto flex max-w-7xl flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <p className="max-w-2xl text-sm leading-relaxed text-[rgb(var(--paper))]/80">
               We use cookies to understand site traffic and improve your experience.
-              Essential cookies keep the site running; Google Analytics, HubSpot,
-              and LinkedIn tracking cookies are only set if you accept. See our{" "}
+              Essential cookies keep the site running; other cookies are only set if
+              you accept. See our{" "}
               <Link
                 href="/cookie-policy"
                 className="underline underline-offset-2 hover:text-[rgb(var(--brass-light))]"
               >
                 Cookie Policy
               </Link>{" "}
-              for details.
+              for details on what we track.
             </p>
             <div className="flex shrink-0 gap-3">
               <button
