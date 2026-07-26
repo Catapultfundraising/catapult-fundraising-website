@@ -2,7 +2,9 @@ import type { Metadata } from "next";
 import { PageHero } from "@/components/page-hero";
 import { JobApplicationForm } from "@/components/job-application-form";
 import { Phone, Mail } from "lucide-react";
-import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL } from "@/lib/constants";
+import { FIRM_PHONE, FIRM_PHONE_HREF } from "@/lib/constants";
+
+const RECRUITER_EMAIL = "recruiter@catapultfr.com";
 
 export const metadata: Metadata = {
   title: "Apply for a Job",
@@ -62,8 +64,8 @@ export default function ApplyPage() {
               </p>
               <p className="flex items-center gap-2 text-sm text-[rgb(var(--ink))]/70">
                 <Mail className="h-4 w-4 text-[rgb(var(--brass))]" />
-                <a href={`mailto:${FIRM_EMAIL}`} className="hover:text-[rgb(var(--navy))]">
-                  {FIRM_EMAIL}
+                <a href={`mailto:${RECRUITER_EMAIL}`} className="hover:text-[rgb(var(--navy))]">
+                  {RECRUITER_EMAIL}
                 </a>
               </p>
             </div>
