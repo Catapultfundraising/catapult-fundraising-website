@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { LEAD_EMAILS } from "@/lib/constants";
 
-// Job application notifications go to both the general inbox and recruiting.
-const APPLY_EMAILS = ["info@catapultfr.com", "recruiter@catapultfr.com"];
+// TEMPORARY: Resend's sandbox sender (onboarding@resend.dev) can only deliver
+// to the single email address the Resend account was signed up with. Sending
+// to info@catapultfr.com and recruiter@catapultfr.com together causes a 403
+// from Resend and the whole request fails. Once mail.catapultfr.com is
+// verified as a custom sending domain in Resend, switch this back to
+// ["info@catapultfr.com", "recruiter@catapultfr.com"] and update the "from"
+// address below to use the verified domain.
+const APPLY_EMAILS = [LEAD_EMAILS[0]];
 
 const MAX_RESUME_SIZE = 8 * 1024 * 1024; // 8MB
 
@@ -72,11 +79,6 @@ export async function POST(req: NextRequest) {
       </table>
     `;
 
-    // NOTE: Resend's sandbox sender (onboarding@resend.dev) can only deliver to
-    // the email address the Resend account was signed up with. Delivering to
-    // both info@catapultfr.com and recruiter@catapultfr.com reliably requires
-    // verifying a custom sending domain at resend.com/domains. If applications
-    // stop arriving at one address, check the Resend dashboard logs first.
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
