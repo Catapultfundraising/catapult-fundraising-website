@@ -31,12 +31,6 @@ const LEADERSHIP = [
     bio: "Sharice brings more than 25 years of finance and operations leadership to Catapult. She spent six years as Managing Director of Henderson International School and two years as President of the International Academy of Design and Technology, an $8 million division within a $1.7 billion institution. She began her career as an Assistant Controller at Jones Lang LaSalle. As Catapult's CFO, Sharice keeps the firm's finances sound and stable.",
   },
   {
-    name: "Penelope Santos",
-    role: "Marketing Director",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8bd8da40-8ff2-47d6-9296-769ac120f0e3.png",
-    bio: "Penelope leads the story Catapult tells about itself, and about every client campaign it touches. With a background spanning nonprofit communications and brand strategy, she's built Catapult's digital presence from the ground up: sharpening the firm's messaging, growing its visibility across web and social, and making sure every prospective client understands the difference between hiring a vendor and partnering with a firm that stays for the whole campaign. Penelope believes marketing for a fundraising firm should work exactly like the best fundraising does: rooted in trust, clear about outcomes, and built for the long relationship, not the one-time pitch.",
-  },
-  {
     name: "Maria Healy",
     role: "Senior Vice President",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8b83e147-d7d5-483e-91a3-1f4ae4c72d95.png",
@@ -83,6 +77,12 @@ const LEADERSHIP = [
     role: "Client Coordinator",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d11bc880-1ca9-4abc-bb4e-39af2b01e888.png",
     bio: "For over three years, Jackie led major gift research for Catapult's campaign services team, shaping the prospect intelligence behind every feasibility study and quiet-phase strategy. She's since brought that same precision to campaign accounts, pairing a background in real estate with a genuine talent for finding the smartest technology to help a mission move forward.",
+  },
+  {
+    name: "Penelope Santos",
+    role: "Marketing Director",
+    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8bd8da40-8ff2-47d6-9296-769ac120f0e3.png",
+    bio: "Penelope leads the story Catapult tells about itself and about every client campaign it touches. She's built the firm's digital presence and messaging from the ground up, helping prospects see the difference between hiring a vendor and a firm that stays for the whole campaign. For Penelope, marketing should work like great fundraising does: rooted in trust, built for the long relationship.",
   },
   {
     name: "David Beasley, PhD",
