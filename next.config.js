@@ -87,6 +87,11 @@ const nextConfig = {
         destination: "/services/capital-campaign",
         permanent: true,
       },
+      {
+        source: "/campaignconnect",
+        destination: "/services/capital-campaign",
+        permanent: true,
+      },
     ];
   },
 };
