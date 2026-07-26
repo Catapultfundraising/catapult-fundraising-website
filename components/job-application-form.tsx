@@ -187,7 +187,7 @@ export function JobApplicationForm() {
             onChange={(e) => setResume(e.target.files?.[0] ?? null)}
             className={cn(
               FIELD_CLASS,
-              "cursor-pointer file:mr-4 file:rounded-full file:border-0 file:bg-[rgb(var(--brass))] file:px-4 file:py-2 file:text-sm file:font-semibold file:text-[rgb(var(--navy-deep))] file:transition hover:file:bg-[rgb(var(--brass-light))]"
+              "h-auto min-h-[3.5rem] items-center py-3 leading-normal file:mr-4 file:rounded-full file:border-0 file:bg-[rgb(var(--brass))] file:px-4 file:py-2 file:text-sm file:font-semibold file:leading-normal file:text-[rgb(var(--navy-deep))] file:transition hover:file:bg-[rgb(var(--brass-light))]"
             )}
           />
           {resume && (
