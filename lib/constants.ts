@@ -27,3 +27,7 @@ export const FIRM_ADDRESS_LINES = [
 
 // Where new website leads (contact form submissions) are routed.
 export const LEAD_EMAILS = ["anthonya@catapultfr.com", "jeffg@catapultfr.com"];
+
+// HubSpot tracking script portal ID. Loaded only after a visitor accepts
+// analytics cookies via the CookieConsent banner (see components/cookie-consent.tsx).
+export const HUBSPOT_PORTAL_ID = "3043836";
