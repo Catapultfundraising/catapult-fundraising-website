@@ -75,10 +75,16 @@ export function SiteFooter() {
       </div>
 
       <div className="border-t border-[rgb(var(--paper))]/10 px-6 py-6 lg:px-10">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-xs text-[rgb(var(--paper))]/50">
             &copy; {new Date().getFullYear()} Catapult Fundraising. All rights reserved.
           </p>
+          <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[rgb(var(--paper))]/50">
+            <li><Link href="/services/capital-campaign" className="hover:text-[rgb(var(--paper))]">Services</Link></li>
+            <li><Link href="/insights" className="hover:text-[rgb(var(--paper))]">Insights</Link></li>
+            <li><Link href="/cookie-policy" className="hover:text-[rgb(var(--paper))]">Cookie Policy</Link></li>
+            <li><Link href="/data-privacy" className="hover:text-[rgb(var(--paper))]">Data Privacy</Link></li>
+          </ul>
           <p className="text-xs text-[rgb(var(--paper))]/50">
             Offices in: Nevada &middot; New Jersey &middot; Texas
           </p>
