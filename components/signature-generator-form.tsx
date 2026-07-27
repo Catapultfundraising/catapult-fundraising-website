@@ -35,6 +35,22 @@ interface SignatureData {
   tagline: string;
   linkedinUrl: string;
   facebookUrl: string;
+  meetingButtonLabel: string;
+  meetingButtonUrl: string;
+}
+
+function signatureButton(label: string, href: string) {
+  return `<td style="padding-right:8px;">
+            <a href="${href}" style="text-decoration:none;">
+              <table cellpadding="0" cellspacing="0" border="0" style="background:#B28C46;border-radius:4px;">
+                <tr>
+                  <td style="padding:6px 12px;font-family:Arial, Helvetica, sans-serif;font-size:11px;font-weight:bold;color:#15212E;letter-spacing:0.3px;">
+                    ${label}
+                  </td>
+                </tr>
+              </table>
+            </a>
+          </td>`;
 }
 
 function buildSignatureHtml(data: SignatureData) {
@@ -55,6 +71,16 @@ function buildSignatureHtml(data: SignatureData) {
         data.officePhone
       )}</a><br>`
     : "";
+
+  const buttons = [
+    data.linkedinUrl ? signatureButton("LinkedIn", data.linkedinUrl) : "",
+    data.facebookUrl ? signatureButton("Facebook", data.facebookUrl) : "",
+    data.meetingButtonLabel && data.meetingButtonUrl
+      ? signatureButton(escapeHtml(data.meetingButtonLabel), data.meetingButtonUrl)
+      : "",
+  ]
+    .filter(Boolean)
+    .join("\n          ");
 
   return `<table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;font-family:Arial, Helvetica, sans-serif;">
   <tr>
@@ -80,32 +106,15 @@ function buildSignatureHtml(data: SignatureData) {
         &nbsp;|&nbsp;
         <a href="https://catapultfr.com" style="color:#15212E;text-decoration:none;">catapultfr.com</a>
       </div>
-      <table cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;">
+      ${
+        buttons
+          ? `<table cellpadding="0" cellspacing="0" border="0" style="margin-top:12px;">
         <tr>
-          <td style="padding-right:8px;">
-            <a href="${data.linkedinUrl}" style="text-decoration:none;">
-              <table cellpadding="0" cellspacing="0" border="0" style="background:#B28C46;border-radius:4px;">
-                <tr>
-                  <td style="padding:6px 12px;font-family:Arial, Helvetica, sans-serif;font-size:11px;font-weight:bold;color:#15212E;letter-spacing:0.3px;">
-                    LinkedIn
-                  </td>
-                </tr>
-              </table>
-            </a>
-          </td>
-          <td>
-            <a href="${data.facebookUrl}" style="text-decoration:none;">
-              <table cellpadding="0" cellspacing="0" border="0" style="background:#B28C46;border-radius:4px;">
-                <tr>
-                  <td style="padding:6px 12px;font-family:Arial, Helvetica, sans-serif;font-size:11px;font-weight:bold;color:#15212E;letter-spacing:0.3px;">
-                    Facebook
-                  </td>
-                </tr>
-              </table>
-            </a>
-          </td>
+          ${buttons}
         </tr>
-      </table>
+      </table>`
+          : ""
+      }
     </td>
   </tr>
 </table>`;
@@ -120,6 +129,8 @@ export function SignatureGeneratorForm() {
   const [tagline, setTagline] = useState("Growing your donor base at every stage of the giving journey.");
   const [linkedinUrl, setLinkedinUrl] = useState("https://www.linkedin.com/company/catapult-fundraising");
   const [facebookUrl, setFacebookUrl] = useState("https://www.facebook.com/catapultfr/");
+  const [meetingButtonLabel, setMeetingButtonLabel] = useState("");
+  const [meetingButtonUrl, setMeetingButtonUrl] = useState("");
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState("");
 
@@ -132,6 +143,8 @@ export function SignatureGeneratorForm() {
     tagline,
     linkedinUrl,
     facebookUrl,
+    meetingButtonLabel,
+    meetingButtonUrl,
   });
 
   const handleCopy = async () => {
@@ -243,6 +256,28 @@ export function SignatureGeneratorForm() {
               id="facebookUrl"
               value={facebookUrl}
               onChange={(e) => setFacebookUrl(e.target.value)}
+              className={FIELD_CLASS}
+            />
+          </div>
+        </div>
+        <div className="grid gap-6 sm:grid-cols-2">
+          <div className="space-y-2">
+            <Label htmlFor="meetingButtonLabel">Scheduling button text (optional)</Label>
+            <Input
+              id="meetingButtonLabel"
+              value={meetingButtonLabel}
+              onChange={(e) => setMeetingButtonLabel(e.target.value)}
+              placeholder="Meet with Jeff"
+              className={FIELD_CLASS}
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="meetingButtonUrl">Scheduling link (optional)</Label>
+            <Input
+              id="meetingButtonUrl"
+              value={meetingButtonUrl}
+              onChange={(e) => setMeetingButtonUrl(e.target.value)}
+              placeholder="https://go.catapultfr.com/meetings/your-name?uuid=..."
               className={FIELD_CLASS}
             />
           </div>
