@@ -37,3 +37,6 @@ export const LINKEDIN_PARTNER_ID = "9688940";
 
 // Google Analytics 4 Measurement ID. Also gated behind cookie consent.
 export const GA4_MEASUREMENT_ID = "G-E2KGR5T6R1";
+
+// Leadfeeder (Dealfront) visitor identification tracker ID. Also gated behind cookie consent.
+export const LEADFEEDER_TRACKER_ID = "3P1w24d305B7mY5n";

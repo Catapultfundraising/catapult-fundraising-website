@@ -3,7 +3,12 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
-import { HUBSPOT_PORTAL_ID, LINKEDIN_PARTNER_ID, GA4_MEASUREMENT_ID } from "@/lib/constants";
+import {
+  HUBSPOT_PORTAL_ID,
+  LINKEDIN_PARTNER_ID,
+  GA4_MEASUREMENT_ID,
+  LEADFEEDER_TRACKER_ID,
+} from "@/lib/constants";
 
 const CONSENT_KEY = "catapult_cookie_consent";
 
@@ -66,6 +71,23 @@ export function CookieConsent() {
                 b.src = "https://snap.licdn.com/li.lms-analytics/insight.min.js";
                 s.parentNode.insertBefore(b, s);
               })(window.lintrk);
+            `}
+          </Script>
+          <Script id="leadfeeder-tracker" strategy="afterInteractive">
+            {`
+              (function(ss,ex){
+                window.ldfdr=window.ldfdr||function(){(ldfdr._q=ldfdr._q||[]).push([].slice.call(arguments));};
+                (function(d,s){
+                  var fs=d.getElementsByTagName(s)[0];
+                  function ce(src){
+                    var cs=d.createElement(s);
+                    cs.src=src;
+                    cs.async=1;
+                    fs.parentNode.insertBefore(cs,fs);
+                  };
+                  ce('https://sc.lfeeder.com/lftracker_v1_'+ss+(ex?'_'+ex:'')+'.js');
+                })(document,'script');
+              })('${LEADFEEDER_TRACKER_ID}');
             `}
           </Script>
           <noscript>

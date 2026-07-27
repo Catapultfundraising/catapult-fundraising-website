@@ -68,6 +68,12 @@ export default function CookiePolicyPage() {
                     <code>UserMatchHistory</code>, <code>AnalyticsSyncHistory</code>, and{" "}
                     <code>lidc</code>.
                   </li>
+                  <li>
+                    <strong>Leadfeeder</strong> identifies the companies and organizations
+                    (not individual people) visiting our site by matching visit data
+                    against IP address information, so we can understand which
+                    organizations are researching our services.
+                  </li>
                 </ul>
               </li>
             </ul>
