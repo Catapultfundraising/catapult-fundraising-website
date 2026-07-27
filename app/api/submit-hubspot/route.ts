@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import * as XLSX from "xlsx";
 import { TIER_CONFIGS, type TierData } from "@/lib/prospect-assessment";
 import { LEAD_EMAILS } from "@/lib/constants";
 
@@ -85,6 +86,66 @@ function escapeHtml(value: string) {
     .replace(/\n/g, "<br />");
 }
 
+// Builds an .xlsx workbook of the full submission: one "Summary" sheet with
+// the organization/contact fields, and one "Donor Tier Data" sheet with a
+// row per donor tier / constituent segment, mirroring the on-page tables.
+function buildSubmissionWorkbook(fields: {
+  orgName: string;
+  contactName: string;
+  title: string;
+  email: string;
+  phone: string;
+  fiscalYear: string;
+  caseForSupport: string;
+  solicitationHistory: string;
+  tierLabels: Record<string, string>;
+  tiersData: Record<string, TierData>;
+}) {
+  const workbook = XLSX.utils.book_new();
+
+  const summaryRows = [
+    ["Field", "Value"],
+    ["Organization", fields.orgName],
+    ["Contact Name", fields.contactName],
+    ["Title", fields.title || ""],
+    ["Email", fields.email],
+    ["Phone", fields.phone || ""],
+    ["Fiscal Year", fields.fiscalYear || ""],
+    ["Case for Support", fields.caseForSupport || ""],
+    ["Prior Solicitation History", fields.solicitationHistory || ""],
+    ["Submitted", new Date().toLocaleString("en-US", { timeZone: "America/Los_Angeles" })],
+  ];
+  const summarySheet = XLSX.utils.aoa_to_sheet(summaryRows);
+  summarySheet["!cols"] = [{ wch: 26 }, { wch: 70 }];
+  XLSX.utils.book_append_sheet(workbook, summarySheet, "Summary");
+
+  const tierRows: (string | number)[][] = [
+    ["Donor Tier", "Constituent Segment", "Year", "Record Count", "Average Gift"],
+  ];
+  TIER_CONFIGS.forEach((tier, index) => {
+    const label = fields.tierLabels?.[tier.id] || tier.defaultLabel || `Donor Tier ${index + 1}`;
+    const data = fields.tiersData?.[tier.id] || {};
+    tier.rows.forEach((row) => {
+      const value = data[row.key];
+      if (value?.count || value?.avgGift) {
+        tierRows.push([
+          label,
+          row.constituent,
+          row.year,
+          value?.count ? Number(value.count) : "",
+          value?.avgGift ? Number(value.avgGift) : "",
+        ]);
+      }
+    });
+  });
+  const tierSheet = XLSX.utils.aoa_to_sheet(tierRows);
+  tierSheet["!cols"] = [{ wch: 22 }, { wch: 18 }, { wch: 16 }, { wch: 14 }, { wch: 14 }];
+  XLSX.utils.book_append_sheet(workbook, tierSheet, "Donor Tier Data");
+
+  const buffer = XLSX.write(workbook, { type: "buffer", bookType: "xlsx" });
+  return buffer as Buffer;
+}
+
 async function sendEmailNotification(fields: {
   orgName: string;
   contactName: string;
@@ -95,6 +156,8 @@ async function sendEmailNotification(fields: {
   caseForSupport: string;
   solicitationHistory: string;
   tierSummary: string;
+  tierLabels: Record<string, string>;
+  tiersData: Record<string, TierData>;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
@@ -115,7 +178,22 @@ async function sendEmailNotification(fields: {
       <tr><td><strong>Prior Solicitation History</strong></td><td>${escapeHtml(fields.solicitationHistory || "")}</td></tr>
       <tr><td><strong>Donor Tier Data</strong></td><td>${escapeHtml(fields.tierSummary || "")}</td></tr>
     </table>
+    <p style="margin-top:16px;">A full Excel workbook of this submission (summary + donor tier data) is attached.</p>
   `;
+
+  let attachments: { filename: string; content: string }[] = [];
+  try {
+    const workbookBuffer = buildSubmissionWorkbook(fields);
+    const safeOrgName = (fields.orgName || "submission").replace(/[^a-z0-9]+/gi, "-").toLowerCase();
+    attachments = [
+      {
+        filename: `prospect-intake-${safeOrgName}.xlsx`,
+        content: workbookBuffer.toString("base64"),
+      },
+    ];
+  } catch (err) {
+    console.error("Failed to build Excel workbook for /submit notification:", err);
+  }
 
   // Same constraint as /api/contact: Resend's sandbox sender can only deliver
   // to the address the Resend account was signed up with, so only the first
@@ -132,6 +210,7 @@ async function sendEmailNotification(fields: {
       reply_to: fields.email,
       subject: `New Prospect Research Intake — ${fields.orgName}`,
       html,
+      ...(attachments.length ? { attachments } : {}),
     }),
   });
 
@@ -263,6 +342,8 @@ export async function POST(req: NextRequest) {
       caseForSupport: caseForSupport || "",
       solicitationHistory: solicitationHistory || "",
       tierSummary,
+      tierLabels: tierLabels || {},
+      tiersData: tiersData || {},
     }).catch((err) => {
       console.error("Email notification threw (submit-hubspot):", err);
       return { sent: false, error: String(err) };
