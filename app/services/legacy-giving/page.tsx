@@ -15,6 +15,10 @@ export const metadata = {
     "Legacy Call",
     "bequest fundraising",
     "nonprofit planned giving",
+    "bequest program for nonprofits",
+    "legacy call program",
+    "deferred gift fundraising",
+    "planned giving outreach services",
   ],
   alternates: { canonical: "/services/legacy-giving" },
 };

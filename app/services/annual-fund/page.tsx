@@ -15,6 +15,11 @@ export const metadata = {
     "donor calling program",
     "nonprofit phonathon",
     "annual fund consultant",
+    "nonprofit phonathon services",
+    "telephone fundraising services",
+    "public phase calling campaign",
+    "nonprofit calling campaign services",
+    "alumni annual giving program",
   ],
   alternates: { canonical: "/services/annual-fund" },
 };
