@@ -6,6 +6,7 @@ export interface CaseStudy {
   sector: string;
   summary: string;
   stats: { value: string; label: string }[];
+  image: string;
   content: ContentBlock[];
 }
 
@@ -15,6 +16,8 @@ export const CASE_STUDIES: CaseStudy[] = [
     title:
       "Catapult Fundraising's Legacy Call Program Secures Over $4.8 Million in Confirmed Planned Gifts for a Prestigious Northeast University",
     sector: "Higher Education · Legacy & Planned Giving",
+    image:
+      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/08323a7f-1d6b-4dea-b612-931fcfa1f79a.png",
     summary:
       "A 500-donor Legacy Call telephone outreach program confirmed 50 planned gifts totaling $4,894,000, with an additional $328,500 in gift potential identified among the university's most loyal donors.",
     stats: [
@@ -89,10 +92,77 @@ export const CASE_STUDIES: CaseStudy[] = [
     ],
   },
   {
+    slug: "mid-level-donor-engagement-faith-based-organization",
+    title:
+      "Catapult Fundraising's Mid-Level Donor Engagement Program Builds a Major Gift Pipeline for a Faith-Based Organization",
+    sector: "Faith-Based Organization · Mid-Level Donor Engagement",
+    image:
+      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/c59be935-f746-4cc7-9938-b32dcf520fe3.png",
+    summary:
+      "A segmented Reactivate, Renewal, and Upgrade campaign for a faith-based organization drove a 32% higher response rate among lapsed donors, qualified 57% of participants for additional stewardship, and identified 9% as ready for a major gift appointment.",
+    stats: [
+      { value: "32%", label: "Higher response rate — Reactivate segment" },
+      { value: "57%", label: "Qualified for additional stewardship" },
+      { value: "9%", label: "Qualified for a major gift appointment" },
+      { value: "3", label: "Donor segments activated" },
+    ],
+    content: [
+      { type: "heading", text: "The Challenge" },
+      {
+        type: "paragraph",
+        text: "The organization wanted to deepen relationships with its most loyal donors and identify which mid-level supporters were most ready to reactivate, renew, or upgrade their giving. Like many faith-based organizations, it had a deep bench of long-tenured donors whose true capacity and readiness had never been formally assessed.",
+      },
+      { type: "heading", text: "Audience Segments" },
+      {
+        type: "paragraph",
+        text: "Catapult built three distinct audience segments from the organization's donor file, each with its own outreach strategy and ask:",
+      },
+      {
+        type: "list",
+        items: [
+          "Reactivate: Donors with a most-recent gift of $500 given 23+ months ago",
+          "Renewal: Donors with a most-recent gift of $1,000 given within the last 12 months",
+          "Upgrade: Current donors giving less than $2,500 who showed higher giving capacity",
+        ],
+      },
+      { type: "heading", text: "The Strategy" },
+      {
+        type: "paragraph",
+        text: "Selected donors were invited into a recognition society through a personalized, multi-touch outreach sequence:",
+      },
+      {
+        type: "list",
+        items: [
+          "An email or letter was sent based on each donor's stated communication preference",
+          "A follow-up phone call thanked the donor for their loyalty",
+          "Each donor was personally invited to join, sustain, or upgrade their support",
+        ],
+      },
+      { type: "heading", text: "The Results" },
+      {
+        type: "list",
+        items: [
+          "Reactivate donors achieved a 32% higher response rate than the organization's historical benchmark",
+          "Renewal donors produced a higher average gift than prior renewal efforts",
+          "57% of contacted donors qualified for additional stewardship",
+          "Upgrade donors produced both a higher response rate and a higher average gift",
+          "9% of contacted donors qualified for a major gift appointment",
+        ],
+      },
+      { type: "heading", text: "Conclusion" },
+      {
+        type: "paragraph",
+        text: "By segmenting the donor file into Reactivate, Renewal, and Upgrade audiences and pairing personalized outreach with a genuine thank-you, Catapult helped the organization re-energize lapsed relationships, strengthen its base of loyal mid-level donors, and surface a qualified pipeline of prospects ready for a major gift conversation.",
+      },
+    ],
+  },
+  {
     slug: "legacy-call-new-jersey-hospital",
     title:
       "Catapult Fundraising's Legacy Call Program Secures $1,023,000 in Planned Gifts for a New Jersey Hospital",
     sector: "Healthcare · Legacy & Planned Giving",
+    image:
+      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/cc4d5a8d-b615-4d77-9ca3-7a7a6c313973.png",
     summary:
       "A 1,000-donor Legacy Call telephone outreach program for a southern New Jersey hospital confirmed 18 planned gifts totaling $1,023,000, with an additional $412,500 in gift potential identified among the hospital's most loyal donors.",
     stats: [
@@ -164,10 +234,70 @@ export const CASE_STUDIES: CaseStudy[] = [
     ],
   },
   {
+    slug: "engaging-hidden-donor-potential-performing-arts-organization",
+    title:
+      "Catapult Fundraising Uncovers Hidden Major Gift Potential Within a Performing Arts Organization's Donor Base",
+    sector: "Performing Arts Organization · Mid-Level Donor Engagement",
+    image:
+      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9ed75050-079d-4df0-b73d-9fc4fe1efec2.png",
+    summary:
+      "A targeted engagement campaign for a performing arts organization reached 1,026 donors with a lifetime giving history under $350, generating 467 new gifts, a 72% increase in overall giving, and an average first-time gift of $2,390.",
+    stats: [
+      { value: "2,067", label: "Donors selected for personalized engagement" },
+      { value: "1,026", label: "Donors engaged through the campaign" },
+      { value: "467", label: "New gifts generated" },
+      { value: "72%", label: "Increase in overall giving" },
+    ],
+    content: [
+      { type: "heading", text: "The Challenge" },
+      {
+        type: "paragraph",
+        text: "The organization identified a donor segment with lifetime philanthropic giving of less than $350, even though public-domain wealth and affinity data suggested this audience had major giving potential that had never been cultivated.",
+      },
+      { type: "heading", text: "The Audience" },
+      {
+        type: "paragraph",
+        text: "Catapult selected a targeted audience of 2,067 donors from this overlooked segment for personalized engagement, prioritizing those with the strongest indicators of connection to the organization's mission.",
+      },
+      { type: "heading", text: "The Strategy" },
+      {
+        type: "paragraph",
+        text: "The outreach approach focused on deepening connection and demonstrating impact rather than leading with an ask:",
+      },
+      {
+        type: "list",
+        items: [
+          "Identified each donor's personal reasons for being connected to the mission",
+          "Introduced the segment to the tangible impact of the organization's work",
+          "Provided added value to enhance each donor's experience with the mission",
+          "Reinforced the importance of their monetary support before soliciting a gift",
+        ],
+      },
+      { type: "heading", text: "The Results" },
+      {
+        type: "list",
+        items: [
+          "1,026 donors were engaged through the campaign",
+          "467 new gifts were generated from this previously overlooked segment",
+          "Overall giving from the segment increased by 72%",
+          "Average gift size increased between 61% and 135%, depending on segment",
+          "The average first-time gift from non-donors within the segment was $2,390",
+        ],
+      },
+      { type: "heading", text: "Conclusion" },
+      {
+        type: "paragraph",
+        text: "By pairing donor data with a relationship-first cultivation sequence, Catapult helped the organization convert an under-engaged, low-dollar-history segment into a meaningful source of new and upgraded gifts, proving that lifetime giving totals alone don't tell the whole story of a donor's capacity or loyalty.",
+      },
+    ],
+  },
+  {
     slug: "legacy-calls-hill-school",
     title:
       "Catapult Fundraising's Legacy Calls Program Secures Over $7,500,000 in Planned Gifts for The Hill School",
     sector: "Independent School · Legacy & Planned Giving",
+    image:
+      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/30c6b2c2-5ea9-48a4-8ba1-944a67e0ce4b.png",
     summary:
       "Two phases of Legacy Calls outreach for The Hill School, a private boarding school in Pennsylvania, secured 47 confirmed planned gifts totaling $7,666,000, with $1,212,500 in additional gift potential.",
     stats: [
@@ -251,10 +381,70 @@ export const CASE_STUDIES: CaseStudy[] = [
     ],
   },
   {
+    slug: "af-connect-special-olympics-indiana",
+    title:
+      "Catapult Fundraising's AF Connect Calling Program Achieves an 85% Pledge Rate with Lapsed Donors for Special Olympics of Indiana",
+    sector: "Annual Fund Calling · Donor Engagement",
+    image:
+      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/14f53258-e3a4-457b-8b2c-ddf692ac9535.png",
+    summary:
+      "Catapult's AF Connect calling program for Special Olympics of Indiana lifted average gift size by 39% and achieved an 85% pledge rate with lapsed donors, nearly double the 45% industry average.",
+    stats: [
+      { value: "39%", label: "Average gift size increase" },
+      { value: "85%", label: "Pledge rate with lapsed donors" },
+      { value: "45%", label: "Industry average pledge rate" },
+      { value: "3–5 yrs", label: "Since donors' last phone solicitation" },
+    ],
+    content: [
+      { type: "heading", text: "The Situation" },
+      {
+        type: "paragraph",
+        text: "Catapult Fundraising partnered with Special Olympics of Indiana to conduct an annual fund telephone solicitation program for current and lapsed business donors, many of which had not been solicited via telephone in 3-5 years. Catapult solicits unrestricted annual fund support, cultivates prospects, gathers feedback, and updates personal information. With the goal of freeing up development staff time to focus on major gifts, Special Olympics of Indiana outsourced the program to utilize Catapult's dedicated team of professional callers.",
+      },
+      { type: "heading", text: "The Goals" },
+      {
+        type: "paragraph",
+        text: "There are several key goals for the calling program:",
+      },
+      {
+        type: "list",
+        items: [
+          "Steward and renew donors",
+          "Upgrade current donors",
+          "Re-engage lapsed donors",
+          "Upgrade gift amounts by soliciting multiple installment gifts, which also instills a habit of giving",
+          "Substantially increase average gifts",
+          "Create a pipeline for major gifts",
+        ],
+      },
+      { type: "heading", text: "The Process" },
+      {
+        type: "paragraph",
+        text: "Catapult's methodology is modeled after face-to-face solicitation techniques. Catapult worked with Special Olympics of Indiana to identify prospects for the calling program. Once the calling pool was selected, each prospect was sent a pre-call letter, signed by a volunteer. The letter signer's personal story and reasons for supporting were highlighted in the letter. Also included was the case for support and a personalized ask amount for each prospect.",
+      },
+      {
+        type: "paragraph",
+        text: "Catapult assigned personalized ask amounts based on each prospect's giving history over the last five years. Catapult's fundraising specialists reached out to each prospect to follow up on the letter, to thank each prospect for their previous gifts, to build relationships, and to solicit a new gift. Donors who made a pledge commitment through Catapult's program were sent a thank-you letter from the original letter signer and a pledge confirmation within 48 hours of the phone call.",
+      },
+      { type: "heading", text: "The Result" },
+      {
+        type: "paragraph",
+        text: "Catapult's results are a clear indication that this type of solicitation is successful in stewarding, soliciting, and upgrading Special Olympics of Indiana's prospects. Catapult's callers increased the average gift size by 39%. Strong results were achieved across all donor groups: Catapult's pledge rate of 85% for lapsed donors far exceeds the industry average of 45%.",
+      },
+      { type: "heading", text: "Conclusion" },
+      {
+        type: "paragraph",
+        text: "Based on the outstanding results and the positive response from the donors solicited, a combination mail/phone program for Special Olympics of Indiana is the best way to upgrade current donors and renew lapsed donors at a low cost-per-dollar.",
+      },
+    ],
+  },
+  {
     slug: "legacy-call-international-ministry",
     title:
       "Catapult Fundraising's Legacy Call Program Secures Over $6.8 Million in Planned Gifts for an International Ministry",
     sector: "Faith-Based Organization · Legacy & Planned Giving",
+    image:
+      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5bdff259-a3ba-4ebc-9918-cc8f3424ee06.png",
     summary:
       "Two phases of Legacy Call outreach to 3,100 loyal donors for a northern California ministry secured 149 confirmed planned gifts totaling $6,867,161, with $4,960,063 in additional gift potential.",
     stats: [
@@ -352,6 +542,8 @@ export const CASE_STUDIES: CaseStudy[] = [
     title:
       "Catapult Fundraising's Legacy Call Program Secures $2,825,000 in Planned Gifts for a U.S. Presidential Library",
     sector: "Museum & Cultural Institution · Legacy & Planned Giving",
+    image:
+      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/35a626c0-e150-4ceb-91eb-d23693c01819.png",
     summary:
       "A 2,000-donor Legacy Call telephone outreach program for a U.S. Presidential Library confirmed 26 planned gifts totaling $2,825,000, with an additional $1,510,000 in gift potential identified.",
     stats: [
@@ -423,62 +615,6 @@ export const CASE_STUDIES: CaseStudy[] = [
       {
         type: "paragraph",
         text: "Lastly, a pipeline for major gifts and future planned gifts was created for the Library. The effects of the Legacy Call program will impact the Library's development efforts for years to come.",
-      },
-    ],
-  },
-  {
-    slug: "af-connect-special-olympics-indiana",
-    title:
-      "Catapult Fundraising's AF Connect Calling Program Achieves an 85% Pledge Rate with Lapsed Donors for Special Olympics of Indiana",
-    sector: "Annual Fund Calling · Donor Engagement",
-    summary:
-      "Catapult's AF Connect calling program for Special Olympics of Indiana lifted average gift size by 39% and achieved an 85% pledge rate with lapsed donors, nearly double the 45% industry average.",
-    stats: [
-      { value: "39%", label: "Average gift size increase" },
-      { value: "85%", label: "Pledge rate with lapsed donors" },
-      { value: "45%", label: "Industry average pledge rate" },
-      { value: "3–5 yrs", label: "Since donors' last phone solicitation" },
-    ],
-    content: [
-      { type: "heading", text: "The Situation" },
-      {
-        type: "paragraph",
-        text: "Catapult Fundraising partnered with Special Olympics of Indiana to conduct an annual fund telephone solicitation program for current and lapsed business donors, many of which had not been solicited via telephone in 3-5 years. Catapult solicits unrestricted annual fund support, cultivates prospects, gathers feedback, and updates personal information. With the goal of freeing up development staff time to focus on major gifts, Special Olympics of Indiana outsourced the program to utilize Catapult's dedicated team of professional callers.",
-      },
-      { type: "heading", text: "The Goals" },
-      {
-        type: "paragraph",
-        text: "There are several key goals for the calling program:",
-      },
-      {
-        type: "list",
-        items: [
-          "Steward and renew donors",
-          "Upgrade current donors",
-          "Re-engage lapsed donors",
-          "Upgrade gift amounts by soliciting multiple installment gifts, which also instills a habit of giving",
-          "Substantially increase average gifts",
-          "Create a pipeline for major gifts",
-        ],
-      },
-      { type: "heading", text: "The Process" },
-      {
-        type: "paragraph",
-        text: "Catapult's methodology is modeled after face-to-face solicitation techniques. Catapult worked with Special Olympics of Indiana to identify prospects for the calling program. Once the calling pool was selected, each prospect was sent a pre-call letter, signed by a volunteer. The letter signer's personal story and reasons for supporting were highlighted in the letter. Also included was the case for support and a personalized ask amount for each prospect.",
-      },
-      {
-        type: "paragraph",
-        text: "Catapult assigned personalized ask amounts based on each prospect's giving history over the last five years. Catapult's fundraising specialists reached out to each prospect to follow up on the letter, to thank each prospect for their previous gifts, to build relationships, and to solicit a new gift. Donors who made a pledge commitment through Catapult's program were sent a thank-you letter from the original letter signer and a pledge confirmation within 48 hours of the phone call.",
-      },
-      { type: "heading", text: "The Result" },
-      {
-        type: "paragraph",
-        text: "Catapult's results are a clear indication that this type of solicitation is successful in stewarding, soliciting, and upgrading Special Olympics of Indiana's prospects. Catapult's callers increased the average gift size by 39%. Strong results were achieved across all donor groups: Catapult's pledge rate of 85% for lapsed donors far exceeds the industry average of 45%.",
-      },
-      { type: "heading", text: "Conclusion" },
-      {
-        type: "paragraph",
-        text: "Based on the outstanding results and the positive response from the donors solicited, a combination mail/phone program for Special Olympics of Indiana is the best way to upgrade current donors and renew lapsed donors at a low cost-per-dollar.",
       },
     ],
   },

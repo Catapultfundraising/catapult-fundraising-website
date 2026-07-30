@@ -40,6 +40,7 @@ export default async function CaseStudyPage({
         eyebrow={`Insights / Case Study / ${cs.sector}`}
         title={cs.title}
         description={cs.summary}
+        backgroundImage={cs.image}
       />
 
       <section className="border-b border-[rgb(var(--line))] bg-white py-12">
