@@ -1,4 +1,3 @@
-import Image from "next/image";
 import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen, BookOpen } from "lucide-react";
 
 interface Sheet {
@@ -6,7 +5,6 @@ interface Sheet {
   title: string;
   description: string;
   href: string;
-  image?: string;
 }
 
 const SHEETS: Sheet[] = [
@@ -14,58 +12,44 @@ const SHEETS: Sheet[] = [
     icon: Layers,
     title: "All Services",
     description: "Every service line and the 5-phase campaign process.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ca2d31c8-9221-45e5-8247-f2d1aea02ae5.pdf",
-    image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a9d6b64-b8bd-4cee-9045-ab3625a83f84.png",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/585ad107-29bb-4a12-bf02-2409e1c3e6fe.pdf",
   },
   {
     icon: Target,
     title: "Capital Campaign",
     description: "Feasibility, campaign planning, quiet phase, and public-phase calling.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3d5776ff-efea-41cf-a257-add676d1ea94.pdf",
-    image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/aaaa9b5e-08d1-4e3f-b92b-800b7f1e8670.png",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/11aeb739-6d95-4f17-a4ac-f632a0564639.pdf",
   },
   {
     icon: Gift,
     title: "Legacy Call",
     description: "Our planned giving methodology and the 7-step donor journey.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fec23ca6-6bd3-4695-a8fd-e064b991fc1c.pdf",
-    image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e50ca83a-da69-40b8-8a37-d317da31b8ce.png",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/dfc72dfc-b983-4b26-be0c-d24412c7b20f.pdf",
   },
   {
     icon: Users,
     title: "Donor Engagement",
     description: "The 8-stage mid-level donor engagement journey.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5e919d66-ee32-4e14-9a68-ae3f42fe28da.pdf",
-    image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9a488a11-f7d0-4ea8-bfdc-d966a596bec7.png",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3f4609a6-f4eb-49cf-a735-370e8df65ea7.pdf",
   },
   {
     icon: Phone,
     title: "Annual Fund Calling",
     description: "The AF Connect program and included digital enhancements.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/212e1027-29d9-4a90-b16b-8fe348185c93.pdf",
-    image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e98a14b7-8b8f-4234-9588-3a615af1708c.png",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6e6f835b-c93d-4d90-bfac-f7e221d6dee8.pdf",
   },
   {
     icon: UserCircle,
     title: "Leadership Bios",
     description:
       "Expanded bios for our President/CEO and senior leadership team — designed to print two-sided.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/033d478b-c0d5-4eaf-8612-cf80f971c269.pdf",
-    image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/57b7c106-a473-4e12-948a-efaf9846fb00.png",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/b6a0a544-9958-4afe-968f-9c52b81e7bb6.pdf",
   },
   {
     icon: HelpCircle,
     title: "Frequently Asked Questions",
     description: "Answers to the questions we hear most from boards and staff.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9c7c25c5-13c5-4681-8196-d778e10b63d3.pdf",
-    image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/27395262-2a11-4808-8598-d240b86b3532.png",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/668503da-58eb-42ff-9869-7554ecad759a.pdf",
   },
   {
     icon: FolderOpen,
@@ -106,38 +90,19 @@ export function OneSheets() {
             download
             target="_blank"
             rel="noopener noreferrer"
-            className="group flex flex-col overflow-hidden rounded-2xl border border-[rgb(var(--line))] bg-white transition-colors hover:border-[rgb(var(--brass))]"
+            className="group flex flex-col rounded-2xl border border-[rgb(var(--line))] bg-white p-6 transition-colors hover:border-[rgb(var(--brass))] lg:p-10"
           >
-            {sheet.image ? (
-              <div className="relative aspect-[16/9] overflow-hidden">
-                <Image
-                  src={sheet.image}
-                  alt=""
-                  fill
-                  className="object-cover transition-transform duration-700 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-gradient-to-t from-[rgb(var(--navy-deep))]/75 via-[rgb(var(--navy-deep))]/10 to-transparent" />
-                <span className="absolute bottom-3 left-3 flex h-9 w-9 items-center justify-center rounded-full bg-[rgb(var(--paper))]/95">
-                  <sheet.icon className="h-4 w-4 text-[rgb(var(--brass))]" />
-                </span>
-              </div>
-            ) : (
-              <div className="px-6 pt-6">
-                <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--navy))]/5">
-                  <sheet.icon className="h-5 w-5 text-[rgb(var(--brass))]" />
-                </span>
-              </div>
-            )}
-            <div className="flex flex-1 flex-col p-6">
-              <h3 className="font-display text-lg text-[rgb(var(--navy))]">{sheet.title}</h3>
-              <p className="mt-1.5 flex-1 text-sm leading-relaxed text-[rgb(var(--ink))]/65">
-                {sheet.description}
-              </p>
-              <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--navy))] transition-colors group-hover:text-[rgb(var(--brass))]">
-                <Download className="h-4 w-4" />
-                Download PDF
-              </span>
-            </div>
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--navy))]/5">
+              <sheet.icon className="h-5 w-5 text-[rgb(var(--brass))]" />
+            </span>
+            <h3 className="mt-4 font-display text-lg text-[rgb(var(--navy))]">{sheet.title}</h3>
+            <p className="mt-1.5 flex-1 text-sm leading-relaxed text-[rgb(var(--ink))]/65">
+              {sheet.description}
+            </p>
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--navy))] transition-colors group-hover:text-[rgb(var(--brass))]">
+              <Download className="h-4 w-4" />
+              Download PDF
+            </span>
           </a>
         ))}
       </div>
