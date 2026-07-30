@@ -14,7 +14,7 @@ const SHEETS: Sheet[] = [
     icon: Layers,
     title: "All Services",
     description: "Every service line and the 5-phase campaign process.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d2833c85-209a-41e8-8ce7-30c86d080ddd.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ca2d31c8-9221-45e5-8247-f2d1aea02ae5.pdf",
     image:
       "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a9d6b64-b8bd-4cee-9045-ab3625a83f84.png",
   },
@@ -22,7 +22,7 @@ const SHEETS: Sheet[] = [
     icon: Target,
     title: "Capital Campaign",
     description: "Feasibility, campaign planning, quiet phase, and public-phase calling.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/93b5f6d4-bb0e-4916-a1f2-0e514e91c625.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3d5776ff-efea-41cf-a257-add676d1ea94.pdf",
     image:
       "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/aaaa9b5e-08d1-4e3f-b92b-800b7f1e8670.png",
   },
@@ -30,7 +30,7 @@ const SHEETS: Sheet[] = [
     icon: Gift,
     title: "Legacy Call",
     description: "Our planned giving methodology and the 7-step donor journey.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/905e7745-9206-45a9-ae31-d6e8600d2304.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fec23ca6-6bd3-4695-a8fd-e064b991fc1c.pdf",
     image:
       "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e50ca83a-da69-40b8-8a37-d317da31b8ce.png",
   },
@@ -38,7 +38,7 @@ const SHEETS: Sheet[] = [
     icon: Users,
     title: "Donor Engagement",
     description: "The 8-stage mid-level donor engagement journey.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/413637bc-d900-4306-a6e5-d15bc5692313.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5e919d66-ee32-4e14-9a68-ae3f42fe28da.pdf",
     image:
       "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9a488a11-f7d0-4ea8-bfdc-d966a596bec7.png",
   },
@@ -46,7 +46,7 @@ const SHEETS: Sheet[] = [
     icon: Phone,
     title: "Annual Fund Calling",
     description: "The AF Connect program and included digital enhancements.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0ff3a388-414c-48fc-b721-06dcee24b3b9.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/212e1027-29d9-4a90-b16b-8fe348185c93.pdf",
     image:
       "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e98a14b7-8b8f-4234-9588-3a615af1708c.png",
   },
@@ -55,7 +55,7 @@ const SHEETS: Sheet[] = [
     title: "Leadership Bios",
     description:
       "Expanded bios for our President/CEO and senior leadership team — designed to print two-sided.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8dbb89c5-153b-486a-8dc8-a844181c3c26.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/033d478b-c0d5-4eaf-8612-cf80f971c269.pdf",
     image:
       "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/57b7c106-a473-4e12-948a-efaf9846fb00.png",
   },
@@ -63,7 +63,7 @@ const SHEETS: Sheet[] = [
     icon: HelpCircle,
     title: "Frequently Asked Questions",
     description: "Answers to the questions we hear most from boards and staff.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fe9893f7-2e33-4864-9b0b-fdbaec559a3a.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9c7c25c5-13c5-4681-8196-d778e10b63d3.pdf",
     image:
       "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/27395262-2a11-4808-8598-d240b86b3532.png",
   },
