@@ -482,6 +482,125 @@ export const CASE_STUDIES: CaseStudy[] = [
       },
     ],
   },
+  {
+    slug: "mid-level-donor-engagement-faith-based-organization",
+    title:
+      "Catapult Fundraising's Mid-Level Donor Engagement Program Builds a Major Gift Pipeline for a Faith-Based Organization",
+    sector: "Faith-Based Organization · Mid-Level Donor Engagement",
+    summary:
+      "A segmented Reactivate, Renewal, and Upgrade campaign for a faith-based organization drove a 32% higher response rate among lapsed donors, qualified 57% of participants for additional stewardship, and identified 9% as ready for a major gift appointment.",
+    stats: [
+      { value: "32%", label: "Higher response rate — Reactivate segment" },
+      { value: "57%", label: "Qualified for additional stewardship" },
+      { value: "9%", label: "Qualified for a major gift appointment" },
+      { value: "3", label: "Donor segments activated" },
+    ],
+    content: [
+      { type: "heading", text: "The Challenge" },
+      {
+        type: "paragraph",
+        text: "The organization wanted to deepen relationships with its most loyal donors and identify which mid-level supporters were most ready to reactivate, renew, or upgrade their giving. Like many faith-based organizations, it had a deep bench of long-tenured donors whose true capacity and readiness had never been formally assessed.",
+      },
+      { type: "heading", text: "Audience Segments" },
+      {
+        type: "paragraph",
+        text: "Catapult built three distinct audience segments from the organization's donor file, each with its own outreach strategy and ask:",
+      },
+      {
+        type: "list",
+        items: [
+          "Reactivate: Donors with a most-recent gift of $500 given 23+ months ago",
+          "Renewal: Donors with a most-recent gift of $1,000 given within the last 12 months",
+          "Upgrade: Current donors giving less than $2,500 who showed higher giving capacity",
+        ],
+      },
+      { type: "heading", text: "The Strategy" },
+      {
+        type: "paragraph",
+        text: "Selected donors were invited into a recognition society through a personalized, multi-touch outreach sequence:",
+      },
+      {
+        type: "list",
+        items: [
+          "An email or letter was sent based on each donor's stated communication preference",
+          "A follow-up phone call thanked the donor for their loyalty",
+          "Each donor was personally invited to join, sustain, or upgrade their support",
+        ],
+      },
+      { type: "heading", text: "The Results" },
+      {
+        type: "list",
+        items: [
+          "Reactivate donors achieved a 32% higher response rate than the organization's historical benchmark",
+          "Renewal donors produced a higher average gift than prior renewal efforts",
+          "57% of contacted donors qualified for additional stewardship",
+          "Upgrade donors produced both a higher response rate and a higher average gift",
+          "9% of contacted donors qualified for a major gift appointment",
+        ],
+      },
+      { type: "heading", text: "Conclusion" },
+      {
+        type: "paragraph",
+        text: "By segmenting the donor file into Reactivate, Renewal, and Upgrade audiences and pairing personalized outreach with a genuine thank-you, Catapult helped the organization re-energize lapsed relationships, strengthen its base of loyal mid-level donors, and surface a qualified pipeline of prospects ready for a major gift conversation.",
+      },
+    ],
+  },
+  {
+    slug: "engaging-hidden-donor-potential-performing-arts-organization",
+    title:
+      "Catapult Fundraising Uncovers Hidden Major Gift Potential Within a Performing Arts Organization's Donor Base",
+    sector: "Performing Arts Organization · Mid-Level Donor Engagement",
+    summary:
+      "A targeted engagement campaign for a performing arts organization reached 1,026 donors with a lifetime giving history under $350, generating 467 new gifts, a 72% increase in overall giving, and an average first-time gift of $2,390.",
+    stats: [
+      { value: "2,067", label: "Donors selected for personalized engagement" },
+      { value: "1,026", label: "Donors engaged through the campaign" },
+      { value: "467", label: "New gifts generated" },
+      { value: "72%", label: "Increase in overall giving" },
+    ],
+    content: [
+      { type: "heading", text: "The Challenge" },
+      {
+        type: "paragraph",
+        text: "The organization identified a donor segment with lifetime philanthropic giving of less than $350, even though public-domain wealth and affinity data suggested this audience had major giving potential that had never been cultivated.",
+      },
+      { type: "heading", text: "The Audience" },
+      {
+        type: "paragraph",
+        text: "Catapult selected a targeted audience of 2,067 donors from this overlooked segment for personalized engagement, prioritizing those with the strongest indicators of connection to the organization's mission.",
+      },
+      { type: "heading", text: "The Strategy" },
+      {
+        type: "paragraph",
+        text: "The outreach approach focused on deepening connection and demonstrating impact rather than leading with an ask:",
+      },
+      {
+        type: "list",
+        items: [
+          "Identified each donor's personal reasons for being connected to the mission",
+          "Introduced the segment to the tangible impact of the organization's work",
+          "Provided added value to enhance each donor's experience with the mission",
+          "Reinforced the importance of their monetary support before soliciting a gift",
+        ],
+      },
+      { type: "heading", text: "The Results" },
+      {
+        type: "list",
+        items: [
+          "1,026 donors were engaged through the campaign",
+          "467 new gifts were generated from this previously overlooked segment",
+          "Overall giving from the segment increased by 72%",
+          "Average gift size increased between 61% and 135%, depending on segment",
+          "The average first-time gift from non-donors within the segment was $2,390",
+        ],
+      },
+      { type: "heading", text: "Conclusion" },
+      {
+        type: "paragraph",
+        text: "By pairing donor data with a relationship-first cultivation sequence, Catapult helped the organization convert an under-engaged, low-dollar-history segment into a meaningful source of new and upgraded gifts, proving that lifetime giving totals alone don't tell the whole story of a donor's capacity or loyalty.",
+      },
+    ],
+  },
 ];
 
 export function getCaseStudyBySlug(slug: string): CaseStudy | undefined {
