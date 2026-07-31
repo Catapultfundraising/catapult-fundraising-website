@@ -10,6 +10,15 @@ const nextConfig = {
       },
     ],
   },
+  async rewrites() {
+    return [
+      {
+        source: "/downloads/the-state-of-fundraising-in-nevada.pdf",
+        destination:
+          "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6180041b-130d-4c81-8f29-e9ebafb3a202.pdf",
+      },
+    ];
+  },
   async redirects() {
     return [
       {

@@ -5,8 +5,7 @@ import { Download } from "lucide-react";
 
 const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "the-state-of-fundraising-in-nevada";
-const PDF_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6180041b-130d-4c81-8f29-e9ebafb3a202.pdf";
+const PDF_URL = "/downloads/the-state-of-fundraising-in-nevada.pdf";
 
 export const metadata = {
   title: "The State of Fundraising in Nevada | Catapult Fundraising",
