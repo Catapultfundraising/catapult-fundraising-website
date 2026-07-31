@@ -20,6 +20,8 @@ export const metadata = {
     "public phase calling campaign",
     "nonprofit calling campaign services",
     "alumni annual giving program",
+    "national annual fund calling program",
+    "nationwide donor calling services",
   ],
   alternates: { canonical: "/services/annual-fund" },
 };

@@ -25,6 +25,10 @@ export const metadata = {
     "major gift officer training",
     "donor segmentation strategy",
     "donor participation rate consultant",
+    "moves management",
+    "wealth screening",
+    "donor pyramid",
+    "national donor engagement consultant",
   ],
   alternates: { canonical: "/services/donor-engagement" },
 };
