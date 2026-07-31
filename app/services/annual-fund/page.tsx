@@ -148,6 +148,29 @@ export default function AnnualFundPage() {
           "Text, voicemail, email & social stewardship",
         ]}
       />
+      <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
+        <div className="mx-auto max-w-4xl px-6 lg:px-10">
+          <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
+            What Clients Say
+          </p>
+          <blockquote className="mt-8 font-display text-[25px] leading-snug text-[rgb(var(--navy))] text-balance">
+            &ldquo;Catapult Fundraising has been a fantastic partner in relaunching and growing
+            UMGC&rsquo;s Annual Giving telemarketing program. Since restarting the program in FY24,
+            their team&rsquo;s personalized approach has helped us steadily strengthen our annual
+            fund by increasing both our average gift and pledge rate year over year. Beyond the
+            numbers, Catapult&rsquo;s team consistently delivers thoughtful, donor-centered
+            conversations that reflect well on our institution, and the team is responsive,
+            collaborative, and genuinely invested in our success. We&rsquo;re grateful for the
+            partnership and look forward to continuing to grow this program together.&rdquo;
+          </blockquote>
+          <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
+            <span className="font-semibold text-[rgb(var(--navy))]">Matthew Talley</span>
+            <br />
+            Assistant Director of Annual Giving, University of Maryland Global Campus
+          </p>
+        </div>
+      </section>
+
       <CtaBand />
     </>
   );

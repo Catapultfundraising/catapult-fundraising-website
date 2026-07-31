@@ -1,6 +1,12 @@
 const QUOTES = [
   {
     quote:
+      "Catapult Fundraising has been a fantastic partner in relaunching and growing UMGC's Annual Giving telemarketing program. Since restarting the program in FY24, their team's personalized approach has helped us steadily strengthen our annual fund by increasing both our average gift and pledge rate year over year. Beyond the numbers, Catapult's team consistently delivers thoughtful, donor-centered conversations that reflect well on our institution, and the team is responsive, collaborative, and genuinely invested in our success. We're grateful for the partnership and look forward to continuing to grow this program together.",
+    name: "Matthew Talley",
+    org: "Assistant Director of Annual Giving, University of Maryland Global Campus",
+  },
+  {
+    quote:
       "They were the only firm willing to stay with us from the feasibility study all the way through the public phase calling. One team, one accountable partner from start to finish.",
     name: "Executive Director",
     org: "Capital Campaign Client",
