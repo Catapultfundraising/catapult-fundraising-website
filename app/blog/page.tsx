@@ -23,6 +23,13 @@ export const metadata = {
 
 const POSTS = [
   {
+    slug: "the-state-of-fundraising-in-nevada",
+    title: "The State of Fundraising in Nevada",
+    description:
+      "Nevada ranks 49th out of 50 states in WalletHub's 2025 Most Charitable States study. What the data actually means for capital campaign strategy.",
+    readTime: "5 min read",
+  },
+  {
     slug: "how-much-does-a-capital-campaign-cost",
     title: "How Much Does a Capital Campaign Cost?",
     description:
