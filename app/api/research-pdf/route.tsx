@@ -21,6 +21,9 @@ function fmtMoney(value?: string): string {
   })}`;
 }
 
+function metaText(data: any): string {
+  return [data.dateCreated, data.clientProfiler].filter(Boolean).join("   •   ");
+}
 
 // Palette matches the one-sheets' brand system exactly (build.py CSS vars).
 const NAVY = "#15212E";
@@ -33,15 +36,23 @@ const INK = "#181B19";
 const MUTED = "#5C5D59";
 const LINE = "#D6CDBA";
 
+// One "empty line" of breathing room, reused consistently between every
+// page's header (hero band on page 1, top bar on later pages) and the
+// content that follows it.
+const HEADER_GAP = 14;
+
 const styles = StyleSheet.create({
-  page: { paddingTop: 20, paddingBottom: 42, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: PAPER },
+  page: { paddingTop: 34, paddingBottom: 42, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: PAPER },
   body: { paddingHorizontal: 40 },
-  topBar: {
+  topBarFrame: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
     height: 20,
+  },
+  topBar: {
+    flex: 1,
     backgroundColor: NAVY_DEEP,
     flexDirection: "row",
     alignItems: "center",
@@ -55,15 +66,17 @@ const styles = StyleSheet.create({
     position: "relative",
     backgroundColor: NAVY,
     paddingHorizontal: 40,
-    paddingTop: 22,
-    paddingBottom: 22,
-    marginTop: 20,
-    marginBottom: 18,
+    paddingTop: 18,
+    paddingBottom: 18,
+    marginTop: -20,
+    marginBottom: HEADER_GAP,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
-  heroLogo: { height: 26, width: 39, marginBottom: 10 },
+  heroTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  heroMeta: { alignItems: "flex-end" },
+  heroLogo: { height: 40, width: 60, objectFit: "contain" },
   heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
   heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: PAPER, marginTop: 6, maxWidth: 420 },
   heroPhoto: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover" },
@@ -79,15 +92,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
   },
   footerText: { fontSize: 6.3, color: "rgba(250,247,240,0.65)", marginBottom: 2 },
-  sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", marginTop: 18, marginBottom: 8 },
+  sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", marginTop: 16, marginBottom: 7 },
   sectionAccent: { width: 26, height: 3, backgroundColor: BRASS, marginBottom: 5, borderRadius: 1.5 },
-  wealthPanel: { backgroundColor: NAVY, borderRadius: 10, padding: 12, marginBottom: 16 },
-  wealthRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 },
-  wealthLabelRow: { flexDirection: "row", alignItems: "center" },
-  wealthLabel: { color: PAPER, fontSize: 10, marginLeft: 6 },
-  wealthValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 11 },
-  fieldRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 8 },
+  wealthPanel: { backgroundColor: NAVY, borderRadius: 10, padding: 12, marginBottom: 12 },
+  wealthRowMulti: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
+  wealthCell: { flex: 1, paddingRight: 8 },
+  wealthCellLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 3 },
+  wealthCellLabel: { color: PAPER, fontSize: 7.6, marginLeft: 5, textTransform: "uppercase", letterSpacing: 0.3 },
+  wealthCellValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 11 },
+  statBoxRow: { flexDirection: "row", marginBottom: 12 },
+  statBox: { flex: 1, backgroundColor: NAVY, borderRadius: 10, padding: 12 },
+  statBoxLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
+  statBoxLabel: { color: BRASS_LIGHT, fontSize: 8, fontFamily: "Helvetica-Bold", letterSpacing: 0.8, textTransform: "uppercase", marginLeft: 5 },
+  statBoxValue: { color: PAPER, fontSize: 17, fontFamily: "Helvetica-Bold" },
+  fieldRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
   fieldLabel: { width: 150, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
+  fieldLabelSmall: { width: 108, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldValue: { flex: 1, fontSize: 9.6, color: INK, lineHeight: 1.4 },
   cardWhite: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 10, marginBottom: 12 },
   nameHeading: { fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 },
@@ -99,7 +119,7 @@ const styles = StyleSheet.create({
   askBox: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderLeftWidth: 4, borderLeftColor: BRASS, borderRadius: 10, padding: 12, marginTop: 16 },
   askLabel: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 1, textTransform: "uppercase" },
   askValue: { fontSize: 18, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 4 },
-  propertyCard: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10, backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 9 },
+  propertyCard: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8, backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 9 },
   propertyPhoto: { width: 88, height: 64, borderRadius: 6, marginRight: 10, objectFit: "cover" },
   italicNote: { fontSize: 7.4, color: MUTED, fontStyle: "italic", marginBottom: 10 },
 });
@@ -189,6 +209,28 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function FieldRowPair({
+  left,
+  right,
+}: {
+  left: { label: string; value?: string };
+  right: { label: string; value?: string };
+}) {
+  if (!left.value && !right.value) return null;
+  return (
+    <View style={styles.fieldRow} wrap={false}>
+      <View style={{ flexDirection: "row", flex: 1 }}>
+        <Text style={styles.fieldLabelSmall}>{left.value ? left.label.toUpperCase() : ""}</Text>
+        <Text style={styles.fieldValue}>{left.value || ""}</Text>
+      </View>
+      <View style={{ flexDirection: "row", flex: 1 }}>
+        <Text style={styles.fieldLabelSmall}>{right.value ? right.label.toUpperCase() : ""}</Text>
+        <Text style={styles.fieldValue}>{right.value || ""}</Text>
+      </View>
+    </View>
+  );
+}
+
 function resolveContactType(row: any): string {
   if (row?.type === "Other" && row?.customType) return row.customType;
   return row?.type || "";
@@ -219,7 +261,7 @@ function MiniTable({
 }) {
   if (!rows || rows.length === 0) return null;
   return (
-    <View style={{ marginBottom: 10 }} wrap={false}>
+    <View style={{ marginBottom: 8 }} wrap={false}>
       {title ? (
         <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]}>
           {icon ? <IconGlyph name={icon} color={BRASS} size={9} /> : null}
@@ -254,25 +296,20 @@ function MiniTable({
 }
 
 function HeaderFooter({ data }: { data: any }) {
-  const rightText = [data.dateCreated, data.clientProfiler].filter(Boolean).join("   •   ");
+  const rightText = metaText(data);
   return (
     <>
       <View
-        style={styles.topBar}
+        style={styles.topBarFrame}
         fixed
         render={({ pageNumber }) =>
-          pageNumber === 1 ? (
-            <>
-              <Text style={styles.topBarConfidential}>CONFIDENTIAL</Text>
-              <Text style={styles.topBarText}>{rightText || "Catapult Fundraising"}</Text>
-            </>
-          ) : (
-            <>
+          pageNumber === 1 ? null : (
+            <View style={styles.topBar}>
               <Text style={styles.topBarContinuedText}>
                 {(data.name || "Prospect").toString()} — Continued
               </Text>
               <Text style={styles.topBarText}>{rightText || "Catapult Fundraising"}</Text>
-            </>
+            </View>
           )
         }
       />
@@ -292,15 +329,21 @@ function HeaderFooter({ data }: { data: any }) {
 }
 
 function ProfileDocument({ data }: { data: any }) {
-  const wealthRows: Array<[string, string, IconName]> = ([
+  const rightText = metaText(data);
+
+  const wealthRow1: Array<[string, string, IconName]> = ([
     ["Estimated Income", fmtMoney(data.estimatedIncome), "dollar"],
     ["Estimated Net Worth", fmtMoney(data.estimatedNetWorth), "dollar"],
     ["Stock Value", fmtMoney(data.stockValue), "chart"],
+  ] as Array<[string, string, IconName]>).filter(([, v]) => v);
+
+  const wealthRow2: Array<[string, string, IconName]> = ([
     ["Real Estate Value", fmtMoney(data.realEstateValue), "home"],
     ["# of Properties", data.realEstatePropertyCount, "home"],
-    ["Estimated Giving Capacity — 5 Years", fmtMoney(data.givingCapacity), "gift"],
-    ["Wealth Rating", data.wealthRating, "star"],
   ] as Array<[string, string, IconName]>).filter(([, v]) => v);
+
+  const givingCapacityValue = fmtMoney(data.givingCapacity);
+  const wealthRatingValue = data.wealthRating;
 
   return (
     <Document>
@@ -309,7 +352,13 @@ function ProfileDocument({ data }: { data: any }) {
 
         <View style={styles.heroBand}>
           <View style={{ flex: 1 }}>
-            <Image src={LOGO_URL} style={styles.heroLogo} />
+            <View style={styles.heroTopRow}>
+              <Image src={LOGO_URL} style={styles.heroLogo} />
+              <View style={styles.heroMeta}>
+                <Text style={styles.topBarConfidential}>CONFIDENTIAL</Text>
+                {rightText ? <Text style={styles.topBarText}>{rightText}</Text> : null}
+              </View>
+            </View>
             <Text style={styles.heroEyebrow}>PROSPECT INTELLIGENCE PROFILE</Text>
             <Text style={styles.heroTitle}>{data.name || "NAME"}</Text>
           </View>
@@ -322,22 +371,67 @@ function ProfileDocument({ data }: { data: any }) {
 
         <View style={styles.body}>
 
-        {wealthRows.length > 0 && (
+        {(wealthRow1.length > 0 || wealthRow2.length > 0) && (
           <View style={styles.wealthPanel}>
-            {wealthRows.map(([label, value, icon]) => (
-              <View style={styles.wealthRow} key={label}>
-                <View style={styles.wealthLabelRow}>
-                  <IconGlyph name={icon} color={BRASS_LIGHT} size={10} />
-                  <Text style={styles.wealthLabel}>{label}</Text>
-                </View>
-                <Text style={styles.wealthValue}>{value}</Text>
+            {wealthRow1.length > 0 && (
+              <View style={styles.wealthRowMulti}>
+                {wealthRow1.map(([label, value, icon]) => (
+                  <View style={styles.wealthCell} key={label}>
+                    <View style={styles.wealthCellLabelRow}>
+                      <IconGlyph name={icon} color={BRASS_LIGHT} size={9} />
+                      <Text style={styles.wealthCellLabel}>{label}</Text>
+                    </View>
+                    <Text style={styles.wealthCellValue}>{value}</Text>
+                  </View>
+                ))}
               </View>
-            ))}
+            )}
+            {wealthRow2.length > 0 && (
+              <View style={[styles.wealthRowMulti, { marginTop: wealthRow1.length > 0 ? 8 : 0 }]}>
+                {wealthRow2.map(([label, value, icon]) => (
+                  <View style={styles.wealthCell} key={label}>
+                    <View style={styles.wealthCellLabelRow}>
+                      <IconGlyph name={icon} color={BRASS_LIGHT} size={9} />
+                      <Text style={styles.wealthCellLabel}>{label}</Text>
+                    </View>
+                    <Text style={styles.wealthCellValue}>{value}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         )}
 
-        <FieldRow label="Catapult ID Number" value={data.catapultId} />
-        <FieldRow label="Client ID Number" value={data.clientId} />
+        {(givingCapacityValue || wealthRatingValue) && (
+          <View style={styles.statBoxRow}>
+            {givingCapacityValue ? (
+              <View style={[styles.statBox, wealthRatingValue ? { marginRight: 10 } : {}]}>
+                <View style={styles.statBoxLabelRow}>
+                  <IconGlyph name="gift" color={BRASS_LIGHT} size={11} />
+                  <Text style={styles.statBoxLabel}>Est. Giving Capacity — 5 Yrs</Text>
+                </View>
+                <Text style={styles.statBoxValue}>{givingCapacityValue}</Text>
+              </View>
+            ) : null}
+            {wealthRatingValue ? (
+              <View style={styles.statBox}>
+                <View style={styles.statBoxLabelRow}>
+                  <IconGlyph name="star" color={BRASS_LIGHT} size={11} />
+                  <Text style={styles.statBoxLabel}>Wealth Rating</Text>
+                </View>
+                <Text style={styles.statBoxValue}>{wealthRatingValue}</Text>
+              </View>
+            ) : null}
+          </View>
+        )}
+
+        <FieldRowPair
+          left={{ label: "Catapult ID Number", value: data.catapultId }}
+          right={{ label: "Client ID Number", value: data.clientId }}
+        />
+
+        <View style={styles.sectionAccent} />
+        <Text style={styles.sectionHeading}>Biographical Information</Text>
         <MiniTable
           title="Phone Numbers"
           icon="phone"
@@ -373,7 +467,11 @@ function ProfileDocument({ data }: { data: any }) {
           renderRow={(row: any) => [row.institution || "", row.year || ""]}
         />
         <FieldRow label="Military Service" value={militaryValue(data)} />
-        <FieldRow label="Religion" value={data.religion} />
+        <FieldRowPair
+          left={{ label: "Religion", value: data.religion }}
+          right={{ label: "Political Affiliation", value: data.politicalAffiliation }}
+        />
+
         <FieldRow label="Hobbies & Interests" value={data.hobbiesInterests} />
         <FieldRow label="Relationship to Organization" value={data.relationshipToOrg} />
         <MiniTable
@@ -410,14 +508,13 @@ function ProfileDocument({ data }: { data: any }) {
 
         <FieldRow label="Business Address(es) & Phone(s)" value={data.businessAddresses} />
         <FieldRow label="Family Foundation" value={data.familyFoundation} />
-        <FieldRow label="Political Affiliation" value={data.politicalAffiliation} />
         <FieldRow label="Additional Information" value={data.additionalInformation} />
         </View>
       </Page>
 
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
-        <View style={[styles.body, { paddingTop: 30 }]}>
+        <View style={styles.body}>
         <View style={styles.sectionAccent} />
         <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
         <FieldRow label="Boards" value={data.boards} />
