@@ -16,6 +16,41 @@ const STATUS_OPTIONS: Array<{ value: ProfileStatus; label: string }> = [
   { value: "approved", label: "Approved" },
 ];
 
+const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Widowed", "Dating", "Unknown"];
+
+const MILITARY_BRANCH_OPTIONS = [
+  "None",
+  "Army",
+  "Navy",
+  "Air Force",
+  "Marine Corps",
+  "Coast Guard",
+  "Space Force",
+  "National Guard",
+  "Unknown",
+];
+
+const POLITICAL_AFFILIATION_OPTIONS = [
+  "Democrat",
+  "Leans Democrat",
+  "Republican",
+  "Leans Republican",
+  "Independent",
+  "Unknown",
+];
+
+function parseCurrencyToNumber(value: string): number {
+  if (!value) return 0;
+  const cleaned = value.replace(/[^0-9.-]/g, "");
+  const n = parseFloat(cleaned);
+  return Number.isFinite(n) ? n : 0;
+}
+
+function formatCurrency(n: number): string {
+  if (!n) return "";
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
 interface RealEstateItem {
   photo: string; // base64 data URI
   address: string;
@@ -37,6 +72,18 @@ interface FecRow {
   amount: string;
 }
 
+interface ChildRow {
+  name: string;
+  age: string;
+  otherInfo: string;
+}
+
+interface GivingHistoryRow {
+  year: string;
+  amount: string;
+  comments: string;
+}
+
 interface ProfileData {
   dateCreated: string;
   clientProfiler: string;
@@ -45,20 +92,24 @@ interface ProfileData {
   estimatedNetWorth: string;
   stockValue: string;
   realEstateValue: string;
+  realEstatePropertyCount: string;
   givingCapacity: string;
   wealthRating: string;
   photo: string;
-  identificationNumber: string;
-  contactInformation: string;
+  catapultId: string;
+  clientId: string;
+  phone: string;
+  email: string;
   born: string;
   maritalStatus: string;
-  children: string;
-  education: string;
-  militaryService: string;
+  childrenRows: ChildRow[];
+  educationEntries: string[];
+  militaryBranch: string;
+  militaryDetails: string;
   religion: string;
   hobbiesInterests: string;
   relationshipToOrg: string;
-  givingHistoryToOrg: string;
+  givingHistoryRows: GivingHistoryRow[];
   realEstate: RealEstateItem[];
   businessAddresses: string;
   familyFoundation: string;
@@ -87,20 +138,24 @@ function emptyProfile(): ProfileData {
     estimatedNetWorth: "",
     stockValue: "",
     realEstateValue: "",
+    realEstatePropertyCount: "",
     givingCapacity: "",
     wealthRating: "",
     photo: "",
-    identificationNumber: "",
-    contactInformation: "",
+    catapultId: "",
+    clientId: "",
+    phone: "",
+    email: "",
     born: "",
     maritalStatus: "",
-    children: "",
-    education: "",
-    militaryService: "",
+    childrenRows: [],
+    educationEntries: [],
+    militaryBranch: "",
+    militaryDetails: "",
     religion: "",
     hobbiesInterests: "",
     relationshipToOrg: "",
-    givingHistoryToOrg: "",
+    givingHistoryRows: [],
     realEstate: [],
     businessAddresses: "",
     familyFoundation: "",
@@ -187,6 +242,104 @@ function Field({
           className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))]"
         />
       )}
+    </div>
+  );
+}
+
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  return (
+    <div className="mt-5">
+      <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        {label}
+      </label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] bg-white px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))]"
+      >
+        <option value="">Select...</option>
+        {options.map((opt) => (
+          <option key={opt} value={opt}>
+            {opt}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
+function ComputedField({ label, value, hint }: { label: string; value: string; hint?: string }) {
+  return (
+    <div className="mt-5">
+      <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        {label}
+        {hint ? (
+          <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-[rgb(var(--ink))]/40">
+            ({hint})
+          </span>
+        ) : null}
+      </label>
+      <div className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] bg-[rgb(var(--paper))] px-3 py-2 text-sm text-[rgb(var(--ink))]">
+        {value || <span className="text-[rgb(var(--ink))]/30">—</span>}
+      </div>
+    </div>
+  );
+}
+
+function SimpleRowList({
+  items,
+  onAdd,
+  onChange,
+  onRemove,
+  addLabel,
+  placeholder,
+}: {
+  items: string[];
+  onAdd: () => void;
+  onChange: (i: number, v: string) => void;
+  onRemove: (i: number) => void;
+  addLabel: string;
+  placeholder?: string;
+}) {
+  return (
+    <div className="mt-3 space-y-2">
+      {items.map((item, i) => (
+        <div key={i} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={item}
+            onChange={(e) => onChange(i, e.target.value)}
+            placeholder={placeholder}
+            className="w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))]"
+          />
+          <button
+            type="button"
+            onClick={() => onRemove(i)}
+            className="shrink-0 text-red-600/70 hover:text-red-700"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ))}
+      {items.length === 0 && <p className="text-sm text-[rgb(var(--ink))]/40">No entries yet.</p>}
+      <button
+        type="button"
+        onClick={onAdd}
+        className="inline-flex items-center gap-2 rounded-full border border-dashed border-[rgb(var(--brass))] px-4 py-1.5 text-xs font-semibold text-[rgb(var(--navy))] hover:bg-[rgb(var(--paper))]"
+      >
+        <Plus className="h-3.5 w-3.5" />
+        {addLabel}
+      </button>
     </div>
   );
 }
@@ -353,6 +506,69 @@ function ResearchProfileFormInner() {
     set("fecGiving", data.fecGiving.filter((_, idx) => idx !== i));
   }
 
+  function addChildRow() {
+    set("childrenRows", [...data.childrenRows, { name: "", age: "", otherInfo: "" }]);
+  }
+  function updateChildRow(i: number, patch: Partial<ChildRow>) {
+    const next = [...data.childrenRows];
+    next[i] = { ...next[i], ...patch };
+    set("childrenRows", next);
+  }
+  function removeChildRow(i: number) {
+    set("childrenRows", data.childrenRows.filter((_, idx) => idx !== i));
+  }
+
+  function addEducationEntry() {
+    set("educationEntries", [...data.educationEntries, ""]);
+  }
+  function updateEducationEntry(i: number, value: string) {
+    const next = [...data.educationEntries];
+    next[i] = value;
+    set("educationEntries", next);
+  }
+  function removeEducationEntry(i: number) {
+    set("educationEntries", data.educationEntries.filter((_, idx) => idx !== i));
+  }
+
+  function addGivingHistoryRow() {
+    set("givingHistoryRows", [...data.givingHistoryRows, { year: "", amount: "", comments: "" }]);
+  }
+  function updateGivingHistoryRow(i: number, patch: Partial<GivingHistoryRow>) {
+    const next = [...data.givingHistoryRows];
+    next[i] = { ...next[i], ...patch };
+    set("givingHistoryRows", next);
+  }
+  function removeGivingHistoryRow(i: number) {
+    set("givingHistoryRows", data.givingHistoryRows.filter((_, idx) => idx !== i));
+  }
+
+  // Auto-calculate Real Estate Value + # of Properties from the property rows.
+  useEffect(() => {
+    const sum = data.realEstate.reduce((acc, r) => acc + parseCurrencyToNumber(r.value), 0);
+    const computedValue = data.realEstate.length ? formatCurrency(sum) : "";
+    const computedCount = data.realEstate.length ? String(data.realEstate.length) : "";
+    setData((d) => {
+      if (d.realEstateValue === computedValue && d.realEstatePropertyCount === computedCount) return d;
+      return { ...d, realEstateValue: computedValue, realEstatePropertyCount: computedCount };
+    });
+  }, [data.realEstate]);
+
+  // Auto-calculate Total Charitable Giving from Other Giving History amounts.
+  useEffect(() => {
+    const sum = data.otherGiving.reduce((acc, r) => acc + parseCurrencyToNumber(r.amount), 0);
+    const computed = data.otherGiving.length ? formatCurrency(sum) : "";
+    setData((d) => (d.totalCharitableGiving === computed ? d : { ...d, totalCharitableGiving: computed }));
+  }, [data.otherGiving]);
+
+  // Auto-calculate Non-Philanthropic Political Giving from FEC amounts.
+  useEffect(() => {
+    const sum = data.fecGiving.reduce((acc, r) => acc + parseCurrencyToNumber(r.amount), 0);
+    const computed = data.fecGiving.length ? formatCurrency(sum) : "";
+    setData((d) =>
+      d.nonPhilanthropicPoliticalGiving === computed ? d : { ...d, nonPhilanthropicPoliticalGiving: computed }
+    );
+  }, [data.fecGiving]);
+
   async function generatePdf() {
     setGenerating(true);
     setGenError(null);
@@ -491,7 +707,8 @@ function ResearchProfileFormInner() {
         <Field label="Estimated Income" value={data.estimatedIncome} onChange={(v) => set("estimatedIncome", v)} placeholder="$" />
         <Field label="Estimated Net Worth" value={data.estimatedNetWorth} onChange={(v) => set("estimatedNetWorth", v)} placeholder="$" />
         <Field label="Stock Value" value={data.stockValue} onChange={(v) => set("stockValue", v)} placeholder="$" />
-        <Field label="Real Estate Value (# of Properties)" value={data.realEstateValue} onChange={(v) => set("realEstateValue", v)} placeholder="$ ( )" />
+        <ComputedField label="Real Estate Value" value={data.realEstateValue} hint="auto-calculated from properties below" />
+        <ComputedField label="# of Properties" value={data.realEstatePropertyCount} hint="auto-calculated from properties below" />
         <Field label="Estimated Giving Capacity — 5 Years" value={data.givingCapacity} onChange={(v) => set("givingCapacity", v)} placeholder="$" />
         <Field label="Wealth Rating" value={data.wealthRating} onChange={(v) => set("wealthRating", v)} />
       </div>
@@ -536,17 +753,81 @@ function ResearchProfileFormInner() {
 
       {/* Identification & personal details */}
       <SectionHeading>Identification &amp; Personal Details</SectionHeading>
-      <Field label="Identification Number" value={data.identificationNumber} onChange={(v) => set("identificationNumber", v)} placeholder="CPTID # / Client ID #" />
-      <Field label="Contact Information" value={data.contactInformation} onChange={(v) => set("contactInformation", v)} placeholder="Phone, email" textarea rows={2} />
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Catapult ID Number" value={data.catapultId} onChange={(v) => set("catapultId", v)} placeholder="CPTID #" />
+        <Field label="Client ID Number" value={data.clientId} onChange={(v) => set("clientId", v)} placeholder="Client ID #" />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <Field label="Phone" value={data.phone} onChange={(v) => set("phone", v)} placeholder="Phone number" />
+        <Field label="Email" value={data.email} onChange={(v) => set("email", v)} placeholder="Email address" />
+      </div>
       <Field label="Born" value={data.born} onChange={(v) => set("born", v)} placeholder="DOB, Age, aka" textarea rows={2} />
-      <Field label="Marital Status" value={data.maritalStatus} onChange={(v) => set("maritalStatus", v)} placeholder="Single, Married, Divorced, Dating" />
-      <Field label="Children" value={data.children} onChange={(v) => set("children", v)} placeholder="Names — Age, additional information if found" textarea rows={2} />
-      <Field label="Education" value={data.education} onChange={(v) => set("education", v)} textarea rows={2} />
-      <Field label="Military Service" value={data.militaryService} onChange={(v) => set("militaryService", v)} />
+      <SelectField label="Marital Status" value={data.maritalStatus} onChange={(v) => set("maritalStatus", v)} options={MARITAL_STATUS_OPTIONS} />
+
+      <div className="mt-5">
+        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          Children
+        </label>
+        <RowTable
+          headers={["Child Name", "Age", "Other Information"]}
+          rows={data.childrenRows}
+          onAdd={addChildRow}
+          addLabel="Add Child"
+          renderRow={(row: ChildRow, i) => (
+            <>
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.name} onChange={(e) => updateChildRow(i, { name: e.target.value })} placeholder="Name" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.age} onChange={(e) => updateChildRow(i, { age: e.target.value })} placeholder="Age" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.otherInfo} onChange={(e) => updateChildRow(i, { otherInfo: e.target.value })} placeholder="Other information" />
+            </>
+          )}
+          onRemove={removeChildRow}
+          colWidths={["30%", "15%", "55%"]}
+        />
+      </div>
+
+      <div className="mt-5">
+        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          Education
+        </label>
+        <SimpleRowList
+          items={data.educationEntries}
+          onAdd={addEducationEntry}
+          onChange={updateEducationEntry}
+          onRemove={removeEducationEntry}
+          addLabel="Add Institution"
+          placeholder="Institution, degree, year"
+        />
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <SelectField label="Military Branch" value={data.militaryBranch} onChange={(v) => set("militaryBranch", v)} options={MILITARY_BRANCH_OPTIONS} />
+        <Field label="Military Details" value={data.militaryDetails} onChange={(v) => set("militaryDetails", v)} placeholder="Rank, years served, etc." />
+      </div>
+
       <Field label="Religion" value={data.religion} onChange={(v) => set("religion", v)} />
       <Field label="Hobbies & Interests" value={data.hobbiesInterests} onChange={(v) => set("hobbiesInterests", v)} textarea rows={2} />
       <Field label="Relationship to [Organization]" value={data.relationshipToOrg} onChange={(v) => set("relationshipToOrg", v)} textarea rows={3} />
-      <Field label="Giving History to [Organization]" value={data.givingHistoryToOrg} onChange={(v) => set("givingHistoryToOrg", v)} textarea rows={4} />
+
+      <div className="mt-5">
+        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          Giving History to [Organization]
+        </label>
+        <RowTable
+          headers={["Year", "Amount", "Comments"]}
+          rows={data.givingHistoryRows}
+          onAdd={addGivingHistoryRow}
+          addLabel="Add Giving Entry"
+          renderRow={(row: GivingHistoryRow, i) => (
+            <>
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateGivingHistoryRow(i, { year: e.target.value })} placeholder="Year" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingHistoryRow(i, { amount: e.target.value })} placeholder="Amount" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.comments} onChange={(e) => updateGivingHistoryRow(i, { comments: e.target.value })} placeholder="Comments" />
+            </>
+          )}
+          onRemove={removeGivingHistoryRow}
+          colWidths={["20%", "20%", "60%"]}
+        />
+      </div>
 
       {/* Real Estate */}
       <SectionHeading>Real Estate</SectionHeading>
@@ -574,7 +855,7 @@ function ResearchProfileFormInner() {
       <SectionHeading>Business, Foundation &amp; Affiliations</SectionHeading>
       <Field label="Business Address(es) & Phone(s)" value={data.businessAddresses} onChange={(v) => set("businessAddresses", v)} textarea rows={4} />
       <Field label="Family Foundation" value={data.familyFoundation} onChange={(v) => set("familyFoundation", v)} textarea rows={3} />
-      <Field label="Political Affiliation" value={data.politicalAffiliation} onChange={(v) => set("politicalAffiliation", v)} />
+      <SelectField label="Political Affiliation" value={data.politicalAffiliation} onChange={(v) => set("politicalAffiliation", v)} options={POLITICAL_AFFILIATION_OPTIONS} />
       <Field label="Additional Information" value={data.additionalInformation} onChange={(v) => set("additionalInformation", v)} textarea rows={8} />
       <Field label="Boards" value={data.boards} onChange={(v) => set("boards", v)} textarea rows={4} />
       <Field label="Clubs & Affiliations" value={data.clubsAffiliations} onChange={(v) => set("clubsAffiliations", v)} textarea rows={4} />
@@ -626,8 +907,8 @@ function ResearchProfileFormInner() {
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <Field label="Total Charitable Giving" value={data.totalCharitableGiving} onChange={(v) => set("totalCharitableGiving", v)} placeholder="$" />
-        <Field label="Non-Philanthropic Political Giving" value={data.nonPhilanthropicPoliticalGiving} onChange={(v) => set("nonPhilanthropicPoliticalGiving", v)} placeholder="$" />
+        <ComputedField label="Total Charitable Giving" value={data.totalCharitableGiving} hint="auto-calculated from Other Giving History" />
+        <ComputedField label="Non-Philanthropic Political Giving" value={data.nonPhilanthropicPoliticalGiving} hint="auto-calculated from FEC amounts" />
       </div>
       <Field label="Recommended Ask Amount" value={data.recommendedAskAmount} onChange={(v) => set("recommendedAskAmount", v)} />
 

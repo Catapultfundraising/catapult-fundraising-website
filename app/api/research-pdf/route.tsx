@@ -72,6 +72,75 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
+function EducationList({ items }: { items?: string[] }) {
+  const filtered = (items || []).filter((s) => s && s.trim());
+  if (filtered.length === 0) return null;
+  return (
+    <View style={styles.fieldRow} wrap={false}>
+      <Text style={styles.fieldLabel}>EDUCATION</Text>
+      <View style={{ flex: 1 }}>
+        {filtered.map((item, i) => (
+          <Text key={i} style={[styles.fieldValue, { marginBottom: i === filtered.length - 1 ? 0 : 2 }]}>
+            • {item}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+function militaryValue(data: any): string {
+  const branch = data.militaryBranch && data.militaryBranch !== "None" ? data.militaryBranch : "";
+  const details = data.militaryDetails || "";
+  if (!branch && !details) return "";
+  if (branch && details) return `${branch} — ${details}`;
+  return branch || details;
+}
+
+function MiniTable({
+  title,
+  headers,
+  colWidths,
+  rows,
+  renderRow,
+}: {
+  title?: string;
+  headers: string[];
+  colWidths: string[];
+  rows: any[];
+  renderRow: (row: any, i: number) => string[];
+}) {
+  if (!rows || rows.length === 0) return null;
+  return (
+    <View style={{ marginBottom: 10 }} wrap={false}>
+      {title ? (
+        <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginBottom: 3 }}>
+          {title.toUpperCase()}
+        </Text>
+      ) : null}
+      <View style={styles.tableHeaderRow}>
+        {headers.map((h, i) => (
+          <Text key={h} style={[styles.tableHeaderCell, { width: colWidths[i] }]}>
+            {h}
+          </Text>
+        ))}
+      </View>
+      {rows.map((row, i) => {
+        const cells = renderRow(row, i);
+        return (
+          <View style={styles.tableRow} key={i} wrap={false}>
+            {cells.map((c, ci) => (
+              <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
+                {c}
+              </Text>
+            ))}
+          </View>
+        );
+      })}
+    </View>
+  );
+}
+
 function HeaderFooter({ data }: { data: any }) {
   return (
     <>
@@ -100,7 +169,8 @@ function ProfileDocument({ data }: { data: any }) {
     ["Estimated Income", data.estimatedIncome],
     ["Estimated Net Worth", data.estimatedNetWorth],
     ["Stock Value", data.stockValue],
-    ["Real Estate Value (# of Properties)", data.realEstateValue],
+    ["Real Estate Value", data.realEstateValue],
+    ["# of Properties", data.realEstatePropertyCount],
     ["Estimated Giving Capacity — 5 Years", data.givingCapacity],
     ["Wealth Rating", data.wealthRating],
   ] as Array<[string, string]>).filter(([, v]) => v);
@@ -135,17 +205,31 @@ function ProfileDocument({ data }: { data: any }) {
           </View>
         </View>
 
-        <FieldRow label="Identification Number" value={data.identificationNumber} />
-        <FieldRow label="Contact Information" value={data.contactInformation} />
+        <FieldRow label="Catapult ID Number" value={data.catapultId} />
+        <FieldRow label="Client ID Number" value={data.clientId} />
+        <FieldRow label="Phone" value={data.phone} />
+        <FieldRow label="Email" value={data.email} />
         <FieldRow label="Born" value={data.born} />
         <FieldRow label="Marital Status" value={data.maritalStatus} />
-        <FieldRow label="Children" value={data.children} />
-        <FieldRow label="Education" value={data.education} />
-        <FieldRow label="Military Service" value={data.militaryService} />
+        <MiniTable
+          title="Children"
+          headers={["NAME", "AGE", "OTHER INFORMATION"]}
+          colWidths={["25%", "15%", "60%"]}
+          rows={data.childrenRows}
+          renderRow={(row: any) => [row.name || "", row.age || "", row.otherInfo || ""]}
+        />
+        <EducationList items={data.educationEntries} />
+        <FieldRow label="Military Service" value={militaryValue(data)} />
         <FieldRow label="Religion" value={data.religion} />
         <FieldRow label="Hobbies & Interests" value={data.hobbiesInterests} />
         <FieldRow label="Relationship to Organization" value={data.relationshipToOrg} />
-        <FieldRow label="Giving History to Organization" value={data.givingHistoryToOrg} />
+        <MiniTable
+          title="Giving History to Organization"
+          headers={["YEAR", "AMOUNT", "COMMENTS"]}
+          colWidths={["15%", "20%", "65%"]}
+          rows={data.givingHistoryRows}
+          renderRow={(row: any) => [row.year || "", row.amount || "", row.comments || ""]}
+        />
 
         {data.realEstate?.length > 0 && (
           <>
