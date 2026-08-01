@@ -10,15 +10,41 @@ const LOGO_URL =
 
 function fmtMoney(value?: string): string {
   if (!value) return "";
-  const cleaned = String(value).replace(/[^0-9.-]/g, "");
-  if (!cleaned) return value;
+  const trimmed = String(value).trim();
+  // If the profiler entered shorthand or a qualifier (e.g. "$10M+", "10K", "TBD"),
+  // preserve it exactly as entered rather than reformatting/stripping it.
+  if (/[a-zA-Z]/.test(trimmed)) return trimmed;
+  const cleaned = trimmed.replace(/[^0-9.-]/g, "");
+  if (!cleaned) return trimmed;
   const n = parseFloat(cleaned);
-  if (!Number.isFinite(n)) return value;
+  if (!Number.isFinite(n)) return trimmed;
   const hasCents = cleaned.includes(".") && !Number.isInteger(n);
   return `$${n.toLocaleString("en-US", {
     minimumFractionDigits: hasCents ? 2 : 0,
     maximumFractionDigits: hasCents ? 2 : 0,
   })}`;
+}
+
+// Best-effort sum of a Giving History table's Amount column, for the at-a-glance
+// cumulative total in the wealth panel. Non-numeric/shorthand entries (e.g. "$10M+")
+// are skipped from the sum since they can't be safely added, but never alter the
+// underlying row displays elsewhere.
+function sumAmounts(rows: any[]): string {
+  if (!rows || rows.length === 0) return "";
+  let total = 0;
+  let any = false;
+  for (const row of rows) {
+    const raw = String(row?.amount || "").trim();
+    if (!raw || /[a-zA-Z]/.test(raw)) continue;
+    const cleaned = raw.replace(/[^0-9.-]/g, "");
+    if (!cleaned) continue;
+    const n = parseFloat(cleaned);
+    if (!Number.isFinite(n)) continue;
+    total += n;
+    any = true;
+  }
+  if (!any) return "";
+  return `$${total.toLocaleString("en-US", { maximumFractionDigits: 2 })}`;
 }
 
 function metaText(data: any): string {
@@ -74,9 +100,8 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
   },
-  heroTopRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
-  heroMeta: { alignItems: "flex-end" },
-  heroLogo: { height: 40, width: 60, objectFit: "contain" },
+  heroMetaAbs: { position: "absolute", top: 16, right: 40, width: 230, alignItems: "flex-end" },
+  heroLogo: { height: 120, width: 180, objectFit: "contain", marginBottom: 8 },
   heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
   heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: PAPER, marginTop: 6, maxWidth: 420 },
   heroPhoto: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover" },
@@ -98,8 +123,9 @@ const styles = StyleSheet.create({
   wealthRowMulti: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
   wealthCell: { flex: 1, paddingRight: 8 },
   wealthCellLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 3 },
-  wealthCellLabel: { color: PAPER, fontSize: 7.6, marginLeft: 5, textTransform: "uppercase", letterSpacing: 0.3 },
-  wealthCellValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 11 },
+  wealthCellLabel: { color: PAPER, fontSize: 6.4, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0 },
+  wealthCellLabelNoIcon: { color: PAPER, fontSize: 6.4, textTransform: "uppercase", letterSpacing: 0 },
+  wealthCellValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 9.5 },
   statBoxRow: { flexDirection: "row", marginBottom: 12 },
   statBox: { flex: 1, backgroundColor: NAVY, borderRadius: 10, padding: 12 },
   statBoxLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
@@ -116,9 +142,6 @@ const styles = StyleSheet.create({
   tableRow: { flexDirection: "row", alignItems: "flex-start", borderBottomWidth: 0.5, borderBottomColor: LINE },
   tableCell: { fontSize: 8.8, padding: 6, color: INK, lineHeight: 1.3 },
   sectionHeadingRow: { flexDirection: "row", alignItems: "center" },
-  askBox: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderLeftWidth: 4, borderLeftColor: BRASS, borderRadius: 10, padding: 12, marginTop: 16 },
-  askLabel: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 1, textTransform: "uppercase" },
-  askValue: { fontSize: 18, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 4 },
   propertyCard: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8, backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 9 },
   propertyPhoto: { width: 88, height: 64, borderRadius: 6, marginRight: 10, objectFit: "cover" },
   italicNote: { fontSize: 7.4, color: MUTED, fontStyle: "italic", marginBottom: 10 },
@@ -247,6 +270,7 @@ function militaryValue(data: any): string {
 function MiniTable({
   title,
   icon,
+  note,
   headers,
   colWidths,
   rows,
@@ -254,6 +278,7 @@ function MiniTable({
 }: {
   title?: string;
   icon?: IconName;
+  note?: string;
   headers: string[];
   colWidths: string[];
   rows: any[];
@@ -270,6 +295,7 @@ function MiniTable({
           </Text>
         </View>
       ) : null}
+      {note ? <Text style={styles.italicNote}>{note}</Text> : null}
       <View style={{ borderRadius: 8, overflow: "hidden", borderWidth: 1, borderColor: LINE }}>
       <View style={styles.tableHeaderRow}>
         {headers.map((h, i) => (
@@ -345,20 +371,33 @@ function ProfileDocument({ data }: { data: any }) {
   const givingCapacityValue = fmtMoney(data.givingCapacity);
   const wealthRatingValue = data.wealthRating;
 
+  const wealthRow3: Array<[string, string, IconName]> = ([
+    ["Total Charitable Giving", fmtMoney(data.totalCharitableGiving), "gift"],
+    ["Non-Philanthropic Political Giving", fmtMoney(data.nonPhilanthropicPoliticalGiving), "dollar"],
+    ["Cumulative Giving to Organization", sumAmounts(data.givingHistoryRows), "gift"],
+  ] as Array<[string, string, IconName]>).filter(([, v]) => v);
+
+  const hasPhones = Boolean(data.phones && data.phones.length > 0);
+  const hasEmails = Boolean(data.emails && data.emails.length > 0);
+
+  const religiousRow: Array<[string, string]> = ([
+    ["Religion", data.religion],
+    ["Military Service", militaryValue(data)],
+    ["Political Affiliation", data.politicalAffiliation],
+  ] as Array<[string, string]>).filter(([, v]) => v);
+
   return (
     <Document>
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
 
         <View style={styles.heroBand}>
+          <View style={styles.heroMetaAbs}>
+            <Text style={styles.topBarConfidential}>CONFIDENTIAL</Text>
+            {rightText ? <Text style={styles.topBarText}>{rightText}</Text> : null}
+          </View>
           <View style={{ flex: 1 }}>
-            <View style={styles.heroTopRow}>
-              <Image src={LOGO_URL} style={styles.heroLogo} />
-              <View style={styles.heroMeta}>
-                <Text style={styles.topBarConfidential}>CONFIDENTIAL</Text>
-                {rightText ? <Text style={styles.topBarText}>{rightText}</Text> : null}
-              </View>
-            </View>
+            <Image src={LOGO_URL} style={styles.heroLogo} />
             <Text style={styles.heroEyebrow}>PROSPECT INTELLIGENCE PROFILE</Text>
             <Text style={styles.heroTitle}>{data.name || "NAME"}</Text>
           </View>
@@ -371,7 +410,7 @@ function ProfileDocument({ data }: { data: any }) {
 
         <View style={styles.body}>
 
-        {(wealthRow1.length > 0 || wealthRow2.length > 0) && (
+        {(wealthRow1.length > 0 || wealthRow2.length > 0 || wealthRow3.length > 0) && (
           <View style={styles.wealthPanel}>
             {wealthRow1.length > 0 && (
               <View style={styles.wealthRowMulti}>
@@ -389,6 +428,19 @@ function ProfileDocument({ data }: { data: any }) {
             {wealthRow2.length > 0 && (
               <View style={[styles.wealthRowMulti, { marginTop: wealthRow1.length > 0 ? 8 : 0 }]}>
                 {wealthRow2.map(([label, value, icon]) => (
+                  <View style={styles.wealthCell} key={label}>
+                    <View style={styles.wealthCellLabelRow}>
+                      <IconGlyph name={icon} color={BRASS_LIGHT} size={9} />
+                      <Text style={styles.wealthCellLabel}>{label}</Text>
+                    </View>
+                    <Text style={styles.wealthCellValue}>{value}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            {wealthRow3.length > 0 && (
+              <View style={[styles.wealthRowMulti, { marginTop: wealthRow1.length > 0 || wealthRow2.length > 0 ? 8 : 0 }]}>
+                {wealthRow3.map(([label, value, icon]) => (
                   <View style={styles.wealthCell} key={label}>
                     <View style={styles.wealthCellLabelRow}>
                       <IconGlyph name={icon} color={BRASS_LIGHT} size={9} />
@@ -430,24 +482,53 @@ function ProfileDocument({ data }: { data: any }) {
           right={{ label: "Client ID Number", value: data.clientId }}
         />
 
-        <View style={styles.sectionAccent} />
-        <Text style={styles.sectionHeading}>Biographical Information</Text>
-        <MiniTable
-          title="Phone Numbers"
-          icon="phone"
-          headers={["TYPE", "NUMBER"]}
-          colWidths={["30%", "70%"]}
-          rows={data.phones}
-          renderRow={(row: any) => [resolveContactType(row), row.number || ""]}
-        />
-        <MiniTable
-          title="Email Addresses"
-          icon="mail"
-          headers={["TYPE", "EMAIL"]}
-          colWidths={["30%", "70%"]}
-          rows={data.emails}
-          renderRow={(row: any) => [resolveContactType(row), row.address || ""]}
-        />
+        <View wrap={false}>
+          <View style={styles.sectionAccent} />
+          <Text style={styles.sectionHeading}>Biographical Information</Text>
+          {hasPhones && hasEmails ? (
+            <View style={{ flexDirection: "row" }} wrap={false}>
+              <View style={{ flex: 1, marginRight: 10 }}>
+                <MiniTable
+                  title="Phone Numbers"
+                  icon="phone"
+                  headers={["TYPE", "NUMBER"]}
+                  colWidths={["35%", "65%"]}
+                  rows={data.phones}
+                  renderRow={(row: any) => [resolveContactType(row), row.number || ""]}
+                />
+              </View>
+              <View style={{ flex: 1 }}>
+                <MiniTable
+                  title="Email Addresses"
+                  icon="mail"
+                  headers={["TYPE", "EMAIL"]}
+                  colWidths={["35%", "65%"]}
+                  rows={data.emails}
+                  renderRow={(row: any) => [resolveContactType(row), row.address || ""]}
+                />
+              </View>
+            </View>
+          ) : (
+            <>
+              <MiniTable
+                title="Phone Numbers"
+                icon="phone"
+                headers={["TYPE", "NUMBER"]}
+                colWidths={["30%", "70%"]}
+                rows={data.phones}
+                renderRow={(row: any) => [resolveContactType(row), row.number || ""]}
+              />
+              <MiniTable
+                title="Email Addresses"
+                icon="mail"
+                headers={["TYPE", "EMAIL"]}
+                colWidths={["30%", "70%"]}
+                rows={data.emails}
+                renderRow={(row: any) => [resolveContactType(row), row.address || ""]}
+              />
+            </>
+          )}
+        </View>
         <FieldRow label="Born" value={data.born} />
         <FieldRow label="Marital Status" value={data.maritalStatus} />
         <MiniTable
@@ -466,11 +547,19 @@ function ProfileDocument({ data }: { data: any }) {
           rows={data.educationEntries}
           renderRow={(row: any) => [row.institution || "", row.year || ""]}
         />
-        <FieldRow label="Military Service" value={militaryValue(data)} />
-        <FieldRowPair
-          left={{ label: "Religion", value: data.religion }}
-          right={{ label: "Political Affiliation", value: data.politicalAffiliation }}
-        />
+
+        {religiousRow.length > 0 && (
+          <View style={styles.wealthPanel} wrap={false}>
+            <View style={styles.wealthRowMulti}>
+              {religiousRow.map(([label, value]) => (
+                <View style={styles.wealthCell} key={label}>
+                  <Text style={styles.wealthCellLabelNoIcon}>{label.toUpperCase()}</Text>
+                  <Text style={[styles.wealthCellValue, { fontSize: 9, marginTop: 2 }]}>{value}</Text>
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
 
         <FieldRow label="Hobbies & Interests" value={data.hobbiesInterests} />
         <FieldRow label="Relationship to Organization" value={data.relationshipToOrg} />
@@ -483,13 +572,13 @@ function ProfileDocument({ data }: { data: any }) {
         />
 
         {data.realEstate?.length > 0 && (
-          <>
+          <View wrap={false}>
             <View style={[styles.sectionHeadingRow, styles.sectionHeading]}>
               <IconGlyph name="home" color={NAVY} size={12} />
               <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 5 }}>Real Estate</Text>
             </View>
             {data.realEstate.map((re: any, i: number) => (
-              <View style={styles.propertyCard} key={i} wrap={false}>
+              <View style={styles.propertyCard} key={i}>
                 {re.photo ? (
                   <Image src={re.photo} style={styles.propertyPhoto} />
                 ) : (
@@ -503,7 +592,7 @@ function ProfileDocument({ data }: { data: any }) {
                 </View>
               </View>
             ))}
-          </>
+          </View>
         )}
 
         <FieldRow label="Business Address(es) & Phone(s)" value={data.businessAddresses} />
@@ -515,77 +604,39 @@ function ProfileDocument({ data }: { data: any }) {
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
         <View style={styles.body}>
-        <View style={styles.sectionAccent} />
-        <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
-        <FieldRow label="Boards" value={data.boards} />
+        <View wrap={false}>
+          <View style={styles.sectionAccent} />
+          <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
+          <FieldRow label="Boards" value={data.boards} />
+        </View>
         <FieldRow label="Clubs & Affiliations" value={data.clubsAffiliations} />
         <FieldRow label="Business Colleagues" value={data.businessColleagues} />
 
         {data.otherGiving?.length > 0 && (
-          <>
+          <View wrap={false}>
             <View style={styles.sectionAccent} />
             <Text style={styles.sectionHeading}>Other Giving History</Text>
-            <Text style={styles.italicNote}>
-              The amounts listed are representative of donations found in publicly available
-              records and in donor history provided to Catapult. As such, the individual amounts
-              will not necessarily total the Total Giving amount.
-            </Text>
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.tableHeaderCell, { width: "40%" }]}>RECIPIENT</Text>
-              <Text style={[styles.tableHeaderCell, { width: "30%" }]}>GIVING</Text>
-              <Text style={[styles.tableHeaderCell, { width: "12%" }]}>YEAR</Text>
-              <Text style={[styles.tableHeaderCell, { width: "18%" }]}>AMOUNT</Text>
-            </View>
-            {data.otherGiving.map((row: any, i: number) => (
-              <View style={styles.tableRow} key={i} wrap={false}>
-                <Text style={[styles.tableCell, { width: "40%" }]}>{row.recipient}</Text>
-                <Text style={[styles.tableCell, { width: "30%" }]}>{row.giving}</Text>
-                <Text style={[styles.tableCell, { width: "12%" }]}>{row.year}</Text>
-                <Text style={[styles.tableCell, { width: "18%" }]}>{fmtMoney(row.amount)}</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {data.fecGiving?.length > 0 && (
-          <>
-            <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginTop: 18, marginBottom: 8 }}>
-              FEC RECIPIENT ORGANIZATION
-            </Text>
-            <View style={styles.tableHeaderRow}>
-              <Text style={[styles.tableHeaderCell, { width: "55%" }]}>ORGANIZATION</Text>
-              <Text style={[styles.tableHeaderCell, { width: "20%" }]}>YEAR</Text>
-              <Text style={[styles.tableHeaderCell, { width: "25%" }]}>AMOUNT</Text>
-            </View>
-            {data.fecGiving.map((row: any, i: number) => (
-              <View style={styles.tableRow} key={i} wrap={false}>
-                <Text style={[styles.tableCell, { width: "55%" }]}>{row.org}</Text>
-                <Text style={[styles.tableCell, { width: "20%" }]}>{row.year}</Text>
-                <Text style={[styles.tableCell, { width: "25%" }]}>{fmtMoney(row.amount)}</Text>
-              </View>
-            ))}
-          </>
-        )}
-
-        {(data.totalCharitableGiving || data.nonPhilanthropicPoliticalGiving) && (
-          <View style={{ marginTop: 18 }}>
-            {data.totalCharitableGiving ? (
-              <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 6 }}>
-                Total Charitable Giving: {fmtMoney(data.totalCharitableGiving)}
-              </Text>
-            ) : null}
-            {data.nonPhilanthropicPoliticalGiving ? (
-              <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY }}>
-                Non-Philanthropic Political Giving: {fmtMoney(data.nonPhilanthropicPoliticalGiving)}
-              </Text>
-            ) : null}
+            <MiniTable
+              note="The amounts listed are representative of donations found in publicly available records and in donor history provided to Catapult. As such, the individual amounts will not necessarily total the Total Giving amount."
+              headers={["RECIPIENT", "GIVING", "YEAR", "AMOUNT"]}
+              colWidths={["40%", "30%", "12%", "18%"]}
+              rows={data.otherGiving}
+              renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoney(row.amount)]}
+            />
           </View>
         )}
 
-        <View style={styles.askBox}>
-          <Text style={styles.askLabel}>RECOMMENDED ASK AMOUNT</Text>
-          <Text style={styles.askValue}>{data.recommendedAskAmount ? fmtMoney(data.recommendedAskAmount) : "TBD"}</Text>
-        </View>
+        {data.fecGiving?.length > 0 && (
+          <View wrap={false}>
+            <MiniTable
+              title="FEC Recipient Organization"
+              headers={["ORGANIZATION", "YEAR", "AMOUNT"]}
+              colWidths={["55%", "20%", "25%"]}
+              rows={data.fecGiving}
+              renderRow={(row: any) => [row.org || "", row.year || "", fmtMoney(row.amount)]}
+            />
+          </View>
+        )}
         </View>
       </Page>
     </Document>
