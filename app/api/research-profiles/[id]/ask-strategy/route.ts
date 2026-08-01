@@ -13,7 +13,7 @@ import {
 import { buildAskStrategyDocx } from "@/lib/ask-strategy-docx";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 60;
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!(await isResearchAuthed(req))) {
