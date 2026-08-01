@@ -1,6 +1,12 @@
 const QUOTES = [
   {
     quote:
+      "Loma Linda University Health has partnered with Catapult Fundraising for several years, and the results have consistently exceeded our expectations. Catapult has generated qualified leads that have developed into meaningful planned gifts, delivering a strong return on our investment. Maria Healy has been exceptional to work with, responsive, attentive, and highly professional. She communicates with our team regularly and ensures that every detail is carefully managed and implemented. Our partnership has now expanded to include the scheduling of Zoom and face-to-face donor appointments, helping us deepen relationships with prospective donors and advance more meaningful conversations. I highly recommend Catapult Fundraising for its professionalism, service, and proven results.",
+    name: "Bill LaBore",
+    org: "Director of Planned Giving, Loma Linda University Health | Philanthropy",
+  },
+  {
+    quote:
       "Catapult Fundraising has been a fantastic partner in relaunching and growing UMGC's Annual Giving telemarketing program. Since restarting the program in FY24, their team's personalized approach has helped us steadily strengthen our annual fund by increasing both our average gift and pledge rate year over year. Beyond the numbers, Catapult's team consistently delivers thoughtful, donor-centered conversations that reflect well on our institution, and the team is responsive, collaborative, and genuinely invested in our success. We're grateful for the partnership and look forward to continuing to grow this program together.",
     name: "Matthew Talley",
     org: "Assistant Director of Annual Giving, University of Maryland Global Campus",

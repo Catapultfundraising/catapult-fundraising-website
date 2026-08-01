@@ -149,6 +149,35 @@ export default function LegacyGivingPage() {
           "Seamless hand-off to your planned giving team",
         ]}
       />
+      <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
+        <div className="mx-auto max-w-4xl px-6 lg:px-10">
+          <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
+            What Clients Say
+          </p>
+          <blockquote className="mt-8 space-y-5 font-display text-[25px] leading-snug text-[rgb(var(--navy))] text-balance">
+            <p>
+              &ldquo;Loma Linda University Health has partnered with Catapult Fundraising for
+              several years, and the results have consistently exceeded our expectations. Catapult
+              has generated qualified leads that have developed into meaningful planned gifts,
+              delivering a strong return on our investment. Maria Healy has been exceptional to work
+              with, responsive, attentive, and highly professional. She communicates with our team
+              regularly and ensures that every detail is carefully managed and implemented.
+            </p>
+            <p>
+              Our partnership has now expanded to include the scheduling of Zoom and
+              face-to-face donor appointments, helping us deepen relationships with prospective
+              donors and advance more meaningful conversations. I highly recommend Catapult
+              Fundraising for its professionalism, service, and proven results.&rdquo;
+            </p>
+          </blockquote>
+          <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
+            <span className="font-semibold text-[rgb(var(--navy))]">Bill LaBore</span>
+            <br />
+            Director of Planned Giving, Loma Linda University Health | Philanthropy
+          </p>
+        </div>
+      </section>
+
       <CtaBand />
     </>
   );
