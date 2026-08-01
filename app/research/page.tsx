@@ -97,7 +97,7 @@ export default function ResearchProfilesPage() {
           <p className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
             Internal Tool
           </p>
-          <h1 className="mt-1 font-display text-3xl text-[rgb(var(--navy))]">My Prospect Profiles</h1>
+          <h1 className="mt-1 font-display text-3xl text-[rgb(var(--navy))]">My Prospect Intelligence Profiles</h1>
         </div>
         <Link
           href="/research/new"

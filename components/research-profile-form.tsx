@@ -275,6 +275,7 @@ function Field({
   textarea,
   rows = 2,
   icon: Icon,
+  money,
 }: {
   label: string;
   value: string;
@@ -283,6 +284,7 @@ function Field({
   textarea?: boolean;
   rows?: number;
   icon?: LucideIcon;
+  money?: boolean;
 }) {
   return (
     <div className="mt-5">
@@ -303,6 +305,12 @@ function Field({
           type="text"
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onBlur={(e) => {
+            if (money) {
+              const formatted = formatCurrency(parseCurrencyToNumber(e.target.value));
+              if (formatted !== e.target.value) onChange(formatted);
+            }
+          }}
           placeholder={placeholder}
           className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))]"
         />
@@ -670,7 +678,7 @@ function ResearchProfileFormInner() {
     }
   }
 
-  const fileName = `${(data.name || "Prospect Research Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
+  const fileName = `${(data.name || "Prospect Intelligence Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
 
   const statusMeta: Record<ProfileStatus, string> = {
     draft: "bg-gray-100 text-gray-600",
@@ -694,7 +702,7 @@ function ResearchProfileFormInner() {
             Internal Tool
           </p>
           <h1 className="mt-1 font-display text-3xl text-[rgb(var(--navy))]">
-            Prospect Research Profile Builder
+            Prospect Intelligence Profile Builder
           </h1>
         </div>
         <button
@@ -791,12 +799,12 @@ function ResearchProfileFormInner() {
       {/* Wealth panel */}
       <SectionHeading icon={DollarSign}>Wealth Summary</SectionHeading>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Estimated Income" value={data.estimatedIncome} onChange={(v) => set("estimatedIncome", v)} placeholder="$" icon={DollarSign} />
-        <Field label="Estimated Net Worth" value={data.estimatedNetWorth} onChange={(v) => set("estimatedNetWorth", v)} placeholder="$" icon={DollarSign} />
-        <Field label="Stock Value" value={data.stockValue} onChange={(v) => set("stockValue", v)} placeholder="$" icon={TrendingUp} />
+        <Field label="Estimated Income" value={data.estimatedIncome} onChange={(v) => set("estimatedIncome", v)} placeholder="$" icon={DollarSign} money />
+        <Field label="Estimated Net Worth" value={data.estimatedNetWorth} onChange={(v) => set("estimatedNetWorth", v)} placeholder="$" icon={DollarSign} money />
+        <Field label="Stock Value" value={data.stockValue} onChange={(v) => set("stockValue", v)} placeholder="$" icon={TrendingUp} money />
         <ComputedField label="Real Estate Value" value={data.realEstateValue} hint="auto-calculated from properties below" icon={Home} />
         <ComputedField label="# of Properties" value={data.realEstatePropertyCount} hint="auto-calculated from properties below" icon={Building2} />
-        <Field label="Estimated Giving Capacity — 5 Years" value={data.givingCapacity} onChange={(v) => set("givingCapacity", v)} placeholder="$" icon={Gift} />
+        <Field label="Estimated Giving Capacity — 5 Years" value={data.givingCapacity} onChange={(v) => set("givingCapacity", v)} placeholder="$" icon={Gift} money />
         <Field label="Wealth Rating" value={data.wealthRating} onChange={(v) => set("wealthRating", v)} icon={Star} />
       </div>
 
@@ -997,7 +1005,7 @@ function ResearchProfileFormInner() {
           renderRow={(row: GivingHistoryRow, i) => (
             <>
               <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateGivingHistoryRow(i, { year: e.target.value })} placeholder="Year" />
-              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingHistoryRow(i, { amount: e.target.value })} placeholder="Amount" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingHistoryRow(i, { amount: e.target.value })} onBlur={(e) => updateGivingHistoryRow(i, { amount: formatCurrency(parseCurrencyToNumber(e.target.value)) })} placeholder="Amount" />
               <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.comments} onChange={(e) => updateGivingHistoryRow(i, { comments: e.target.value })} placeholder="Comments" />
             </>
           )}
@@ -1055,7 +1063,7 @@ function ResearchProfileFormInner() {
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.recipient} onChange={(e) => updateGivingRow(i, { recipient: e.target.value })} placeholder="Recipient" />
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.giving} onChange={(e) => updateGivingRow(i, { giving: e.target.value })} placeholder="Giving detail" />
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateGivingRow(i, { year: e.target.value })} placeholder="Year" />
-            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingRow(i, { amount: e.target.value })} placeholder="Amount" />
+            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingRow(i, { amount: e.target.value })} onBlur={(e) => updateGivingRow(i, { amount: formatCurrency(parseCurrencyToNumber(e.target.value)) })} placeholder="Amount" />
           </>
         )}
         onRemove={removeGivingRow}
@@ -1077,7 +1085,7 @@ function ResearchProfileFormInner() {
           <>
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.org} onChange={(e) => updateFecRow(i, { org: e.target.value })} placeholder="Organization" />
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateFecRow(i, { year: e.target.value })} placeholder="Year" />
-            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateFecRow(i, { amount: e.target.value })} placeholder="Amount" />
+            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateFecRow(i, { amount: e.target.value })} onBlur={(e) => updateFecRow(i, { amount: formatCurrency(parseCurrencyToNumber(e.target.value)) })} placeholder="Amount" />
           </>
         )}
         onRemove={removeFecRow}
@@ -1088,7 +1096,7 @@ function ResearchProfileFormInner() {
         <ComputedField label="Total Charitable Giving" value={data.totalCharitableGiving} hint="auto-calculated from Other Giving History" icon={Gift} />
         <ComputedField label="Non-Philanthropic Political Giving" value={data.nonPhilanthropicPoliticalGiving} hint="auto-calculated from FEC amounts" icon={Vote} />
       </div>
-      <Field label="Recommended Ask Amount" value={data.recommendedAskAmount} onChange={(v) => set("recommendedAskAmount", v)} icon={Target} />
+      <Field label="Recommended Ask Amount" value={data.recommendedAskAmount} onChange={(v) => set("recommendedAskAmount", v)} icon={Target} money />
 
       {/* Generate */}
       <div className="mt-12 rounded-2xl border border-[rgb(var(--line))] bg-[rgb(var(--paper))] p-6">
@@ -1180,7 +1188,7 @@ function RealEstateCard({
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <Field label="Address" value={item.address} onChange={(v) => onChange({ address: v })} textarea rows={2} />
         <Field label="Description" value={item.description} onChange={(v) => onChange({ description: v })} placeholder="Bedrooms, bathrooms, sq ft, details" textarea rows={2} />
-        <Field label="Value" value={item.value} onChange={(v) => onChange({ value: v })} placeholder="$" />
+        <Field label="Value" value={item.value} onChange={(v) => onChange({ value: v })} placeholder="$" money />
         <Field label="Purchase Info" value={item.purchaseInfo} onChange={(v) => onChange({ purchaseInfo: v })} placeholder="Purchased on [date], Purchase Amount $" />
       </div>
     </div>

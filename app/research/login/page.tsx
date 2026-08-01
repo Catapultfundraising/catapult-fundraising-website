@@ -46,7 +46,7 @@ function ResearchLoginForm() {
           </span>
         </div>
         <h1 className="mt-4 text-center font-display text-2xl text-[rgb(var(--navy))]">
-          Prospect Research Profiles
+          Prospect Intelligence Profiles
         </h1>
         <p className="mt-2 text-center text-sm text-[rgb(var(--ink))]/65">
           This tool is for authorized Catapult team members only. Enter the shared password to

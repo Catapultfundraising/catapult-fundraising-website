@@ -3,9 +3,23 @@ import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon
 
 export const runtime = "nodejs";
 
-// Current Catapult Fundraising logo, matching the live site header.
+// Light/white Catapult Fundraising logo variant, matching the one used on the
+// live site's navy footer, so it blends cleanly into the navy header bar here.
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
+  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png";
+
+function fmtMoney(value?: string): string {
+  if (!value) return "";
+  const cleaned = String(value).replace(/[^0-9.-]/g, "");
+  if (!cleaned) return value;
+  const n = parseFloat(cleaned);
+  if (!Number.isFinite(n)) return value;
+  const hasCents = cleaned.includes(".") && !Number.isInteger(n);
+  return `$${n.toLocaleString("en-US", {
+    minimumFractionDigits: hasCents ? 2 : 0,
+    maximumFractionDigits: hasCents ? 2 : 0,
+  })}`;
+}
 
 
 const NAVY = "#15212E";
@@ -17,19 +31,21 @@ const MUTED = "#6B7280";
 const LINE = "#D8D2C2";
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 46, paddingBottom: 56, paddingHorizontal: 40, fontSize: 10, color: INK, fontFamily: "Helvetica" },
+  page: { paddingTop: 62, paddingBottom: 56, paddingHorizontal: 40, fontSize: 10, color: INK, fontFamily: "Helvetica" },
   headerBar: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 30,
+    height: 44,
     backgroundColor: NAVY,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 40,
   },
+  headerLogo: { height: 28, width: 42 },
+  headerContinuedText: { color: "#FFFFFF", fontSize: 9.5, fontFamily: "Helvetica-Bold" },
   headerText: { color: "#FFFFFF", fontSize: 8 },
   headerConfidential: { color: BRASS_LIGHT, fontSize: 8, fontFamily: "Helvetica-Bold", letterSpacing: 1.5 },
   footer: {
@@ -37,11 +53,10 @@ const styles = StyleSheet.create({
     bottom: 18,
     left: 40,
     right: 40,
-    textAlign: "right",
+    textAlign: "left",
   },
   footerText: { fontSize: 6.5, color: MUTED, marginBottom: 2 },
-  logo: { width: 120, height: 80, marginBottom: 12 },
-  eyebrow: { fontSize: 9, color: BRASS, fontFamily: "Helvetica-Bold", letterSpacing: 1.5, marginBottom: 4 },
+  eyebrow: { fontSize: 9, color: BRASS, fontFamily: "Helvetica-Bold", letterSpacing: 1.5, marginBottom: 4, marginTop: 14 },
   title: { fontSize: 26, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 2, borderBottomColor: BRASS, paddingBottom: 8, marginBottom: 16 },
   sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 1, borderBottomColor: LINE, paddingBottom: 4, marginTop: 20, marginBottom: 10 },
   wealthPanel: { backgroundColor: NAVY, borderRadius: 4, padding: 10, marginBottom: 16 },
@@ -217,13 +232,30 @@ function MiniTable({
 }
 
 function HeaderFooter({ data }: { data: any }) {
+  const rightText = [data.dateCreated, data.clientProfiler].filter(Boolean).join("   •   ");
   return (
     <>
-      <View style={styles.headerBar} fixed>
-        <Text style={styles.headerText}>{data.dateCreated || "(Date Created)"}</Text>
-        <Text style={styles.headerConfidential}>CONFIDENTIAL</Text>
-        <Text style={styles.headerText}>{data.clientProfiler || "Client Name / Profiler Initials"}</Text>
-      </View>
+      <View
+        style={styles.headerBar}
+        fixed
+        render={({ pageNumber }) =>
+          pageNumber === 1 ? (
+            <>
+              <Image src={LOGO_URL} style={styles.headerLogo} />
+              <Text style={styles.headerConfidential}>CONFIDENTIAL</Text>
+              <Text style={styles.headerText}>{rightText || "Catapult Fundraising"}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={styles.headerContinuedText}>
+                {(data.name || "Prospect").toString()} — Continued
+              </Text>
+              <Text style={styles.headerConfidential}>CONFIDENTIAL</Text>
+              <Text style={styles.headerText}>{rightText || "Catapult Fundraising"}</Text>
+            </>
+          )
+        }
+      />
       <View style={styles.footer} fixed>
         <Text style={styles.footerText}>
           This information has been compiled and presented by Catapult Fundraising as of{" "}
@@ -241,12 +273,12 @@ function HeaderFooter({ data }: { data: any }) {
 
 function ProfileDocument({ data }: { data: any }) {
   const wealthRows: Array<[string, string, IconName]> = ([
-    ["Estimated Income", data.estimatedIncome, "dollar"],
-    ["Estimated Net Worth", data.estimatedNetWorth, "dollar"],
-    ["Stock Value", data.stockValue, "chart"],
-    ["Real Estate Value", data.realEstateValue, "home"],
+    ["Estimated Income", fmtMoney(data.estimatedIncome), "dollar"],
+    ["Estimated Net Worth", fmtMoney(data.estimatedNetWorth), "dollar"],
+    ["Stock Value", fmtMoney(data.stockValue), "chart"],
+    ["Real Estate Value", fmtMoney(data.realEstateValue), "home"],
     ["# of Properties", data.realEstatePropertyCount, "home"],
-    ["Estimated Giving Capacity — 5 Years", data.givingCapacity, "gift"],
+    ["Estimated Giving Capacity — 5 Years", fmtMoney(data.givingCapacity), "gift"],
     ["Wealth Rating", data.wealthRating, "star"],
   ] as Array<[string, string, IconName]>).filter(([, v]) => v);
 
@@ -254,8 +286,7 @@ function ProfileDocument({ data }: { data: any }) {
     <Document>
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
-        <Image src={LOGO_URL} style={styles.logo} />
-        <Text style={styles.eyebrow}>PROSPECT RESEARCH PROFILE</Text>
+        <Text style={styles.eyebrow}>PROSPECT INTELLIGENCE PROFILE</Text>
         <Text style={styles.title}>{data.name || "NAME"}</Text>
 
         {wealthRows.length > 0 && (
@@ -329,7 +360,7 @@ function ProfileDocument({ data }: { data: any }) {
           headers={["YEAR", "AMOUNT", "COMMENTS"]}
           colWidths={["15%", "20%", "65%"]}
           rows={data.givingHistoryRows}
-          renderRow={(row: any) => [row.year || "", row.amount || "", row.comments || ""]}
+          renderRow={(row: any) => [row.year || "", fmtMoney(row.amount), row.comments || ""]}
         />
 
         {data.realEstate?.length > 0 && (
@@ -348,7 +379,7 @@ function ProfileDocument({ data }: { data: any }) {
                 <View style={{ flex: 1 }}>
                   {re.address ? <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 }}>{re.address}</Text> : null}
                   {re.description ? <Text style={{ fontSize: 9, color: INK, marginBottom: 2 }}>{re.description}</Text> : null}
-                  {re.value ? <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginBottom: 2 }}>{re.value}</Text> : null}
+                  {re.value ? <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginBottom: 2 }}>{fmtMoney(re.value)}</Text> : null}
                   {re.purchaseInfo ? <Text style={{ fontSize: 8.5, color: MUTED }}>{re.purchaseInfo}</Text> : null}
                 </View>
               </View>
@@ -388,7 +419,7 @@ function ProfileDocument({ data }: { data: any }) {
                 <Text style={[styles.tableCell, { width: "40%" }]}>{row.recipient}</Text>
                 <Text style={[styles.tableCell, { width: "30%" }]}>{row.giving}</Text>
                 <Text style={[styles.tableCell, { width: "12%" }]}>{row.year}</Text>
-                <Text style={[styles.tableCell, { width: "18%" }]}>{row.amount}</Text>
+                <Text style={[styles.tableCell, { width: "18%" }]}>{fmtMoney(row.amount)}</Text>
               </View>
             ))}
           </>
@@ -408,7 +439,7 @@ function ProfileDocument({ data }: { data: any }) {
               <View style={styles.tableRow} key={i} wrap={false}>
                 <Text style={[styles.tableCell, { width: "55%" }]}>{row.org}</Text>
                 <Text style={[styles.tableCell, { width: "20%" }]}>{row.year}</Text>
-                <Text style={[styles.tableCell, { width: "25%" }]}>{row.amount}</Text>
+                <Text style={[styles.tableCell, { width: "25%" }]}>{fmtMoney(row.amount)}</Text>
               </View>
             ))}
           </>
@@ -418,12 +449,12 @@ function ProfileDocument({ data }: { data: any }) {
           <View style={{ marginTop: 18 }}>
             {data.totalCharitableGiving ? (
               <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 6 }}>
-                Total Charitable Giving: {data.totalCharitableGiving}
+                Total Charitable Giving: {fmtMoney(data.totalCharitableGiving)}
               </Text>
             ) : null}
             {data.nonPhilanthropicPoliticalGiving ? (
               <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY }}>
-                Non-Philanthropic Political Giving: {data.nonPhilanthropicPoliticalGiving}
+                Non-Philanthropic Political Giving: {fmtMoney(data.nonPhilanthropicPoliticalGiving)}
               </Text>
             ) : null}
           </View>
@@ -431,7 +462,7 @@ function ProfileDocument({ data }: { data: any }) {
 
         <View style={styles.askBox}>
           <Text style={styles.askLabel}>RECOMMENDED ASK AMOUNT</Text>
-          <Text style={styles.askValue}>{data.recommendedAskAmount || "TBD"}</Text>
+          <Text style={styles.askValue}>{data.recommendedAskAmount ? fmtMoney(data.recommendedAskAmount) : "TBD"}</Text>
         </View>
       </Page>
     </Document>
@@ -443,7 +474,7 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     const { renderToBuffer } = await import("@react-pdf/renderer");
     const buffer = await renderToBuffer(<ProfileDocument data={data} />);
-    const fileName = `${(data?.name || "Prospect_Research_Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
+    const fileName = `${(data?.name || "Prospect_Intelligence_Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
