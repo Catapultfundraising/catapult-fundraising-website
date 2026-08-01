@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon } from "@react-pdf/renderer";
 
 export const runtime = "nodejs";
 
@@ -45,27 +45,104 @@ const styles = StyleSheet.create({
   title: { fontSize: 26, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 2, borderBottomColor: BRASS, paddingBottom: 8, marginBottom: 16 },
   sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 1, borderBottomColor: LINE, paddingBottom: 4, marginTop: 20, marginBottom: 10 },
   wealthPanel: { backgroundColor: NAVY, borderRadius: 4, padding: 10, marginBottom: 16 },
-  wealthRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
-  wealthLabel: { color: "#FFFFFF", fontSize: 10 },
+  wealthRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 },
+  wealthLabelRow: { flexDirection: "row", alignItems: "center" },
+  wealthLabel: { color: "#FFFFFF", fontSize: 10, marginLeft: 6 },
   wealthValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 11 },
-  fieldRow: { flexDirection: "row", marginBottom: 10, borderBottomWidth: 0.5, borderBottomColor: "#C9C2B0", paddingBottom: 8 },
-  fieldLabel: { width: 150, fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5 },
+  fieldRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10, borderBottomWidth: 0.5, borderBottomColor: "#C9C2B0", paddingBottom: 8 },
+  fieldLabel: { width: 150, flexShrink: 0, fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3 },
   fieldValue: { flex: 1, fontSize: 10, color: INK, lineHeight: 1.4 },
   photoRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
   photoCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: BRASS, objectFit: "cover" },
   photoPlaceholder: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: BRASS, backgroundColor: CREAM },
   nameHeading: { fontSize: 14, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 },
-  tableHeaderRow: { flexDirection: "row", backgroundColor: NAVY },
+  tableHeaderRow: { flexDirection: "row", alignItems: "center", backgroundColor: NAVY },
   tableHeaderCell: { color: "#FFFFFF", fontSize: 8, fontFamily: "Helvetica-Bold", padding: 6, letterSpacing: 0.5 },
-  tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE },
-  tableCell: { fontSize: 9, padding: 6, color: INK },
+  tableRow: { flexDirection: "row", alignItems: "flex-start", borderBottomWidth: 0.5, borderBottomColor: LINE },
+  tableCell: { fontSize: 9, padding: 6, color: INK, lineHeight: 1.3 },
+  sectionHeadingRow: { flexDirection: "row", alignItems: "center" },
   askBox: { backgroundColor: CREAM, borderWidth: 1, borderColor: BRASS, borderLeftWidth: 4, padding: 10, marginTop: 18 },
   askLabel: { fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 1 },
   askValue: { fontSize: 16, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 3 },
-  propertyCard: { flexDirection: "row", marginBottom: 12, borderWidth: 0.5, borderColor: LINE, borderRadius: 4, padding: 8 },
+  propertyCard: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12, borderWidth: 0.5, borderColor: LINE, borderRadius: 4, padding: 8 },
   propertyPhoto: { width: 90, height: 66, borderRadius: 3, marginRight: 10, objectFit: "cover" },
   italicNote: { fontSize: 7.5, color: MUTED, fontStyle: "italic", marginBottom: 10 },
 });
+
+type IconName = "home" | "dollar" | "chart" | "gift" | "star" | "phone" | "mail" | "users" | "graduationCap";
+
+function IconGlyph({ name, color = BRASS, size = 10 }: { name: IconName; color?: string; size?: number }) {
+  const common = { stroke: color, strokeWidth: 2, fill: "none", strokeLinecap: "round" as const, strokeLinejoin: "round" as const };
+  switch (name) {
+    case "home":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" {...common} />
+          <Path d="M9 22V12h6v10" {...common} />
+        </Svg>
+      );
+    case "dollar":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Path d="M12 2v20" {...common} />
+          <Path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6" {...common} />
+        </Svg>
+      );
+    case "chart":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Path d="M3 3v18h18" {...common} />
+          <Path d="M18 9l-5 5-4-4-4 4" {...common} />
+        </Svg>
+      );
+    case "gift":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Rect x="3" y="8" width="18" height="4" {...common} />
+          <Path d="M12 8v13" {...common} />
+          <Path d="M19 12v7a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2v-7" {...common} />
+          <Path d="M7.5 8a2.5 2.5 0 0 1 0-5C11 3 12 8 12 8s1-5 4.5-5a2.5 2.5 0 0 1 0 5" {...common} />
+        </Svg>
+      );
+    case "star":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26" {...common} />
+        </Svg>
+      );
+    case "phone":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" {...common} />
+        </Svg>
+      );
+    case "mail":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Rect x="2" y="4" width="20" height="16" rx="2" {...common} />
+          <Path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7" {...common} />
+        </Svg>
+      );
+    case "users":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" {...common} />
+          <Path d="M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" {...common} />
+          <Path d="M22 21v-2a4 4 0 0 0-3-3.87" {...common} />
+          <Path d="M16 3.13a4 4 0 0 1 0 7.75" {...common} />
+        </Svg>
+      );
+    case "graduationCap":
+      return (
+        <Svg viewBox="0 0 24 24" width={size} height={size}>
+          <Path d="M22 10 12 5 2 10l10 5 10-5Z" {...common} />
+          <Path d="M6 12v5c3 3 9 3 12 0v-5" {...common} />
+        </Svg>
+      );
+    default:
+      return null;
+  }
+}
 
 function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -92,12 +169,14 @@ function militaryValue(data: any): string {
 
 function MiniTable({
   title,
+  icon,
   headers,
   colWidths,
   rows,
   renderRow,
 }: {
   title?: string;
+  icon?: IconName;
   headers: string[];
   colWidths: string[];
   rows: any[];
@@ -107,9 +186,12 @@ function MiniTable({
   return (
     <View style={{ marginBottom: 10 }} wrap={false}>
       {title ? (
-        <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginBottom: 3 }}>
-          {title.toUpperCase()}
-        </Text>
+        <View style={[styles.sectionHeadingRow, { marginBottom: 3 }]}>
+          {icon ? <IconGlyph name={icon} color={BRASS} size={9} /> : null}
+          <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: icon ? 4 : 0 }}>
+            {title.toUpperCase()}
+          </Text>
+        </View>
       ) : null}
       <View style={styles.tableHeaderRow}>
         {headers.map((h, i) => (
@@ -158,15 +240,15 @@ function HeaderFooter({ data }: { data: any }) {
 }
 
 function ProfileDocument({ data }: { data: any }) {
-  const wealthRows: Array<[string, string]> = ([
-    ["Estimated Income", data.estimatedIncome],
-    ["Estimated Net Worth", data.estimatedNetWorth],
-    ["Stock Value", data.stockValue],
-    ["Real Estate Value", data.realEstateValue],
-    ["# of Properties", data.realEstatePropertyCount],
-    ["Estimated Giving Capacity — 5 Years", data.givingCapacity],
-    ["Wealth Rating", data.wealthRating],
-  ] as Array<[string, string]>).filter(([, v]) => v);
+  const wealthRows: Array<[string, string, IconName]> = ([
+    ["Estimated Income", data.estimatedIncome, "dollar"],
+    ["Estimated Net Worth", data.estimatedNetWorth, "dollar"],
+    ["Stock Value", data.stockValue, "chart"],
+    ["Real Estate Value", data.realEstateValue, "home"],
+    ["# of Properties", data.realEstatePropertyCount, "home"],
+    ["Estimated Giving Capacity — 5 Years", data.givingCapacity, "gift"],
+    ["Wealth Rating", data.wealthRating, "star"],
+  ] as Array<[string, string, IconName]>).filter(([, v]) => v);
 
   return (
     <Document>
@@ -178,9 +260,12 @@ function ProfileDocument({ data }: { data: any }) {
 
         {wealthRows.length > 0 && (
           <View style={styles.wealthPanel}>
-            {wealthRows.map(([label, value]) => (
+            {wealthRows.map(([label, value, icon]) => (
               <View style={styles.wealthRow} key={label}>
-                <Text style={styles.wealthLabel}>{label}</Text>
+                <View style={styles.wealthLabelRow}>
+                  <IconGlyph name={icon} color={BRASS_LIGHT} size={10} />
+                  <Text style={styles.wealthLabel}>{label}</Text>
+                </View>
                 <Text style={styles.wealthValue}>{value}</Text>
               </View>
             ))}
@@ -203,6 +288,7 @@ function ProfileDocument({ data }: { data: any }) {
         <FieldRow label="Client ID Number" value={data.clientId} />
         <MiniTable
           title="Phone Numbers"
+          icon="phone"
           headers={["TYPE", "NUMBER"]}
           colWidths={["30%", "70%"]}
           rows={data.phones}
@@ -210,6 +296,7 @@ function ProfileDocument({ data }: { data: any }) {
         />
         <MiniTable
           title="Email Addresses"
+          icon="mail"
           headers={["TYPE", "EMAIL"]}
           colWidths={["30%", "70%"]}
           rows={data.emails}
@@ -219,6 +306,7 @@ function ProfileDocument({ data }: { data: any }) {
         <FieldRow label="Marital Status" value={data.maritalStatus} />
         <MiniTable
           title="Children"
+          icon="users"
           headers={["NAME", "AGE", "OTHER INFORMATION"]}
           colWidths={["25%", "15%", "60%"]}
           rows={data.childrenRows}
@@ -226,6 +314,7 @@ function ProfileDocument({ data }: { data: any }) {
         />
         <MiniTable
           title="Education"
+          icon="graduationCap"
           headers={["INSTITUTION", "GRADUATION YEAR"]}
           colWidths={["70%", "30%"]}
           rows={data.educationEntries}
@@ -245,7 +334,10 @@ function ProfileDocument({ data }: { data: any }) {
 
         {data.realEstate?.length > 0 && (
           <>
-            <Text style={styles.sectionHeading}>Real Estate</Text>
+            <View style={[styles.sectionHeadingRow, styles.sectionHeading]}>
+              <IconGlyph name="home" color={NAVY} size={12} />
+              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 5 }}>Real Estate</Text>
+            </View>
             {data.realEstate.map((re: any, i: number) => (
               <View style={styles.propertyCard} key={i} wrap={false}>
                 {re.photo ? (

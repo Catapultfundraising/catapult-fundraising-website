@@ -3,7 +3,39 @@
 import { Suspense, useEffect, useRef, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { Plus, Trash2, Download, Loader2, RotateCcw, Save, ArrowLeft } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  Download,
+  Loader2,
+  RotateCcw,
+  Save,
+  ArrowLeft,
+  Home,
+  Building2,
+  DollarSign,
+  TrendingUp,
+  Star,
+  Hash,
+  Phone,
+  Mail,
+  CalendarDays,
+  Users,
+  Users2,
+  Baby,
+  GraduationCap,
+  Shield,
+  BookOpen,
+  Heart,
+  Handshake,
+  Gift,
+  Briefcase,
+  Landmark,
+  Vote,
+  FileText,
+  Target,
+  type LucideIcon,
+} from "lucide-react";
 
 const DRAFT_KEY_PREFIX = "catapult_research_profile_draft_v1";
 const draftKey = (id: string | null) => `${DRAFT_KEY_PREFIX}:${id || "unsaved"}`;
@@ -226,9 +258,10 @@ async function resizeImageToDataUri(file: File, maxDim = 1000, quality = 0.82): 
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-function SectionHeading({ children }: { children: React.ReactNode }) {
+function SectionHeading({ children, icon: Icon }: { children: React.ReactNode; icon?: LucideIcon }) {
   return (
-    <h2 className="mt-10 border-b border-[rgb(var(--line))] pb-2 font-display text-2xl text-[rgb(var(--navy))]">
+    <h2 className="mt-10 flex items-center gap-2 border-b border-[rgb(var(--line))] pb-2 font-display text-2xl text-[rgb(var(--navy))]">
+      {Icon && <Icon className="h-5 w-5 text-[rgb(var(--brass))]" />}
       {children}
     </h2>
   );
@@ -241,6 +274,7 @@ function Field({
   placeholder,
   textarea,
   rows = 2,
+  icon: Icon,
 }: {
   label: string;
   value: string;
@@ -248,10 +282,12 @@ function Field({
   placeholder?: string;
   textarea?: boolean;
   rows?: number;
+  icon?: LucideIcon;
 }) {
   return (
     <div className="mt-5">
-      <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+      <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        {Icon && <Icon className="h-3.5 w-3.5" />}
         {label}
       </label>
       {textarea ? (
@@ -280,15 +316,18 @@ function SelectField({
   value,
   onChange,
   options,
+  icon: Icon,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   options: string[];
+  icon?: LucideIcon;
 }) {
   return (
     <div className="mt-5">
-      <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+      <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        {Icon && <Icon className="h-3.5 w-3.5" />}
         {label}
       </label>
       <select
@@ -307,10 +346,21 @@ function SelectField({
   );
 }
 
-function ComputedField({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function ComputedField({
+  label,
+  value,
+  hint,
+  icon: Icon,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  icon?: LucideIcon;
+}) {
   return (
     <div className="mt-5">
-      <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+      <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        {Icon && <Icon className="h-3.5 w-3.5" />}
         {label}
         {hint ? (
           <span className="ml-1.5 text-[10px] font-normal normal-case tracking-normal text-[rgb(var(--ink))]/40">
@@ -422,14 +472,12 @@ function ResearchProfileFormInner() {
     router.replace("/research/new");
   }
 
-  async function saveProfile() {
-    setSaving(true);
-    setSaveError(null);
+  async function persistProfile(currentId: string | null): Promise<string | null> {
     try {
       const res = await fetch("/api/research-profiles", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: profileId, name: data.name, status, data }),
+        body: JSON.stringify({ id: currentId, name: data.name, status, data }),
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
@@ -439,10 +487,30 @@ function ResearchProfileFormInner() {
       setProfileId(json.profile.id);
       setLastSavedAt(json.profile.updatedAt);
       router.replace(`/research/new?id=${json.profile.id}`);
+      return json.profile.id as string;
     } catch (err: any) {
       setSaveError(err?.message || "Something went wrong saving this profile.");
-    } finally {
-      setSaving(false);
+      return null;
+    }
+  }
+
+  async function saveProfile() {
+    setSaving(true);
+    setSaveError(null);
+    await persistProfile(profileId);
+    setSaving(false);
+  }
+
+  async function deleteThisProfile() {
+    if (!profileId) return;
+    if (!confirm("Delete this saved profile? This cannot be undone.")) return;
+    try {
+      const res = await fetch(`/api/research-profiles/${profileId}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to delete profile.");
+      localStorage.removeItem(draftKey(profileId));
+      router.push("/research");
+    } catch {
+      alert("Could not delete this profile. Please try again.");
     }
   }
 
@@ -579,6 +647,10 @@ function ResearchProfileFormInner() {
     setGenError(null);
     setPdfUrl(null);
     try {
+      // Auto-save the profile every time a PDF is generated, so it's always
+      // reopenable from "My Profiles" without a separate manual save step.
+      await persistProfile(profileId);
+
       const res = await fetch("/api/research-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -686,6 +758,16 @@ function ResearchProfileFormInner() {
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
             {saving ? "Saving..." : "Save Profile"}
           </button>
+          {profileId && (
+            <button
+              type="button"
+              onClick={deleteThisProfile}
+              className="inline-flex items-center gap-2 rounded-full border border-transparent px-3 py-2 text-xs font-semibold text-red-600/70 transition-colors hover:text-red-700"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </button>
+          )}
         </div>
       </div>
       {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
@@ -707,15 +789,15 @@ function ResearchProfileFormInner() {
       <Field label="Name" value={data.name} onChange={(v) => set("name", v)} placeholder="Prospect name(s)" />
 
       {/* Wealth panel */}
-      <SectionHeading>Wealth Summary</SectionHeading>
+      <SectionHeading icon={DollarSign}>Wealth Summary</SectionHeading>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Estimated Income" value={data.estimatedIncome} onChange={(v) => set("estimatedIncome", v)} placeholder="$" />
-        <Field label="Estimated Net Worth" value={data.estimatedNetWorth} onChange={(v) => set("estimatedNetWorth", v)} placeholder="$" />
-        <Field label="Stock Value" value={data.stockValue} onChange={(v) => set("stockValue", v)} placeholder="$" />
-        <ComputedField label="Real Estate Value" value={data.realEstateValue} hint="auto-calculated from properties below" />
-        <ComputedField label="# of Properties" value={data.realEstatePropertyCount} hint="auto-calculated from properties below" />
-        <Field label="Estimated Giving Capacity — 5 Years" value={data.givingCapacity} onChange={(v) => set("givingCapacity", v)} placeholder="$" />
-        <Field label="Wealth Rating" value={data.wealthRating} onChange={(v) => set("wealthRating", v)} />
+        <Field label="Estimated Income" value={data.estimatedIncome} onChange={(v) => set("estimatedIncome", v)} placeholder="$" icon={DollarSign} />
+        <Field label="Estimated Net Worth" value={data.estimatedNetWorth} onChange={(v) => set("estimatedNetWorth", v)} placeholder="$" icon={DollarSign} />
+        <Field label="Stock Value" value={data.stockValue} onChange={(v) => set("stockValue", v)} placeholder="$" icon={TrendingUp} />
+        <ComputedField label="Real Estate Value" value={data.realEstateValue} hint="auto-calculated from properties below" icon={Home} />
+        <ComputedField label="# of Properties" value={data.realEstatePropertyCount} hint="auto-calculated from properties below" icon={Building2} />
+        <Field label="Estimated Giving Capacity — 5 Years" value={data.givingCapacity} onChange={(v) => set("givingCapacity", v)} placeholder="$" icon={Gift} />
+        <Field label="Wealth Rating" value={data.wealthRating} onChange={(v) => set("wealthRating", v)} icon={Star} />
       </div>
 
       {/* Photo */}
@@ -757,13 +839,14 @@ function ResearchProfileFormInner() {
       </div>
 
       {/* Identification & personal details */}
-      <SectionHeading>Identification &amp; Personal Details</SectionHeading>
+      <SectionHeading icon={Users}>Identification &amp; Personal Details</SectionHeading>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Catapult ID Number" value={data.catapultId} onChange={(v) => set("catapultId", v)} placeholder="CPTID #" />
-        <Field label="Client ID Number" value={data.clientId} onChange={(v) => set("clientId", v)} placeholder="Client ID #" />
+        <Field label="Catapult ID Number" value={data.catapultId} onChange={(v) => set("catapultId", v)} placeholder="CPTID #" icon={Hash} />
+        <Field label="Client ID Number" value={data.clientId} onChange={(v) => set("clientId", v)} placeholder="Client ID #" icon={Hash} />
       </div>
       <div className="mt-5">
-        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <Phone className="h-3.5 w-3.5" />
           Phone Numbers
         </label>
         <RowTable
@@ -805,7 +888,8 @@ function ResearchProfileFormInner() {
       </div>
 
       <div className="mt-5">
-        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <Mail className="h-3.5 w-3.5" />
           Email Addresses
         </label>
         <RowTable
@@ -845,11 +929,12 @@ function ResearchProfileFormInner() {
           colWidths={["25%", "30%", "45%"]}
         />
       </div>
-      <Field label="Born" value={data.born} onChange={(v) => set("born", v)} placeholder="DOB, Age, aka" textarea rows={2} />
-      <SelectField label="Marital Status" value={data.maritalStatus} onChange={(v) => set("maritalStatus", v)} options={MARITAL_STATUS_OPTIONS} />
+      <Field label="Born" value={data.born} onChange={(v) => set("born", v)} placeholder="DOB, Age, aka" textarea rows={2} icon={CalendarDays} />
+      <SelectField label="Marital Status" value={data.maritalStatus} onChange={(v) => set("maritalStatus", v)} options={MARITAL_STATUS_OPTIONS} icon={Users} />
 
       <div className="mt-5">
-        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <Baby className="h-3.5 w-3.5" />
           Children
         </label>
         <RowTable
@@ -870,7 +955,8 @@ function ResearchProfileFormInner() {
       </div>
 
       <div className="mt-5">
-        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <GraduationCap className="h-3.5 w-3.5" />
           Education
         </label>
         <RowTable
@@ -890,16 +976,17 @@ function ResearchProfileFormInner() {
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <SelectField label="Military Branch" value={data.militaryBranch} onChange={(v) => set("militaryBranch", v)} options={MILITARY_BRANCH_OPTIONS} />
-        <Field label="Military Details" value={data.militaryDetails} onChange={(v) => set("militaryDetails", v)} placeholder="Rank, years served, etc." />
+        <SelectField label="Military Branch" value={data.militaryBranch} onChange={(v) => set("militaryBranch", v)} options={MILITARY_BRANCH_OPTIONS} icon={Shield} />
+        <Field label="Military Details" value={data.militaryDetails} onChange={(v) => set("militaryDetails", v)} placeholder="Rank, years served, etc." icon={Shield} />
       </div>
 
-      <Field label="Religion" value={data.religion} onChange={(v) => set("religion", v)} />
-      <Field label="Hobbies & Interests" value={data.hobbiesInterests} onChange={(v) => set("hobbiesInterests", v)} textarea rows={2} />
-      <Field label="Relationship to [Organization]" value={data.relationshipToOrg} onChange={(v) => set("relationshipToOrg", v)} textarea rows={3} />
+      <Field label="Religion" value={data.religion} onChange={(v) => set("religion", v)} icon={BookOpen} />
+      <Field label="Hobbies & Interests" value={data.hobbiesInterests} onChange={(v) => set("hobbiesInterests", v)} textarea rows={2} icon={Heart} />
+      <Field label="Relationship to [Organization]" value={data.relationshipToOrg} onChange={(v) => set("relationshipToOrg", v)} textarea rows={3} icon={Handshake} />
 
       <div className="mt-5">
-        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <Gift className="h-3.5 w-3.5" />
           Giving History to [Organization]
         </label>
         <RowTable
@@ -920,7 +1007,7 @@ function ResearchProfileFormInner() {
       </div>
 
       {/* Real Estate */}
-      <SectionHeading>Real Estate</SectionHeading>
+      <SectionHeading icon={Home}>Real Estate</SectionHeading>
       <div className="mt-4 space-y-6">
         {data.realEstate.map((re, i) => (
           <RealEstateCard
@@ -942,17 +1029,17 @@ function ResearchProfileFormInner() {
       </button>
 
       {/* Business / Foundation / Political */}
-      <SectionHeading>Business, Foundation &amp; Affiliations</SectionHeading>
-      <Field label="Business Address(es) & Phone(s)" value={data.businessAddresses} onChange={(v) => set("businessAddresses", v)} textarea rows={4} />
-      <Field label="Family Foundation" value={data.familyFoundation} onChange={(v) => set("familyFoundation", v)} textarea rows={3} />
-      <SelectField label="Political Affiliation" value={data.politicalAffiliation} onChange={(v) => set("politicalAffiliation", v)} options={POLITICAL_AFFILIATION_OPTIONS} />
-      <Field label="Additional Information" value={data.additionalInformation} onChange={(v) => set("additionalInformation", v)} textarea rows={8} />
-      <Field label="Boards" value={data.boards} onChange={(v) => set("boards", v)} textarea rows={4} />
-      <Field label="Clubs & Affiliations" value={data.clubsAffiliations} onChange={(v) => set("clubsAffiliations", v)} textarea rows={4} />
-      <Field label="Business Colleagues" value={data.businessColleagues} onChange={(v) => set("businessColleagues", v)} textarea rows={4} />
+      <SectionHeading icon={Briefcase}>Business, Foundation &amp; Affiliations</SectionHeading>
+      <Field label="Business Address(es) & Phone(s)" value={data.businessAddresses} onChange={(v) => set("businessAddresses", v)} textarea rows={4} icon={Briefcase} />
+      <Field label="Family Foundation" value={data.familyFoundation} onChange={(v) => set("familyFoundation", v)} textarea rows={3} icon={Landmark} />
+      <SelectField label="Political Affiliation" value={data.politicalAffiliation} onChange={(v) => set("politicalAffiliation", v)} options={POLITICAL_AFFILIATION_OPTIONS} icon={Vote} />
+      <Field label="Additional Information" value={data.additionalInformation} onChange={(v) => set("additionalInformation", v)} textarea rows={8} icon={FileText} />
+      <Field label="Boards" value={data.boards} onChange={(v) => set("boards", v)} textarea rows={4} icon={Users2} />
+      <Field label="Clubs & Affiliations" value={data.clubsAffiliations} onChange={(v) => set("clubsAffiliations", v)} textarea rows={4} icon={Users2} />
+      <Field label="Business Colleagues" value={data.businessColleagues} onChange={(v) => set("businessColleagues", v)} textarea rows={4} icon={Briefcase} />
 
       {/* Other Giving History */}
-      <SectionHeading>Other Giving History</SectionHeading>
+      <SectionHeading icon={Gift}>Other Giving History</SectionHeading>
       <p className="mt-2 text-xs italic text-[rgb(var(--ink))]/50">
         The amounts listed are representative of donations found in publicly available records and
         in donor history provided to Catapult. As such, the individual amounts will not necessarily
@@ -976,7 +1063,8 @@ function ResearchProfileFormInner() {
       />
 
       <div className="mt-8">
-        <p className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        <p className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <Landmark className="h-3.5 w-3.5" />
           FEC Recipient Organization
         </p>
       </div>
@@ -997,10 +1085,10 @@ function ResearchProfileFormInner() {
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <ComputedField label="Total Charitable Giving" value={data.totalCharitableGiving} hint="auto-calculated from Other Giving History" />
-        <ComputedField label="Non-Philanthropic Political Giving" value={data.nonPhilanthropicPoliticalGiving} hint="auto-calculated from FEC amounts" />
+        <ComputedField label="Total Charitable Giving" value={data.totalCharitableGiving} hint="auto-calculated from Other Giving History" icon={Gift} />
+        <ComputedField label="Non-Philanthropic Political Giving" value={data.nonPhilanthropicPoliticalGiving} hint="auto-calculated from FEC amounts" icon={Vote} />
       </div>
-      <Field label="Recommended Ask Amount" value={data.recommendedAskAmount} onChange={(v) => set("recommendedAskAmount", v)} />
+      <Field label="Recommended Ask Amount" value={data.recommendedAskAmount} onChange={(v) => set("recommendedAskAmount", v)} icon={Target} />
 
       {/* Generate */}
       <div className="mt-12 rounded-2xl border border-[rgb(var(--line))] bg-[rgb(var(--paper))] p-6">
@@ -1008,8 +1096,9 @@ function ResearchProfileFormInner() {
           <div>
             <p className="font-display text-lg text-[rgb(var(--navy))]">Generate the formatted PDF</p>
             <p className="mt-1 text-sm text-[rgb(var(--ink))]/60">
-              You can keep editing anything above and click this again to regenerate&mdash;nothing
-              is lost.
+              This automatically saves the profile too, so it&rsquo;s always reopenable from
+              &ldquo;My Profiles.&rdquo; Keep editing anything above and click this again to
+              regenerate&mdash;nothing is lost.
             </p>
           </div>
           <button
