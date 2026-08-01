@@ -39,6 +39,9 @@ const POLITICAL_AFFILIATION_OPTIONS = [
   "Unknown",
 ];
 
+const PHONE_TYPE_OPTIONS = ["Mobile", "Home", "Work", "Fax", "Spouse", "Other"];
+const EMAIL_TYPE_OPTIONS = ["Personal", "Work", "Spouse", "Other"];
+
 function parseCurrencyToNumber(value: string): number {
   if (!value) return 0;
   const cleaned = value.replace(/[^0-9.-]/g, "");
@@ -49,6 +52,15 @@ function parseCurrencyToNumber(value: string): number {
 function formatCurrency(n: number): string {
   if (!n) return "";
   return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  const len = digits.length;
+  if (len === 0) return "";
+  if (len < 4) return `(${digits}`;
+  if (len < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
 interface RealEstateItem {
@@ -84,6 +96,23 @@ interface GivingHistoryRow {
   comments: string;
 }
 
+interface PhoneRow {
+  type: string;
+  customType: string;
+  number: string;
+}
+
+interface EmailRow {
+  type: string;
+  customType: string;
+  address: string;
+}
+
+interface EducationEntry {
+  institution: string;
+  year: string;
+}
+
 interface ProfileData {
   dateCreated: string;
   clientProfiler: string;
@@ -98,12 +127,12 @@ interface ProfileData {
   photo: string;
   catapultId: string;
   clientId: string;
-  phone: string;
-  email: string;
+  phones: PhoneRow[];
+  emails: EmailRow[];
   born: string;
   maritalStatus: string;
   childrenRows: ChildRow[];
-  educationEntries: string[];
+  educationEntries: EducationEntry[];
   militaryBranch: string;
   militaryDetails: string;
   religion: string;
@@ -144,8 +173,8 @@ function emptyProfile(): ProfileData {
     photo: "",
     catapultId: "",
     clientId: "",
-    phone: "",
-    email: "",
+    phones: [],
+    emails: [],
     born: "",
     maritalStatus: "",
     childrenRows: [],
@@ -292,54 +321,6 @@ function ComputedField({ label, value, hint }: { label: string; value: string; h
       <div className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] bg-[rgb(var(--paper))] px-3 py-2 text-sm text-[rgb(var(--ink))]">
         {value || <span className="text-[rgb(var(--ink))]/30">—</span>}
       </div>
-    </div>
-  );
-}
-
-function SimpleRowList({
-  items,
-  onAdd,
-  onChange,
-  onRemove,
-  addLabel,
-  placeholder,
-}: {
-  items: string[];
-  onAdd: () => void;
-  onChange: (i: number, v: string) => void;
-  onRemove: (i: number) => void;
-  addLabel: string;
-  placeholder?: string;
-}) {
-  return (
-    <div className="mt-3 space-y-2">
-      {items.map((item, i) => (
-        <div key={i} className="flex items-center gap-2">
-          <input
-            type="text"
-            value={item}
-            onChange={(e) => onChange(i, e.target.value)}
-            placeholder={placeholder}
-            className="w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))]"
-          />
-          <button
-            type="button"
-            onClick={() => onRemove(i)}
-            className="shrink-0 text-red-600/70 hover:text-red-700"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
-      ))}
-      {items.length === 0 && <p className="text-sm text-[rgb(var(--ink))]/40">No entries yet.</p>}
-      <button
-        type="button"
-        onClick={onAdd}
-        className="inline-flex items-center gap-2 rounded-full border border-dashed border-[rgb(var(--brass))] px-4 py-1.5 text-xs font-semibold text-[rgb(var(--navy))] hover:bg-[rgb(var(--paper))]"
-      >
-        <Plus className="h-3.5 w-3.5" />
-        {addLabel}
-      </button>
     </div>
   );
 }
@@ -519,15 +500,39 @@ function ResearchProfileFormInner() {
   }
 
   function addEducationEntry() {
-    set("educationEntries", [...data.educationEntries, ""]);
+    set("educationEntries", [...data.educationEntries, { institution: "", year: "" }]);
   }
-  function updateEducationEntry(i: number, value: string) {
+  function updateEducationEntry(i: number, patch: Partial<EducationEntry>) {
     const next = [...data.educationEntries];
-    next[i] = value;
+    next[i] = { ...next[i], ...patch };
     set("educationEntries", next);
   }
   function removeEducationEntry(i: number) {
     set("educationEntries", data.educationEntries.filter((_, idx) => idx !== i));
+  }
+
+  function addPhoneRow() {
+    set("phones", [...data.phones, { type: "Mobile", customType: "", number: "" }]);
+  }
+  function updatePhoneRow(i: number, patch: Partial<PhoneRow>) {
+    const next = [...data.phones];
+    next[i] = { ...next[i], ...patch };
+    set("phones", next);
+  }
+  function removePhoneRow(i: number) {
+    set("phones", data.phones.filter((_, idx) => idx !== i));
+  }
+
+  function addEmailRow() {
+    set("emails", [...data.emails, { type: "Personal", customType: "", address: "" }]);
+  }
+  function updateEmailRow(i: number, patch: Partial<EmailRow>) {
+    const next = [...data.emails];
+    next[i] = { ...next[i], ...patch };
+    set("emails", next);
+  }
+  function removeEmailRow(i: number) {
+    set("emails", data.emails.filter((_, idx) => idx !== i));
   }
 
   function addGivingHistoryRow() {
@@ -757,9 +762,88 @@ function ResearchProfileFormInner() {
         <Field label="Catapult ID Number" value={data.catapultId} onChange={(v) => set("catapultId", v)} placeholder="CPTID #" />
         <Field label="Client ID Number" value={data.clientId} onChange={(v) => set("clientId", v)} placeholder="Client ID #" />
       </div>
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Phone" value={data.phone} onChange={(v) => set("phone", v)} placeholder="Phone number" />
-        <Field label="Email" value={data.email} onChange={(v) => set("email", v)} placeholder="Email address" />
+      <div className="mt-5">
+        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          Phone Numbers
+        </label>
+        <RowTable
+          headers={["Type", "Custom Label (if Other)", "Phone Number"]}
+          rows={data.phones}
+          onAdd={addPhoneRow}
+          addLabel="Add Phone Number"
+          renderRow={(row: PhoneRow, i) => (
+            <>
+              <select
+                className="w-full min-w-0 border-none bg-transparent text-sm outline-none"
+                value={row.type}
+                onChange={(e) => updatePhoneRow(i, { type: e.target.value })}
+              >
+                {PHONE_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="w-full min-w-0 border-none bg-transparent text-sm outline-none disabled:opacity-30"
+                value={row.customType}
+                disabled={row.type !== "Other"}
+                onChange={(e) => updatePhoneRow(i, { customType: e.target.value })}
+                placeholder="e.g., Assistant"
+              />
+              <input
+                className="w-full min-w-0 border-none bg-transparent text-sm outline-none"
+                value={row.number}
+                onChange={(e) => updatePhoneRow(i, { number: formatPhoneNumber(e.target.value) })}
+                placeholder="(702) 555-1234"
+              />
+            </>
+          )}
+          onRemove={removePhoneRow}
+          colWidths={["25%", "30%", "45%"]}
+        />
+      </div>
+
+      <div className="mt-5">
+        <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          Email Addresses
+        </label>
+        <RowTable
+          headers={["Type", "Custom Label (if Other)", "Email Address"]}
+          rows={data.emails}
+          onAdd={addEmailRow}
+          addLabel="Add Email Address"
+          renderRow={(row: EmailRow, i) => (
+            <>
+              <select
+                className="w-full min-w-0 border-none bg-transparent text-sm outline-none"
+                value={row.type}
+                onChange={(e) => updateEmailRow(i, { type: e.target.value })}
+              >
+                {EMAIL_TYPE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
+              <input
+                className="w-full min-w-0 border-none bg-transparent text-sm outline-none disabled:opacity-30"
+                value={row.customType}
+                disabled={row.type !== "Other"}
+                onChange={(e) => updateEmailRow(i, { customType: e.target.value })}
+                placeholder="e.g., Assistant"
+              />
+              <input
+                className="w-full min-w-0 border-none bg-transparent text-sm outline-none"
+                value={row.address}
+                onChange={(e) => updateEmailRow(i, { address: e.target.value })}
+                placeholder="name@example.com"
+              />
+            </>
+          )}
+          onRemove={removeEmailRow}
+          colWidths={["25%", "30%", "45%"]}
+        />
       </div>
       <Field label="Born" value={data.born} onChange={(v) => set("born", v)} placeholder="DOB, Age, aka" textarea rows={2} />
       <SelectField label="Marital Status" value={data.maritalStatus} onChange={(v) => set("maritalStatus", v)} options={MARITAL_STATUS_OPTIONS} />
@@ -789,13 +873,19 @@ function ResearchProfileFormInner() {
         <label className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
           Education
         </label>
-        <SimpleRowList
-          items={data.educationEntries}
+        <RowTable
+          headers={["Institution", "Graduation Year"]}
+          rows={data.educationEntries}
           onAdd={addEducationEntry}
-          onChange={updateEducationEntry}
-          onRemove={removeEducationEntry}
           addLabel="Add Institution"
-          placeholder="Institution, degree, year"
+          renderRow={(row: EducationEntry, i) => (
+            <>
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.institution} onChange={(e) => updateEducationEntry(i, { institution: e.target.value })} placeholder="Institution, degree" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateEducationEntry(i, { year: e.target.value })} placeholder="Graduation year" />
+            </>
+          )}
+          onRemove={removeEducationEntry}
+          colWidths={["70%", "30%"]}
         />
       </div>
 

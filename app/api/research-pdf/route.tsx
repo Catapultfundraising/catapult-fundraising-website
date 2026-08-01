@@ -3,6 +3,10 @@ import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/render
 
 export const runtime = "nodejs";
 
+// Current Catapult Fundraising logo, matching the live site header.
+const LOGO_URL =
+  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
+
 
 const NAVY = "#15212E";
 const BRASS = "#B28C46";
@@ -33,33 +37,34 @@ const styles = StyleSheet.create({
     bottom: 18,
     left: 40,
     right: 40,
-    textAlign: "center",
+    textAlign: "right",
   },
   footerText: { fontSize: 6.5, color: MUTED, marginBottom: 2 },
+  logo: { width: 120, height: 80, marginBottom: 12 },
   eyebrow: { fontSize: 9, color: BRASS, fontFamily: "Helvetica-Bold", letterSpacing: 1.5, marginBottom: 4 },
-  title: { fontSize: 26, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 2, borderBottomColor: BRASS, paddingBottom: 8, marginBottom: 14 },
-  sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 1, borderBottomColor: LINE, paddingBottom: 4, marginTop: 16, marginBottom: 8 },
-  wealthPanel: { backgroundColor: NAVY, borderRadius: 4, padding: 10, marginBottom: 14 },
+  title: { fontSize: 26, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 2, borderBottomColor: BRASS, paddingBottom: 8, marginBottom: 16 },
+  sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 1, borderBottomColor: LINE, paddingBottom: 4, marginTop: 20, marginBottom: 10 },
+  wealthPanel: { backgroundColor: NAVY, borderRadius: 4, padding: 10, marginBottom: 16 },
   wealthRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 4 },
   wealthLabel: { color: "#FFFFFF", fontSize: 10 },
   wealthValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 11 },
-  fieldRow: { flexDirection: "row", marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: "#C9C2B0", paddingBottom: 6 },
+  fieldRow: { flexDirection: "row", marginBottom: 10, borderBottomWidth: 0.5, borderBottomColor: "#C9C2B0", paddingBottom: 8 },
   fieldLabel: { width: 150, fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5 },
   fieldValue: { flex: 1, fontSize: 10, color: INK, lineHeight: 1.4 },
-  photoRow: { flexDirection: "row", alignItems: "center", marginBottom: 14 },
+  photoRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
   photoCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: BRASS, objectFit: "cover" },
   photoPlaceholder: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: BRASS, backgroundColor: CREAM },
   nameHeading: { fontSize: 14, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 },
   tableHeaderRow: { flexDirection: "row", backgroundColor: NAVY },
-  tableHeaderCell: { color: "#FFFFFF", fontSize: 8, fontFamily: "Helvetica-Bold", padding: 5, letterSpacing: 0.5 },
+  tableHeaderCell: { color: "#FFFFFF", fontSize: 8, fontFamily: "Helvetica-Bold", padding: 6, letterSpacing: 0.5 },
   tableRow: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE },
-  tableCell: { fontSize: 9, padding: 5, color: INK },
-  askBox: { backgroundColor: CREAM, borderWidth: 1, borderColor: BRASS, borderLeftWidth: 4, padding: 10, marginTop: 10 },
+  tableCell: { fontSize: 9, padding: 6, color: INK },
+  askBox: { backgroundColor: CREAM, borderWidth: 1, borderColor: BRASS, borderLeftWidth: 4, padding: 10, marginTop: 18 },
   askLabel: { fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 1 },
   askValue: { fontSize: 16, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 3 },
-  propertyCard: { flexDirection: "row", marginBottom: 10, borderWidth: 0.5, borderColor: LINE, borderRadius: 4, padding: 8 },
+  propertyCard: { flexDirection: "row", marginBottom: 12, borderWidth: 0.5, borderColor: LINE, borderRadius: 4, padding: 8 },
   propertyPhoto: { width: 90, height: 66, borderRadius: 3, marginRight: 10, objectFit: "cover" },
-  italicNote: { fontSize: 7.5, color: MUTED, fontStyle: "italic", marginBottom: 6 },
+  italicNote: { fontSize: 7.5, color: MUTED, fontStyle: "italic", marginBottom: 10 },
 });
 
 function FieldRow({ label, value }: { label: string; value?: string }) {
@@ -72,21 +77,9 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   );
 }
 
-function EducationList({ items }: { items?: string[] }) {
-  const filtered = (items || []).filter((s) => s && s.trim());
-  if (filtered.length === 0) return null;
-  return (
-    <View style={styles.fieldRow} wrap={false}>
-      <Text style={styles.fieldLabel}>EDUCATION</Text>
-      <View style={{ flex: 1 }}>
-        {filtered.map((item, i) => (
-          <Text key={i} style={[styles.fieldValue, { marginBottom: i === filtered.length - 1 ? 0 : 2 }]}>
-            • {item}
-          </Text>
-        ))}
-      </View>
-    </View>
-  );
+function resolveContactType(row: any): string {
+  if (row?.type === "Other" && row?.customType) return row.customType;
+  return row?.type || "";
 }
 
 function militaryValue(data: any): string {
@@ -179,6 +172,7 @@ function ProfileDocument({ data }: { data: any }) {
     <Document>
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
+        <Image src={LOGO_URL} style={styles.logo} />
         <Text style={styles.eyebrow}>PROSPECT RESEARCH PROFILE</Text>
         <Text style={styles.title}>{data.name || "NAME"}</Text>
 
@@ -207,8 +201,20 @@ function ProfileDocument({ data }: { data: any }) {
 
         <FieldRow label="Catapult ID Number" value={data.catapultId} />
         <FieldRow label="Client ID Number" value={data.clientId} />
-        <FieldRow label="Phone" value={data.phone} />
-        <FieldRow label="Email" value={data.email} />
+        <MiniTable
+          title="Phone Numbers"
+          headers={["TYPE", "NUMBER"]}
+          colWidths={["30%", "70%"]}
+          rows={data.phones}
+          renderRow={(row: any) => [resolveContactType(row), row.number || ""]}
+        />
+        <MiniTable
+          title="Email Addresses"
+          headers={["TYPE", "EMAIL"]}
+          colWidths={["30%", "70%"]}
+          rows={data.emails}
+          renderRow={(row: any) => [resolveContactType(row), row.address || ""]}
+        />
         <FieldRow label="Born" value={data.born} />
         <FieldRow label="Marital Status" value={data.maritalStatus} />
         <MiniTable
@@ -218,7 +224,13 @@ function ProfileDocument({ data }: { data: any }) {
           rows={data.childrenRows}
           renderRow={(row: any) => [row.name || "", row.age || "", row.otherInfo || ""]}
         />
-        <EducationList items={data.educationEntries} />
+        <MiniTable
+          title="Education"
+          headers={["INSTITUTION", "GRADUATION YEAR"]}
+          colWidths={["70%", "30%"]}
+          rows={data.educationEntries}
+          renderRow={(row: any) => [row.institution || "", row.year || ""]}
+        />
         <FieldRow label="Military Service" value={militaryValue(data)} />
         <FieldRow label="Religion" value={data.religion} />
         <FieldRow label="Hobbies & Interests" value={data.hobbiesInterests} />
@@ -292,7 +304,7 @@ function ProfileDocument({ data }: { data: any }) {
 
         {data.fecGiving?.length > 0 && (
           <>
-            <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginTop: 12, marginBottom: 4 }}>
+            <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginTop: 18, marginBottom: 8 }}>
               FEC RECIPIENT ORGANIZATION
             </Text>
             <View style={styles.tableHeaderRow}>
@@ -311,9 +323,9 @@ function ProfileDocument({ data }: { data: any }) {
         )}
 
         {(data.totalCharitableGiving || data.nonPhilanthropicPoliticalGiving) && (
-          <View style={{ marginTop: 12 }}>
+          <View style={{ marginTop: 18 }}>
             {data.totalCharitableGiving ? (
-              <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 3 }}>
+              <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 6 }}>
                 Total Charitable Giving: {data.totalCharitableGiving}
               </Text>
             ) : null}
