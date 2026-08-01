@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import "@/lib/pdf-polyfills";
 import { PDFParse } from "pdf-parse";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { getProfile } from "@/lib/research-profiles-store";

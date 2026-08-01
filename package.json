@@ -37,6 +37,7 @@
     "@react-pdf/renderer": "^4.4.0",
     "@vercel/blob": "^2.6.1",
     "docx": "^9.7.1",
+    "dommatrix": "^0.1.1",
     "pdf-parse": "^2.4.5"
   },
   "devDependencies": {
