@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Trash2, FileEdit } from "lucide-react";
+import { Plus, Search, Trash2, FileEdit, FolderOpen } from "lucide-react";
 
 type ProfileStatus = "draft" | "sent_for_approval" | "approved";
 
@@ -99,13 +99,22 @@ export default function ResearchProfilesPage() {
           </p>
           <h1 className="mt-1 font-display text-3xl text-[rgb(var(--navy))]">My Prospect Intelligence Profiles</h1>
         </div>
-        <Link
-          href="/research/new"
-          className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[rgb(var(--brass))]"
-        >
-          <Plus className="h-4 w-4" />
-          New Profile
-        </Link>
+        <div className="flex items-center gap-2">
+          <Link
+            href="/research/clients"
+            className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--line))] px-4 py-2.5 text-sm font-semibold text-[rgb(var(--navy))] hover:border-[rgb(var(--brass))]"
+          >
+            <FolderOpen className="h-4 w-4" />
+            Client Case Library
+          </Link>
+          <Link
+            href="/research/new"
+            className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[rgb(var(--brass))]"
+          >
+            <Plus className="h-4 w-4" />
+            New Profile
+          </Link>
+        </div>
       </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
