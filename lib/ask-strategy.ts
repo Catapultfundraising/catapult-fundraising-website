@@ -206,6 +206,12 @@ export function buildAskStrategy(params: {
   if (profileData?.wealthRating) {
     summaryParts.push(`Wealth rating on file: ${profileData.wealthRating}.`);
   }
+  if (caseForSupportText.trim().length < 200) {
+    summaryParts.push(
+      "Note: little extractable text was found in the client's case for support PDF (it may be a " +
+        "scanned or image-based document) — review that case for support directly for full details."
+    );
+  }
   const executiveSummary = summaryParts.join(" ");
 
   // --- Talking points --------------------------------------------------------

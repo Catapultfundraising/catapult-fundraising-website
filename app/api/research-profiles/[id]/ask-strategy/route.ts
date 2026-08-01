@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import "@/lib/pdf-polyfills";
-import { PDFParse } from "pdf-parse";
+import { extractText, getDocumentProxy } from "unpdf";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { getProfile } from "@/lib/research-profiles-store";
 import { listCases, getCaseFile } from "@/lib/client-cases-store";
@@ -56,13 +55,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     if (!fileResult) {
       return NextResponse.json({ error: "Could not read the matched case for support file." }, { status: 500 });
     }
-    const caseBuffer = Buffer.from(await new Response(fileResult.stream).arrayBuffer());
+    const caseBuffer = new Uint8Array(await new Response(fileResult.stream).arrayBuffer());
 
     let caseText = "";
     try {
-      const parser = new PDFParse({ data: caseBuffer });
-      const parsed = await parser.getText();
-      caseText = parsed.text || "";
+      const pdf = await getDocumentProxy(caseBuffer);
+      const { text } = await extractText(pdf, { mergePages: true });
+      caseText = text || "";
     } catch (err) {
       console.error("ask-strategy PDF parse error", err);
       return NextResponse.json(

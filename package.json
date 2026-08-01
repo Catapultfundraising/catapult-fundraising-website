@@ -29,16 +29,15 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "date-fns": "^4.1.0",
+    "docx": "^9.7.1",
     "framer-motion": "^12.6.0",
     "lucide-react": "^0.475.0",
     "recharts": "^2.15.1",
     "tailwind-merge": "^3.0.2",
+    "unpdf": "^1.7.0",
     "xlsx": "^0.18.5",
     "@react-pdf/renderer": "^4.4.0",
-    "@vercel/blob": "^2.6.1",
-    "docx": "^9.7.1",
-    "dommatrix": "^0.1.1",
-    "pdf-parse": "^2.4.5"
+    "@vercel/blob": "^2.6.1"
   },
   "devDependencies": {
     "@types/node": "^22",
