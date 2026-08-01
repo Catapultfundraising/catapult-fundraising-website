@@ -86,6 +86,18 @@ function formatCurrency(n: number): string {
   return `$${Math.round(n).toLocaleString("en-US")}`;
 }
 
+// Allows freehand, non-currency entries (e.g. "$10M+", "TBD", "N/A") to pass
+// through untouched instead of being stripped down to a bare number. Only
+// values that are purely numeric (with $, commas, decimal, minus) get the
+// standard $X,XXX formatting treatment.
+function smartFormatCurrency(value: string): string {
+  if (!value) return value;
+  const trimmed = value.trim();
+  if (/[a-zA-Z]/.test(trimmed)) return trimmed;
+  const formatted = formatCurrency(parseCurrencyToNumber(trimmed));
+  return formatted || trimmed;
+}
+
 function formatPhoneNumber(value: string): string {
   const digits = value.replace(/\D/g, "").slice(0, 10);
   const len = digits.length;
@@ -307,7 +319,7 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           onBlur={(e) => {
             if (money) {
-              const formatted = formatCurrency(parseCurrencyToNumber(e.target.value));
+              const formatted = smartFormatCurrency(e.target.value);
               if (formatted !== e.target.value) onChange(formatted);
             }
           }}
@@ -1005,7 +1017,7 @@ function ResearchProfileFormInner() {
           renderRow={(row: GivingHistoryRow, i) => (
             <>
               <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateGivingHistoryRow(i, { year: e.target.value })} placeholder="Year" />
-              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingHistoryRow(i, { amount: e.target.value })} onBlur={(e) => updateGivingHistoryRow(i, { amount: formatCurrency(parseCurrencyToNumber(e.target.value)) })} placeholder="Amount" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingHistoryRow(i, { amount: e.target.value })} onBlur={(e) => updateGivingHistoryRow(i, { amount: smartFormatCurrency(e.target.value) })} placeholder="Amount" />
               <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.comments} onChange={(e) => updateGivingHistoryRow(i, { comments: e.target.value })} placeholder="Comments" />
             </>
           )}
@@ -1063,7 +1075,7 @@ function ResearchProfileFormInner() {
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.recipient} onChange={(e) => updateGivingRow(i, { recipient: e.target.value })} placeholder="Recipient" />
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.giving} onChange={(e) => updateGivingRow(i, { giving: e.target.value })} placeholder="Giving detail" />
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateGivingRow(i, { year: e.target.value })} placeholder="Year" />
-            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingRow(i, { amount: e.target.value })} onBlur={(e) => updateGivingRow(i, { amount: formatCurrency(parseCurrencyToNumber(e.target.value)) })} placeholder="Amount" />
+            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingRow(i, { amount: e.target.value })} onBlur={(e) => updateGivingRow(i, { amount: smartFormatCurrency(e.target.value) })} placeholder="Amount" />
           </>
         )}
         onRemove={removeGivingRow}
@@ -1085,7 +1097,7 @@ function ResearchProfileFormInner() {
           <>
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.org} onChange={(e) => updateFecRow(i, { org: e.target.value })} placeholder="Organization" />
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateFecRow(i, { year: e.target.value })} placeholder="Year" />
-            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateFecRow(i, { amount: e.target.value })} onBlur={(e) => updateFecRow(i, { amount: formatCurrency(parseCurrencyToNumber(e.target.value)) })} placeholder="Amount" />
+            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateFecRow(i, { amount: e.target.value })} onBlur={(e) => updateFecRow(i, { amount: smartFormatCurrency(e.target.value) })} placeholder="Amount" />
           </>
         )}
         onRemove={removeFecRow}
