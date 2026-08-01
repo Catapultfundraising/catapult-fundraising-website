@@ -93,7 +93,7 @@ const styles = StyleSheet.create({
     backgroundColor: NAVY,
     paddingHorizontal: 40,
     paddingTop: 18,
-    paddingBottom: 12,
+    paddingBottom: 8,
     marginTop: -20,
     marginBottom: HEADER_GAP,
     flexDirection: "row",
@@ -106,8 +106,8 @@ const styles = StyleSheet.create({
   heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
   heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: PAPER, marginTop: 6, maxWidth: 420 },
   heroTitleId: { fontSize: 13, fontFamily: "Helvetica", color: BRASS_LIGHT },
-  heroPhoto: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover", marginTop: 66 },
-  heroPhotoPlaceholder: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS_LIGHT, backgroundColor: "rgba(250,247,240,0.12)", marginTop: 66 },
+  heroPhoto: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover", marginTop: 48 },
+  heroPhotoPlaceholder: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS_LIGHT, backgroundColor: "rgba(250,247,240,0.12)", marginTop: 48 },
   footer: {
     position: "absolute",
     bottom: 0,
@@ -418,7 +418,7 @@ function ProfileDocument({ data }: { data: any }) {
             <View style={styles.heroPhotoPlaceholder} />
           )}
         </View>
-
+ 
         <View style={styles.body}>
 
         {wealthRows.length > 0 && (
