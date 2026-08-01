@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ profiles: entries });
   } catch (err) {
     console.error("research-profiles GET error", err);
-    return NextResponse.json({ error: "Failed to load profiles.", detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to load profiles." }, { status: 500 });
   }
 }
 
@@ -36,6 +36,6 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, profile: entry });
   } catch (err) {
     console.error("research-profiles POST error", err);
-    return NextResponse.json({ error: "Failed to save profile.", detail: err instanceof Error ? err.message : String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Failed to save profile." }, { status: 500 });
   }
 }
