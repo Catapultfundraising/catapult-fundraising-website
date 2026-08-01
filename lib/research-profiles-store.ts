@@ -1,4 +1,4 @@
-import { put, list } from "@vercel/blob";
+import { put, get } from "@vercel/blob";
 
 export type ProfileStatus = "draft" | "sent_for_approval" | "approved";
 
@@ -13,13 +13,11 @@ export interface ProfileIndexEntry {
 const INDEX_PATH = "research-profiles/index.json";
 const dataPath = (id: string) => `research-profiles/data/${id}.json`;
 
-async function fetchJsonBlob<T>(prefix: string): Promise<T | null> {
-  const { blobs } = await list({ prefix });
-  const match = blobs.find((b) => b.pathname === prefix);
-  if (!match) return null;
-  const res = await fetch(match.url, { cache: "no-store" });
-  if (!res.ok) return null;
-  return (await res.json()) as T;
+async function fetchJsonBlob<T>(pathname: string): Promise<T | null> {
+  const result = await get(pathname, { access: "private", useCache: false });
+  if (!result || !result.stream) return null;
+  const text = await new Response(result.stream).text();
+  return JSON.parse(text) as T;
 }
 
 async function readIndex(): Promise<ProfileIndexEntry[]> {
@@ -29,7 +27,7 @@ async function readIndex(): Promise<ProfileIndexEntry[]> {
 
 async function writeIndex(entries: ProfileIndexEntry[]): Promise<void> {
   await put(INDEX_PATH, JSON.stringify(entries), {
-    access: "public",
+    access: "private",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
@@ -68,7 +66,7 @@ export async function saveProfile(params: {
     updatedAt: now,
   };
   await put(dataPath(id), JSON.stringify(envelope), {
-    access: "public",
+    access: "private",
     contentType: "application/json",
     addRandomSuffix: false,
     allowOverwrite: true,
