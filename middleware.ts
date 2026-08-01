@@ -17,6 +17,14 @@ const GATES = [
     passwordEnv: "JAG_DASHBOARD_PASSWORD",
     secretEnv: "JAG_DASHBOARD_AUTH_SECRET",
   },
+  {
+    matchPrefix: "/research",
+    loginPath: "/research/login",
+    apiPath: "/api/research-login",
+    cookieName: "catapult_research_auth",
+    passwordEnv: "RESEARCH_PASSWORD",
+    secretEnv: "RESEARCH_AUTH_SECRET",
+  },
 ];
 
 async function expectedCookieValue(passwordEnv: string, secretEnv: string): Promise<string> {
@@ -56,5 +64,12 @@ export async function middleware(req: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/assets", "/assets/:path*", "/jag-dashboard", "/jag-dashboard/:path*"],
+  matcher: [
+    "/assets",
+    "/assets/:path*",
+    "/jag-dashboard",
+    "/jag-dashboard/:path*",
+    "/research",
+    "/research/:path*",
+  ],
 };
