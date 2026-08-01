@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Trash2, FileEdit, FolderOpen } from "lucide-react";
+import { Plus, Search, Trash2, FileEdit, FolderOpen, Sparkles, Loader2 } from "lucide-react";
 
 type ProfileStatus = "draft" | "sent_for_approval" | "approved";
 
@@ -51,6 +51,8 @@ export default function ResearchProfilesPage() {
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"all" | ProfileStatus>("all");
   const [search, setSearch] = useState("");
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
+  const [strategyErrors, setStrategyErrors] = useState<Record<string, string>>({});
 
   async function load() {
     setLoading(true);
@@ -79,6 +81,36 @@ export default function ResearchProfilesPage() {
       setProfiles((prev) => prev.filter((p) => p.id !== id));
     } catch {
       alert("Could not delete this profile. Please try again.");
+    }
+  }
+
+  async function handleGenerateAskStrategy(id: string, name: string) {
+    setGeneratingId(id);
+    setStrategyErrors((prev) => {
+      const next = { ...prev };
+      delete next[id];
+      return next;
+    });
+    try {
+      const res = await fetch(`/api/research-profiles/${id}/ask-strategy`, { method: "POST" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body?.error || "Failed to generate the ask strategy.");
+      }
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const fileName = `${(name || "Prospect").replace(/[^a-z0-9]+/gi, "_")}_Ask_Strategy.docx`;
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = fileName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err: any) {
+      setStrategyErrors((prev) => ({ ...prev, [id]: err?.message || "Something went wrong." }));
+    } finally {
+      setGeneratingId(null);
     }
   }
 
@@ -163,6 +195,8 @@ export default function ResearchProfilesPage() {
         <div className="space-y-3">
           {filtered.map((p) => {
             const meta = STATUS_META[p.status];
+            const isGenerating = generatingId === p.id;
+            const strategyError = strategyErrors[p.id];
             return (
               <div
                 key={p.id}
@@ -179,8 +213,24 @@ export default function ResearchProfilesPage() {
                     {p.name || "Untitled Prospect"}
                   </p>
                   <p className="mt-0.5 text-xs text-[rgb(var(--ink))]/45">Updated {timeAgo(p.updatedAt)}</p>
+                  {strategyError && <p className="mt-1.5 text-xs text-red-600">{strategyError}</p>}
                 </div>
                 <div className="flex items-center gap-2">
+                  {p.status === "approved" && (
+                    <button
+                      type="button"
+                      onClick={() => handleGenerateAskStrategy(p.id, p.name)}
+                      disabled={isGenerating}
+                      className="inline-flex items-center gap-1.5 rounded-full border border-[rgb(var(--brass))] bg-[rgb(var(--brass))]/10 px-4 py-2 text-xs font-semibold text-[rgb(var(--brass))] hover:bg-[rgb(var(--brass))]/20 disabled:opacity-60"
+                    >
+                      {isGenerating ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Sparkles className="h-3.5 w-3.5" />
+                      )}
+                      {isGenerating ? "Generating..." : "Generate Ask Strategy"}
+                    </button>
+                  )}
                   <Link
                     href={`/research/new?id=${p.id}`}
                     className="inline-flex items-center gap-1.5 rounded-full border border-[rgb(var(--line))] px-4 py-2 text-xs font-semibold text-[rgb(var(--navy))] hover:border-[rgb(var(--brass))]"
