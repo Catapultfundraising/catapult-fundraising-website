@@ -7,7 +7,7 @@ import { Lock } from "lucide-react";
 function ResearchLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirectTo = searchParams.get("redirect") || "/research/new";
+  const redirectTo = searchParams.get("redirect") || "/research";
 
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

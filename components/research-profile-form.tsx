@@ -1,9 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
-import { Plus, Trash2, Download, Loader2, RotateCcw } from "lucide-react";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
+import { Plus, Trash2, Download, Loader2, RotateCcw, Save, ArrowLeft } from "lucide-react";
 
-const DRAFT_KEY = "catapult_research_profile_draft_v1";
+const DRAFT_KEY_PREFIX = "catapult_research_profile_draft_v1";
+const draftKey = (id: string | null) => `${DRAFT_KEY_PREFIX}:${id || "unsaved"}`;
+
+type ProfileStatus = "draft" | "sent_for_approval" | "approved";
+
+const STATUS_OPTIONS: Array<{ value: ProfileStatus; label: string }> = [
+  { value: "draft", label: "Draft" },
+  { value: "sent_for_approval", label: "Sent for Approval" },
+  { value: "approved", label: "Approved" },
+];
 
 interface RealEstateItem {
   photo: string; // base64 data URI
@@ -181,38 +192,85 @@ function Field({
 }
 
 export function ResearchProfileForm() {
+  return (
+    <Suspense fallback={null}>
+      <ResearchProfileFormInner />
+    </Suspense>
+  );
+}
+
+function ResearchProfileFormInner() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const urlId = searchParams.get("id");
+
   const [data, setData] = useState<ProfileData>(emptyProfile());
+  const [profileId, setProfileId] = useState<string | null>(null);
+  const [status, setStatus] = useState<ProfileStatus>("draft");
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
   const [restoredNotice, setRestoredNotice] = useState(false);
+  const [loadingProfile, setLoadingProfile] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
 
-  // Restore draft on mount
+  // Load an existing saved profile from the server if ?id= is present;
+  // otherwise fall back to the last local draft for a brand new profile.
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(DRAFT_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        setData({ ...emptyProfile(), ...parsed });
-        setRestoredNotice(true);
+    let cancelled = false;
+    async function load() {
+      if (urlId) {
+        setLoadingProfile(true);
+        setLoadError(null);
+        try {
+          const res = await fetch(`/api/research-profiles/${urlId}`, { cache: "no-store" });
+          if (!res.ok) throw new Error("Could not load that profile.");
+          const json = await res.json();
+          const envelope = json.data || {};
+          if (!cancelled) {
+            setData({ ...emptyProfile(), ...(envelope.data ?? {}) });
+            setStatus((envelope.status as ProfileStatus) || "draft");
+            setProfileId(urlId);
+          }
+        } catch (err: any) {
+          if (!cancelled) setLoadError(err?.message || "Could not load that profile.");
+        } finally {
+          if (!cancelled) setLoadingProfile(false);
+        }
+      } else {
+        try {
+          const raw = localStorage.getItem(draftKey(null));
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            setData({ ...emptyProfile(), ...parsed });
+            setRestoredNotice(true);
+          }
+        } catch {
+          // ignore
+        }
       }
-    } catch {
-      // ignore
+      loadedRef.current = true;
     }
-    loadedRef.current = true;
-  }, []);
+    load();
+    return () => {
+      cancelled = true;
+    };
+  }, [urlId]);
 
-  // Auto-save draft
+  // Auto-save local draft as a browser-side safety net
   useEffect(() => {
     if (!loadedRef.current) return;
     try {
-      localStorage.setItem(DRAFT_KEY, JSON.stringify(data));
+      localStorage.setItem(draftKey(profileId), JSON.stringify(data));
     } catch {
       // ignore (e.g., storage quota with large photos)
     }
-  }, [data]);
+  }, [data, profileId]);
 
   function set<K extends keyof ProfileData>(key: K, value: ProfileData[K]) {
     setData((d) => ({ ...d, [key]: value }));
@@ -221,9 +279,37 @@ export function ResearchProfileForm() {
 
   function clearDraft() {
     if (!confirm("Clear all entered information and start a new blank profile?")) return;
-    localStorage.removeItem(DRAFT_KEY);
+    localStorage.removeItem(draftKey(profileId));
     setData(emptyProfile());
+    setStatus("draft");
+    setProfileId(null);
     setPdfUrl(null);
+    setLastSavedAt(null);
+    router.replace("/research/new");
+  }
+
+  async function saveProfile() {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/research-profiles", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: profileId, name: data.name, status, data }),
+      });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || "Failed to save profile.");
+      }
+      const json = await res.json();
+      setProfileId(json.profile.id);
+      setLastSavedAt(json.profile.updatedAt);
+      router.replace(`/research/new?id=${json.profile.id}`);
+    } catch (err: any) {
+      setSaveError(err?.message || "Something went wrong saving this profile.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   async function handlePhotoUpload(file: File) {
@@ -293,9 +379,23 @@ export function ResearchProfileForm() {
 
   const fileName = `${(data.name || "Prospect Research Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
 
+  const statusMeta: Record<ProfileStatus, string> = {
+    draft: "bg-gray-100 text-gray-600",
+    sent_for_approval: "bg-[rgb(var(--brass))]/10 text-[rgb(var(--brass))]",
+    approved: "bg-emerald-50 text-emerald-700",
+  };
+
   return (
     <div className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <Link
+        href="/research"
+        className="inline-flex items-center gap-1.5 text-xs font-semibold text-[rgb(var(--ink))]/50 hover:text-[rgb(var(--navy))]"
+      >
+        <ArrowLeft className="h-3.5 w-3.5" />
+        My Profiles
+      </Link>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-4">
         <div>
           <p className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
             Internal Tool
@@ -314,6 +414,11 @@ export function ResearchProfileForm() {
         </button>
       </div>
 
+      {loadingProfile && (
+        <p className="mt-4 text-sm text-[rgb(var(--ink))]/50">Loading profile...</p>
+      )}
+      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
+
       {restoredNotice && (
         <div className="mt-4 rounded-lg bg-[rgb(var(--paper))] px-4 py-2 text-sm text-[rgb(var(--ink))]/70">
           Your last in-progress profile was restored automatically. Keep editing below, or click
@@ -322,11 +427,47 @@ export function ResearchProfileForm() {
       )}
 
       <p className="mt-4 text-sm leading-relaxed text-[rgb(var(--ink))]/60">
-        Fill in what you have below&mdash;every field is optional. Your entries are saved
-        automatically in this browser as you type, so you can come back and fix anything before or
-        after generating the PDF. When you&rsquo;re ready, click &ldquo;Generate PDF&rdquo; at the
-        bottom (or top) to produce a fully formatted, ready-to-download profile.
+        Fill in what you have below&mdash;every field is optional. Save this profile to give it a
+        status and make it reopenable by anyone on the team from &ldquo;My Profiles.&rdquo; When
+        you&rsquo;re ready, click &ldquo;Generate PDF&rdquo; to produce a fully formatted,
+        ready-to-download profile.
       </p>
+
+      <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[rgb(var(--line))] bg-[rgb(var(--paper))] p-4">
+        <div className="flex items-center gap-3">
+          <label className="text-[11px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+            Status
+          </label>
+          <select
+            value={status}
+            onChange={(e) => setStatus(e.target.value as ProfileStatus)}
+            className={`rounded-full border border-[rgb(var(--line))] px-3 py-1.5 text-sm font-semibold outline-none focus:border-[rgb(var(--brass))] ${statusMeta[status]}`}
+          >
+            {STATUS_OPTIONS.map((opt) => (
+              <option key={opt.value} value={opt.value}>
+                {opt.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="flex items-center gap-3">
+          {lastSavedAt && (
+            <span className="text-xs text-[rgb(var(--ink))]/45">
+              Saved {new Date(lastSavedAt).toLocaleTimeString()}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={saveProfile}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--navy))] px-4 py-2 text-xs font-semibold text-[rgb(var(--navy))] transition-colors hover:bg-[rgb(var(--navy))] hover:text-white disabled:opacity-60"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {saving ? "Saving..." : "Save Profile"}
+          </button>
+        </div>
+      </div>
+      {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
 
       {/* Header meta */}
       <SectionHeading>Profile Header</SectionHeading>
