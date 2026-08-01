@@ -93,20 +93,21 @@ const styles = StyleSheet.create({
     backgroundColor: NAVY,
     paddingHorizontal: 40,
     paddingTop: 18,
-    paddingBottom: 18,
+    paddingBottom: 22,
     marginTop: -20,
     marginBottom: HEADER_GAP,
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
   },
   heroMetaAbs: { position: "absolute", top: 16, right: 40, width: 230, alignItems: "flex-end" },
   heroLogo: { position: "absolute", top: 16, left: 40, height: 43, width: 180, objectFit: "contain" },
-  heroContentCol: { flex: 1, marginTop: 50 },
+  heroContentCol: { flex: 1, marginTop: 66 },
   heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
   heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: PAPER, marginTop: 6, maxWidth: 420 },
-  heroPhoto: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover" },
-  heroPhotoPlaceholder: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, backgroundColor: "rgba(250,247,240,0.12)" },
+  heroTitleId: { fontSize: 13, fontFamily: "Helvetica", color: BRASS_LIGHT },
+  heroPhoto: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover", marginTop: 66 },
+  heroPhotoPlaceholder: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, backgroundColor: "rgba(250,247,240,0.12)", marginTop: 66 },
   footer: {
     position: "absolute",
     bottom: 0,
@@ -344,6 +345,9 @@ function HeaderFooter({ data }: { data: any }) {
         }
       />
       <View style={styles.footer} fixed>
+        {data.catapultId ? (
+          <Text style={styles.footerText}>Catapult ID: {data.catapultId}</Text>
+        ) : null}
         <Text style={styles.footerText}>
           This information has been compiled and presented by Catapult Fundraising as of{" "}
           {data.dateCreated || "(date)"}. It should be regarded as Confidential Information.
@@ -361,25 +365,25 @@ function HeaderFooter({ data }: { data: any }) {
 function ProfileDocument({ data }: { data: any }) {
   const rightText = metaText(data);
 
-  const wealthRow1: Array<[string, string, IconName]> = ([
+  const wealthItems: Array<[string, string, IconName]> = ([
     ["Estimated Income", fmtMoney(data.estimatedIncome), "dollar"],
     ["Estimated Net Worth", fmtMoney(data.estimatedNetWorth), "dollar"],
     ["Stock Value", fmtMoney(data.stockValue), "chart"],
-  ] as Array<[string, string, IconName]>).filter(([, v]) => v);
-
-  const wealthRow2: Array<[string, string, IconName]> = ([
     ["Real Estate Value", fmtMoney(data.realEstateValue), "home"],
     ["# of Properties", data.realEstatePropertyCount, "home"],
-  ] as Array<[string, string, IconName]>).filter(([, v]) => v);
-
-  const givingCapacityValue = fmtMoney(data.givingCapacity);
-  const wealthRatingValue = data.wealthRating;
-
-  const wealthRow3: Array<[string, string, IconName]> = ([
     ["Total Charitable Giving", fmtMoney(data.totalCharitableGiving), "gift"],
     ["Non-Philanthropic Political Giving", fmtMoney(data.nonPhilanthropicPoliticalGiving), "dollar"],
     ["Cumulative Giving to Organization", sumAmounts(data.givingHistoryRows), "gift"],
   ] as Array<[string, string, IconName]>).filter(([, v]) => v);
+
+  // Two items per row throughout, so every row shares the same column alignment.
+  const wealthRows: Array<Array<[string, string, IconName]>> = [];
+  for (let i = 0; i < wealthItems.length; i += 2) {
+    wealthRows.push(wealthItems.slice(i, i + 2));
+  }
+
+  const givingCapacityValue = fmtMoney(data.givingCapacity);
+  const wealthRatingValue = data.wealthRating;
 
   const hasPhones = Boolean(data.phones && data.phones.length > 0);
   const hasEmails = Boolean(data.emails && data.emails.length > 0);
@@ -403,7 +407,10 @@ function ProfileDocument({ data }: { data: any }) {
           </View>
           <View style={styles.heroContentCol}>
             <Text style={styles.heroEyebrow}>PROSPECT INTELLIGENCE PROFILE</Text>
-            <Text style={styles.heroTitle}>{data.name || "NAME"}</Text>
+            <Text style={styles.heroTitle}>
+              {data.name || "NAME"}
+              {data.clientId ? <Text style={styles.heroTitleId}> ({data.clientId})</Text> : null}
+            </Text>
           </View>
           {data.photo ? (
             <Image src={data.photo} style={styles.heroPhoto} />
@@ -414,11 +421,11 @@ function ProfileDocument({ data }: { data: any }) {
 
         <View style={styles.body}>
 
-        {(wealthRow1.length > 0 || wealthRow2.length > 0 || wealthRow3.length > 0) && (
+        {wealthRows.length > 0 && (
           <View style={styles.wealthPanel}>
-            {wealthRow1.length > 0 && (
-              <View style={styles.wealthRowMulti}>
-                {wealthRow1.map(([label, value, icon]) => (
+            {wealthRows.map((row, ri) => (
+              <View style={[styles.wealthRowMulti, { marginTop: ri > 0 ? 8 : 0 }]} key={ri}>
+                {row.map(([label, value, icon]) => (
                   <View style={styles.wealthCell} key={label}>
                     <View style={styles.wealthCellLabelRow}>
                       <IconGlyph name={icon} color={BRASS_LIGHT} size={9} />
@@ -428,33 +435,7 @@ function ProfileDocument({ data }: { data: any }) {
                   </View>
                 ))}
               </View>
-            )}
-            {wealthRow2.length > 0 && (
-              <View style={[styles.wealthRowMulti, { marginTop: wealthRow1.length > 0 ? 8 : 0 }]}>
-                {wealthRow2.map(([label, value, icon]) => (
-                  <View style={styles.wealthCell} key={label}>
-                    <View style={styles.wealthCellLabelRow}>
-                      <IconGlyph name={icon} color={BRASS_LIGHT} size={9} />
-                      <Text style={styles.wealthCellLabel}>{label}</Text>
-                    </View>
-                    <Text style={styles.wealthCellValue}>{value}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
-            {wealthRow3.length > 0 && (
-              <View style={[styles.wealthRowMulti, { marginTop: wealthRow1.length > 0 || wealthRow2.length > 0 ? 8 : 0 }]}>
-                {wealthRow3.map(([label, value, icon]) => (
-                  <View style={styles.wealthCell} key={label}>
-                    <View style={styles.wealthCellLabelRow}>
-                      <IconGlyph name={icon} color={BRASS_LIGHT} size={9} />
-                      <Text style={styles.wealthCellLabel}>{label}</Text>
-                    </View>
-                    <Text style={styles.wealthCellValue}>{value}</Text>
-                  </View>
-                ))}
-              </View>
-            )}
+            ))}
           </View>
         )}
 
@@ -480,11 +461,6 @@ function ProfileDocument({ data }: { data: any }) {
             ) : null}
           </View>
         )}
-
-        <FieldRowPair
-          left={{ label: "Catapult ID Number", value: data.catapultId }}
-          right={{ label: "Client ID Number", value: data.clientId }}
-        />
 
         <View wrap={false}>
           <View style={styles.sectionAccent} />
