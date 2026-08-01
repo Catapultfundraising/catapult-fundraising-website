@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 // Light/white Catapult Fundraising logo variant, matching the one used on the
 // live site's navy footer, so it blends cleanly into the navy header bar here.
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png";
+  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.png";
 
 function fmtMoney(value?: string): string {
   if (!value) return "";
@@ -101,7 +101,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   heroMetaAbs: { position: "absolute", top: 16, right: 40, width: 230, alignItems: "flex-end" },
-  heroLogo: { height: 120, width: 180, objectFit: "contain", marginBottom: 8 },
+  heroLogo: { position: "absolute", top: 16, left: 40, height: 43, width: 180, objectFit: "contain" },
+  heroContentCol: { flex: 1, marginTop: 50 },
   heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
   heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: PAPER, marginTop: 6, maxWidth: 420 },
   heroPhoto: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover" },
@@ -120,12 +121,12 @@ const styles = StyleSheet.create({
   sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", marginTop: 16, marginBottom: 7 },
   sectionAccent: { width: 26, height: 3, backgroundColor: BRASS, marginBottom: 5, borderRadius: 1.5 },
   wealthPanel: { backgroundColor: NAVY, borderRadius: 10, padding: 12, marginBottom: 12 },
-  wealthRowMulti: { flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" },
-  wealthCell: { flex: 1, paddingRight: 8 },
-  wealthCellLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 3 },
+  wealthRowMulti: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  wealthCell: { flex: 1, paddingRight: 8, flexDirection: "row", alignItems: "flex-start" },
+  wealthCellLabelRow: { flexDirection: "row", alignItems: "flex-start", flexShrink: 0 },
   wealthCellLabel: { color: PAPER, fontSize: 6.4, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0 },
-  wealthCellLabelNoIcon: { color: PAPER, fontSize: 6.4, textTransform: "uppercase", letterSpacing: 0 },
-  wealthCellValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 9.5 },
+  wealthCellLabelNoIcon: { color: PAPER, fontSize: 6.4, textTransform: "uppercase", letterSpacing: 0, flexShrink: 0 },
+  wealthCellValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 9, marginLeft: 6, flex: 1 },
   statBoxRow: { flexDirection: "row", marginBottom: 12 },
   statBox: { flex: 1, backgroundColor: NAVY, borderRadius: 10, padding: 12 },
   statBoxLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
@@ -331,9 +332,12 @@ function HeaderFooter({ data }: { data: any }) {
         render={({ pageNumber }) =>
           pageNumber === 1 ? null : (
             <View style={styles.topBar}>
-              <Text style={styles.topBarContinuedText}>
-                {(data.name || "Prospect").toString()} — Continued
-              </Text>
+              <Text
+                style={styles.topBarContinuedText}
+                render={({ pageNumber: pn, totalPages }) =>
+                  `${(data.name || "Prospect").toString()}    Page ${pn} of ${totalPages}`
+                }
+              />
               <Text style={styles.topBarText}>{rightText || "Catapult Fundraising"}</Text>
             </View>
           )
@@ -392,12 +396,12 @@ function ProfileDocument({ data }: { data: any }) {
         <HeaderFooter data={data} />
 
         <View style={styles.heroBand}>
+          <Image src={LOGO_URL} style={styles.heroLogo} />
           <View style={styles.heroMetaAbs}>
             <Text style={styles.topBarConfidential}>CONFIDENTIAL</Text>
             {rightText ? <Text style={styles.topBarText}>{rightText}</Text> : null}
           </View>
-          <View style={{ flex: 1 }}>
-            <Image src={LOGO_URL} style={styles.heroLogo} />
+          <View style={styles.heroContentCol}>
             <Text style={styles.heroEyebrow}>PROSPECT INTELLIGENCE PROFILE</Text>
             <Text style={styles.heroTitle}>{data.name || "NAME"}</Text>
           </View>
@@ -554,7 +558,7 @@ function ProfileDocument({ data }: { data: any }) {
               {religiousRow.map(([label, value]) => (
                 <View style={styles.wealthCell} key={label}>
                   <Text style={styles.wealthCellLabelNoIcon}>{label.toUpperCase()}</Text>
-                  <Text style={[styles.wealthCellValue, { fontSize: 9, marginTop: 2 }]}>{value}</Text>
+                  <Text style={styles.wealthCellValue}>{value}</Text>
                 </View>
               ))}
             </View>
