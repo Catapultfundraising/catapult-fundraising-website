@@ -44,93 +44,10 @@ export function findMatchingCase(
 }
 
 // ---------------------------------------------------------------------------
-// Perplexity API integration
-// ---------------------------------------------------------------------------
-
-const PERPLEXITY_URL = "https://api.perplexity.ai/chat/completions";
-const INSIGHTS_MODEL = "sonar-pro";
-const STRATEGY_MODEL = "sonar-pro";
-
-interface PerplexityMessage {
-  role: "system" | "user" | "assistant";
-  content: string;
-}
-
-interface PerplexityResult {
-  text: string;
-  citations: string[];
-}
-
-async function callPerplexity(
-  messages: PerplexityMessage[],
-  model: string
-): Promise<PerplexityResult> {
-  const apiKey = process.env.PERPLEXITY_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "Perplexity API key not configured. Add PERPLEXITY_API_KEY to the site's environment variables, then try again."
-    );
-  }
-
-  const res = await fetch(PERPLEXITY_URL, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${apiKey}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model,
-      messages,
-      temperature: 0.2,
-    }),
-  });
-
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Perplexity API error (${res.status}): ${body.slice(0, 500)}`);
-  }
-
-  const json = await res.json();
-  const text = json?.choices?.[0]?.message?.content || "";
-  const citations: string[] = Array.isArray(json?.citations) ? json.citations : [];
-  return { text, citations };
-}
-
-// ---------------------------------------------------------------------------
-// Step 1: gather additional public insights about the prospect via
-// Perplexity's real-time web search.
-// ---------------------------------------------------------------------------
-
-export async function gatherProspectInsights(
-  prospectName: string,
-  clientOrgName: string
-): Promise<PerplexityResult> {
-  const messages: PerplexityMessage[] = [
-    {
-      role: "system",
-      content:
-        "You are a prospect research analyst for a nonprofit fundraising consulting firm. " +
-        "Research publicly available information ONLY. Never fabricate details. If nothing " +
-        "relevant is found, say so plainly.",
-    },
-    {
-      role: "user",
-      content:
-        `Research publicly available information about the philanthropic prospect "${prospectName}", ` +
-        `who is being considered as a donor to "${clientOrgName}". Focus on: recent news, ` +
-        `board memberships or civic involvement, philanthropic giving or foundation activity, ` +
-        `business/professional background, and any recent life events (awards, milestones, ` +
-        `company news) that could be relevant context for a face-to-face donor ask meeting. ` +
-        `Provide a concise bulleted summary. If little or nothing public is found, state that clearly ` +
-        `rather than guessing.`,
-    },
-  ];
-  return callPerplexity(messages, INSIGHTS_MODEL);
-}
-
-// ---------------------------------------------------------------------------
-// Step 2: synthesize the profile + case for support + insights into a
-// structured donor ask strategy.
+// Deterministic donor ask strategy synthesis. No external API calls — the
+// strategy is derived entirely from the Prospect Intelligence Profile and
+// the client's case-for-support document already on file, so this runs
+// instantly with no configuration required.
 // ---------------------------------------------------------------------------
 
 export interface AskStrategy {
@@ -147,164 +64,264 @@ export interface AskStrategy {
   nextSteps: string[];
 }
 
-function safeArray(v: any): string[] {
-  if (!Array.isArray(v)) return [];
-  return v.filter((x) => typeof x === "string" && x.trim().length > 0);
+function parseMoney(value?: string): number | null {
+  if (!value) return null;
+  const trimmed = String(value).trim();
+  if (!trimmed) return null;
+  const cleaned = trimmed.replace(/[^0-9.]/g, "");
+  if (!cleaned) return null;
+  let n = parseFloat(cleaned);
+  if (!Number.isFinite(n)) return null;
+  if (/\bK\b|k$/i.test(trimmed)) n *= 1_000;
+  if (/\bM\b|m$/i.test(trimmed)) n *= 1_000_000;
+  return n;
 }
 
-function parseStrategyJson(raw: string): AskStrategy {
-  let jsonText = raw.trim();
-  // Strip markdown code fences if the model wrapped the JSON in one.
-  const fenceMatch = jsonText.match(/```(?:json)?\s*([\s\S]*?)```/i);
-  if (fenceMatch) jsonText = fenceMatch[1].trim();
-  // Fallback: grab the outermost braces if there's stray prose around the JSON.
-  if (!jsonText.startsWith("{")) {
-    const start = jsonText.indexOf("{");
-    const end = jsonText.lastIndexOf("}");
-    if (start !== -1 && end !== -1 && end > start) {
-      jsonText = jsonText.slice(start, end + 1);
+function fmtMoney(n: number): string {
+  return `$${Math.round(n).toLocaleString("en-US")}`;
+}
+
+/** Splits case-for-support text into clean, reasonably sized sentences. */
+function toSentences(text: string): string[] {
+  return text
+    .replace(/\s+/g, " ")
+    .split(/(?<=[.!?])\s+(?=[A-Z])/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 40 && s.length < 400);
+}
+
+const STOPWORDS = new Set(
+  "the a an and or of to for in on with is are was were be been being this that these those our your their his her its as at by from into over under about after before during between it we you they he she i not no so than then also can will would could should".split(
+    " "
+  )
+);
+
+function keywordsFrom(...values: Array<string | undefined>): string[] {
+  const words = new Set<string>();
+  for (const v of values) {
+    if (!v) continue;
+    for (const w of v.toLowerCase().split(/[^a-z0-9']+/)) {
+      if (w.length > 3 && !STOPWORDS.has(w)) words.add(w);
     }
   }
+  return Array.from(words);
+}
 
-  let parsed: any = {};
-  try {
-    parsed = JSON.parse(jsonText);
-  } catch {
-    // If parsing still fails, fall back to putting the raw text in the
-    // executive summary so nothing is silently lost.
-    return {
-      executiveSummary: raw.trim(),
-      recommendedAskAmount: "",
-      askRange: "",
-      caseAlignment: [],
-      talkingPoints: [],
-      meetingPreparation: [],
-      doThis: [],
-      avoidThis: [],
-      suggestedQuestions: [],
-      objectionHandling: [],
-      nextSteps: [],
-    };
+function scoreSentence(sentence: string, keywords: string[]): number {
+  const lower = sentence.toLowerCase();
+  let score = 0;
+  for (const kw of keywords) {
+    if (lower.includes(kw)) score += 1;
   }
-
-  const objectionHandling = Array.isArray(parsed.objectionHandling)
-    ? parsed.objectionHandling
-        .filter((o: any) => o && (o.objection || o.response))
-        .map((o: any) => ({ objection: String(o.objection || ""), response: String(o.response || "") }))
-    : [];
-
-  return {
-    executiveSummary: String(parsed.executiveSummary || ""),
-    recommendedAskAmount: String(parsed.recommendedAskAmount || ""),
-    askRange: String(parsed.askRange || ""),
-    caseAlignment: safeArray(parsed.caseAlignment),
-    talkingPoints: safeArray(parsed.talkingPoints),
-    meetingPreparation: safeArray(parsed.meetingPreparation),
-    doThis: safeArray(parsed.doThis),
-    avoidThis: safeArray(parsed.avoidThis),
-    suggestedQuestions: safeArray(parsed.suggestedQuestions),
-    objectionHandling,
-    nextSteps: safeArray(parsed.nextSteps),
-  };
+  return score;
 }
 
-function truncate(text: string, max: number): string {
-  if (!text) return "";
-  return text.length > max ? `${text.slice(0, max)}\n...[truncated]` : text;
+function firstMeaningfulParagraph(text: string): string {
+  const paragraphs = text
+    .split(/\n{2,}/)
+    .map((p) => p.replace(/\s+/g, " ").trim())
+    .filter((p) => p.length > 80);
+  const raw = paragraphs[0] || toSentences(text).slice(0, 2).join(" ") || "";
+  return raw.length > 500 ? `${raw.slice(0, 500).trim()}...` : raw;
 }
 
-export async function synthesizeAskStrategy(params: {
-  profileSummary: string;
+export function buildAskStrategy(params: {
+  profileData: any;
   clientOrgName: string;
   caseForSupportText: string;
-  insightsText: string;
-}): Promise<AskStrategy> {
-  const { profileSummary, clientOrgName, caseForSupportText, insightsText } = params;
+}): AskStrategy {
+  const { profileData, clientOrgName, caseForSupportText } = params;
+  const name = profileData?.name || "This prospect";
 
-  const messages: PerplexityMessage[] = [
+  // --- Recommended ask amount & range -------------------------------------
+  const stated = (profileData?.recommendedAskAmount || "").trim();
+  const capacity = parseMoney(profileData?.givingCapacity);
+  const netWorth = parseMoney(profileData?.estimatedNetWorth);
+
+  let recommendedAskAmount = "";
+  let askRange = "";
+  let askBasis = "";
+
+  if (stated) {
+    recommendedAskAmount = stated;
+    const statedNum = parseMoney(stated);
+    if (statedNum) {
+      askRange = `${fmtMoney(statedNum * 0.85)} – ${fmtMoney(statedNum * 1.15)}`;
+    }
+    askBasis = "the ask amount already recorded on this profile";
+  } else if (capacity) {
+    recommendedAskAmount = fmtMoney(capacity);
+    askRange = `${fmtMoney(capacity * 0.8)} – ${fmtMoney(capacity * 1.2)}`;
+    askBasis = "the profile's estimated 5-year giving capacity";
+  } else if (netWorth) {
+    const est = netWorth * 0.02; // conservative default: ~2% of net worth
+    recommendedAskAmount = fmtMoney(est);
+    askRange = `${fmtMoney(est * 0.7)} – ${fmtMoney(est * 1.4)}`;
+    askBasis = "a conservative estimate (~2%) of estimated net worth, since no giving capacity was recorded";
+  } else {
+    recommendedAskAmount = "Not enough data to estimate";
+    askRange = "";
+    askBasis = "";
+  }
+
+  // --- Case for support alignment -----------------------------------------
+  const caseSentences = toSentences(caseForSupportText);
+  const interestKeywords = keywordsFrom(
+    profileData?.hobbiesInterests,
+    profileData?.boards,
+    profileData?.clubsAffiliations,
+    profileData?.relationshipToOrg,
+    profileData?.familyFoundation,
+    profileData?.businessColleagues
+  );
+
+  let caseAlignment: string[] = [];
+  if (interestKeywords.length > 0 && caseSentences.length > 0) {
+    caseAlignment = caseSentences
+      .map((s) => ({ s, score: scoreSentence(s, interestKeywords) }))
+      .filter((x) => x.score > 0)
+      .sort((a, b) => b.score - a.score)
+      .slice(0, 4)
+      .map((x) => x.s);
+  }
+  if (caseAlignment.length === 0 && caseSentences.length > 0) {
+    // No direct keyword overlap found — fall back to the case's own
+    // strongest opening statements so the document is never empty.
+    caseAlignment = caseSentences.slice(0, 3);
+  }
+
+  const caseSummary = firstMeaningfulParagraph(caseForSupportText);
+
+  // --- Executive summary ---------------------------------------------------
+  const summaryParts: string[] = [];
+  summaryParts.push(
+    `${name} is being considered as a prospective donor to ${clientOrgName}.` +
+      (recommendedAskAmount !== "Not enough data to estimate"
+        ? ` Based on ${askBasis}, a recommended ask of ${recommendedAskAmount} is suggested.`
+        : " There is not yet enough wealth or capacity data on file to recommend a specific ask amount — add an Estimated Giving Capacity, Estimated Net Worth, or a Recommended Ask Amount to the profile for a more precise figure.")
+  );
+  if (profileData?.relationshipToOrg) {
+    summaryParts.push(`Existing relationship to the organization: ${profileData.relationshipToOrg}.`);
+  }
+  if (profileData?.wealthRating) {
+    summaryParts.push(`Wealth rating on file: ${profileData.wealthRating}.`);
+  }
+  const executiveSummary = summaryParts.join(" ");
+
+  // --- Talking points --------------------------------------------------------
+  const talkingPoints: string[] = [];
+  if (caseSummary) {
+    talkingPoints.push(`Lead with the organization's core case: ${caseSummary}`);
+  }
+  if (Array.isArray(profileData?.givingHistoryRows) && profileData.givingHistoryRows.length > 0) {
+    const rows = profileData.givingHistoryRows;
+    const last = rows[rows.length - 1];
+    talkingPoints.push(
+      `Acknowledge their giving history with ${clientOrgName}` +
+        (last?.year || last?.amount ? ` (most recently ${last.year || ""} ${last.amount ? `— ${last.amount}` : ""})`.trim() : "") +
+        " and express appreciation before introducing the new ask."
+    );
+  }
+  if (profileData?.hobbiesInterests) {
+    talkingPoints.push(
+      `Connect the ask to their personal interests (${profileData.hobbiesInterests}) where the case for support overlaps.`
+    );
+  }
+  if (profileData?.boards) {
+    talkingPoints.push(`Reference their board/civic involvement (${profileData.boards}) as shared community leadership.`);
+  }
+  if (profileData?.familyFoundation) {
+    talkingPoints.push(
+      `If appropriate, explore whether ${profileData.familyFoundation} could be a co-funding vehicle for this gift.`
+    );
+  }
+  if (talkingPoints.length === 0) {
+    talkingPoints.push(
+      "Open with the case for support's core mission statement, then transition to how this gift specifically advances it."
+    );
+  }
+
+  // --- Meeting preparation / do / avoid / questions --------------------------
+  const meetingPreparation = [
+    `Review this profile and the ${clientOrgName} case for support immediately before the meeting.`,
+    "Confirm who else will attend (staff, board member, peer donor) and align on roles in advance.",
+    "Bring a printed or digital copy of the case for support and any relevant campaign materials.",
+    "Set a clear goal for the meeting: cultivation, solicitation, or stewardship — know which one this is.",
+  ];
+
+  const doThis = [
+    "Let the prospect talk first about what motivates their giving before presenting the case.",
+    "Be specific: name the exact ask amount and what it funds rather than speaking in generalities.",
+    "Pause after making the ask and let silence sit — do not fill it.",
+    "Thank them for their time and prior generosity regardless of the outcome.",
+  ];
+
+  const avoidThis = [
+    "Do not lead with the ask amount before establishing rapport and shared purpose.",
+    "Avoid jargon or internal organizational acronyms the prospect may not recognize.",
+  ];
+  if (profileData?.politicalAffiliation) {
+    avoidThis.push("Avoid discussing partisan politics directly; keep the conversation mission-focused.");
+  }
+  if (profileData?.religion) {
+    avoidThis.push("Be respectful and non-presumptive regarding religious topics unless the prospect raises them.");
+  }
+
+  const suggestedQuestions = [
+    `What first drew you to ${clientOrgName}?`,
+    "What outcomes matter most to you when you support a cause like this?",
+    "Is there a particular program or initiative within the case for support that resonates most with you?",
+  ];
+  if (profileData?.hobbiesInterests) {
+    suggestedQuestions.push(`How does ${profileData.hobbiesInterests} shape the causes you choose to support?`);
+  }
+  if (profileData?.familyFoundation) {
+    suggestedQuestions.push(`Would ${profileData.familyFoundation} be interested in partnering on this gift?`);
+  }
+
+  // --- Objection handling ------------------------------------------------
+  const objectionHandling = [
     {
-      role: "system",
-      content:
-        "You are a senior major-gifts fundraising strategist at Catapult Fundraising, a capital " +
-        "campaign and donor engagement consulting firm. You write concise, actionable donor ask " +
-        "strategies for gift officers preparing for a face-to-face meeting. " +
-        "Respond with STRICT JSON ONLY — no markdown, no prose outside the JSON object — matching " +
-        "exactly this shape: " +
-        `{"executiveSummary": string, "recommendedAskAmount": string, "askRange": string, ` +
-        `"caseAlignment": string[], "talkingPoints": string[], "meetingPreparation": string[], ` +
-        `"doThis": string[], "avoidThis": string[], "suggestedQuestions": string[], ` +
-        `"objectionHandling": [{"objection": string, "response": string}], "nextSteps": string[]}. ` +
-        "Ground every recommendation in the prospect data and case-for-support content provided. " +
-        "Keep each bullet string concise (one to two sentences).",
+      objection: "“I need to think about it.”",
+      response:
+        "Acknowledge that a decision of this size deserves reflection. Offer to follow up with written materials and propose a specific date for a follow-up conversation.",
     },
     {
-      role: "user",
-      content:
-        `CLIENT ORGANIZATION: ${clientOrgName}\n\n` +
-        `PROSPECT INTELLIGENCE PROFILE:\n${truncate(profileSummary, 6000)}\n\n` +
-        `CASE FOR SUPPORT (client's case document):\n${truncate(caseForSupportText, 12000)}\n\n` +
-        `ADDITIONAL PUBLIC INSIGHTS ABOUT THE PROSPECT:\n${truncate(insightsText, 4000)}\n\n` +
-        `Using all of the above, produce a donor ask strategy: a recommended ask amount and range ` +
-        `(grounded in the prospect's wealth capacity and giving history), how the case for support ` +
-        `aligns with this prospect's interests, key talking points, meeting preparation notes, ` +
-        `do's and don'ts for the face-to-face meeting, suggested questions to ask the prospect, ` +
-        `likely objections with suggested responses, and recommended next steps. Return JSON only.`,
+      objection: "“That's more than I was expecting to give.”",
+      response:
+        "Reaffirm the ask is a starting point for conversation, not a fixed number, and ask what level would feel right, or discuss a multi-year pledge to reach the target.",
+    },
+    {
+      objection: "“I'm already supporting several other organizations.”",
+      response:
+        "Acknowledge their generosity broadly, then re-anchor on the unique, time-sensitive impact this specific gift would have.",
+    },
+    {
+      objection: "“I'd like to see more information first.”",
+      response:
+        "Offer the full case for support, a site visit, or a conversation with a program leader, and set a concrete follow-up date.",
     },
   ];
 
-  const result = await callPerplexity(messages, STRATEGY_MODEL);
-  return parseStrategyJson(result.text);
-}
+  // --- Next steps ----------------------------------------------------------
+  const nextSteps = [
+    "Schedule the face-to-face meeting and confirm attendees.",
+    "Prepare and print the case for support and any relevant gift agreement templates.",
+    "Do a quick supplemental check for recent news or public updates about the prospect before the meeting.",
+    "Log the outcome of the meeting in the prospect's record immediately afterward, including next follow-up date.",
+  ];
 
-// ---------------------------------------------------------------------------
-// Turns raw profile form data into a readable text block for prompting.
-// ---------------------------------------------------------------------------
-
-export function summarizeProfileForPrompt(data: any): string {
-  const lines: string[] = [];
-  const push = (label: string, value?: string) => {
-    if (value) lines.push(`${label}: ${value}`);
+  return {
+    executiveSummary,
+    recommendedAskAmount,
+    askRange,
+    caseAlignment,
+    talkingPoints,
+    meetingPreparation,
+    doThis,
+    avoidThis,
+    suggestedQuestions,
+    objectionHandling,
+    nextSteps,
   };
-
-  push("Prospect Name", data.name);
-  push("Estimated Income", data.estimatedIncome);
-  push("Estimated Net Worth", data.estimatedNetWorth);
-  push("Stock Value", data.stockValue);
-  push("Real Estate Value", data.realEstateValue);
-  push("Estimated Giving Capacity (5 Yrs)", data.givingCapacity);
-  push("Wealth Rating", data.wealthRating);
-  push("Total Charitable Giving", data.totalCharitableGiving);
-  push("Relationship to Organization", data.relationshipToOrg);
-  push("Recommended Ask Amount (from profile)", data.recommendedAskAmount);
-  push("Hobbies & Interests", data.hobbiesInterests);
-  push("Boards", data.boards);
-  push("Clubs & Affiliations", data.clubsAffiliations);
-  push("Business Colleagues", data.businessColleagues);
-  push("Religion", data.religion);
-  push("Political Affiliation", data.politicalAffiliation);
-  push("Family Foundation", data.familyFoundation);
-  push("Additional Information", data.additionalInformation);
-
-  if (Array.isArray(data.givingHistoryRows) && data.givingHistoryRows.length > 0) {
-    lines.push("Giving History to Organization:");
-    for (const row of data.givingHistoryRows) {
-      lines.push(`  - ${row.year || ""}: ${row.amount || ""} ${row.comments ? `(${row.comments})` : ""}`.trim());
-    }
-  }
-
-  if (Array.isArray(data.otherGiving) && data.otherGiving.length > 0) {
-    lines.push("Other Giving History (public records):");
-    for (const row of data.otherGiving) {
-      lines.push(`  - ${row.recipient || ""}: ${row.giving || ""} ${row.year || ""} ${row.amount || ""}`.trim());
-    }
-  }
-
-  if (Array.isArray(data.realEstate) && data.realEstate.length > 0) {
-    lines.push("Real Estate:");
-    for (const re of data.realEstate) {
-      lines.push(`  - ${re.address || ""}: ${re.value || ""} ${re.description ? `(${re.description})` : ""}`.trim());
-    }
-  }
-
-  return lines.join("\n");
 }

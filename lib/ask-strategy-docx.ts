@@ -149,12 +149,10 @@ export interface AskStrategyDocxParams {
   catapultId?: string;
   generatedDate: string;
   strategy: AskStrategy;
-  insightsText: string;
-  insightsCitations: string[];
 }
 
 export async function buildAskStrategyDocx(params: AskStrategyDocxParams): Promise<Buffer> {
-  const { prospectName, clientOrgName, catapultId, generatedDate, strategy, insightsText, insightsCitations } = params;
+  const { prospectName, clientOrgName, catapultId, generatedDate, strategy } = params;
   const logoBuffer = await fetchLogoBuffer();
 
   const doc = new Document({
@@ -314,21 +312,6 @@ export async function buildAskStrategyDocx(params: AskStrategyDocxParams): Promi
           objectionTable(strategy.objectionHandling),
           new Paragraph({ spacing: { before: 200 } }),
 
-          heading("Additional Public Insights"),
-          bodyParagraph(insightsText),
-          ...(insightsCitations.length > 0
-            ? [
-                subheading("Sources"),
-                ...insightsCitations.map(
-                  (url) =>
-                    new Paragraph({
-                      spacing: { after: 60 },
-                      children: [new TextRun({ text: url, color: MUTED, size: 16 })],
-                    })
-                ),
-              ]
-            : []),
-
           heading("Recommended Next Steps"),
           ...bulletList(strategy.nextSteps),
 
@@ -338,10 +321,9 @@ export async function buildAskStrategyDocx(params: AskStrategyDocxParams): Promi
               new TextRun({
                 text:
                   `This ask strategy was generated on ${generatedDate} by combining the Prospect ` +
-                  `Intelligence Profile, the client's case for support, and additional publicly ` +
-                  `available research. It is a recommendation to inform gift officer judgment, not a ` +
-                  `guarantee of donor response. This document is Confidential Information of Catapult ` +
-                  `Fundraising and its clients.`,
+                  `Intelligence Profile with the client's case for support on file. It is a ` +
+                  `recommendation to inform gift officer judgment, not a guarantee of donor response. ` +
+                  `This document is Confidential Information of Catapult Fundraising and its clients.`,
                 italics: true,
                 size: 15,
                 color: MUTED,

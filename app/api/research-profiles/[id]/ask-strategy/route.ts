@@ -4,13 +4,7 @@ import { PDFParse } from "pdf-parse";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { getProfile } from "@/lib/research-profiles-store";
 import { listCases, getCaseFile } from "@/lib/client-cases-store";
-import {
-  extractClientAcronym,
-  findMatchingCase,
-  gatherProspectInsights,
-  synthesizeAskStrategy,
-  summarizeProfileForPrompt,
-} from "@/lib/ask-strategy";
+import { extractClientAcronym, findMatchingCase, buildAskStrategy } from "@/lib/ask-strategy";
 import { buildAskStrategyDocx } from "@/lib/ask-strategy-docx";
 
 export const runtime = "nodejs";
@@ -77,25 +71,12 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       );
     }
 
-    if (!process.env.PERPLEXITY_API_KEY) {
-      return NextResponse.json(
-        {
-          error:
-            "Perplexity API key not configured. Add PERPLEXITY_API_KEY in the site's environment variables, then try again.",
-        },
-        { status: 500 }
-      );
-    }
-
     const prospectName = profile.data?.name || profile.name || "Prospect";
-    const profileSummary = summarizeProfileForPrompt(profile.data || {});
 
-    const insights = await gatherProspectInsights(prospectName, match.clientName);
-    const strategy = await synthesizeAskStrategy({
-      profileSummary,
+    const strategy = buildAskStrategy({
+      profileData: profile.data || {},
       clientOrgName: match.clientName,
       caseForSupportText: caseText,
-      insightsText: insights.text,
     });
 
     const generatedDate = new Date().toLocaleDateString("en-US", {
@@ -110,8 +91,6 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       catapultId: profile.data?.catapultId,
       generatedDate,
       strategy,
-      insightsText: insights.text,
-      insightsCitations: insights.citations,
     });
 
     const fileName = `${prospectName.replace(/[^a-z0-9]+/gi, "_")}_Ask_Strategy.docx`;
