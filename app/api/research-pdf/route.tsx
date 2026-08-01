@@ -22,66 +22,86 @@ function fmtMoney(value?: string): string {
 }
 
 
+// Palette matches the one-sheets' brand system exactly (build.py CSS vars).
 const NAVY = "#15212E";
+const NAVY_DEEP = "#0C131C";
 const BRASS = "#B28C46";
-const BRASS_LIGHT = "#C9A86A";
-const CREAM = "#F7F3EA";
-const INK = "#333333";
-const MUTED = "#6B7280";
-const LINE = "#D8D2C2";
+const BRASS_LIGHT = "#CDAA6E";
+const PAPER = "#FAF7F0";
+const CREAM = "#FFFFFF";
+const INK = "#181B19";
+const MUTED = "#5C5D59";
+const LINE = "#D6CDBA";
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 62, paddingBottom: 56, paddingHorizontal: 40, fontSize: 10, color: INK, fontFamily: "Helvetica" },
-  headerBar: {
+  page: { paddingTop: 20, paddingBottom: 42, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: PAPER },
+  body: { paddingHorizontal: 40 },
+  topBar: {
     position: "absolute",
     top: 0,
     left: 0,
     right: 0,
-    height: 44,
-    backgroundColor: NAVY,
+    height: 20,
+    backgroundColor: NAVY_DEEP,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 40,
   },
-  headerLogo: { height: 28, width: 42 },
-  headerContinuedText: { color: "#FFFFFF", fontSize: 9.5, fontFamily: "Helvetica-Bold" },
-  headerText: { color: "#FFFFFF", fontSize: 8 },
-  headerConfidential: { color: BRASS_LIGHT, fontSize: 8, fontFamily: "Helvetica-Bold", letterSpacing: 1.5 },
+  topBarContinuedText: { color: PAPER, fontSize: 8.5, fontFamily: "Helvetica-Bold" },
+  topBarText: { color: "rgba(250,247,240,0.75)", fontSize: 7 },
+  topBarConfidential: { color: BRASS_LIGHT, fontSize: 7, fontFamily: "Helvetica-Bold", letterSpacing: 1.5 },
+  heroBand: {
+    position: "relative",
+    backgroundColor: NAVY,
+    paddingHorizontal: 40,
+    paddingTop: 22,
+    paddingBottom: 22,
+    marginTop: 20,
+    marginBottom: 18,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  heroLogo: { height: 26, width: 39, marginBottom: 10 },
+  heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
+  heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: PAPER, marginTop: 6, maxWidth: 420 },
+  heroPhoto: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover" },
+  heroPhotoPlaceholder: { width: 74, height: 74, borderRadius: 37, borderWidth: 2, borderColor: BRASS_LIGHT, backgroundColor: "rgba(250,247,240,0.12)" },
   footer: {
     position: "absolute",
-    bottom: 18,
-    left: 40,
-    right: 40,
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: NAVY_DEEP,
     textAlign: "left",
+    paddingVertical: 8,
+    paddingHorizontal: 40,
   },
-  footerText: { fontSize: 6.5, color: MUTED, marginBottom: 2 },
-  eyebrow: { fontSize: 9, color: BRASS, fontFamily: "Helvetica-Bold", letterSpacing: 1.5, marginBottom: 4, marginTop: 14 },
-  title: { fontSize: 26, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 2, borderBottomColor: BRASS, paddingBottom: 8, marginBottom: 16 },
-  sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", borderBottomWidth: 1, borderBottomColor: LINE, paddingBottom: 4, marginTop: 20, marginBottom: 10 },
-  wealthPanel: { backgroundColor: NAVY, borderRadius: 4, padding: 10, marginBottom: 16 },
+  footerText: { fontSize: 6.3, color: "rgba(250,247,240,0.65)", marginBottom: 2 },
+  sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", marginTop: 18, marginBottom: 8 },
+  sectionAccent: { width: 26, height: 3, backgroundColor: BRASS, marginBottom: 5, borderRadius: 1.5 },
+  wealthPanel: { backgroundColor: NAVY, borderRadius: 10, padding: 12, marginBottom: 16 },
   wealthRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4 },
   wealthLabelRow: { flexDirection: "row", alignItems: "center" },
-  wealthLabel: { color: "#FFFFFF", fontSize: 10, marginLeft: 6 },
+  wealthLabel: { color: PAPER, fontSize: 10, marginLeft: 6 },
   wealthValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 11 },
-  fieldRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10, borderBottomWidth: 0.5, borderBottomColor: "#C9C2B0", paddingBottom: 8 },
-  fieldLabel: { width: 150, flexShrink: 0, fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3 },
-  fieldValue: { flex: 1, fontSize: 10, color: INK, lineHeight: 1.4 },
-  photoRow: { flexDirection: "row", alignItems: "center", marginBottom: 16 },
-  photoCircle: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: BRASS, objectFit: "cover" },
-  photoPlaceholder: { width: 70, height: 70, borderRadius: 35, borderWidth: 2, borderColor: BRASS, backgroundColor: CREAM },
-  nameHeading: { fontSize: 14, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 },
-  tableHeaderRow: { flexDirection: "row", alignItems: "center", backgroundColor: NAVY },
-  tableHeaderCell: { color: "#FFFFFF", fontSize: 8, fontFamily: "Helvetica-Bold", padding: 6, letterSpacing: 0.5 },
+  fieldRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 8 },
+  fieldLabel: { width: 150, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
+  fieldValue: { flex: 1, fontSize: 9.6, color: INK, lineHeight: 1.4 },
+  cardWhite: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 10, marginBottom: 12 },
+  nameHeading: { fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 },
+  tableHeaderRow: { flexDirection: "row", alignItems: "center", backgroundColor: NAVY, borderRadius: 4 },
+  tableHeaderCell: { color: PAPER, fontSize: 7.6, fontFamily: "Helvetica-Bold", padding: 6, letterSpacing: 0.5 },
   tableRow: { flexDirection: "row", alignItems: "flex-start", borderBottomWidth: 0.5, borderBottomColor: LINE },
-  tableCell: { fontSize: 9, padding: 6, color: INK, lineHeight: 1.3 },
+  tableCell: { fontSize: 8.8, padding: 6, color: INK, lineHeight: 1.3 },
   sectionHeadingRow: { flexDirection: "row", alignItems: "center" },
-  askBox: { backgroundColor: CREAM, borderWidth: 1, borderColor: BRASS, borderLeftWidth: 4, padding: 10, marginTop: 18 },
-  askLabel: { fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 1 },
-  askValue: { fontSize: 16, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 3 },
-  propertyCard: { flexDirection: "row", alignItems: "flex-start", marginBottom: 12, borderWidth: 0.5, borderColor: LINE, borderRadius: 4, padding: 8 },
-  propertyPhoto: { width: 90, height: 66, borderRadius: 3, marginRight: 10, objectFit: "cover" },
-  italicNote: { fontSize: 7.5, color: MUTED, fontStyle: "italic", marginBottom: 10 },
+  askBox: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderLeftWidth: 4, borderLeftColor: BRASS, borderRadius: 10, padding: 12, marginTop: 16 },
+  askLabel: { fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 1, textTransform: "uppercase" },
+  askValue: { fontSize: 18, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 4 },
+  propertyCard: { flexDirection: "row", alignItems: "flex-start", marginBottom: 10, backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 9 },
+  propertyPhoto: { width: 88, height: 64, borderRadius: 6, marginRight: 10, objectFit: "cover" },
+  italicNote: { fontSize: 7.4, color: MUTED, fontStyle: "italic", marginBottom: 10 },
 });
 
 type IconName = "home" | "dollar" | "chart" | "gift" | "star" | "phone" | "mail" | "users" | "graduationCap";
@@ -201,13 +221,14 @@ function MiniTable({
   return (
     <View style={{ marginBottom: 10 }} wrap={false}>
       {title ? (
-        <View style={[styles.sectionHeadingRow, { marginBottom: 3 }]}>
+        <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]}>
           {icon ? <IconGlyph name={icon} color={BRASS} size={9} /> : null}
           <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: icon ? 4 : 0 }}>
             {title.toUpperCase()}
           </Text>
         </View>
       ) : null}
+      <View style={{ borderRadius: 8, overflow: "hidden", borderWidth: 1, borderColor: LINE }}>
       <View style={styles.tableHeaderRow}>
         {headers.map((h, i) => (
           <Text key={h} style={[styles.tableHeaderCell, { width: colWidths[i] }]}>
@@ -218,7 +239,7 @@ function MiniTable({
       {rows.map((row, i) => {
         const cells = renderRow(row, i);
         return (
-          <View style={styles.tableRow} key={i} wrap={false}>
+          <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? PAPER : CREAM }]} key={i} wrap={false}>
             {cells.map((c, ci) => (
               <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
                 {c}
@@ -227,6 +248,7 @@ function MiniTable({
           </View>
         );
       })}
+      </View>
     </View>
   );
 }
@@ -236,22 +258,20 @@ function HeaderFooter({ data }: { data: any }) {
   return (
     <>
       <View
-        style={styles.headerBar}
+        style={styles.topBar}
         fixed
         render={({ pageNumber }) =>
           pageNumber === 1 ? (
             <>
-              <Image src={LOGO_URL} style={styles.headerLogo} />
-              <Text style={styles.headerConfidential}>CONFIDENTIAL</Text>
-              <Text style={styles.headerText}>{rightText || "Catapult Fundraising"}</Text>
+              <Text style={styles.topBarConfidential}>CONFIDENTIAL</Text>
+              <Text style={styles.topBarText}>{rightText || "Catapult Fundraising"}</Text>
             </>
           ) : (
             <>
-              <Text style={styles.headerContinuedText}>
+              <Text style={styles.topBarContinuedText}>
                 {(data.name || "Prospect").toString()} — Continued
               </Text>
-              <Text style={styles.headerConfidential}>CONFIDENTIAL</Text>
-              <Text style={styles.headerText}>{rightText || "Catapult Fundraising"}</Text>
+              <Text style={styles.topBarText}>{rightText || "Catapult Fundraising"}</Text>
             </>
           )
         }
@@ -286,8 +306,21 @@ function ProfileDocument({ data }: { data: any }) {
     <Document>
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
-        <Text style={styles.eyebrow}>PROSPECT INTELLIGENCE PROFILE</Text>
-        <Text style={styles.title}>{data.name || "NAME"}</Text>
+
+        <View style={styles.heroBand}>
+          <View style={{ flex: 1 }}>
+            <Image src={LOGO_URL} style={styles.heroLogo} />
+            <Text style={styles.heroEyebrow}>PROSPECT INTELLIGENCE PROFILE</Text>
+            <Text style={styles.heroTitle}>{data.name || "NAME"}</Text>
+          </View>
+          {data.photo ? (
+            <Image src={data.photo} style={styles.heroPhoto} />
+          ) : (
+            <View style={styles.heroPhotoPlaceholder} />
+          )}
+        </View>
+
+        <View style={styles.body}>
 
         {wealthRows.length > 0 && (
           <View style={styles.wealthPanel}>
@@ -302,18 +335,6 @@ function ProfileDocument({ data }: { data: any }) {
             ))}
           </View>
         )}
-
-        <View style={styles.photoRow}>
-          {data.photo ? (
-            <Image src={data.photo} style={styles.photoCircle} />
-          ) : (
-            <View style={styles.photoPlaceholder} />
-          )}
-          <View style={{ marginLeft: 12 }}>
-            <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, marginBottom: 2 }}>NAME(S)</Text>
-            <Text style={styles.nameHeading}>{data.name || ""}</Text>
-          </View>
-        </View>
 
         <FieldRow label="Catapult ID Number" value={data.catapultId} />
         <FieldRow label="Client ID Number" value={data.clientId} />
@@ -391,10 +412,13 @@ function ProfileDocument({ data }: { data: any }) {
         <FieldRow label="Family Foundation" value={data.familyFoundation} />
         <FieldRow label="Political Affiliation" value={data.politicalAffiliation} />
         <FieldRow label="Additional Information" value={data.additionalInformation} />
+        </View>
       </Page>
 
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
+        <View style={[styles.body, { paddingTop: 30 }]}>
+        <View style={styles.sectionAccent} />
         <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
         <FieldRow label="Boards" value={data.boards} />
         <FieldRow label="Clubs & Affiliations" value={data.clubsAffiliations} />
@@ -402,6 +426,7 @@ function ProfileDocument({ data }: { data: any }) {
 
         {data.otherGiving?.length > 0 && (
           <>
+            <View style={styles.sectionAccent} />
             <Text style={styles.sectionHeading}>Other Giving History</Text>
             <Text style={styles.italicNote}>
               The amounts listed are representative of donations found in publicly available
@@ -463,6 +488,7 @@ function ProfileDocument({ data }: { data: any }) {
         <View style={styles.askBox}>
           <Text style={styles.askLabel}>RECOMMENDED ASK AMOUNT</Text>
           <Text style={styles.askValue}>{data.recommendedAskAmount ? fmtMoney(data.recommendedAskAmount) : "TBD"}</Text>
+        </View>
         </View>
       </Page>
     </Document>
