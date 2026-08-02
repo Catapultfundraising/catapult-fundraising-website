@@ -50,11 +50,17 @@ export function findMatchingCase(
 // instantly with no configuration required.
 // ---------------------------------------------------------------------------
 
+export interface CaseAlignmentPoint {
+  profileTrait: string;
+  profileValue: string;
+  caseConnection: string;
+}
+
 export interface AskStrategy {
   executiveSummary: string;
   recommendedAskAmount: string;
   askRange: string;
-  caseAlignment: string[];
+  caseAlignmentPoints: CaseAlignmentPoint[];
   talkingPoints: string[];
   meetingPreparation: string[];
   doThis: string[];
@@ -117,33 +123,21 @@ const STOPWORDS = new Set(
   )
 );
 
-/**
- * Extracts profile-driven keywords along with a human-readable label for
- * *why* each keyword matters, so a matched case sentence can be explained
- * ("because of their board involvement...") rather than just quoted.
- */
-function labeledKeywordsFrom(
-  fields: Array<{ value?: string; label: string }>
-): Map<string, string> {
-  const map = new Map<string, string>();
-  for (const { value, label } of fields) {
-    if (!value) continue;
-    for (const w of value.toLowerCase().split(/[^a-z0-9']+/)) {
-      if (w.length > 3 && !STOPWORDS.has(w) && !map.has(w)) {
-        map.set(w, label);
-      }
-    }
+function keywordsFrom(value: string): string[] {
+  const words = new Set<string>();
+  for (const w of value.toLowerCase().split(/[^a-z0-9']+/)) {
+    if (w.length > 3 && !STOPWORDS.has(w)) words.add(w);
   }
-  return map;
+  return Array.from(words);
 }
 
-function matchedLabelsForSentence(sentence: string, keywordLabels: Map<string, string>): string[] {
+function scoreSentence(sentence: string, keywords: string[]): number {
   const lower = sentence.toLowerCase();
-  const labels = new Set<string>();
-  for (const [kw, label] of keywordLabels) {
-    if (lower.includes(kw)) labels.add(label);
+  let score = 0;
+  for (const kw of keywords) {
+    if (lower.includes(kw)) score += 1;
   }
-  return Array.from(labels);
+  return score;
 }
 
 function firstMeaningfulParagraph(text: string): string {
@@ -181,6 +175,56 @@ function extractCaseThemes(text: string, max = 4): string[] {
     if (chosen.length >= max) break;
   }
   return chosen;
+}
+
+/**
+ * Builds the Case Alignment Points: a direct, trait-by-trait comparison of
+ * what's on the Prospect Intelligence Profile against what's in the client's
+ * case for support, so the connection between the two documents is explicit
+ * rather than left for the reader to infer.
+ */
+function buildCaseAlignmentPoints(
+  profileData: any,
+  caseSentences: string[],
+  caseThemes: string[]
+): CaseAlignmentPoint[] {
+  const fields: Array<{ key: string; label: string }> = [
+    { key: "hobbiesInterests", label: "Personal Interests" },
+    { key: "boards", label: "Board & Civic Involvement" },
+    { key: "clubsAffiliations", label: "Clubs & Affiliations" },
+    { key: "relationshipToOrg", label: "Existing Relationship to Organization" },
+    { key: "familyFoundation", label: "Family Foundation" },
+    { key: "businessColleagues", label: "Professional Network" },
+  ];
+
+  const points: CaseAlignmentPoint[] = [];
+
+  for (const { key, label } of fields) {
+    const profileValue = profileData?.[key];
+    if (!profileValue) continue;
+
+    const keywords = keywordsFrom(profileValue);
+    let caseConnection = "";
+    if (keywords.length > 0 && caseSentences.length > 0) {
+      const best = caseSentences
+        .map((sentence) => ({ sentence, score: scoreSentence(sentence, keywords) }))
+        .filter((x) => x.score > 0)
+        .sort((a, b) => b.score - a.score)[0];
+      if (best) {
+        caseConnection = `"${best.sentence}"`;
+      }
+    }
+    if (!caseConnection) {
+      caseConnection =
+        caseThemes.length > 0
+          ? `No exact excerpt matched, but this broadly connects to the case for support's focus on ${caseThemes.join(", ")}.`
+          : "No direct overlap found in the extracted case for support text — consider referencing this manually.";
+    }
+
+    points.push({ profileTrait: label, profileValue, caseConnection });
+  }
+
+  return points;
 }
 
 export function buildAskStrategy(params: {
@@ -222,45 +266,11 @@ export function buildAskStrategy(params: {
     askBasis = "";
   }
 
-  // --- Case for support alignment -----------------------------------------
+  // --- Case Alignment Points -----------------------------------------------
   const caseSentences = toSentences(caseForSupportText);
-  const keywordLabels = labeledKeywordsFrom([
-    { value: profileData?.hobbiesInterests, label: "personal interests" },
-    { value: profileData?.boards, label: "board and civic involvement" },
-    { value: profileData?.clubsAffiliations, label: "clubs and affiliations" },
-    { value: profileData?.relationshipToOrg, label: "existing relationship with the organization" },
-    { value: profileData?.familyFoundation, label: "family foundation" },
-    { value: profileData?.businessColleagues, label: "professional network" },
-  ]);
-
   const caseThemes = extractCaseThemes(caseForSupportText);
-
-  let matchedSentences: Array<{ sentence: string; labels: string[] }> = [];
-  if (keywordLabels.size > 0 && caseSentences.length > 0) {
-    matchedSentences = caseSentences
-      .map((sentence) => ({ sentence, labels: matchedLabelsForSentence(sentence, keywordLabels) }))
-      .filter((x) => x.labels.length > 0)
-      .sort((a, b) => b.labels.length - a.labels.length)
-      .slice(0, 4);
-  }
-
-  let caseAlignment: string[];
-  if (matchedSentences.length > 0) {
-    // Explicitly explain *why* each case passage is relevant to this
-    // specific prospect, rather than listing quotes with no connective
-    // tissue back to the profile.
-    caseAlignment = matchedSentences.map(
-      ({ sentence, labels }) => `Because of their ${labels.join(" and ")}: "${sentence}"`
-    );
-  } else if (caseSentences.length > 0) {
-    // No direct keyword overlap found — fall back to the case's own
-    // strongest opening statements so the document is never empty.
-    caseAlignment = caseSentences
-      .slice(0, 3)
-      .map((sentence) => `From the case for support: "${sentence}"`);
-  } else {
-    caseAlignment = [];
-  }
+  const caseAlignmentPoints = buildCaseAlignmentPoints(profileData, caseSentences, caseThemes);
+  const hasDirectMatches = caseAlignmentPoints.some((p) => p.caseConnection.startsWith('"'));
 
   const caseSummary = firstMeaningfulParagraph(caseForSupportText);
 
@@ -296,8 +306,8 @@ export function buildAskStrategy(params: {
   if (caseSummary) {
     talkingPoints.push(
       `Open by grounding the ask in the mission: "${caseSummary}" — then bridge directly into why ${name} in particular is positioned to help advance it` +
-        (matchedSentences.length > 0
-          ? ` (see the Case for Support Alignment points below for the specific connection).`
+        (hasDirectMatches
+          ? ` (see the Case Alignment Points below for the specific connection).`
           : ".")
     );
   }
@@ -408,7 +418,7 @@ export function buildAskStrategy(params: {
     executiveSummary,
     recommendedAskAmount,
     askRange,
-    caseAlignment,
+    caseAlignmentPoints,
     talkingPoints,
     meetingPreparation,
     doThis,

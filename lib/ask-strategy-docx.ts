@@ -17,7 +17,7 @@ import {
   ShadingType,
   PageNumber,
 } from "docx";
-import type { AskStrategy } from "./ask-strategy";
+import type { AskStrategy, CaseAlignmentPoint } from "./ask-strategy";
 
 // Header/top-of-page Catapult Fundraising logo (dark-on-light lockup), matching
 // the one used at the top of the live site — distinct from the light/white
@@ -146,6 +146,62 @@ function objectionTable(rows: Array<{ objection: string; response: string }>): T
   });
 }
 
+function caseAlignmentTable(points: CaseAlignmentPoint[]): Table | Paragraph {
+  if (!points || points.length === 0) {
+    return new Paragraph({
+      children: [
+        new TextRun({
+          text: "No profile traits (interests, boards, relationship, etc.) were available to compare against the case for support.",
+          italics: true,
+          color: MUTED,
+        }),
+      ],
+    });
+  }
+  const border = { style: BorderStyle.SINGLE, size: 1, color: LINE };
+  const borders = { top: border, bottom: border, left: border, right: border };
+  const colWidths = [Math.round(CONTENT_WIDTH * 0.22), Math.round(CONTENT_WIDTH * 0.3), Math.round(CONTENT_WIDTH * 0.48)];
+
+  const headerRow = new TableRow({
+    children: ["Profile Trait", "From the Prospect Intelligence Profile", "Connection to the Case for Support"].map(
+      (text, i) =>
+        new TableCell({
+          width: { size: colWidths[i], type: WidthType.DXA },
+          borders,
+          shading: { fill: NAVY, type: ShadingType.CLEAR },
+          margins: { top: 80, bottom: 80, left: 120, right: 120 },
+          children: [new Paragraph({ children: [new TextRun({ text, color: PAPER, bold: true, size: 16 })] })],
+        })
+    ),
+  });
+
+  const dataRows = points.map(
+    (point, i) =>
+      new TableRow({
+        children: [point.profileTrait, point.profileValue, point.caseConnection].map(
+          (text, ci) =>
+            new TableCell({
+              width: { size: colWidths[ci], type: WidthType.DXA },
+              borders,
+              shading: { fill: i % 2 === 1 ? PAPER : "FFFFFF", type: ShadingType.CLEAR },
+              margins: { top: 80, bottom: 80, left: 120, right: 120 },
+              children: [
+                new Paragraph({
+                  children: [new TextRun({ text, color: INK, size: 17, bold: ci === 0 })],
+                }),
+              ],
+            })
+        ),
+      })
+  );
+
+  return new Table({
+    width: { size: CONTENT_WIDTH, type: WidthType.DXA },
+    columnWidths: colWidths,
+    rows: [headerRow, ...dataRows],
+  });
+}
+
 export interface AskStrategyDocxParams {
   prospectName: string;
   clientOrgName: string;
@@ -252,7 +308,7 @@ export async function buildAskStrategyDocx(params: AskStrategyDocxParams): Promi
                     new ImageRun({
                       type: "png",
                       data: logoBuffer,
-                      transformation: { width: 118, height: 79 },
+                      transformation: { width: 236, height: 158 },
                       altText: { title: "Catapult Fundraising", description: "Logo", name: "Logo" },
                     }),
                   ],
@@ -295,8 +351,9 @@ export async function buildAskStrategyDocx(params: AskStrategyDocxParams): Promi
           }),
           new Paragraph({ spacing: { before: 200 } }),
 
-          heading("Case for Support Alignment"),
-          ...bulletList(strategy.caseAlignment),
+          heading("Case Alignment Points"),
+          caseAlignmentTable(strategy.caseAlignmentPoints),
+          new Paragraph({ spacing: { before: 200 } }),
 
           heading("Key Talking Points"),
           ...bulletList(strategy.talkingPoints),
