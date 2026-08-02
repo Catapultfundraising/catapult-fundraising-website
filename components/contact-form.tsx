@@ -13,10 +13,31 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Send, CheckCircle, AlertCircle } from "lucide-react";
-import { LEAD_EMAILS, SERVICE_LINKS } from "@/lib/constants";
+import { FIRM_EMAIL, SERVICE_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 
 const SERVICE_OPTIONS = [...SERVICE_LINKS.map((s) => s.label), "Not sure yet"];
+
+/**
+ * Formats digits as a US phone number as the user types, e.g. "7025550100"
+ * -> "(702) 555-0100". Falls back to the raw digits (still with a leading
+ * "+" preserved) for longer/international numbers rather than mangling them.
+ */
+function formatPhoneNumber(value: string): string {
+  const hasLeadingPlus = value.trim().startsWith("+");
+  const digits = value.replace(/\D/g, "").slice(0, 15);
+  if (hasLeadingPlus && digits.length > 10) {
+    return `+${digits}`;
+  }
+  const tenDigit = digits.slice(-10);
+  const areaCode = tenDigit.slice(0, 3);
+  const prefix = tenDigit.slice(3, 6);
+  const line = tenDigit.slice(6, 10);
+
+  if (tenDigit.length <= 3) return areaCode;
+  if (tenDigit.length <= 6) return `(${areaCode}) ${prefix}`;
+  return `(${areaCode}) ${prefix}-${line}`;
+}
 
 const FIELD_CLASS =
   "border-[rgb(var(--line))] bg-white text-[rgb(var(--navy))] placeholder:text-[rgb(var(--ink))]/30 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
@@ -57,7 +78,7 @@ export function ContactForm() {
       setSubmitted(true);
     } catch {
       setErrorMessage(
-        `Something went wrong sending your message. Please try again, or email us directly at ${LEAD_EMAILS[0]}.`
+        `Something went wrong sending your message. Please try again, or email us directly at ${FIRM_EMAIL}.`
       );
     } finally {
       setSubmitting(false);
@@ -73,8 +94,8 @@ export function ContactForm() {
         </h3>
         <p className="max-w-sm text-sm text-[rgb(var(--ink))]/65">
           We respond to every inquiry within one business day. If you need to reach us sooner, email{" "}
-          <a href={`mailto:${LEAD_EMAILS[0]}`} className="font-semibold text-[rgb(var(--navy))] underline">
-            {LEAD_EMAILS[0]}
+          <a href={`mailto:${FIRM_EMAIL}`} className="font-semibold text-[rgb(var(--navy))] underline">
+            {FIRM_EMAIL}
           </a>
           .
         </p>
@@ -136,8 +157,12 @@ export function ContactForm() {
             <Input
               id="phone"
               type="tel"
+              inputMode="tel"
+              autoComplete="tel"
+              pattern="[\d\s()+.\-]{7,20}"
+              maxLength={20}
               value={phone}
-              onChange={(e) => setPhone(e.target.value)}
+              onChange={(e) => setPhone(formatPhoneNumber(e.target.value))}
               placeholder="(702) 555-0100"
               className={FIELD_CLASS}
             />
