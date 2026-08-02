@@ -203,6 +203,47 @@ const jsonLd = {
     { "@type": "Place", address: { "@type": "PostalAddress", addressRegion: "TX", addressCountry: "US" } },
   ],
   priceRange: "$$$",
+  // Real client testimonials shown on the homepage (components/testimonial-strip.tsx),
+  // shared with client permission. Deliberately omits reviewRating/aggregateRating
+  // since no client supplied an actual numeric star rating -- fabricating one would
+  // violate Google's structured data guidelines for reviews.
+  review: [
+    {
+      "@type": "Review",
+      author: { "@type": "Person", name: "Bill LaBore" },
+      reviewBody:
+        "Loma Linda University Health has partnered with Catapult Fundraising for several years, and the results have consistently exceeded our expectations. Catapult has generated qualified leads that have developed into meaningful planned gifts, delivering a strong return on our investment. Maria Healy has been exceptional to work with, responsive, attentive, and highly professional. I highly recommend Catapult Fundraising for its professionalism, service, and proven results.",
+      publisher: { "@type": "Organization", name: "Loma Linda University Health" },
+    },
+    {
+      "@type": "Review",
+      author: { "@type": "Person", name: "Matthew Talley" },
+      reviewBody:
+        "Catapult Fundraising has been a fantastic partner in relaunching and growing UMGC's Annual Giving telemarketing program. Since restarting the program in FY24, their team's personalized approach has helped us steadily strengthen our annual fund by increasing both our average gift and pledge rate year over year. We're grateful for the partnership and look forward to continuing to grow this program together.",
+      publisher: { "@type": "Organization", name: "University of Maryland Global Campus" },
+    },
+    {
+      "@type": "Review",
+      author: { "@type": "Person", name: "Colleen Schulman, CFRE, CSPG" },
+      reviewBody:
+        "Legacy Call was a gamechanger for us. As a small shop, it helped us reach a much wider audience of planned giving donors, and the response was incredible: several new gifts and a full pool of new prospects.",
+      publisher: { "@type": "Organization", name: "PBS KVIE" },
+    },
+    {
+      "@type": "Review",
+      author: { "@type": "Person", name: "Christine Ann Stevens" },
+      reviewBody:
+        "Catapult's fractional officers seamlessly amplified our staff capacity. We grew our total donor households, increased funds raised from our mid-level base, and strengthened our major gifts pipeline. True partners, not just a vendor.",
+      publisher: { "@type": "Organization", name: "Houston Symphony" },
+    },
+    {
+      "@type": "Review",
+      author: { "@type": "Person", name: "Erica Kobbe" },
+      reviewBody:
+        "Catapult's multi-channel outreach, phone, text, and email woven into one plan, increased both donor participation and dollars raised. Their callers are exceptionally well-trained, authentic, and a true extension of our advancement team.",
+      publisher: { "@type": "Organization", name: "Sacramento State University" },
+    },
+  ],
   hasOfferCatalog: {
     "@type": "OfferCatalog",
     name: "Fundraising Consulting Services",
