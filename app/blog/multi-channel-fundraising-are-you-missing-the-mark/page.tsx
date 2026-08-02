@@ -64,7 +64,7 @@ export default function MultiChannelFundraisingPost() {
       />
 
       <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
             src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e601e588-b9aa-4027-aa86-0a2a5ec61431.png"
             alt="Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor"

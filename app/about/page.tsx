@@ -201,7 +201,7 @@ export default function AboutPage() {
             </div>
           </div>
 
-          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl lg:col-span-2">
+          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl lg:col-span-2" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
               src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8868a9d9-479a-4758-b8bc-144aebe3f2da.png"
               alt="Catapult Fundraising's consulting team collaborating on campaign strategy"
