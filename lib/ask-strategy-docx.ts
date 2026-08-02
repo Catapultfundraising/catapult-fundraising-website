@@ -281,8 +281,8 @@ export async function buildAskStrategyDocx(params: AskStrategyDocxParams): Promi
                 border: { top: { style: BorderStyle.SINGLE, size: 4, color: LINE, space: 4 } },
                 children: [
                   new TextRun({
-                    text: `Catapult Fundraising — Confidential Donor Ask Strategy${
-                      catapultId ? ` — Catapult ID: ${catapultId}` : ""
+                    text: `Catapult Fundraising: Confidential Donor Ask Strategy${
+                      catapultId ? `, Catapult ID: ${catapultId}` : ""
                     }`,
                     size: 14,
                     color: MUTED,

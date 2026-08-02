@@ -218,7 +218,7 @@ function buildCaseAlignmentPoints(
       caseConnection =
         caseThemes.length > 0
           ? `No exact excerpt matched, but this broadly connects to the case for support's focus on ${caseThemes.join(", ")}.`
-          : "No direct overlap found in the extracted case for support text — consider referencing this manually.";
+          : "No direct overlap found in the extracted case for support text; consider referencing this manually.";
     }
 
     points.push({ profileTrait: label, profileValue, caseConnection });
@@ -280,11 +280,11 @@ export function buildAskStrategy(params: {
     `${name} is being considered as a prospective donor to ${clientOrgName}.` +
       (recommendedAskAmount !== "Not enough data to estimate"
         ? ` Based on ${askBasis}, a recommended ask of ${recommendedAskAmount} is suggested.`
-        : " There is not yet enough wealth or capacity data on file to recommend a specific ask amount — add an Estimated Giving Capacity, Estimated Net Worth, or a Recommended Ask Amount to the profile for a more precise figure.")
+        : " There is not yet enough wealth or capacity data on file to recommend a specific ask amount. Add an Estimated Giving Capacity, Estimated Net Worth, or a Recommended Ask Amount to the profile for a more precise figure.")
   );
   if (caseThemes.length > 0) {
     summaryParts.push(
-      `${clientOrgName}'s case for support centers on ${caseThemes.join(", ")} — the strategy below is built to connect ${name}'s specific background directly to that mission.`
+      `${clientOrgName}'s case for support centers on ${caseThemes.join(", ")}, and the strategy below is built to connect ${name}'s specific background directly to that mission.`
     );
   }
   if (profileData?.relationshipToOrg) {
@@ -296,7 +296,7 @@ export function buildAskStrategy(params: {
   if (caseForSupportText.trim().length < 200) {
     summaryParts.push(
       "Note: little extractable text was found in the client's case for support PDF (it may be a " +
-        "scanned or image-based document) — review that case for support directly for full details."
+        "scanned or image-based document). Review that case for support directly for full details."
     );
   }
   const executiveSummary = summaryParts.join(" ");
@@ -305,7 +305,7 @@ export function buildAskStrategy(params: {
   const talkingPoints: string[] = [];
   if (caseSummary) {
     talkingPoints.push(
-      `Open by grounding the ask in the mission: "${caseSummary}" — then bridge directly into why ${name} in particular is positioned to help advance it` +
+      `Open by grounding the ask in the mission: "${caseSummary}," then bridge directly into why ${name} in particular is positioned to help advance it` +
         (hasDirectMatches
           ? ` (see the Case Alignment Points below for the specific connection).`
           : ".")
@@ -316,16 +316,16 @@ export function buildAskStrategy(params: {
     const last = rows[rows.length - 1];
     const lastAmount = ensureDollarSign(last?.amount);
     const historyNote = last?.year || lastAmount
-      ? ` (most recently ${[last.year, lastAmount].filter(Boolean).join(" — ")})`
+      ? ` (most recently ${[last.year, lastAmount].filter(Boolean).join(", ")})`
       : "";
     talkingPoints.push(
       `Acknowledge their giving history with ${clientOrgName}${historyNote} and express appreciation before ` +
-        "introducing the new ask — then connect this new ask to the next stage of the case for support's work."
+        "introducing the new ask, then connect this new ask to the next stage of the case for support's work."
     );
   }
   if (profileData?.hobbiesInterests) {
     const themeNote =
-      caseThemes.length > 0 ? ` — particularly where it touches ${caseThemes[0]}, a core focus of the case for support` : "";
+      caseThemes.length > 0 ? `, particularly where it touches ${caseThemes[0]}, a core focus of the case for support` : "";
     talkingPoints.push(
       `Connect the ask to their personal interests (${profileData.hobbiesInterests})${themeNote}.`
     );
@@ -349,13 +349,13 @@ export function buildAskStrategy(params: {
     `Review this profile and the ${clientOrgName} case for support immediately before the meeting.`,
     "Confirm who else will attend (staff, board member, peer donor) and align on roles in advance.",
     "Bring a printed or digital copy of the case for support and any relevant campaign materials.",
-    "Set a clear goal for the meeting: cultivation, solicitation, or stewardship — know which one this is.",
+    "Set a clear goal for the meeting: cultivation, solicitation, or stewardship. Know which one this is.",
   ];
 
   const doThis = [
     "Let the prospect talk first about what motivates their giving before presenting the case.",
     "Be specific: name the exact ask amount and what it funds rather than speaking in generalities.",
-    "Pause after making the ask and let silence sit — do not fill it.",
+    "Pause after making the ask and let silence sit. Do not fill it.",
     "Thank them for their time and prior generosity regardless of the outcome.",
   ];
 
