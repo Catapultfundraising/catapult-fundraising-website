@@ -21,8 +21,8 @@ export const FIRM_PHONE_HREF = "+17025080101";
 export const FIRM_EMAIL = "info@catapultfr.com";
 export const FIRM_ADDRESS = "2551 N. Green Valley Parkway, Suite 202B, Henderson, NV 89014";
 export const FIRM_ADDRESS_LINES = [
-  "2651 N. Green Valley Parkway",
-  "Suite 102D",
+  "2551 N. Green Valley Parkway",
+  "Suite 202B",
   "Henderson, NV 89014",
 ];
 
