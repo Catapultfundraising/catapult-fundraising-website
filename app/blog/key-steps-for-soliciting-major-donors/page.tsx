@@ -64,7 +64,7 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
       />
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
             src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/25847c17-f9f0-4a0a-958f-c0f9db77bde2.png"
             alt="Two professionals shaking hands after a successful major gift solicitation meeting"
