@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "Seven Touchpoints: Building Donor Loyalty Between Asks",
   description:
     "The low-cost touchpoints, from the 'five by ten' calling habit to digital voicemail drops, that build donor loyalty and quietly upgrade mid-level gifts.",
-  author: { "@type": "Person", name: "Anthony R. Alonso", affiliation: "Catapult Fundraising" },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

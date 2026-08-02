@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "How to Effectively Use the Phone Today",
   description:
     "Anthony R. Alonso on why telefundraising is far from dead, and the two-step, personalized method that lifts gift sizes 25 to 30 percent.",
-  author: { "@type": "Person", name: "Anthony R. Alonso", affiliation: "Catapult Fundraising" },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

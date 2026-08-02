@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "Planning a Capital Campaign: The Gift Chart and Quiet Phase",
   description:
     "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign.",
-  author: { "@type": "Organization", name: "Catapult Fundraising", url: SITE_URL },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

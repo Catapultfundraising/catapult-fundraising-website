@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "Multi-Channel Fundraising — Are You Missing the Mark?",
   description:
     "Anthony Alonso on why digital fundraising alone can't upgrade donors or build a major gift pipeline, and the segmentation, storytelling, and calling strategy that can.",
-  author: { "@type": "Person", name: "Anthony Alonso", affiliation: "Catapult Fundraising" },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

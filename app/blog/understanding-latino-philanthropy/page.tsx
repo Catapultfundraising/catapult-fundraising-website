@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "Understanding Latino Philanthropy: Lessons for Nonprofit Fundraisers",
   description:
     "Why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates.",
-  author: { "@type": "Person", name: "Anthony R. Alonso", affiliation: "Catapult Fundraising" },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

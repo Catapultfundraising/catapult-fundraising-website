@@ -24,6 +24,26 @@ function frequencyFor(route: string): "weekly" | "monthly" {
   return "monthly";
 }
 
+// Real last-edited dates per route, instead of stamping every URL with the
+// current build time. A sitemap where every page always says "modified
+// today" is a well-known freshness-signal red flag that search engines
+// increasingly discount -- accurate dates are a stronger, more trustworthy
+// signal. FALLBACK_DATE covers older pages that predate this dating system;
+// update an entry here whenever that page's content actually changes.
+const ROUTE_LAST_MODIFIED: Record<string, string> = {
+  "": "2026-08-02",
+  "/about": "2026-08-02",
+  "/our-team": "2026-08-02",
+  "/contact": "2026-08-02",
+  "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices": "2026-07-22",
+};
+
+const FALLBACK_DATE = "2026-07-22";
+
+function lastModifiedFor(route: string): Date {
+  return new Date(ROUTE_LAST_MODIFIED[route] ?? FALLBACK_DATE);
+}
+
 export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     "",
@@ -54,11 +74,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/blog/key-steps-for-soliciting-major-donors",
     "/blog/how-to-effectively-use-the-phone-today",
     "/blog/multi-channel-fundraising-are-you-missing-the-mark",
+    "/blog/the-state-of-fundraising-in-nevada",
   ];
 
   return routes.map((route) => ({
     url: `${SITE_URL}${route}`,
-    lastModified: new Date(),
+    lastModified: lastModifiedFor(route),
     changeFrequency: frequencyFor(route),
     priority: priorityFor(route),
   }));

@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "The Ask Ladder: How to Structure a Major Gift Solicitation",
   description:
     "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
-  author: { "@type": "Organization", name: "Catapult Fundraising", url: SITE_URL },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

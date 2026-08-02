@@ -84,7 +84,13 @@ const jsonLd = {
   headline: "Catapult Fundraising vs. Other Fundraising Consultants: What Sets Us Apart",
   description:
     "Most fundraising consultants either plan a campaign or make the calls, rarely both. See how Catapult Fundraising's one-firm, every-phase model compares to campaign-only counsel, calling-only vendors, and major gift specialists.",
-  author: { "@type": "Organization", name: "Catapult Fundraising", url: SITE_URL },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

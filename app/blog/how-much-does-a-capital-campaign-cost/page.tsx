@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "How Much Does a Capital Campaign Cost?",
   description:
     "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
-  author: { "@type": "Organization", name: "Catapult Fundraising" },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

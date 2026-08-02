@@ -35,7 +35,13 @@ const jsonLd = {
   headline: "The State of Fundraising in Nevada",
   description:
     "Nevada ranks 49th out of 50 states in WalletHub's 2025 Most Charitable States study. Here's what the data actually means for capital campaign strategy.",
-  author: { "@type": "Organization", name: "Catapult Fundraising" },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

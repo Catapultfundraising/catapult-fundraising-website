@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "Key Steps for Soliciting Major Donors",
   description:
     "Catapult's four-right rule for turning long-time supporters into major gift donors: the right person asking the right prospect for the right amount at the right time.",
-  author: { "@type": "Organization", name: "Catapult Fundraising" },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

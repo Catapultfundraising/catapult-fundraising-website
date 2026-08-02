@@ -32,7 +32,13 @@ const jsonLd = {
   headline: "Growing Your Legacy Society: Why Aren't We Asking?",
   description:
     "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
-  author: { "@type": "Person", name: "Anthony R. Alonso", affiliation: "Catapult Fundraising" },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",

@@ -59,7 +59,13 @@ const jsonLd = {
   headline: "Capital Campaigns, Mid-Level Donor Engagement, and Legacy Giving: A Best Practices Guide",
   description:
     "A practical playbook for nonprofit capital campaigns, mid-level donor engagement, and legacy giving calls.",
-  author: { "@type": "Organization", name: "Catapult Fundraising", url: SITE_URL },
+  author: {
+    "@type": "Person",
+    name: "Anthony R. Alonso",
+    jobTitle: "President & CEO",
+    url: `${SITE_URL}/our-team`,
+    worksFor: { "@id": `${SITE_URL}/#organization` },
+  },
   publisher: {
     "@type": "Organization",
     name: "Catapult Fundraising",
