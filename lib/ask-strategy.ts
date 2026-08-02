@@ -79,8 +79,16 @@ function parseMoney(value?: string): number | null {
   if (!cleaned) return null;
   let n = parseFloat(cleaned);
   if (!Number.isFinite(n)) return null;
-  if (/\bK\b|k$/i.test(trimmed)) n *= 1_000;
-  if (/\bM\b|m$/i.test(trimmed)) n *= 1_000_000;
+  // K/M shorthand suffixes are almost always written directly against the
+  // digits (e.g. "$10M+", "$250K") with no space, so a \b word-boundary
+  // check before the letter never matches (digits and letters are both
+  // "word" characters in regex terms). Check the trailing letter directly
+  // instead, ignoring an optional "+" after it.
+  if (/[mM]\+?\s*$/.test(trimmed)) {
+    n *= 1_000_000;
+  } else if (/[kK]\+?\s*$/.test(trimmed)) {
+    n *= 1_000;
+  }
   return n;
 }
 
