@@ -24,7 +24,7 @@ export const metadata = {
     description:
       "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/028faeca-7eb5-467b-bfa1-0e3b5167fdfb.png", width: 1536, height: 1024, alt: "A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/96ee0ee1-0dac-47d1-a6c6-f2044a67c885.png", width: 1536, height: 1024, alt: "A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table" }],
   },
 };
 
@@ -62,11 +62,11 @@ export default function GrowingYourLegacySocietyPost() {
         title="Growing your legacy society: why aren't we asking?"
         description="Only one in five donors say they've ever been asked for a legacy gift. Almost everyone has the ability to leave a bequest, even a modest one, all we have to do is ask."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/028faeca-7eb5-467b-bfa1-0e3b5167fdfb.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/96ee0ee1-0dac-47d1-a6c6-f2044a67c885.png"
             alt="A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table"
             fill
             className="object-cover"
@@ -74,8 +74,6 @@ export default function GrowingYourLegacySocietyPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Bequests are widely considered the major gift of the average American, gifts far larger
           than a donor could ever make in a single year, and yet most organizations spend
@@ -91,6 +89,8 @@ export default function GrowingYourLegacySocietyPost() {
           they&rsquo;re the people who&rsquo;ve given loyally for fifteen, twenty, even forty
           consecutive years.
         </blockquote>
+      <div className="clear-both" />
+
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Identify prospects by loyalty, not wealth

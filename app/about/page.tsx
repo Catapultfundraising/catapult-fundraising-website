@@ -203,7 +203,7 @@ export default function AboutPage() {
 
           <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl lg:col-span-2">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e9ce9455-3a8e-46e9-ac40-3a9751abc2b7.png"
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8868a9d9-479a-4758-b8bc-144aebe3f2da.png"
               alt="Catapult Fundraising's consulting team collaborating on campaign strategy"
               fill
               className="object-cover"

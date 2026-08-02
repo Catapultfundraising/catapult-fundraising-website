@@ -28,7 +28,7 @@ export const metadata = {
     description:
       "Feasibility studies, gift charts, donor upgrade paths, and legacy call scripts, the practical playbook nonprofits use to raise more at every donor level.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f531435c-983e-4a26-9fb8-8a147baab29e.png", width: 1536, height: 1024, alt: "A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a5f9279c-f719-4630-a417-9b3588a39175.png", width: 1536, height: 1024, alt: "A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together" }],
   },
 };
 
@@ -102,11 +102,11 @@ export default function BestPracticesPost() {
         title="Capital campaigns, mid-level donor engagement, and legacy giving: a best practices guide."
         description="Three fundraising programs, one integrated donor journey. Here's the practical playbook nonprofits use to raise more at every level, from first-time annual donors to seven-figure legacy gifts."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f531435c-983e-4a26-9fb8-8a147baab29e.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a5f9279c-f719-4630-a417-9b3588a39175.png"
             alt="A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together"
             fill
             className="object-cover"
@@ -114,8 +114,6 @@ export default function BestPracticesPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Nonprofits rarely raise significant money through one program alone. The organizations that consistently
           grow their donor base treat capital campaigns, mid-level donor engagement, and legacy giving as three
@@ -134,6 +132,8 @@ export default function BestPracticesPost() {
           </Link>{" "}
           programs nationwide.
         </p>
+      <div className="clear-both" />
+
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Capital campaign best practices

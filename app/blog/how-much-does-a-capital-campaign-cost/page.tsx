@@ -24,7 +24,7 @@ export const metadata = {
     description:
       "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1b5c02e7-409f-4278-9369-d0e669a1382e.png", width: 1536, height: 1024, alt: "A board member and fundraising consultant reviewing a capital campaign budget and financial charts" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a71dcf44-5db6-48bb-9179-843db4b80626.png", width: 1536, height: 1024, alt: "A board member and fundraising consultant reviewing a capital campaign budget and financial charts" }],
   },
 };
 
@@ -94,11 +94,11 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
         title="How Much Does a Capital Campaign Cost?"
         description="Board members ask this question before anything else. Here's what actually drives the price, and how to think about it as an investment instead of a line-item expense."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1b5c02e7-409f-4278-9369-d0e669a1382e.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a71dcf44-5db6-48bb-9179-843db4b80626.png"
             alt="A board member and fundraising consultant reviewing a capital campaign budget and financial charts"
             fill
             className="object-cover"
@@ -106,8 +106,6 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Every board conversation about a capital campaign eventually lands on the same question:
           what is this going to cost us? It&rsquo;s a fair question, and it deserves a direct answer,
@@ -115,6 +113,8 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
           consulting fees, and how the smartest organizations think about the number before they sign
           anything.
         </p>
+      <div className="clear-both" />
+
 
         <h2 className="mt-10 font-display text-2xl text-[rgb(var(--navy))] sm:text-[28px]">
           What drives the fee

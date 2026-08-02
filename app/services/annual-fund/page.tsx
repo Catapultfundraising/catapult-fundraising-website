@@ -138,7 +138,7 @@ export default function AnnualFundPage() {
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/513c85b8-7588-44b1-9dcb-41e3cf4f486e.jpeg"
       />
       <ServiceDetail
-        heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0482d322-bb1b-470f-a188-629b9312b80a.png"
+        heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0144f19e-bed4-4f42-a09b-211276c3f4a1.png"
         heroImageAlt="A Catapult Engagement Officer smiling while on an annual fund calling program"
         sections={SECTIONS}
         sidebarTitle="Program Includes"

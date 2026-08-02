@@ -30,7 +30,7 @@ export const metadata = {
     description:
       "See how Catapult's one-firm, every-phase model compares to campaign-only counsel, calling-only vendors, and major gift specialists.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ba6142dc-21f2-4fee-9ba6-569e9436179d.png", width: 1536, height: 1024, alt: "Two consultants shaking hands, symbolizing a trusted long-term fundraising consulting partnership" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0dc53179-1044-48ce-a6b8-9124e8c0281a.png", width: 1536, height: 1024, alt: "Two consultants shaking hands, symbolizing a trusted long-term fundraising consulting partnership" }],
   },
 };
 
@@ -127,11 +127,11 @@ export default function CatapultVsCompetitorsPost() {
         title="Catapult Fundraising vs. other fundraising consultants: what sets us apart."
         description="The nonprofit fundraising industry is fragmented on purpose. Firms that write campaign strategy rarely make the calls, and firms that make calls rarely understand campaign strategy. Here's how Catapult closes that gap, and how we stack up against the firms nonprofits usually consider alongside us."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ba6142dc-21f2-4fee-9ba6-569e9436179d.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0dc53179-1044-48ce-a6b8-9124e8c0281a.png"
             alt="Two consultants shaking hands, symbolizing a trusted long-term fundraising consulting partnership"
             fill
             className="object-cover"
@@ -139,8 +139,6 @@ export default function CatapultVsCompetitorsPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           When a nonprofit board starts evaluating fundraising consultants, it usually finds two very different kinds
           of firms. The first plans campaigns: feasibility studies, case statements, gift charts, sometimes a
@@ -158,6 +156,8 @@ export default function CatapultVsCompetitorsPost() {
           the strategy and the results. Below is an honest look at how that model compares to the other types of firms
           nonprofits typically evaluate.
         </p>
+      <div className="clear-both" />
+
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           The problem with most fundraising consultants
