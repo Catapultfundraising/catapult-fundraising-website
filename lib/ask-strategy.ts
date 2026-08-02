@@ -117,6 +117,19 @@ function ensureDollarSign(value?: string): string {
   return `${fmtMoney(parsed)}${hasPlus ? "+" : ""}`;
 }
 
+/**
+ * True only for text that actually reads as a dollar figure (plain numbers,
+ * "$250,000", "10K", "10M+", etc.). Used to distinguish a gift officer's
+ * genuine override from placeholder text like the form's default "TBD",
+ * "N/A", or "Unknown" -- those must NOT block the blended ask calculation.
+ */
+function looksLikeMoney(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  const withoutDollar = trimmed.startsWith("$") ? trimmed.slice(1).trim() : trimmed;
+  return /^[0-9][0-9,.]*\s*[KkMmBb]?\+?$/.test(withoutDollar);
+}
+
 /** Splits case-for-support text into clean, reasonably sized sentences. */
 function toSentences(text: string): string[] {
   return text
@@ -250,7 +263,16 @@ export function buildAskStrategy(params: {
   // just one, so the recommendation reflects the full picture on file. An
   // explicit Recommended Ask Amount already entered on the profile is
   // treated as the gift officer's own override and takes precedence.
-  const stated = ensureDollarSign((profileData?.recommendedAskAmount || "").trim());
+  // The profile form defaults this field to the literal placeholder text
+  // "TBD" (see components/research-profile-form.tsx). That default is
+  // non-empty, so treating any non-empty value as an override previously
+  // caused "TBD" itself to be echoed back as the ask amount for every
+  // profile where the gift officer had not yet filled it in -- silently
+  // skipping the blended capacity / net worth / giving history calculation
+  // entirely. Only genuine dollar-looking text (not placeholder words like
+  // "TBD", "N/A", "Unknown") counts as an explicit override.
+  const rawStated = (profileData?.recommendedAskAmount || "").trim();
+  const stated = looksLikeMoney(rawStated) ? ensureDollarSign(rawStated) : "";
   const capacity = parseMoney(profileData?.givingCapacity);
   const netWorth = parseMoney(profileData?.estimatedNetWorth);
 
@@ -276,21 +298,31 @@ export function buildAskStrategy(params: {
     }
     askBasis = "the ask amount already recorded on this profile";
   } else {
+    // Multipliers reflect capital campaign norms (a multi-year pledge ask),
+    // not annual fund norms (a single-year renewal ask), since Catapult's ask
+    // strategies are built for capital campaigns.
     const candidates: Array<{ value: number; label: string }> = [];
-    if (capacity) candidates.push({ value: capacity, label: "estimated 5-year giving capacity" });
-    if (netWorth) candidates.push({ value: netWorth * 0.02, label: "roughly 2% of estimated net worth" });
+    if (capacity) {
+      candidates.push({ value: capacity, label: "their estimated 5-year giving capacity" });
+    }
+    if (netWorth) {
+      candidates.push({ value: netWorth * 0.05, label: "roughly 5% of estimated net worth" });
+    }
     if (largestPriorGift) {
-      candidates.push({ value: largestPriorGift * 2, label: "about double their largest prior gift" });
+      candidates.push({ value: largestPriorGift * 4, label: "about 4 times their largest prior gift" });
     }
 
     if (candidates.length > 0) {
       const blended = candidates.reduce((sum, c) => sum + c.value, 0) / candidates.length;
       recommendedAskAmount = fmtMoney(blended);
       askRange = `${fmtMoney(blended * 0.8)} – ${fmtMoney(blended * 1.2)}`;
-      askBasis =
+      const blendLabel =
         candidates.length > 1
           ? `a blend of ${candidates.map((c) => c.label).join(", ")}`
           : candidates[0].label;
+      askBasis =
+        `${blendLabel}, calculated using capital campaign multi-year pledge norms (rather than a single-year ` +
+        `annual fund gift) and payable over a typical 3-5 year pledge period`;
     } else {
       recommendedAskAmount = "Not enough data to estimate";
       askRange = "";
@@ -311,7 +343,7 @@ export function buildAskStrategy(params: {
   summaryParts.push(
     `${name} is being considered as a prospective donor to ${clientOrgName}.` +
       (recommendedAskAmount !== "Not enough data to estimate"
-        ? ` Based on ${askBasis}, a recommended ask of ${recommendedAskAmount} is suggested.`
+        ? ` Based on ${askBasis}, a recommended ask of ${recommendedAskAmount} is suggested. This is a capital campaign ask, not an annual fund ask, so plan to present it as a multi-year pledge rather than a single-year gift.`
         : " There is not yet enough wealth or capacity data on file to recommend a specific ask amount. Add an Estimated Giving Capacity, Estimated Net Worth, or a Recommended Ask Amount to the profile for a more precise figure.")
   );
   if (caseThemes.length > 0) {
