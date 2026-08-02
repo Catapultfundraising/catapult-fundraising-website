@@ -38,6 +38,11 @@ const PAPER = "FAF7F0";
 const INK = "181B19";
 const MUTED = "5C5D59";
 const LINE = "D6CDBA";
+// Distinct blue used only for the Recommended Ask callout, so it reads as a
+// deliberate highlight box rather than blending into the navy brand tables.
+const CALLOUT_BLUE = "1F4E79";
+const CALLOUT_BLUE_BORDER = "153A5C";
+const CALLOUT_BLUE_ACCENT = "AFCBE8";
 
 const CONTENT_WIDTH = 9360; // US Letter, 1" margins, DXA
 
@@ -79,20 +84,68 @@ function bodyParagraph(text: string): Paragraph {
   });
 }
 
-function highlightBox(label: string, value: string): TableCell {
-  return new TableCell({
-    width: { size: CONTENT_WIDTH / 2, type: WidthType.DXA },
-    shading: { fill: NAVY, type: ShadingType.CLEAR },
-    margins: { top: 160, bottom: 160, left: 200, right: 200 },
-    children: [
-      new Paragraph({
+function askCalloutBox(strategy: AskStrategy): Table {
+  const border = { style: BorderStyle.SINGLE, size: 6, color: CALLOUT_BLUE_BORDER };
+  const borders = { top: border, bottom: border, left: border, right: border };
+
+  const rangeLine = strategy.askRange
+    ? [
+        new TextRun({
+          text: `  Suggested Range: ${strategy.askRange}`,
+          color: CALLOUT_BLUE_ACCENT,
+          size: 20,
+        }),
+      ]
+    : [];
+
+  const basisParagraph = strategy.askBasis
+    ? [
+        new Paragraph({
+          spacing: { before: 80 },
+          children: [
+            new TextRun({
+              text: `Based on ${strategy.askBasis}.`,
+              color: "E4ECF5",
+              italics: true,
+              size: 16,
+            }),
+          ],
+        }),
+      ]
+    : [];
+
+  return new Table({
+    width: { size: CONTENT_WIDTH, type: WidthType.DXA },
+    rows: [
+      new TableRow({
         children: [
-          new TextRun({ text: label.toUpperCase(), color: "CDAA6E", size: 15, bold: true }),
+          new TableCell({
+            width: { size: CONTENT_WIDTH, type: WidthType.DXA },
+            shading: { fill: CALLOUT_BLUE, type: ShadingType.CLEAR },
+            borders,
+            margins: { top: 180, bottom: 180, left: 240, right: 240 },
+            children: [
+              new Paragraph({
+                children: [
+                  new TextRun({ text: "RECOMMENDED ASK", color: CALLOUT_BLUE_ACCENT, bold: true, size: 16 }),
+                ],
+              }),
+              new Paragraph({
+                spacing: { before: 60 },
+                children: [
+                  new TextRun({
+                    text: strategy.recommendedAskAmount || "Not enough data to estimate",
+                    color: "FFFFFF",
+                    bold: true,
+                    size: 34,
+                  }),
+                  ...rangeLine,
+                ],
+              }),
+              ...basisParagraph,
+            ],
+          }),
         ],
-      }),
-      new Paragraph({
-        spacing: { before: 60 },
-        children: [new TextRun({ text: value || "Not specified", color: PAPER, size: 26, bold: true })],
       }),
     ],
   });
@@ -359,29 +412,17 @@ export async function buildAskStrategyDocx(params: AskStrategyDocxParams): Promi
             children: [new TextRun({ text: prospectName || "Prospect", color: NAVY, bold: true, size: 40 })],
           }),
           new Paragraph({
-            spacing: { after: 200 },
+            spacing: { after: 160 },
             children: [
               new TextRun({ text: `Prepared for ${clientOrgName}  •  ${generatedDate}`, color: MUTED, size: 18 }),
             ],
           }),
 
+          askCalloutBox(strategy),
+          new Paragraph({ spacing: { before: 240 } }),
+
           heading("Executive Summary"),
           bodyParagraph(strategy.executiveSummary),
-
-          heading("Recommended Ask"),
-          new Table({
-            width: { size: CONTENT_WIDTH, type: WidthType.DXA },
-            columnWidths: [CONTENT_WIDTH / 2, CONTENT_WIDTH / 2],
-            rows: [
-              new TableRow({
-                children: [
-                  highlightBox("Recommended Ask Amount", strategy.recommendedAskAmount),
-                  highlightBox("Suggested Ask Range", strategy.askRange),
-                ],
-              }),
-            ],
-          }),
-          new Paragraph({ spacing: { before: 200 } }),
 
           heading("Case Alignment Points"),
           caseAlignmentTable(strategy.caseAlignmentPoints),

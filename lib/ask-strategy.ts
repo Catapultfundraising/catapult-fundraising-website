@@ -60,6 +60,7 @@ export interface AskStrategy {
   executiveSummary: string;
   recommendedAskAmount: string;
   askRange: string;
+  askBasis: string;
   caseAlignmentPoints: CaseAlignmentPoint[];
   talkingPoints: string[];
   meetingPreparation: string[];
@@ -236,9 +237,24 @@ export function buildAskStrategy(params: {
   const name = profileData?.name || "This prospect";
 
   // --- Recommended ask amount & range -------------------------------------
+  // Blends every available wealth/giving signal (estimated giving capacity,
+  // estimated net worth, and previous giving history) rather than picking
+  // just one, so the recommendation reflects the full picture on file. An
+  // explicit Recommended Ask Amount already entered on the profile is
+  // treated as the gift officer's own override and takes precedence.
   const stated = ensureDollarSign((profileData?.recommendedAskAmount || "").trim());
   const capacity = parseMoney(profileData?.givingCapacity);
   const netWorth = parseMoney(profileData?.estimatedNetWorth);
+
+  let largestPriorGift: number | null = null;
+  if (Array.isArray(profileData?.givingHistoryRows)) {
+    for (const row of profileData.givingHistoryRows) {
+      const amt = parseMoney(row?.amount);
+      if (amt !== null && (largestPriorGift === null || amt > largestPriorGift)) {
+        largestPriorGift = amt;
+      }
+    }
+  }
 
   let recommendedAskAmount = "";
   let askRange = "";
@@ -251,19 +267,27 @@ export function buildAskStrategy(params: {
       askRange = `${fmtMoney(statedNum * 0.85)} – ${fmtMoney(statedNum * 1.15)}`;
     }
     askBasis = "the ask amount already recorded on this profile";
-  } else if (capacity) {
-    recommendedAskAmount = fmtMoney(capacity);
-    askRange = `${fmtMoney(capacity * 0.8)} – ${fmtMoney(capacity * 1.2)}`;
-    askBasis = "the profile's estimated 5-year giving capacity";
-  } else if (netWorth) {
-    const est = netWorth * 0.02; // conservative default: ~2% of net worth
-    recommendedAskAmount = fmtMoney(est);
-    askRange = `${fmtMoney(est * 0.7)} – ${fmtMoney(est * 1.4)}`;
-    askBasis = "a conservative estimate (~2%) of estimated net worth, since no giving capacity was recorded";
   } else {
-    recommendedAskAmount = "Not enough data to estimate";
-    askRange = "";
-    askBasis = "";
+    const candidates: Array<{ value: number; label: string }> = [];
+    if (capacity) candidates.push({ value: capacity, label: "estimated 5-year giving capacity" });
+    if (netWorth) candidates.push({ value: netWorth * 0.02, label: "roughly 2% of estimated net worth" });
+    if (largestPriorGift) {
+      candidates.push({ value: largestPriorGift * 2, label: "about double their largest prior gift" });
+    }
+
+    if (candidates.length > 0) {
+      const blended = candidates.reduce((sum, c) => sum + c.value, 0) / candidates.length;
+      recommendedAskAmount = fmtMoney(blended);
+      askRange = `${fmtMoney(blended * 0.8)} – ${fmtMoney(blended * 1.2)}`;
+      askBasis =
+        candidates.length > 1
+          ? `a blend of ${candidates.map((c) => c.label).join(", ")}`
+          : candidates[0].label;
+    } else {
+      recommendedAskAmount = "Not enough data to estimate";
+      askRange = "";
+      askBasis = "";
+    }
   }
 
   // --- Case Alignment Points -----------------------------------------------
@@ -418,6 +442,7 @@ export function buildAskStrategy(params: {
     executiveSummary,
     recommendedAskAmount,
     askRange,
+    askBasis,
     caseAlignmentPoints,
     talkingPoints,
     meetingPreparation,
