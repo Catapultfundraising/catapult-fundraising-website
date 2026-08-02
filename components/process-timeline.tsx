@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 const STEPS = [
   {
     phase: "Planning",
@@ -44,7 +46,16 @@ export function ProcessTimeline() {
           </h2>
         </div>
 
-        <div className="mt-16 grid gap-0 border-t border-[rgb(var(--line))] lg:grid-cols-5">
+        <div className="relative mt-10 aspect-[16/9] w-full overflow-hidden rounded-2xl sm:aspect-[21/9]">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/b60d98ca-622e-4611-bcd6-1607f1d5ce1a.png"
+            alt="Illustration of the five connected phases of a Catapult Fundraising capital campaign"
+            fill
+            className="object-cover"
+          />
+        </div>
+
+        <div className="mt-10 grid gap-0 border-t border-[rgb(var(--line))] lg:grid-cols-5">
           {STEPS.map((step, i) => (
             <div
               key={step.phase}

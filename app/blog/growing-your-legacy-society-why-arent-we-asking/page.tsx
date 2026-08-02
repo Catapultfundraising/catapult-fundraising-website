@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -23,6 +24,7 @@ export const metadata = {
     description:
       "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/028faeca-7eb5-467b-bfa1-0e3b5167fdfb.png", width: 1536, height: 1024, alt: "A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table" }],
   },
 };
 
@@ -60,6 +62,18 @@ export default function GrowingYourLegacySocietyPost() {
         title="Growing your legacy society: why aren't we asking?"
         description="Only one in five donors say they've ever been asked for a legacy gift. Almost everyone has the ability to leave a bequest, even a modest one, all we have to do is ask."
       />
+
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/028faeca-7eb5-467b-bfa1-0e3b5167fdfb.png"
+            alt="A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">

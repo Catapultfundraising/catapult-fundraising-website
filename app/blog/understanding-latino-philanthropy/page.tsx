@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -23,6 +24,7 @@ export const metadata = {
     description:
       "Why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7bb3a495-d06d-4380-b7f6-5a749bce025d.png", width: 1536, height: 1024, alt: "A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity" }],
   },
 };
 
@@ -60,6 +62,18 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         title="Understanding Latino philanthropy: lessons for nonprofit fundraisers."
         description="Anthony Alonso's mother asked him the same question for thirty-five years: do people really give? The truth is she gave every week, she just never called it philanthropy."
       />
+
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7bb3a495-d06d-4380-b7f6-5a749bce025d.png"
+            alt="A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">

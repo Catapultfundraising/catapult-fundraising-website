@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -23,6 +24,7 @@ export const metadata = {
     description:
       "Why telefundraising is far from dead, and the two-step, personalized method that lifts gift sizes 25 to 30 percent.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/22eea352-9db2-4f2d-8b5e-750654f05f98.png", width: 1536, height: 1024, alt: "A fundraising engagement officer smiling while making a personalized phone call" }],
   },
 };
 
@@ -60,6 +62,18 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
         title="How to Effectively Use the Phone Today"
         description="Reports of the death of telemarketing have been greatly exaggerated. Done the right way, telefundraising ranks second only to face-to-face meetings for garnering gifts."
       />
+
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/22eea352-9db2-4f2d-8b5e-750654f05f98.png"
+            alt="A fundraising engagement officer smiling while making a personalized phone call"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -23,6 +24,7 @@ export const metadata = {
     description:
       "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1b5c02e7-409f-4278-9369-d0e669a1382e.png", width: 1536, height: 1024, alt: "A board member and fundraising consultant reviewing a capital campaign budget and financial charts" }],
   },
 };
 
@@ -92,6 +94,18 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
         title="How Much Does a Capital Campaign Cost?"
         description="Board members ask this question before anything else. Here's what actually drives the price, and how to think about it as an investment instead of a line-item expense."
       />
+
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1b5c02e7-409f-4278-9369-d0e669a1382e.png"
+            alt="A board member and fundraising consultant reviewing a capital campaign budget and financial charts"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">

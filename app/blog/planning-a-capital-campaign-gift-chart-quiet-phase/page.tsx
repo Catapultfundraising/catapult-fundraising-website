@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -23,6 +24,7 @@ export const metadata = {
     description:
       "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7511eb8c-7c88-4c72-8b06-b5855d70d4e7.png", width: 1536, height: 1024, alt: "A campaign steering committee meeting with an architectural rendering of a capital project" }],
   },
 };
 
@@ -61,6 +63,18 @@ export default function CapitalCampaignGiftChartPost() {
         description="A capital campaign starts with a BHAG, a big, hairy, audacious goal, and gets built on a gift chart worked top down, never bottom up."
       />
 
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7511eb8c-7c88-4c72-8b06-b5855d70d4e7.png"
+            alt="A campaign steering committee meeting with an architectural rendering of a capital project"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
+
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           A capital campaign is the right tool when an organization has a goal too large to fund
@@ -86,6 +100,15 @@ export default function CapitalCampaignGiftChartPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Build the gift chart, and work it top down
         </h2>
+
+        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ecfe9f7c-16c9-4a67-8c85-aa6138354f83.png"
+            alt="Illustration of a fundraising gift chart pyramid, with a wide base of donors narrowing to a single lead gift at the top"
+            fill
+            className="object-cover"
+          />
+        </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           A gift chart is the roadmap for exactly which gifts have to close to hit the goal, and
           it follows a fairly consistent pattern. For a $10,000,000 campaign as an example: the

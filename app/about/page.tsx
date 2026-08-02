@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { QaLinksSection } from "@/components/qa-links-section";
 import { CtaBand } from "@/components/cta-band";
@@ -132,14 +133,16 @@ export default function AboutPage() {
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6d87d722-c1cc-47ac-82d6-2675e8c2162e.jpeg"
       />
 
-      <section className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
-        <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
-          Our Story
-        </p>
-        <h2 className="mt-4 font-display text-4xl tracking-tight text-[rgb(var(--navy))] sm:text-5xl">
-          A firm built by fundraisers, for fundraisers.
-        </h2>
-        <div className="mt-6 space-y-6 text-lg leading-relaxed text-[rgb(var(--ink))]/75">
+      <section className="mx-auto max-w-6xl px-6 py-14 lg:px-10 lg:py-16">
+        <div className="grid gap-12 lg:grid-cols-5 lg:items-start">
+          <div className="lg:col-span-3">
+            <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
+              Our Story
+            </p>
+            <h2 className="mt-4 font-display text-4xl tracking-tight text-[rgb(var(--navy))] sm:text-5xl">
+              A firm built by fundraisers, for fundraisers.
+            </h2>
+            <div className="mt-6 space-y-6 text-lg leading-relaxed text-[rgb(var(--ink))]/75">
           <p>
             Catapult Fundraising&rsquo;s leadership has spent more than 30 years in the
             fundraising profession, dating back to 1991, when our founders ran the
@@ -179,22 +182,34 @@ export default function AboutPage() {
             </Link>{" "}
             in depth below.
           </p>
-        </div>
+            </div>
 
-        <div className="mt-10 flex flex-wrap items-center gap-5">
-          <Link
-            href="/our-team"
-            className="group inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-7 py-3.5 text-sm font-semibold text-[rgb(var(--paper))] transition-transform hover:scale-[1.02]"
-          >
-            Meet Our Team
-            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-          <Link
-            href="/contact"
-            className="text-sm font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/60 underline-offset-8 hover:text-[rgb(var(--brass))]"
-          >
-            Schedule a conversation
-          </Link>
+            <div className="mt-10 flex flex-wrap items-center gap-5">
+              <Link
+                href="/our-team"
+                className="group inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-7 py-3.5 text-sm font-semibold text-[rgb(var(--paper))] transition-transform hover:scale-[1.02]"
+              >
+                Meet Our Team
+                <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link
+                href="/contact"
+                className="text-sm font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/60 underline-offset-8 hover:text-[rgb(var(--brass))]"
+              >
+                Schedule a conversation
+              </Link>
+            </div>
+          </div>
+
+          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl lg:col-span-2">
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e9ce9455-3a8e-46e9-ac40-3a9751abc2b7.png"
+              alt="Catapult Fundraising's consulting team collaborating on campaign strategy"
+              fill
+              className="object-cover"
+              priority
+            />
+          </div>
         </div>
       </section>
 

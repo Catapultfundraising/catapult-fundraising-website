@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -23,6 +24,7 @@ export const metadata = {
     description:
       "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5081c9ac-9adb-4ca7-8d49-c12ff1e0b629.png", width: 1536, height: 1024, alt: "A fundraising professional presenting an ask ladder chart to a colleague" }],
   },
 };
 
@@ -61,6 +63,18 @@ export default function AskLadderPost() {
         description="Wealthy people consistently say the reason they don't give more is because they were never asked. Here's how to build the ask so that stops happening."
       />
 
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5081c9ac-9adb-4ca7-8d49-c12ff1e0b629.png"
+            alt="A fundraising professional presenting an ask ladder chart to a colleague"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
+
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Every major gift solicitation should start with an ask ladder: three prepared ask
@@ -80,6 +94,15 @@ export default function AskLadderPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Do your homework before you ask
         </h2>
+
+        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0889817a-edf3-4ce6-9c21-525f169bf9e9.png"
+            alt="Illustration of an ascending ask ladder with increasing gift amounts at each rung"
+            fill
+            className="object-cover"
+          />
+        </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Before any major gift ask, conduct due diligence on the actual cost of the project or
           program, current construction and operating costs have moved fast in recent years, and

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -23,6 +24,7 @@ export const metadata = {
     description:
       "The low-cost touchpoints, from the 'five by ten' calling habit to digital voicemail drops, that build donor loyalty and quietly upgrade mid-level gifts.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1c9fb6dc-972c-4897-a604-aee9146eae3d.png", width: 1536, height: 1024, alt: "A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship" }],
   },
 };
 
@@ -61,6 +63,18 @@ export default function SevenTouchpointsPost() {
         description="Donor loyalty isn't about donors being loyal to us, says Anthony Alonso, president of Catapult Fundraising. It's about us being loyal to the donor."
       />
 
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1c9fb6dc-972c-4897-a604-aee9146eae3d.png"
+            alt="A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
+
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Aim for at least seven touchpoints with a donor over the course of a year, and make sure
@@ -91,6 +105,15 @@ export default function SevenTouchpointsPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Low-cost touches that outperform another appeal letter
         </h2>
+
+        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/601905ab-0481-4667-9e26-47e40968ea54.png"
+            alt="Illustration of seven donor touchpoints arranged in a circular relationship diagram"
+            fill
+            className="object-cover"
+          />
+        </div>
         <ul className="mt-6 space-y-4 pl-5 list-disc marker:text-[rgb(var(--brass))]">
           <li className="pl-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
             <span className="font-semibold text-[rgb(var(--navy))]">A thank-you call after every event</span>{" "}

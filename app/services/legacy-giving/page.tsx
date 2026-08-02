@@ -138,6 +138,8 @@ export default function LegacyGivingPage() {
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a0d01eb-79d6-4dfe-b7ce-54b1b8418ee0.png"
       />
       <ServiceDetail
+        heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8cf7b9d7-aede-4b31-8930-30952e647328.png"
+        heroImageAlt="A donor's hands writing in a personal journal, symbolizing legacy and planned giving"
         sections={SECTIONS}
         sidebarTitle="What You Get"
         sidebarIcon={Landmark}

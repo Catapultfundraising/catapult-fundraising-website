@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -23,6 +24,7 @@ export const metadata = {
     description:
       "Why digital fundraising alone can't upgrade donors or build a major gift pipeline, and the segmentation, storytelling, and calling strategy that can.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e601e588-b9aa-4027-aa86-0a2a5ec61431.png", width: 1536, height: 1024, alt: "Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor" }],
   },
 };
 
@@ -60,6 +62,18 @@ export default function MultiChannelFundraisingPost() {
         title="Multi-Channel Fundraising — Are You Missing the Mark?"
         description="Fundraising is not about choosing one or two channels and hoping for the best, but utilizing every method of donor engagement, stewardship, and solicitation to build a pipeline for major gifts."
       />
+
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e601e588-b9aa-4027-aa86-0a2a5ec61431.png"
+            alt="Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="font-display text-xl italic leading-relaxed text-[rgb(var(--navy))] sm:text-2xl">

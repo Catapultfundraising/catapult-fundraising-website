@@ -168,6 +168,8 @@ export default function CapitalCampaignPage() {
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/62ebe036-cc54-4a61-8952-61060ecd662c.jpeg"
       />
       <ServiceDetail
+        heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/33f18c92-43f1-43f8-b1a2-1a94aeb188e6.png"
+        heroImageAlt="Illustration of the five stages of a capital campaign, from feasibility study through public phase calling"
         sections={SECTIONS}
         sidebarTitle="What You Get"
         sidebarIcon={ClipboardList}

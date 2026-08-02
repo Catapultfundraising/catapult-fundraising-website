@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { LucideIcon, Check } from "lucide-react";
 
 interface ServiceSection {
@@ -11,6 +12,8 @@ interface ServiceDetailProps {
   sidebarTitle: string;
   sidebarIcon: LucideIcon;
   sidebarItems: string[];
+  heroImage?: string;
+  heroImageAlt?: string;
 }
 
 export function ServiceDetail({
@@ -18,11 +21,18 @@ export function ServiceDetail({
   sidebarTitle,
   sidebarIcon: Icon,
   sidebarItems,
+  heroImage,
+  heroImageAlt,
 }: ServiceDetailProps) {
   return (
     <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
       <div className="grid gap-14 lg:grid-cols-3">
         <div className="space-y-14 lg:col-span-2">
+          {heroImage && (
+            <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl">
+              <Image src={heroImage} alt={heroImageAlt || ""} fill className="object-cover" priority />
+            </div>
+          )}
           {sections.map((section) => (
             <div key={section.title}>
               <h2 className="font-display text-3xl text-[rgb(var(--navy))] sm:text-[37.5px]">

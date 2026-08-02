@@ -147,6 +147,8 @@ export default function DonorEngagementPage() {
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f814dca4-4b83-4023-925a-9a7274bbf2d2.jpeg"
       />
       <ServiceDetail
+        heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e7459f00-18d5-4f0b-b9ee-658a617fb8e3.png"
+        heroImageAlt="Illustration of a donor upgrade funnel moving mid-level donors toward major gift status"
         sections={SECTIONS}
         sidebarTitle="Program Benefits"
         sidebarIcon={Users2}

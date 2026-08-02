@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { CheckCircle, XCircle } from "lucide-react";
@@ -29,6 +30,7 @@ export const metadata = {
     description:
       "See how Catapult's one-firm, every-phase model compares to campaign-only counsel, calling-only vendors, and major gift specialists.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ba6142dc-21f2-4fee-9ba6-569e9436179d.png", width: 1536, height: 1024, alt: "Two consultants shaking hands, symbolizing a trusted long-term fundraising consulting partnership" }],
   },
 };
 
@@ -125,6 +127,18 @@ export default function CatapultVsCompetitorsPost() {
         title="Catapult Fundraising vs. other fundraising consultants: what sets us apart."
         description="The nonprofit fundraising industry is fragmented on purpose. Firms that write campaign strategy rarely make the calls, and firms that make calls rarely understand campaign strategy. Here's how Catapult closes that gap, and how we stack up against the firms nonprofits usually consider alongside us."
       />
+
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ba6142dc-21f2-4fee-9ba6-569e9436179d.png"
+            alt="Two consultants shaking hands, symbolizing a trusted long-term fundraising consulting partnership"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">

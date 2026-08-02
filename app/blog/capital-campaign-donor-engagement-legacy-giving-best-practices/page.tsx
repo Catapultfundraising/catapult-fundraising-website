@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -27,6 +28,7 @@ export const metadata = {
     description:
       "Feasibility studies, gift charts, donor upgrade paths, and legacy call scripts, the practical playbook nonprofits use to raise more at every donor level.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f531435c-983e-4a26-9fb8-8a147baab29e.png", width: 1536, height: 1024, alt: "A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together" }],
   },
 };
 
@@ -100,6 +102,18 @@ export default function BestPracticesPost() {
         title="Capital campaigns, mid-level donor engagement, and legacy giving: a best practices guide."
         description="Three fundraising programs, one integrated donor journey. Here's the practical playbook nonprofits use to raise more at every level, from first-time annual donors to seven-figure legacy gifts."
       />
+
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f531435c-983e-4a26-9fb8-8a147baab29e.png"
+            alt="A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">

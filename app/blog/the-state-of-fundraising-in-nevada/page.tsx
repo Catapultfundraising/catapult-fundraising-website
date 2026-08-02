@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { Download } from "lucide-react";
@@ -26,6 +27,7 @@ export const metadata = {
     description:
       "Nevada ranks 49th out of 50 states in WalletHub's 2025 Most Charitable States study. Here's what the data actually means for capital campaign strategy.",
     url: `${SITE_URL}/blog/${SLUG}`,
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/655bfb44-9c54-4fd3-bebd-cb7a046f2f89.png", width: 1536, height: 1024, alt: "A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth" }],
   },
 };
 
@@ -74,6 +76,18 @@ export default function StateOfFundraisingInNevadaPost() {
         title="The State of Fundraising in Nevada"
         description="Rankings, giving behavior, and what it means for capital campaign strategy."
       />
+
+      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
+        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/655bfb44-9c54-4fd3-bebd-cb7a046f2f89.png"
+            alt="A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth"
+            fill
+            className="object-cover"
+            priority
+          />
+        </div>
+      </div>
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <div className="rounded-2xl bg-[rgb(var(--navy))] p-8 text-white sm:flex sm:items-center sm:gap-8">
@@ -126,6 +140,15 @@ export default function StateOfFundraisingInNevadaPost() {
         <h2 className="mt-12 font-display text-2xl text-[rgb(var(--navy))] sm:text-[28px]">
           Where Nevada stands
         </h2>
+
+        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl">
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/144f9145-430a-4f62-897d-890f7aa8b24d.png"
+            alt="A minimalist map illustration of the state of Nevada"
+            fill
+            className="object-cover"
+          />
+        </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           WalletHub&rsquo;s methodology ranks all 50 states across volunteering &amp; service and
           charitable giving, then combines the two into a total score. The states at the top of the
