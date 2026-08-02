@@ -9,7 +9,7 @@ const HIGH_PRIORITY_WEEKLY = new Set([
   "/services/annual-fund",
 ]);
 
-const SUPPORTING_MONTHLY = new Set(["/about", "/contact", "/results"]);
+const SUPPORTING_MONTHLY = new Set(["/about", "/our-team", "/contact", "/results"]);
 
 function priorityFor(route: string): number {
   if (route === "") return 1;
@@ -28,6 +28,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const routes = [
     "",
     "/about",
+    "/our-team",
     "/contact",
     "/results",
     "/services/capital-campaign",
