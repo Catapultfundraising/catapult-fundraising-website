@@ -28,13 +28,15 @@ export function ServiceDetail({
     <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
       <div className="grid gap-14 lg:grid-cols-3">
         <div className="space-y-14 lg:col-span-2">
-          {heroImage && (
-            <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl">
-              <Image src={heroImage} alt={heroImageAlt || ""} fill className="object-cover" priority />
-            </div>
-          )}
-          {sections.map((section) => (
+          {sections.map((section, i) => (
             <div key={section.title}>
+              {i === 0 && heroImage && (
+                <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+                  <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
+                    <Image src={heroImage} alt={heroImageAlt || ""} fill className="object-cover" priority />
+                  </div>
+                </div>
+              )}
               <h2 className="font-display text-3xl text-[rgb(var(--navy))] sm:text-[37.5px]">
                 {section.title}
               </h2>
@@ -42,7 +44,7 @@ export function ServiceDetail({
                 {section.description}
               </p>
               {section.bullets && (
-                <ul className="mt-5 space-y-3">
+                <ul className="clear-both mt-5 space-y-3">
                   {section.bullets.map((b) => (
                     <li key={b} className="flex items-start gap-3 text-xl text-[rgb(var(--ink))]/75">
                       <Check className="mt-0.5 h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
@@ -50,6 +52,9 @@ export function ServiceDetail({
                     </li>
                   ))}
                 </ul>
+              )}
+              {i === 0 && heroImage && !section.bullets && (
+                <div className="clear-both" />
               )}
             </div>
           ))}

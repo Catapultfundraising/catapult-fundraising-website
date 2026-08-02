@@ -37,6 +37,17 @@ export function ProcessTimeline() {
   return (
     <section className="bg-[rgb(var(--paper))] py-14 lg:py-20">
       <div className="mx-auto max-w-7xl px-6 lg:px-10">
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-80 md:w-96">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/b60d98ca-622e-4611-bcd6-1607f1d5ce1a.png"
+              alt="Illustration of the five connected phases of a Catapult Fundraising capital campaign"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
+
         <div className="max-w-2xl">
           <p className="font-display text-xl sm:text-[22.5px] uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
             How A Campaign Moves
@@ -46,16 +57,7 @@ export function ProcessTimeline() {
           </h2>
         </div>
 
-        <div className="relative mt-10 aspect-[16/9] w-full overflow-hidden rounded-2xl sm:aspect-[21/9]">
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/b60d98ca-622e-4611-bcd6-1607f1d5ce1a.png"
-            alt="Illustration of the five connected phases of a Catapult Fundraising capital campaign"
-            fill
-            className="object-cover"
-          />
-        </div>
-
-        <div className="mt-10 grid gap-0 border-t border-[rgb(var(--line))] lg:grid-cols-5">
+        <div className="clear-both mt-10 grid gap-0 border-t border-[rgb(var(--line))] lg:grid-cols-5">
           {STEPS.map((step, i) => (
             <div
               key={step.phase}
