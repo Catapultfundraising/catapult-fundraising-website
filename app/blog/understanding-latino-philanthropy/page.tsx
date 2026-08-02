@@ -24,7 +24,7 @@ export const metadata = {
     description:
       "Why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7bb3a495-d06d-4380-b7f6-5a749bce025d.png", width: 1536, height: 1024, alt: "A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0aacf9dc-33f6-420d-a5a3-b1b98483dd83.png", width: 1536, height: 1024, alt: "A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity" }],
   },
 };
 
@@ -62,11 +62,11 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         title="Understanding Latino philanthropy: lessons for nonprofit fundraisers."
         description="Anthony Alonso's mother asked him the same question for thirty-five years: do people really give? The truth is she gave every week, she just never called it philanthropy."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7bb3a495-d06d-4380-b7f6-5a749bce025d.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0aacf9dc-33f6-420d-a5a3-b1b98483dd83.png"
             alt="A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity"
             fill
             className="object-cover"
@@ -74,8 +74,6 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Eighty percent of Hispanics and Latinos gave to their church last year. Most never think
           of that as philanthropy, and most nonprofits never think of them as prospects. On
@@ -90,6 +88,8 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           give?&rdquo; And yet she gave every single week. We simply haven&rsquo;t educated this
           market on the difference their gifts already make.
         </blockquote>
+      <div className="clear-both" />
+
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Four myths worth retiring

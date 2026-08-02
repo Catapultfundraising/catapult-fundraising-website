@@ -24,7 +24,7 @@ export const metadata = {
     description:
       "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7511eb8c-7c88-4c72-8b06-b5855d70d4e7.png", width: 1536, height: 1024, alt: "A campaign steering committee meeting with an architectural rendering of a capital project" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/93175c40-3d98-48bd-b885-9005127752be.png", width: 1536, height: 1024, alt: "A campaign steering committee meeting with an architectural rendering of a capital project" }],
   },
 };
 
@@ -62,11 +62,11 @@ export default function CapitalCampaignGiftChartPost() {
         title="Planning a capital campaign: the gift chart and the quiet phase."
         description="A capital campaign starts with a BHAG, a big, hairy, audacious goal, and gets built on a gift chart worked top down, never bottom up."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7511eb8c-7c88-4c72-8b06-b5855d70d4e7.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/93175c40-3d98-48bd-b885-9005127752be.png"
             alt="A campaign steering committee meeting with an architectural rendering of a capital project"
             fill
             className="object-cover"
@@ -74,8 +74,6 @@ export default function CapitalCampaignGiftChartPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           A capital campaign is the right tool when an organization has a goal too large to fund
           through annual giving alone, a BHAG, a big, hairy, audacious goal, that will
@@ -84,6 +82,8 @@ export default function CapitalCampaignGiftChartPost() {
           money is for and what it will cost, and a feasibility study, which tests that menu,
           dollar goal, and timeline against real donor and stakeholder feedback.
         </p>
+      <div className="clear-both" />
+
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Run a real feasibility study, not a formality

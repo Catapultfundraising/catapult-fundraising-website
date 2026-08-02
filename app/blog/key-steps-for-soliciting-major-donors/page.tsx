@@ -24,7 +24,7 @@ export const metadata = {
     description:
       "Catapult's “four-right rule” for turning long-time supporters into major gift donors.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4a4ad28a-84a9-4888-a65b-e6c5cbe7c4e9.png", width: 1536, height: 1024, alt: "Two professionals shaking hands after a successful major gift solicitation meeting" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/25847c17-f9f0-4a0a-958f-c0f9db77bde2.png", width: 1536, height: 1024, alt: "Two professionals shaking hands after a successful major gift solicitation meeting" }],
   },
 };
 
@@ -62,11 +62,11 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
         title="Key Steps for Soliciting Major Donors"
         description="Want to make more successful asks? Use the “four-right rule”: the right person asking the right prospect for the right amount at the right time."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4a4ad28a-84a9-4888-a65b-e6c5cbe7c4e9.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/25847c17-f9f0-4a0a-958f-c0f9db77bde2.png"
             alt="Two professionals shaking hands after a successful major gift solicitation meeting"
             fill
             className="object-cover"
@@ -74,8 +74,6 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Want to make more successful asks? Use the &ldquo;four-right rule&rdquo;: the right
           person asking the right prospect for the right amount at the right time.
@@ -149,6 +147,7 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
           </Link>
           .
         </p>
+      <div className="clear-both" />
       </article>
 
       <CtaBand />

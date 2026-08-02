@@ -24,7 +24,7 @@ export const metadata = {
     description:
       "The low-cost touchpoints, from the 'five by ten' calling habit to digital voicemail drops, that build donor loyalty and quietly upgrade mid-level gifts.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1c9fb6dc-972c-4897-a604-aee9146eae3d.png", width: 1536, height: 1024, alt: "A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38cfee64-edbb-4288-8e20-2687a1044863.png", width: 1536, height: 1024, alt: "A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship" }],
   },
 };
 
@@ -62,11 +62,11 @@ export default function SevenTouchpointsPost() {
         title="Seven touchpoints: building donor loyalty between asks."
         description="Donor loyalty isn't about donors being loyal to us, says Anthony Alonso, president of Catapult Fundraising. It's about us being loyal to the donor."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1c9fb6dc-972c-4897-a604-aee9146eae3d.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38cfee64-edbb-4288-8e20-2687a1044863.png"
             alt="A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship"
             fill
             className="object-cover"
@@ -74,8 +74,6 @@ export default function SevenTouchpointsPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Aim for at least seven touchpoints with a donor over the course of a year, and make sure
           most of them have nothing to do with asking for money. Every one of these is a genuine
@@ -88,6 +86,8 @@ export default function SevenTouchpointsPost() {
           Every single person you speak with should walk away feeling good about the institution.
           If we do that effectively, the money follows.
         </blockquote>
+      <div className="clear-both" />
+
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           &ldquo;Five by ten&rdquo;: a habit, not a program

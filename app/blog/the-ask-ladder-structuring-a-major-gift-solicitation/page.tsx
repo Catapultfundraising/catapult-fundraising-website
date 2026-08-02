@@ -24,7 +24,7 @@ export const metadata = {
     description:
       "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5081c9ac-9adb-4ca7-8d49-c12ff1e0b629.png", width: 1536, height: 1024, alt: "A fundraising professional presenting an ask ladder chart to a colleague" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/cb138a99-442d-4779-9849-845501a69ef3.png", width: 1536, height: 1024, alt: "A fundraising professional presenting an ask ladder chart to a colleague" }],
   },
 };
 
@@ -62,11 +62,11 @@ export default function AskLadderPost() {
         title="The ask ladder: how to structure a major gift solicitation."
         description="Wealthy people consistently say the reason they don't give more is because they were never asked. Here's how to build the ask so that stops happening."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5081c9ac-9adb-4ca7-8d49-c12ff1e0b629.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/cb138a99-442d-4779-9849-845501a69ef3.png"
             alt="A fundraising professional presenting an ask ladder chart to a colleague"
             fill
             className="object-cover"
@@ -74,8 +74,6 @@ export default function AskLadderPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Every major gift solicitation should start with an ask ladder: three prepared ask
           amounts for a single prospect, built before you ever walk into the room. Prepare a
@@ -90,6 +88,8 @@ export default function AskLadderPost() {
           ladder means you're never caught off guard by a prospect who feels you haven't found
           the right number yet.
         </blockquote>
+      <div className="clear-both" />
+
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Do your homework before you ask

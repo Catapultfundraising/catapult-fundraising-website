@@ -27,7 +27,7 @@ export const metadata = {
     description:
       "Nevada ranks 49th out of 50 states in WalletHub's 2025 Most Charitable States study. Here's what the data actually means for capital campaign strategy.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/655bfb44-9c54-4fd3-bebd-cb7a046f2f89.png", width: 1536, height: 1024, alt: "A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth" }],
+    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5c32ad35-1e99-4b00-9b7f-38f3069c476e.png", width: 1536, height: 1024, alt: "A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth" }],
   },
 };
 
@@ -76,11 +76,11 @@ export default function StateOfFundraisingInNevadaPost() {
         title="The State of Fundraising in Nevada"
         description="Rankings, giving behavior, and what it means for capital campaign strategy."
       />
-
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl">
+      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/655bfb44-9c54-4fd3-bebd-cb7a046f2f89.png"
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5c32ad35-1e99-4b00-9b7f-38f3069c476e.png"
             alt="A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth"
             fill
             className="object-cover"
@@ -88,8 +88,6 @@ export default function StateOfFundraisingInNevadaPost() {
           />
         </div>
       </div>
-
-      <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <div className="rounded-2xl bg-[rgb(var(--navy))] p-8 text-white sm:flex sm:items-center sm:gap-8">
           <div className="font-display text-6xl text-[rgb(var(--brass))]">
             49<span className="text-3xl align-top">th</span>
@@ -136,6 +134,8 @@ export default function StateOfFundraisingInNevadaPost() {
             </div>
           ))}
         </div>
+      <div className="clear-both" />
+
 
         <h2 className="mt-12 font-display text-2xl text-[rgb(var(--navy))] sm:text-[28px]">
           Where Nevada stands
