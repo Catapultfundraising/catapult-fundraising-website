@@ -19,8 +19,11 @@ import {
 } from "docx";
 import type { AskStrategy } from "./ask-strategy";
 
+// Header/top-of-page Catapult Fundraising logo (dark-on-light lockup), matching
+// the one used at the top of the live site — distinct from the light/white
+// wordmark variant used inside the navy PDF header band.
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.png";
+  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
 
 // Brand palette — matches the Prospect Intelligence Profile PDF.
 const NAVY = "15212E";
@@ -249,7 +252,7 @@ export async function buildAskStrategyDocx(params: AskStrategyDocxParams): Promi
                     new ImageRun({
                       type: "png",
                       data: logoBuffer,
-                      transformation: { width: 160, height: 38 },
+                      transformation: { width: 118, height: 79 },
                       altText: { title: "Catapult Fundraising", description: "Logo", name: "Logo" },
                     }),
                   ],
