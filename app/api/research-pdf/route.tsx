@@ -55,12 +55,15 @@ function metaText(data: any): string {
 const NAVY = "#15212E";
 const NAVY_DEEP = "#0C131C";
 const BRASS = "#B28C46";
-const BRASS_LIGHT = "#CDAA6E";
-const PAPER = "#FAF7F0";
 const CREAM = "#FFFFFF";
 const INK = "#181B19";
 const MUTED = "#5C5D59";
 const LINE = "#D6CDBA";
+// Print-friendly redesign: white background throughout, navy borders only —
+// no solid navy/tan fills, so the document stays light on both color and
+// black & white printers. ROW_TINT replaces the old tan zebra-stripe color
+// with a barely-there neutral gray instead.
+const ROW_TINT = "#F3F4F6";
 
 // One "empty line" of breathing room, reused consistently between every
 // page's header (hero band on page 1, top bar on later pages) and the
@@ -68,7 +71,7 @@ const LINE = "#D6CDBA";
 const HEADER_GAP = 14;
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 34, paddingBottom: 42, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: PAPER },
+  page: { paddingTop: 34, paddingBottom: 42, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
   body: { paddingHorizontal: 40 },
   topBarFrame: {
     position: "absolute",
@@ -79,18 +82,20 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flex: 1,
-    backgroundColor: NAVY_DEEP,
+    backgroundColor: CREAM,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 40,
+    borderBottomWidth: 1,
+    borderBottomColor: NAVY,
   },
-  topBarContinuedText: { color: PAPER, fontSize: 8.5, fontFamily: "Helvetica-Bold" },
-  topBarText: { color: "rgba(250,247,240,0.75)", fontSize: 7 },
-  topBarConfidential: { color: BRASS_LIGHT, fontSize: 7, fontFamily: "Helvetica-Bold", letterSpacing: 1.5 },
+  topBarContinuedText: { color: NAVY, fontSize: 8.5, fontFamily: "Helvetica-Bold" },
+  topBarText: { color: "rgba(21,33,46,0.65)", fontSize: 7 },
+  topBarConfidential: { color: BRASS, fontSize: 7, fontFamily: "Helvetica-Bold", letterSpacing: 1.5 },
   heroBand: {
     position: "relative",
-    backgroundColor: NAVY,
+    backgroundColor: CREAM,
     paddingHorizontal: 40,
     paddingTop: 18,
     paddingBottom: 8,
@@ -99,48 +104,54 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     justifyContent: "space-between",
+    borderBottomWidth: 2,
+    borderBottomColor: NAVY,
   },
   heroMetaAbs: { position: "absolute", top: 16, right: 40, width: 230, alignItems: "flex-end" },
   heroLogo: { position: "absolute", top: 16, left: 40, height: 43, width: 180, objectFit: "contain" },
   heroContentCol: { flex: 1, marginTop: 66 },
-  heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
-  heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: PAPER, marginTop: 6, maxWidth: 420 },
-  heroTitleId: { fontSize: 13, fontFamily: "Helvetica", color: BRASS_LIGHT },
-  heroPhoto: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS_LIGHT, objectFit: "cover", marginTop: 48 },
-  heroPhotoPlaceholder: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS_LIGHT, backgroundColor: "rgba(250,247,240,0.12)", marginTop: 48 },
+  heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS },
+  heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 6, maxWidth: 420 },
+  heroTitleId: { fontSize: 13, fontFamily: "Helvetica", color: BRASS },
+  heroPhoto: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS, objectFit: "cover", marginTop: 48 },
+  heroPhotoSmall: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: BRASS, objectFit: "cover", marginTop: 48 },
+  heroPhotoPlaceholder: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS, backgroundColor: "rgba(21,33,46,0.05)", marginTop: 48 },
+  heroPhotoPlaceholderSmall: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: BRASS, backgroundColor: "rgba(21,33,46,0.05)", marginTop: 48 },
   footer: {
     position: "absolute",
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: NAVY_DEEP,
+    backgroundColor: CREAM,
     textAlign: "left",
     paddingVertical: 8,
     paddingHorizontal: 40,
+    borderTopWidth: 1,
+    borderTopColor: NAVY,
   },
-  footerText: { fontSize: 6.3, color: "rgba(250,247,240,0.65)", marginBottom: 2 },
+  footerText: { fontSize: 6.3, color: "rgba(21,33,46,0.65)", marginBottom: 2 },
   sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", marginTop: 16, marginBottom: 7 },
   sectionAccent: { width: 26, height: 3, backgroundColor: BRASS, marginBottom: 5, borderRadius: 1.5 },
-  wealthPanel: { backgroundColor: NAVY, borderRadius: 10, padding: 12, marginBottom: 12 },
+  wealthPanel: { backgroundColor: CREAM, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: NAVY },
   wealthRowMulti: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   wealthCell: { flex: 1, paddingRight: 4, flexDirection: "row", alignItems: "flex-start" },
   wealthCellLabelRow: { flexDirection: "row", alignItems: "flex-start", flexShrink: 0, width: 150 },
-  wealthCellLabel: { color: PAPER, fontSize: 6, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25 },
-  wealthCellLabelNoIcon: { color: PAPER, fontSize: 6, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25, flexShrink: 0, width: 78 },
-  wealthCellValue: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold", fontSize: 9, marginLeft: 10, flex: 1 },
+  wealthCellLabel: { color: BRASS, fontSize: 6, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25 },
+  wealthCellLabelNoIcon: { color: BRASS, fontSize: 6, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25, flexShrink: 0, width: 78 },
+  wealthCellValue: { color: NAVY, fontFamily: "Helvetica-Bold", fontSize: 9, marginLeft: 10, flex: 1 },
   statBoxRow: { flexDirection: "row", marginBottom: 12 },
-  statBox: { flex: 1, backgroundColor: NAVY, borderRadius: 10, padding: 12 },
+  statBox: { flex: 1, backgroundColor: CREAM, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: NAVY },
   statBoxLabelRow: { flexDirection: "row", alignItems: "center", marginBottom: 6 },
-  statBoxLabel: { color: BRASS_LIGHT, fontSize: 8, fontFamily: "Helvetica-Bold", letterSpacing: 0.8, textTransform: "uppercase", marginLeft: 5 },
-  statBoxValue: { color: PAPER, fontSize: 17, fontFamily: "Helvetica-Bold" },
+  statBoxLabel: { color: BRASS, fontSize: 8, fontFamily: "Helvetica-Bold", letterSpacing: 0.8, textTransform: "uppercase", marginLeft: 5 },
+  statBoxValue: { color: NAVY, fontSize: 17, fontFamily: "Helvetica-Bold" },
   fieldRow: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
   fieldLabel: { width: 150, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldLabelSmall: { width: 108, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldValue: { flex: 1, fontSize: 9.6, color: INK, lineHeight: 1.4 },
   cardWhite: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 10, marginBottom: 12 },
   nameHeading: { fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 },
-  tableHeaderRow: { flexDirection: "row", alignItems: "center", backgroundColor: NAVY, borderRadius: 4 },
-  tableHeaderCell: { color: PAPER, fontSize: 7.6, fontFamily: "Helvetica-Bold", padding: 6, letterSpacing: 0.5 },
+  tableHeaderRow: { flexDirection: "row", alignItems: "center", backgroundColor: CREAM, borderBottomWidth: 1.5, borderBottomColor: NAVY },
+  tableHeaderCell: { color: NAVY, fontSize: 7.6, fontFamily: "Helvetica-Bold", padding: 6, letterSpacing: 0.5 },
   tableRow: { flexDirection: "row", alignItems: "flex-start", borderBottomWidth: 0.5, borderBottomColor: LINE },
   tableCell: { fontSize: 8.8, padding: 6, color: INK, lineHeight: 1.3 },
   sectionHeadingRow: { flexDirection: "row", alignItems: "center" },
@@ -309,7 +320,7 @@ function MiniTable({
       {rows.map((row, i) => {
         const cells = renderRow(row, i);
         return (
-          <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? PAPER : CREAM }]} key={i} wrap={false}>
+          <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM }]} key={i} wrap={false}>
             {cells.map((c, ci) => (
               <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
                 {c}
@@ -365,22 +376,33 @@ function HeaderFooter({ data }: { data: any }) {
 function ProfileDocument({ data }: { data: any }) {
   const rightText = metaText(data);
 
-  const wealthItems: Array<[string, string, IconName]> = ([
-    ["Estimated Income", fmtMoney(data.estimatedIncome), "dollar"],
-    ["Estimated Net Worth", fmtMoney(data.estimatedNetWorth), "dollar"],
-    ["Stock Value", fmtMoney(data.stockValue), "chart"],
-    ["Real Estate Value", fmtMoney(data.realEstateValue), "home"],
-    ["# of Properties", data.realEstatePropertyCount, "home"],
-    ["Total Charitable Giving", fmtMoney(data.totalCharitableGiving), "gift"],
-    ["Non-Philanthropic Political Giving", fmtMoney(data.nonPhilanthropicPoliticalGiving), "dollar"],
-    ["Cumulative Giving to Organization", sumAmounts(data.givingHistoryRows), "gift"],
-  ] as Array<[string, string, IconName]>).filter(([, v]) => v);
-
-  // Two items per row throughout, so every row shares the same column alignment.
-  const wealthRows: Array<Array<[string, string, IconName]>> = [];
-  for (let i = 0; i < wealthItems.length; i += 2) {
-    wealthRows.push(wealthItems.slice(i, i + 2));
-  }
+  // Fixed left/right column order, agreed layout — left column reads
+  // Estimated Income, Estimated Net Worth, Stock Value, Cumulative Giving to
+  // Org top-to-bottom; right column reads Real Estate Value, # of
+  // Properties, Total Charitable Giving, Non-Philanthropic/Political Giving.
+  // Rows are only dropped when BOTH sides are empty, so the pairing never
+  // shifts even if an individual field is blank.
+  const WEALTH_PAIRS: Array<[[string, string, IconName], [string, string, IconName]]> = [
+    [
+      ["Estimated Income", fmtMoney(data.estimatedIncome), "dollar"],
+      ["Real Estate Value", fmtMoney(data.realEstateValue), "home"],
+    ],
+    [
+      ["Estimated Net Worth", fmtMoney(data.estimatedNetWorth), "dollar"],
+      ["# of Properties", data.realEstatePropertyCount, "home"],
+    ],
+    [
+      ["Stock Value", fmtMoney(data.stockValue), "chart"],
+      ["Total Charitable Giving", fmtMoney(data.totalCharitableGiving), "gift"],
+    ],
+    [
+      ["Cumulative Giving to Organization", sumAmounts(data.givingHistoryRows), "gift"],
+      ["Non-Philanthropic Political Giving", fmtMoney(data.nonPhilanthropicPoliticalGiving), "dollar"],
+    ],
+  ];
+  const wealthRows: Array<Array<[string, string, IconName]>> = WEALTH_PAIRS.filter(
+    ([left, right]) => left[1] || right[1]
+  );
 
   const givingCapacityValue = fmtMoney(data.givingCapacity);
   const wealthRatingValue = data.wealthRating;
@@ -412,7 +434,16 @@ function ProfileDocument({ data }: { data: any }) {
               {data.clientId ? <Text style={styles.heroTitleId}> ({data.clientId})</Text> : null}
             </Text>
           </View>
-          {data.photo ? (
+          {data.photo2 ? (
+            <View style={{ flexDirection: "row" }}>
+              {data.photo ? (
+                <Image src={data.photo} style={styles.heroPhotoSmall} />
+              ) : (
+                <View style={styles.heroPhotoPlaceholderSmall} />
+              )}
+              <Image src={data.photo2} style={[styles.heroPhotoSmall, { marginLeft: 8 }]} />
+            </View>
+          ) : data.photo ? (
             <Image src={data.photo} style={styles.heroPhoto} />
           ) : (
             <View style={styles.heroPhotoPlaceholder} />
@@ -428,10 +459,10 @@ function ProfileDocument({ data }: { data: any }) {
                 {row.map(([label, value, icon]) => (
                   <View style={styles.wealthCell} key={label}>
                     <View style={styles.wealthCellLabelRow}>
-                      <IconGlyph name={icon} color={BRASS_LIGHT} size={9} />
+                      <IconGlyph name={icon} color={BRASS} size={9} />
                       <Text style={styles.wealthCellLabel}>{label}</Text>
                     </View>
-                    <Text style={styles.wealthCellValue}>{value}</Text>
+                    <Text style={styles.wealthCellValue}>{value || "—"}</Text>
                   </View>
                 ))}
               </View>
@@ -444,7 +475,7 @@ function ProfileDocument({ data }: { data: any }) {
             {givingCapacityValue ? (
               <View style={[styles.statBox, wealthRatingValue ? { marginRight: 10 } : {}]}>
                 <View style={styles.statBoxLabelRow}>
-                  <IconGlyph name="gift" color={BRASS_LIGHT} size={11} />
+                  <IconGlyph name="gift" color={BRASS} size={11} />
                   <Text style={styles.statBoxLabel}>Est. Giving Capacity — 5 Yrs</Text>
                 </View>
                 <Text style={styles.statBoxValue}>{givingCapacityValue}</Text>
@@ -453,7 +484,7 @@ function ProfileDocument({ data }: { data: any }) {
             {wealthRatingValue ? (
               <View style={styles.statBox}>
                 <View style={styles.statBoxLabelRow}>
-                  <IconGlyph name="star" color={BRASS_LIGHT} size={11} />
+                  <IconGlyph name="star" color={BRASS} size={11} />
                   <Text style={styles.statBoxLabel}>Wealth Rating</Text>
                 </View>
                 <Text style={styles.statBoxValue}>{wealthRatingValue}</Text>
