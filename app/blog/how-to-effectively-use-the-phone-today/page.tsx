@@ -100,6 +100,16 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
         <p className="mt-6 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           To accomplish that goal, he recommends a two-step method:
         </p>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a6397c5-1d34-4edc-bfe5-8182ab871c38.png"
+              alt="Infographic: the two-step method, letter or email then a personal call, delivering 25 to 30 percent higher gift sizes"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
 
         <ol className="mt-6 space-y-5 pl-5 list-decimal marker:font-display marker:font-semibold marker:text-[rgb(var(--brass))]">
           <li className="pl-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -116,17 +126,7 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
           </li>
         </ol>
 
-
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-            <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a6397c5-1d34-4edc-bfe5-8182ab871c38.png"
-              alt="Infographic: the two-step method, letter or email then a personal call, delivering 25 to 30 percent higher gift sizes"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
+      <div className="clear-both" />
 
         <blockquote className="mt-8 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           &ldquo;It becomes a very different dynamic than your typical confrontational

@@ -83,6 +83,16 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
           At most nonprofits, the weakest part of their fundraising is in managing the ask.
           It&rsquo;s important that all of those rights are considered when planning the ask.
         </blockquote>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1046665e-61b8-46c5-a389-6154f7b60814.png"
+              alt="Infographic: the four-right rule, the right person, the right prospect, the right amount, the right time"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
 
         <ol className="mt-8 space-y-5 pl-5 list-decimal marker:font-display marker:font-semibold marker:text-[rgb(var(--brass))]">
           <li className="pl-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -115,17 +125,7 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
           </li>
         </ol>
 
-
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-            <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1046665e-61b8-46c5-a389-6154f7b60814.png"
-              alt="Infographic: the four-right rule, the right person, the right prospect, the right amount, the right time"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
+      <div className="clear-both" />
 
         <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Many prospects want to be solicited by organizational leaders, like CEOs and board

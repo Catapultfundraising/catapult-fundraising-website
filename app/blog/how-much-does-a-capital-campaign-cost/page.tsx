@@ -119,6 +119,16 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
         <h2 className="mt-10 font-display text-2xl text-[rgb(var(--navy))] sm:text-[28px]">
           What drives the fee
         </h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d8881733-fbfb-40a2-b628-a4691d2462e2.png"
+              alt="Infographic: what drives the fee, campaign goal and complexity, timeline, scope of services, in-house capacity"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
         <ol className="mt-6 space-y-5 pl-5 list-decimal marker:font-display marker:font-semibold marker:text-[rgb(var(--brass))]">
           <li className="pl-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
             <span className="font-semibold text-[rgb(var(--navy))]">Campaign goal and complexity.</span>{" "}
@@ -148,17 +158,7 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
           </li>
         </ol>
 
-
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-            <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d8881733-fbfb-40a2-b628-a4691d2462e2.png"
-              alt="Infographic: what drives the fee, campaign goal and complexity, timeline, scope of services, in-house capacity"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
+      <div className="clear-both" />
 
         <blockquote className="mt-8 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           The real question isn&rsquo;t &ldquo;what does it cost?&rdquo; It&rsquo;s &ldquo;what does
