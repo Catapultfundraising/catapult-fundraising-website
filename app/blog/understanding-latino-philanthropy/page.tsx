@@ -90,13 +90,15 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         </blockquote>
       <div className="clear-both" />
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a460c84-f2bc-47ef-b1f2-f2f0337717b9.png"
-            alt="Infographic: 80 percent of Hispanics and Latinos gave to their church last year, averaging $1,728 a year given weekly"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a460c84-f2bc-47ef-b1f2-f2f0337717b9.png"
+              alt="Infographic: 80 percent of Hispanics and Latinos gave to their church last year, averaging $1,728 a year given weekly"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
 
@@ -132,14 +134,18 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           </li>
         </ul>
 
+      <div className="clear-both" />
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/79a8caf4-14a7-432c-b020-6d623ab306a9.png"
-            alt="Infographic: Four myths worth retiring about Latino philanthropy"
-            fill
-            className="object-cover"
-          />
+
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/79a8caf4-14a7-432c-b020-6d623ab306a9.png"
+              alt="Infographic: Four myths worth retiring about Latino philanthropy"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
@@ -157,6 +163,8 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           audiences who may identify with more inclusive language.
         </p>
 
+      <div className="clear-both" />
+
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           How to actually reach this market
         </h2>
@@ -172,13 +180,15 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         </p>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0d76b7fa-2260-46da-af65-3cb524fbbef4.png"
-            alt="Infographic: channel data showing phone, text, and social media reach among Hispanic and Latino donors"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0d76b7fa-2260-46da-af65-3cb524fbbef4.png"
+              alt="Infographic: channel data showing phone, text, and social media reach among Hispanic and Latino donors"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
@@ -194,6 +204,8 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           giving weekly at church, a monthly sustainer ask is often an easier, more natural fit
           than a single annual gift.
         </p>
+
+      <div className="clear-both" />
 
         <blockquote className="mt-6 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           Donor loyalty isn&rsquo;t about the donor being loyal to us. It&rsquo;s about us being
@@ -246,13 +258,15 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         </p>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38fc26f7-1dd7-4f66-b411-2ea420fc5618.png"
-            alt="Infographic: seven Spanish words, familia, comunidad, solidaridad, oportunidad, resiliencia, impacto, and gratitud, to frame any case for support"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38fc26f7-1dd7-4f66-b411-2ea420fc5618.png"
+              alt="Infographic: seven Spanish words, familia, comunidad, solidaridad, oportunidad, resiliencia, impacto, and gratitud, to frame any case for support"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -263,6 +277,8 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           </Link>
           .
         </p>
+
+      <div className="clear-both" />
       </article>
 
       <CtaBand />

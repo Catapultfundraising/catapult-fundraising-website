@@ -178,13 +178,15 @@ export default function BestPracticesPost() {
         </p>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/28ad8777-c22b-4b31-987b-dd5a1d20e250.png"
-            alt="Infographic: Capital Campaign Best Practices five-step checklist"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/28ad8777-c22b-4b31-987b-dd5a1d20e250.png"
+              alt="Infographic: Capital Campaign Best Practices five-step checklist"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
@@ -197,6 +199,8 @@ export default function BestPracticesPost() {
           somewhere between a few hundred and a few thousand dollars depending on the organization's size. Pull the
           actual giving history to set that band, rather than guessing.
         </p>
+
+      <div className="clear-both" />
 
         <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">2. Build a staged upgrade path, not a single appeal</h3>
         <p className="mt-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -220,13 +224,15 @@ export default function BestPracticesPost() {
         </p>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/56e126d5-d08c-4595-b167-182bc38693df.png"
-            alt="Infographic: Mid-Level Donor Engagement Best Practices four-step checklist"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/56e126d5-d08c-4595-b167-182bc38693df.png"
+              alt="Infographic: Mid-Level Donor Engagement Best Practices four-step checklist"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
@@ -239,6 +245,8 @@ export default function BestPracticesPost() {
           donors who have given consistently, sometimes modestly, for a decade or more. Long tenure is frequently a
           better predictor of a future bequest than gift size alone.
         </p>
+
+      <div className="clear-both" />
 
         <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">2. Lead with gratitude, not a request</h3>
         <p className="mt-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -262,13 +270,15 @@ export default function BestPracticesPost() {
         </p>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9db71df8-8c88-415d-9f42-a7f112c48a78.png"
-            alt="Infographic: Legacy Giving Best Practices four-step checklist"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9db71df8-8c88-415d-9f42-a7f112c48a78.png"
+              alt="Infographic: Legacy Giving Best Practices four-step checklist"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
@@ -282,6 +292,8 @@ export default function BestPracticesPost() {
           these programs compound: a well-run campaign creates better mid-level prospects, and a well-run mid-level
           program creates better legacy prospects.
         </p>
+
+      <div className="clear-both" />
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Frequently asked questions
