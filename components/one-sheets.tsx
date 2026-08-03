@@ -70,7 +70,7 @@ const SHEETS: Sheet[] = [
     title: "Thank You Postcard",
     description:
       "Branded postcard for handwritten notes after sales calls and meetings — front and back, print-ready with bleed and embedded fonts.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d80d994a-9c40-4d35-b490-d750dc1c879e.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/aa02085b-dd88-45c9-b1d9-a1f84dbccd7a.pdf",
   },
   {
     icon: Mail,
