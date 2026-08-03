@@ -1,8 +1,20 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
-import { Plus, Search, Trash2, FileEdit, FolderOpen, Sparkles, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Trash2,
+  FileEdit,
+  FolderOpen,
+  Sparkles,
+  Loader2,
+  Upload,
+  Download,
+  Users,
+  X,
+} from "lucide-react";
 
 type ProfileStatus = "draft" | "sent_for_approval" | "approved";
 
@@ -12,6 +24,20 @@ interface ProfileIndexEntry {
   status: ProfileStatus;
   updatedAt: string;
   createdAt: string;
+}
+
+interface RosterProspect {
+  name: string;
+  clientProfiler: string;
+  catapultId: string;
+  clientId: string;
+  givingHistoryRows: { year: string; amount: string; comments: string }[];
+}
+
+interface RosterEnvelope {
+  fileName: string;
+  uploadedAt: string;
+  prospects: RosterProspect[];
 }
 
 const STATUS_META: Record<ProfileStatus, { label: string; bg: string; text: string; dot: string }> = {
@@ -43,6 +69,158 @@ function timeAgo(iso: string): string {
   const days = Math.floor(hours / 24);
   if (days < 30) return `${days}d ago`;
   return new Date(iso).toLocaleDateString();
+}
+
+function RosterUploadCard() {
+  const [roster, setRoster] = useState<RosterEnvelope | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  async function loadRoster() {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/research-roster", { cache: "no-store" });
+      if (!res.ok) throw new Error("Failed to load the prospect list.");
+      const json = await res.json();
+      setRoster(json.roster || null);
+    } catch {
+      // Non-fatal — the upload card just shows an empty state.
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    loadRoster();
+  }, []);
+
+  async function handleFile(file: File) {
+    setUploading(true);
+    setError(null);
+    try {
+      const formData = new FormData();
+      formData.append("file", file);
+      const res = await fetch("/api/research-roster", { method: "POST", body: formData });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(json?.error || "Failed to upload that file.");
+      setRoster(json.roster);
+      setExpanded(false);
+    } catch (err: any) {
+      setError(err?.message || "Something went wrong uploading that file.");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleClear() {
+    if (!confirm("Clear this week's prospect list? This won't affect any profiles you've already created.")) return;
+    try {
+      const res = await fetch("/api/research-roster", { method: "DELETE" });
+      if (!res.ok) throw new Error("Failed to clear the list.");
+      setRoster({ fileName: "", uploadedAt: new Date().toISOString(), prospects: [] });
+    } catch {
+      alert("Could not clear the list. Please try again.");
+    }
+  }
+
+  const count = roster?.prospects?.length || 0;
+
+  return (
+    <div className="mt-6 rounded-2xl border border-[rgb(var(--line))] bg-white p-5">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept=".xlsx,.xls,.csv"
+        className="hidden"
+        onChange={(e) => e.target.files?.[0] && handleFile(e.target.files[0])}
+      />
+      <div className="flex flex-wrap items-center justify-between gap-4">
+        <div className="flex items-center gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-[rgb(var(--brass))]/10 text-[rgb(var(--brass))]">
+            <Users className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+              This Week&rsquo;s Prospect List
+            </p>
+            {loading ? (
+              <p className="text-sm text-[rgb(var(--ink))]/50">Loading...</p>
+            ) : count > 0 ? (
+              <p className="text-sm text-[rgb(var(--ink))]/70">
+                <span className="font-semibold text-[rgb(var(--navy))]">{count}</span> prospect
+                {count === 1 ? "" : "s"} loaded from{" "}
+                <span className="font-medium">{roster?.fileName}</span> &middot; uploaded{" "}
+                {roster?.uploadedAt ? timeAgo(roster.uploadedAt) : ""}
+              </p>
+            ) : (
+              <p className="text-sm text-[rgb(var(--ink))]/50">
+                No list uploaded yet. Upload an Excel file to prefill new profiles below.
+              </p>
+            )}
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          {count > 0 && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="text-xs font-semibold text-[rgb(var(--ink))]/50 hover:text-[rgb(var(--navy))]"
+            >
+              {expanded ? "Hide names" : "Show names"}
+            </button>
+          )}
+          <a
+            href="/api/research-roster/template"
+            className="inline-flex items-center gap-1.5 rounded-full border border-[rgb(var(--line))] px-3 py-2 text-xs font-semibold text-[rgb(var(--navy))] hover:border-[rgb(var(--brass))]"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Template
+          </a>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={uploading}
+            className="inline-flex items-center gap-1.5 rounded-full bg-[rgb(var(--navy))] px-4 py-2 text-xs font-semibold text-white hover:bg-[rgb(var(--brass))] disabled:opacity-60"
+          >
+            {uploading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Upload className="h-3.5 w-3.5" />}
+            {uploading ? "Uploading..." : count > 0 ? "Replace List" : "Upload List"}
+          </button>
+          {count > 0 && (
+            <button
+              type="button"
+              onClick={handleClear}
+              className="inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-2 text-xs font-semibold text-red-600/70 hover:text-red-700"
+              title="Clear list"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+
+      {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+      {expanded && count > 0 && (
+        <div className="mt-4 flex flex-wrap gap-2 border-t border-[rgb(var(--line))] pt-4">
+          {roster!.prospects.map((p) => (
+            <span
+              key={p.name}
+              className="rounded-full bg-[rgb(var(--paper))] px-3 py-1 text-xs text-[rgb(var(--ink))]/70"
+            >
+              {p.name}
+              {p.givingHistoryRows.length > 0 && (
+                <span className="text-[rgb(var(--ink))]/40"> &middot; {p.givingHistoryRows.length} gift{p.givingHistoryRows.length === 1 ? "" : "s"}</span>
+              )}
+            </span>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 export default function ResearchProfilesPage() {
@@ -148,6 +326,8 @@ export default function ResearchProfilesPage() {
           </Link>
         </div>
       </div>
+
+      <RosterUploadCard />
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex flex-wrap gap-2">
