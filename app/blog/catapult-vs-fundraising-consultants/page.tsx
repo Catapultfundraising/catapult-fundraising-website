@@ -223,13 +223,15 @@ export default function CatapultVsCompetitorsPost() {
         </div>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d15fda61-91d4-4bdc-ba6c-de3939969da9.png"
-            alt="Infographic: Where Catapult fits compared to campaign-only firms, calling-only firms, and major-gift specialists"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d15fda61-91d4-4bdc-ba6c-de3939969da9.png"
+              alt="Infographic: Where Catapult fits compared to campaign-only firms, calling-only firms, and major-gift specialists"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
@@ -243,6 +245,8 @@ export default function CatapultVsCompetitorsPost() {
           annual, mid-level, and lapsed donors. Nonprofits that hire a campaign-only firm usually need a second
           vendor, or their own staff, to execute that phase. Catapult removes that second hand-off entirely.
         </p>
+
+      <div className="clear-both" />
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Catapult vs. calling-only firms

@@ -91,13 +91,15 @@ export default function GrowingYourLegacySocietyPost() {
         </blockquote>
       <div className="clear-both" />
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2da69155-a62d-45d3-a189-b8f8df7e0cb9.png"
-            alt="Infographic: only 1 in 5 donors have been asked for a legacy gift, 75% retention once named, 2x more likely to give again"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2da69155-a62d-45d3-a189-b8f8df7e0cb9.png"
+              alt="Infographic: only 1 in 5 donors have been asked for a legacy gift, 75% retention once named, 2x more likely to give again"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
 
@@ -115,6 +117,8 @@ export default function GrowingYourLegacySocietyPost() {
           its own: most people who make a planned gift have household incomes under $200,000.
           Loyalty and belief in the mission, not capacity, is what actually predicts a bequest.
         </p>
+
+      <div className="clear-both" />
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           A two-step call process that doesn&rsquo;t require a planned giving expert on staff
@@ -152,13 +156,15 @@ export default function GrowingYourLegacySocietyPost() {
         </ol>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fcffab2c-17b9-461c-a6bd-b51f69fc9977.png"
-            alt="Infographic: the two-step legacy call process, pre-call letter then qualification call"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fcffab2c-17b9-461c-a6bd-b51f69fc9977.png"
+              alt="Infographic: the two-step legacy call process, pre-call letter then qualification call"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
@@ -173,14 +179,18 @@ export default function GrowingYourLegacySocietyPost() {
           for years of support they&rsquo;d never been properly acknowledged for.
         </p>
 
+      <div className="clear-both" />
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4676da56-67df-4e93-9be4-eda2bf20da30.png"
-            alt="Infographic: one legacy giving program's results funnel from 2,279 donors contacted to $4.6 million committed"
-            fill
-            className="object-cover"
-          />
+
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4676da56-67df-4e93-9be4-eda2bf20da30.png"
+              alt="Infographic: one legacy giving program's results funnel from 2,279 donors contacted to $4.6 million committed"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <blockquote className="mt-6 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
@@ -188,6 +198,8 @@ export default function GrowingYourLegacySocietyPost() {
           process but thank a donor for twenty consecutive years of giving, it&rsquo;s already a
           success.
         </blockquote>
+
+      <div className="clear-both" />
 
         <p className="mt-6 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           If a full two-step program isn&rsquo;t realistic yet, start smaller: call five of your

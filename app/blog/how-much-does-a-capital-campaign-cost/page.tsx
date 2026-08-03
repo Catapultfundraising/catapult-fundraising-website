@@ -149,19 +149,23 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
         </ol>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d8881733-fbfb-40a2-b628-a4691d2462e2.png"
-            alt="Infographic: what drives the fee, campaign goal and complexity, timeline, scope of services, in-house capacity"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d8881733-fbfb-40a2-b628-a4691d2462e2.png"
+              alt="Infographic: what drives the fee, campaign goal and complexity, timeline, scope of services, in-house capacity"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <blockquote className="mt-8 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           The real question isn&rsquo;t &ldquo;what does it cost?&rdquo; It&rsquo;s &ldquo;what does
           it cost to raise this goal well, versus raising it badly, or not raising it at all?&rdquo;
         </blockquote>
+
+      <div className="clear-both" />
 
         <h2 className="mt-10 font-display text-2xl text-[rgb(var(--navy))] sm:text-[28px]">
           How fees are typically structured

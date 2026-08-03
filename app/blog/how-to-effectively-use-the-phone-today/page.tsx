@@ -117,13 +117,15 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
         </ol>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a6397c5-1d34-4edc-bfe5-8182ab871c38.png"
-            alt="Infographic: the two-step method, letter or email then a personal call, delivering 25 to 30 percent higher gift sizes"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a6397c5-1d34-4edc-bfe5-8182ab871c38.png"
+              alt="Infographic: the two-step method, letter or email then a personal call, delivering 25 to 30 percent higher gift sizes"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <blockquote className="mt-8 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
@@ -131,6 +133,8 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
           telemarketing call. The caller is the facilitator rather than the solicitor. The
           solicitor is the person who signed that letter or e-mail.&rdquo;
         </blockquote>
+
+      <div className="clear-both" />
 
         <p className="mt-6 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Combining a pre-call letter with a nonautomated phone call boosts the &ldquo;reach

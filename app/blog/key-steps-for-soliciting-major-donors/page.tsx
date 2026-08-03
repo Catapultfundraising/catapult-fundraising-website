@@ -116,13 +116,15 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
         </ol>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1046665e-61b8-46c5-a389-6154f7b60814.png"
-            alt="Infographic: the four-right rule, the right person, the right prospect, the right amount, the right time"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1046665e-61b8-46c5-a389-6154f7b60814.png"
+              alt="Infographic: the four-right rule, the right person, the right prospect, the right amount, the right time"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -130,6 +132,8 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
           chairs, but these leaders often shy away from asking for money. Train them and your
           staff to build confidence through role playing.
         </p>
+
+      <div className="clear-both" />
 
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           When prospecting, give as much weight to frequency of past gifts as to size. Many
