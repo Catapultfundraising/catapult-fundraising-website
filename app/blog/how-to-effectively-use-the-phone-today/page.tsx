@@ -116,6 +116,16 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
           </li>
         </ol>
 
+
+        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a6397c5-1d34-4edc-bfe5-8182ab871c38.png"
+            alt="Infographic: the two-step method, letter or email then a personal call, delivering 25 to 30 percent higher gift sizes"
+            fill
+            className="object-cover"
+          />
+        </div>
+
         <blockquote className="mt-8 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           &ldquo;It becomes a very different dynamic than your typical confrontational
           telemarketing call. The caller is the facilitator rather than the solicitor. The

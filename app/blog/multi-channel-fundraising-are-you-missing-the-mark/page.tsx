@@ -235,6 +235,16 @@ export default function MultiChannelFundraisingPost() {
           Here&rsquo;s a three-step approach that works:
         </p>
 
+
+        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/76d53e37-fb14-4a02-9a37-ff3c128748af.png"
+            alt="Infographic: digital channels acquire donors while a personal upgrade path of wealth screening, letters, and calls moves them up"
+            fill
+            className="object-cover"
+          />
+        </div>
+
         <div className="mt-8 grid gap-6 sm:grid-cols-3">
           <div className="rounded-2xl border border-[rgb(var(--line))] bg-white p-6">
             <p className="font-display text-lg text-[rgb(var(--navy))]">

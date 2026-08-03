@@ -148,6 +148,16 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
           </li>
         </ol>
 
+
+        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d8881733-fbfb-40a2-b628-a4691d2462e2.png"
+            alt="Infographic: what drives the fee, campaign goal and complexity, timeline, scope of services, in-house capacity"
+            fill
+            className="object-cover"
+          />
+        </div>
+
         <blockquote className="mt-8 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           The real question isn&rsquo;t &ldquo;what does it cost?&rdquo; It&rsquo;s &ldquo;what does
           it cost to raise this goal well, versus raising it badly, or not raising it at all?&rdquo;

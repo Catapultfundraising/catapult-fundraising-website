@@ -115,6 +115,16 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
           </li>
         </ol>
 
+
+        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+          <Image
+            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1046665e-61b8-46c5-a389-6154f7b60814.png"
+            alt="Infographic: the four-right rule, the right person, the right prospect, the right amount, the right time"
+            fill
+            className="object-cover"
+          />
+        </div>
+
         <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Many prospects want to be solicited by organizational leaders, like CEOs and board
           chairs, but these leaders often shy away from asking for money. Train them and your
