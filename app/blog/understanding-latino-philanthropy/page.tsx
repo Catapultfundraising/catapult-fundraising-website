@@ -82,14 +82,6 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           major-gift potential. The Latino market gives at that level constantly, and the
           fundraising field has simply not done the work to earn a share of it.
         </p>
-
-        <blockquote className="mt-6 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
-          My mother asked me, for thirty-five years into my career, &ldquo;do people really
-          give?&rdquo; And yet she gave every single week. We simply haven&rsquo;t educated this
-          market on the difference their gifts already make.
-        </blockquote>
-      <div className="clear-both" />
-
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
@@ -101,10 +93,27 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           </div>
         </div>
 
+        <blockquote className="mt-6 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
+          My mother asked me, for thirty-five years into my career, &ldquo;do people really
+          give?&rdquo; And yet she gave every single week. We simply haven&rsquo;t educated this
+          market on the difference their gifts already make.
+        </blockquote>
+
+      <div className="clear-both" />
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Four myths worth retiring
         </h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/79a8caf4-14a7-432c-b020-6d623ab306a9.png"
+              alt="Infographic: Four myths worth retiring about Latino philanthropy"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
         <ul className="mt-6 space-y-4 pl-5 list-disc marker:text-[rgb(var(--brass))]">
           <li className="pl-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
             <span className="font-semibold text-[rgb(var(--navy))]">&ldquo;Latinos aren&rsquo;t philanthropic.&rdquo;</span>{" "}
@@ -136,18 +145,6 @@ export default function UnderstandingLatinoPhilanthropyPost() {
 
       <div className="clear-both" />
 
-
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-            <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/79a8caf4-14a7-432c-b020-6d623ab306a9.png"
-              alt="Infographic: Four myths worth retiring about Latino philanthropy"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
-
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Retire the term &ldquo;Latinx&rdquo; in donor communications
         </h2>
@@ -168,6 +165,16 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           How to actually reach this market
         </h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0d76b7fa-2260-46da-af65-3cb524fbbef4.png"
+              alt="Infographic: channel data showing phone, text, and social media reach among Hispanic and Latino donors"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           The channel data runs counter to a lot of assumptions. Hispanics are 50 percent more
           likely to answer their phone than the general population, and 47 percent live in
@@ -179,17 +186,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           personal rather than mass-produced.
         </p>
 
-
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-            <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0d76b7fa-2260-46da-af65-3cb524fbbef4.png"
-              alt="Infographic: channel data showing phone, text, and social media reach among Hispanic and Latino donors"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
+      <div className="clear-both" />
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Lead with family, community, and tradition
@@ -246,6 +243,16 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Seven words to frame any case for support
         </h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38fc26f7-1dd7-4f66-b411-2ea420fc5618.png"
+              alt="Infographic: seven Spanish words, familia, comunidad, solidaridad, oportunidad, resiliencia, impacto, and gratitud, to frame any case for support"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Familia (family), comunidad (community), solidaridad (solidarity), oportunidad
           (opportunity), resiliencia (resilience), impacto (impact), and gratitud (gratitude).
@@ -257,17 +264,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
           chance for the next generation to go further than the last.
         </p>
 
-
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-            <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38fc26f7-1dd7-4f66-b411-2ea420fc5618.png"
-              alt="Infographic: seven Spanish words, familia, comunidad, solidaridad, oportunidad, resiliencia, impacto, and gratitud, to frame any case for support"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
+      <div className="clear-both" />
 
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Want help building a case for support and outreach strategy that genuinely resonates
