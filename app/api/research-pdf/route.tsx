@@ -509,6 +509,7 @@ function ProfileDocument({ data }: { data: any }) {
             </>
           )}
         </View>
+        <FieldRow label="Home Address" value={data.homeAddress} />
         <FieldRow label="Born" value={data.born} />
         <FieldRow label="Marital Status" value={data.maritalStatus} />
         <MiniTable
