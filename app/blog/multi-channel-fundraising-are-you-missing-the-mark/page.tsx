@@ -63,19 +63,18 @@ export default function MultiChannelFundraisingPost() {
         description="Fundraising is not about choosing one or two channels and hoping for the best, but utilizing every method of donor engagement, stewardship, and solicitation to build a pipeline for major gifts."
       />
 
-      <div className="mx-auto max-w-4xl px-6 pt-10 lg:px-10">
-        <div className="relative aspect-[16/9] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e601e588-b9aa-4027-aa86-0a2a5ec61431.png"
-            alt="Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor"
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
-      </div>
-
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e601e588-b9aa-4027-aa86-0a2a5ec61431.png"
+              alt="Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor"
+              fill
+              className="object-cover"
+              priority
+            />
+          </div>
+        </div>
         <p className="font-display text-xl italic leading-relaxed text-[rgb(var(--navy))] sm:text-2xl">
           We&rsquo;ve all heard about multi-channel fundraising by now, and most nonprofits are,
           in-fact, using a variety of channels to solicit gifts. Fundraising is not about choosing
@@ -83,6 +82,8 @@ export default function MultiChannelFundraisingPost() {
           methods of donor engagement, stewardship and solicitation to maximize your fundraising
           revenue and build a pipeline for major gifts.
         </p>
+
+      <div className="clear-both" />
 
         <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Over the last five years, we&rsquo;ve heard of countless institutions switching gears to
@@ -236,13 +237,15 @@ export default function MultiChannelFundraisingPost() {
         </p>
 
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/76d53e37-fb14-4a02-9a37-ff3c128748af.png"
-            alt="Infographic: digital channels acquire donors while a personal upgrade path of wealth screening, letters, and calls moves them up"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/76d53e37-fb14-4a02-9a37-ff3c128748af.png"
+              alt="Infographic: digital channels acquire donors while a personal upgrade path of wealth screening, letters, and calls moves them up"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
 
         <div className="mt-8 grid gap-6 sm:grid-cols-3">
@@ -276,6 +279,8 @@ export default function MultiChannelFundraisingPost() {
             </p>
           </div>
         </div>
+
+      <div className="clear-both" />
 
         <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Consider these as conversation starters:

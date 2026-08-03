@@ -141,13 +141,15 @@ export default function StateOfFundraisingInNevadaPost() {
           Where Nevada stands
         </h2>
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/144f9145-430a-4f62-897d-890f7aa8b24d.png"
-            alt="A minimalist map illustration of the state of Nevada"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/144f9145-430a-4f62-897d-890f7aa8b24d.png"
+              alt="A minimalist map illustration of the state of Nevada"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           WalletHub&rsquo;s methodology ranks all 50 states across volunteering &amp; service and
@@ -157,6 +159,8 @@ export default function StateOfFundraisingInNevadaPost() {
           community roots. Nevada, along with fellow Sun Belt transient-population states like
           Arizona and California, clusters much further down the list.
         </p>
+
+      <div className="clear-both" />
 
         <div className="mt-6 overflow-x-auto rounded-xl border border-[rgb(var(--line))]">
           <table className="w-full min-w-[560px] text-left text-sm">

@@ -101,13 +101,15 @@ export default function CapitalCampaignGiftChartPost() {
           Build the gift chart, and work it top down
         </h2>
 
-        <div className="relative mt-6 aspect-[3/2] w-full max-w-2xl overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ecfe9f7c-16c9-4a67-8c85-aa6138354f83.png"
-            alt="Illustration of a fundraising gift chart pyramid, with a wide base of donors narrowing to a single lead gift at the top"
-            fill
-            className="object-cover"
-          />
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ecfe9f7c-16c9-4a67-8c85-aa6138354f83.png"
+              alt="Illustration of a fundraising gift chart pyramid, with a wide base of donors narrowing to a single lead gift at the top"
+              fill
+              className="object-cover"
+            />
+          </div>
         </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           A gift chart is the roadmap for exactly which gifts have to close to hit the goal, and
@@ -118,6 +120,8 @@ export default function CapitalCampaignGiftChartPost() {
           remainder. For every one of those top 10 gift levels, identify three prospects capable
           of it, not one.
         </p>
+
+      <div className="clear-both" />
 
         <blockquote className="mt-6 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           A successful capital campaign starts at the top and works down. In the quiet phase, you
