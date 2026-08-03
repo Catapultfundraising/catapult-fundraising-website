@@ -157,6 +157,20 @@ interface EducationEntry {
   year: string;
 }
 
+interface RosterGivingRow {
+  year: string;
+  amount: string;
+  comments: string;
+}
+
+interface RosterProspect {
+  name: string;
+  clientProfiler: string;
+  catapultId: string;
+  clientId: string;
+  givingHistoryRows: RosterGivingRow[];
+}
+
 interface ProfileData {
   dateCreated: string;
   clientProfiler: string;
@@ -422,6 +436,8 @@ function ResearchProfileFormInner() {
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
+  const [roster, setRoster] = useState<RosterProspect[]>([]);
+  const [selectedRosterName, setSelectedRosterName] = useState("");
 
   // Load an existing saved profile from the server if ?id= is present;
   // otherwise fall back to the last local draft for a brand new profile.
@@ -465,6 +481,41 @@ function ResearchProfileFormInner() {
       cancelled = true;
     };
   }, [urlId]);
+
+  // Fetch this week's uploaded prospect list (only useful when starting a
+  // brand-new profile — an existing profile already has its own data).
+  useEffect(() => {
+    if (urlId) return;
+    let cancelled = false;
+    fetch("/api/research-roster", { cache: "no-store" })
+      .then((res) => (res.ok ? res.json() : { roster: null }))
+      .then((json) => {
+        if (!cancelled) setRoster(json?.roster?.prospects || []);
+      })
+      .catch(() => {
+        // Non-fatal — the dropdown just won't appear.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [urlId]);
+
+  function applyRosterProspect(name: string) {
+    setSelectedRosterName(name);
+    const prospect = roster.find((p) => p.name === name);
+    if (!prospect) return;
+    setData((d) => ({
+      ...d,
+      name: prospect.name || d.name,
+      clientProfiler: prospect.clientProfiler || d.clientProfiler,
+      catapultId: prospect.catapultId || d.catapultId,
+      clientId: prospect.clientId || d.clientId,
+      givingHistoryRows: prospect.givingHistoryRows.length
+        ? prospect.givingHistoryRows.map((r) => ({ ...r }))
+        : d.givingHistoryRows,
+    }));
+    setPdfUrl(null);
+  }
 
   // Auto-save local draft as a browser-side safety net
   useEffect(() => {
@@ -791,6 +842,31 @@ function ResearchProfileFormInner() {
         </div>
       </div>
       {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
+
+      {!urlId && roster.length > 0 && (
+        <div className="mt-6 rounded-2xl border border-[rgb(var(--brass))]/40 bg-[rgb(var(--brass))]/10 p-4">
+          <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+            <Target className="h-3.5 w-3.5" />
+            Prefill From This Week&rsquo;s Prospect List
+          </label>
+          <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
+            Select a name to auto-fill the prospect name and their giving history from the uploaded spreadsheet.
+          </p>
+          <select
+            value={selectedRosterName}
+            onChange={(e) => applyRosterProspect(e.target.value)}
+            className="mt-3 w-full rounded-full border border-[rgb(var(--line))] bg-white px-4 py-2.5 text-sm outline-none focus:border-[rgb(var(--brass))] sm:w-auto"
+          >
+            <option value="">Choose a prospect...</option>
+            {roster.map((p) => (
+              <option key={p.name} value={p.name}>
+                {p.name}
+                {p.givingHistoryRows.length > 0 ? ` (${p.givingHistoryRows.length} gift${p.givingHistoryRows.length === 1 ? "" : "s"} on file)` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* Header meta */}
       <SectionHeading>Profile Header</SectionHeading>
