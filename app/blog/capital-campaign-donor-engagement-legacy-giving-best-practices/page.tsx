@@ -138,6 +138,16 @@ export default function BestPracticesPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Capital campaign best practices
         </h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/28ad8777-c22b-4b31-987b-dd5a1d20e250.png"
+              alt="Infographic: Capital Campaign Best Practices five-step checklist"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
 
         <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">1. Start with a real feasibility study</h3>
         <p className="mt-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -177,21 +187,21 @@ export default function BestPracticesPost() {
           context for the mission.
         </p>
 
+      <div className="clear-both" />
 
+        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
+          Mid-level donor engagement best practices
+        </h2>
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/28ad8777-c22b-4b31-987b-dd5a1d20e250.png"
-              alt="Infographic: Capital Campaign Best Practices five-step checklist"
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/56e126d5-d08c-4595-b167-182bc38693df.png"
+              alt="Infographic: Mid-Level Donor Engagement Best Practices four-step checklist"
               fill
               className="object-cover"
             />
           </div>
         </div>
-
-        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
-          Mid-level donor engagement best practices
-        </h2>
 
         <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">1. Define your mid-level band with data, not instinct</h3>
         <p className="mt-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -223,21 +233,21 @@ export default function BestPracticesPost() {
           simply how many renew at the same level. Report on upgrade rate as its own metric.
         </p>
 
+      <div className="clear-both" />
 
+        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
+          Legacy giving and legacy call best practices
+        </h2>
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/56e126d5-d08c-4595-b167-182bc38693df.png"
-              alt="Infographic: Mid-Level Donor Engagement Best Practices four-step checklist"
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9db71df8-8c88-415d-9f42-a7f112c48a78.png"
+              alt="Infographic: Legacy Giving Best Practices four-step checklist"
               fill
               className="object-cover"
             />
           </div>
         </div>
-
-        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
-          Legacy giving and legacy call best practices
-        </h2>
 
         <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">1. Identify prospects from loyalty, not just capacity</h3>
         <p className="mt-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
@@ -269,17 +279,7 @@ export default function BestPracticesPost() {
           increase the likelihood that a stated intention becomes a realized gift.
         </p>
 
-
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-            <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9db71df8-8c88-415d-9f42-a7f112c48a78.png"
-              alt="Infographic: Legacy Giving Best Practices four-step checklist"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
+      <div className="clear-both" />
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           How these three programs work together
