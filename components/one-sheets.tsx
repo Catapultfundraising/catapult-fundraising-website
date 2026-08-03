@@ -1,4 +1,4 @@
-import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen, BookOpen } from "lucide-react";
+import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen, BookOpen, Heart, Mail } from "lucide-react";
 
 interface Sheet {
   icon: React.ComponentType<{ className?: string }>;
@@ -64,6 +64,20 @@ const SHEETS: Sheet[] = [
     description:
       "6-panel conference leave-behind covering all four services, our capital campaign process, and results — built for heavy-stock glossy print.",
     href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/eb45ccc8-2fbb-4885-ade4-90b467adc406.pdf",
+  },
+  {
+    icon: Heart,
+    title: "Thank You Postcard",
+    description:
+      "Branded postcard for handwritten notes after sales calls and meetings — front and back, print-ready with bleed and embedded fonts.",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0a7eb35e-ba01-4ec5-a119-3ce0827d53a2.pdf",
+  },
+  {
+    icon: Mail,
+    title: "Postcard Envelope",
+    description:
+      "Matching A6 envelope for mailing the thank you postcard — return address and logo included, print-ready with bleed.",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0f963bf4-971f-4d5d-944a-c7da0f7863e1.pdf",
   },
 ];
 
