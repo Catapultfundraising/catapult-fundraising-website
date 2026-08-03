@@ -34,6 +34,8 @@ import {
   Vote,
   FileText,
   Target,
+  Lock,
+  MapPin,
   type LucideIcon,
 } from "lucide-react";
 
@@ -168,6 +170,11 @@ interface RosterProspect {
   clientProfiler: string;
   catapultId: string;
   clientId: string;
+  wealthRating: string;
+  givingCapacity: string;
+  address: string;
+  phones: string[];
+  emails: string[];
   givingHistoryRows: RosterGivingRow[];
 }
 
@@ -185,6 +192,7 @@ interface ProfileData {
   photo: string;
   catapultId: string;
   clientId: string;
+  homeAddress: string;
   phones: PhoneRow[];
   emails: EmailRow[];
   born: string;
@@ -231,6 +239,7 @@ function emptyProfile(): ProfileData {
     photo: "",
     catapultId: "",
     clientId: "",
+    homeAddress: "",
     phones: [],
     emails: [],
     born: "",
@@ -302,6 +311,8 @@ function Field({
   rows = 2,
   icon: Icon,
   money,
+  disabled,
+  lockedHint,
 }: {
   label: string;
   value: string;
@@ -311,12 +322,20 @@ function Field({
   rows?: number;
   icon?: LucideIcon;
   money?: boolean;
+  disabled?: boolean;
+  lockedHint?: string;
 }) {
   return (
     <div className="mt-5">
       <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
         {Icon && <Icon className="h-3.5 w-3.5" />}
         {label}
+        {disabled && lockedHint && (
+          <span className="flex items-center gap-1 text-[10px] font-normal normal-case tracking-normal text-[rgb(var(--ink))]/40">
+            <Lock className="h-3 w-3" />
+            {lockedHint}
+          </span>
+        )}
       </label>
       {textarea ? (
         <textarea
@@ -324,7 +343,8 @@ function Field({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           rows={rows}
-          className="mt-1.5 w-full resize-y rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))]"
+          disabled={disabled}
+          className="mt-1.5 w-full resize-y rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))] disabled:bg-[rgb(var(--paper))] disabled:opacity-70"
         />
       ) : (
         <input
@@ -338,7 +358,8 @@ function Field({
             }
           }}
           placeholder={placeholder}
-          className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))]"
+          disabled={disabled}
+          className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))] disabled:bg-[rgb(var(--paper))] disabled:opacity-70"
         />
       )}
     </div>
@@ -438,6 +459,7 @@ function ResearchProfileFormInner() {
   const loadedRef = useRef(false);
   const [roster, setRoster] = useState<RosterProspect[]>([]);
   const [selectedRosterName, setSelectedRosterName] = useState("");
+  const [lockedFromRoster, setLockedFromRoster] = useState(false);
 
   // Load an existing saved profile from the server if ?id= is present;
   // otherwise fall back to the last local draft for a brand new profile.
@@ -510,10 +532,23 @@ function ResearchProfileFormInner() {
       clientProfiler: prospect.clientProfiler || d.clientProfiler,
       catapultId: prospect.catapultId || d.catapultId,
       clientId: prospect.clientId || d.clientId,
+      wealthRating: prospect.wealthRating || d.wealthRating,
+      givingCapacity: prospect.givingCapacity || d.givingCapacity,
+      homeAddress: prospect.address || d.homeAddress,
+      phones: prospect.phones.length
+        ? prospect.phones.map((number, i) => ({ type: i === 0 ? "Mobile" : "Other", customType: i === 0 ? "" : "Additional", number }))
+        : d.phones,
+      emails: prospect.emails.length
+        ? prospect.emails.map((address, i) => ({ type: i === 0 ? "Personal" : "Other", customType: i === 0 ? "" : "Additional", address }))
+        : d.emails,
       givingHistoryRows: prospect.givingHistoryRows.length
         ? prospect.givingHistoryRows.map((r) => ({ ...r }))
         : d.givingHistoryRows,
     }));
+    // Name, Catapult ID, and Client ID must stay in sync with the master
+    // prospect list once a selection is made — the profiler can override
+    // every other prefilled field, but not these three identifiers.
+    setLockedFromRoster(true);
     setPdfUrl(null);
   }
 
@@ -850,7 +885,9 @@ function ResearchProfileFormInner() {
             Prefill From This Week&rsquo;s Prospect List
           </label>
           <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
-            Select a name to auto-fill the prospect name and their giving history from the uploaded spreadsheet.
+            Select a name to auto-fill their name, giving history, wealth rating, giving capacity, address, phone(s),
+            and email(s) from the uploaded spreadsheet. Everything is editable afterward except Name, Catapult ID,
+            and Client ID, which stay locked to the master list.
           </p>
           <select
             value={selectedRosterName}
@@ -882,7 +919,14 @@ function ResearchProfileFormInner() {
 
       {/* Name */}
       <SectionHeading>Prospect Name</SectionHeading>
-      <Field label="Name" value={data.name} onChange={(v) => set("name", v)} placeholder="Prospect name(s)" />
+      <Field
+        label="Name"
+        value={data.name}
+        onChange={(v) => set("name", v)}
+        placeholder="Prospect name(s)"
+        disabled={lockedFromRoster}
+        lockedHint="Locked from prospect list"
+      />
 
       {/* Wealth panel */}
       <SectionHeading icon={DollarSign}>Wealth Summary</SectionHeading>
@@ -937,9 +981,26 @@ function ResearchProfileFormInner() {
       {/* Identification & personal details */}
       <SectionHeading icon={Users}>Identification &amp; Personal Details</SectionHeading>
       <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Catapult ID Number" value={data.catapultId} onChange={(v) => set("catapultId", v)} placeholder="CPTID #" icon={Hash} />
-        <Field label="Client ID Number" value={data.clientId} onChange={(v) => set("clientId", v)} placeholder="Client ID #" icon={Hash} />
+        <Field
+          label="Catapult ID Number"
+          value={data.catapultId}
+          onChange={(v) => set("catapultId", v)}
+          placeholder="CPTID #"
+          icon={Hash}
+          disabled={lockedFromRoster}
+          lockedHint="Locked from prospect list"
+        />
+        <Field
+          label="Client ID Number"
+          value={data.clientId}
+          onChange={(v) => set("clientId", v)}
+          placeholder="Client ID #"
+          icon={Hash}
+          disabled={lockedFromRoster}
+          lockedHint="Locked from prospect list"
+        />
       </div>
+      <Field label="Home Address" value={data.homeAddress} onChange={(v) => set("homeAddress", v)} textarea rows={2} icon={MapPin} placeholder="Street, city, state, ZIP" />
       <div className="mt-5">
         <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
           <Phone className="h-3.5 w-3.5" />
