@@ -11,6 +11,11 @@ export interface RosterProspect {
   clientProfiler: string;
   catapultId: string;
   clientId: string;
+  wealthRating: string;
+  givingCapacity: string;
+  address: string;
+  phones: string[];
+  emails: string[];
   givingHistoryRows: RosterGivingRow[];
 }
 
@@ -35,6 +40,9 @@ export async function getRoster(): Promise<RosterEnvelope | null> {
 
 export async function saveRoster(envelope: Omit<RosterEnvelope, "uploadedAt">): Promise<RosterEnvelope> {
   const full: RosterEnvelope = { ...envelope, uploadedAt: new Date().toISOString() };
+  // A new upload always fully overwrites the previous list (rather than
+  // merging), so last week's prospects never linger or interfere with a
+  // fresh weekly list.
   await put(ROSTER_PATH, JSON.stringify(full), {
     access: "private",
     contentType: "application/json",

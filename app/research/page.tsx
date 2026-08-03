@@ -193,16 +193,22 @@ function RosterUploadCard() {
             <button
               type="button"
               onClick={handleClear}
-              className="inline-flex items-center gap-1 rounded-full border border-transparent px-2 py-2 text-xs font-semibold text-red-600/70 hover:text-red-700"
-              title="Clear list"
+              className="inline-flex items-center gap-1.5 rounded-full border border-transparent px-3 py-2 text-xs font-semibold text-red-600/70 hover:text-red-700"
+              title="Delete this week's list"
             >
               <X className="h-3.5 w-3.5" />
+              Delete List
             </button>
           )}
         </div>
       </div>
 
       {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
+
+      <p className="mt-3 text-[11px] text-[rgb(var(--ink))]/40">
+        Uploading a new file always fully replaces the previous list, so last week&rsquo;s prospects never linger or
+        interfere with this week&rsquo;s. Use &ldquo;Delete List&rdquo; to clear it without uploading a replacement.
+      </p>
 
       {expanded && count > 0 && (
         <div className="mt-4 flex flex-wrap gap-2 border-t border-[rgb(var(--line))] pt-4">

@@ -9,19 +9,56 @@ const HEADERS = [
   "Client / Profiler",
   "Catapult ID",
   "Client ID",
+  "Wealth Rating",
+  "Wealth Capacity",
+  "Address",
+  "Phone 1",
+  "Phone 2",
+  "Email 1",
+  "Email 2",
   "Giving Year",
   "Giving Amount",
   "Giving Comments",
 ];
 
 // One row per gift — repeat the same "Prospect Name" across multiple rows to
-// give a prospect more than one year of giving history. Rows with a blank
-// Giving Year/Amount/Comments are fine too; the prospect will just have no
-// giving history pre-filled.
+// give a prospect more than one year of giving history. All other columns
+// only need to be filled in on that prospect's first row; blank cells on
+// later rows for the same prospect are fine.
 const EXAMPLE_ROWS = [
-  ["Jane Smith", "SCFTA/JG", "CPT-1042", "CID-88231", "2024", "5000", "Annual gala gift"],
-  ["Jane Smith", "SCFTA/JG", "CPT-1042", "CID-88231", "2023", "2500", ""],
-  ["John Doe", "Owens/AA", "CPT-1099", "CID-40217", "2024", "10000", "Capital campaign pledge"],
+  [
+    "Jane Smith",
+    "SCFTA/JG",
+    "CPT-1042",
+    "CID-88231",
+    "8",
+    "$500,000",
+    "123 Main St, Las Vegas, NV 89109",
+    "(702) 555-0101",
+    "(702) 555-0102",
+    "jane.smith@example.com",
+    "",
+    "2024",
+    "5000",
+    "Annual gala gift",
+  ],
+  ["Jane Smith", "SCFTA/JG", "CPT-1042", "CID-88231", "", "", "", "", "", "", "", "2023", "2500", ""],
+  [
+    "John Doe",
+    "Owens/AA",
+    "CPT-1099",
+    "CID-40217",
+    "9",
+    "$1,000,000",
+    "456 Elm Ave, Henderson, NV 89014",
+    "(702) 555-0201",
+    "",
+    "john.doe@example.com",
+    "assistant@example.com",
+    "2024",
+    "10000",
+    "Capital campaign pledge",
+  ],
 ];
 
 export async function GET(req: NextRequest) {

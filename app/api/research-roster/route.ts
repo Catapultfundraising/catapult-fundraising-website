@@ -25,6 +25,34 @@ const HEADER_MAP: Record<string, keyof MappedRow> = {
   cptid: "catapultId",
   clientid: "clientId",
   clientidnumber: "clientId",
+  wealthrating: "wealthRating",
+  rating: "wealthRating",
+  wealthcapacity: "givingCapacity",
+  givingcapacity: "givingCapacity",
+  estimatedgivingcapacity: "givingCapacity",
+  givingcapacity5years: "givingCapacity",
+  capacity: "givingCapacity",
+  address: "address",
+  homeaddress: "address",
+  mailingaddress: "address",
+  streetaddress: "address",
+  phone: "phone1",
+  phonenumber: "phone1",
+  phone1: "phone1",
+  primaryphone: "phone1",
+  telephone: "phone1",
+  telephone1: "phone1",
+  phone2: "phone2",
+  secondaryphone: "phone2",
+  telephone2: "phone2",
+  altphone: "phone2",
+  email: "email1",
+  emailaddress: "email1",
+  email1: "email1",
+  primaryemail: "email1",
+  email2: "email2",
+  secondaryemail: "email2",
+  altemail: "email2",
   givingyear: "year",
   giftyear: "year",
   year: "year",
@@ -43,6 +71,13 @@ interface MappedRow {
   clientProfiler?: string;
   catapultId?: string;
   clientId?: string;
+  wealthRating?: string;
+  givingCapacity?: string;
+  address?: string;
+  phone1?: string;
+  phone2?: string;
+  email1?: string;
+  email2?: string;
   year?: string;
   amount?: string;
   comments?: string;
@@ -81,6 +116,11 @@ function buildRoster(rows: Record<string, unknown>[]): RosterProspect[] {
         clientProfiler: m.clientProfiler || "",
         catapultId: m.catapultId || "",
         clientId: m.clientId || "",
+        wealthRating: m.wealthRating || "",
+        givingCapacity: m.givingCapacity || "",
+        address: m.address || "",
+        phones: [],
+        emails: [],
         givingHistoryRows: [],
       });
       order.push(key);
@@ -90,6 +130,14 @@ function buildRoster(rows: Record<string, unknown>[]): RosterProspect[] {
     if (!entry.clientProfiler && m.clientProfiler) entry.clientProfiler = m.clientProfiler;
     if (!entry.catapultId && m.catapultId) entry.catapultId = m.catapultId;
     if (!entry.clientId && m.clientId) entry.clientId = m.clientId;
+    if (!entry.wealthRating && m.wealthRating) entry.wealthRating = m.wealthRating;
+    if (!entry.givingCapacity && m.givingCapacity) entry.givingCapacity = m.givingCapacity;
+    if (!entry.address && m.address) entry.address = m.address;
+
+    if (m.phone1 && !entry.phones.includes(m.phone1)) entry.phones.push(m.phone1);
+    if (m.phone2 && !entry.phones.includes(m.phone2)) entry.phones.push(m.phone2);
+    if (m.email1 && !entry.emails.includes(m.email1)) entry.emails.push(m.email1);
+    if (m.email2 && !entry.emails.includes(m.email2)) entry.emails.push(m.email2);
 
     if (m.year || m.amount || m.comments) {
       entry.givingHistoryRows.push({
@@ -116,6 +164,9 @@ export async function GET(req: NextRequest) {
   }
 }
 
+// Uploading a new spreadsheet always fully REPLACES the currently stored
+// list (see saveRoster) so last week's prospects never linger or interfere
+// with a freshly uploaded weekly list.
 export async function POST(req: NextRequest) {
   if (!(await isResearchAuthed(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -156,6 +207,9 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Deletes the current list entirely so a stale weekly list can never be
+// left behind or confused with a new one. Does not touch any profiles that
+// were already created from it.
 export async function DELETE(req: NextRequest) {
   if (!(await isResearchAuthed(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
