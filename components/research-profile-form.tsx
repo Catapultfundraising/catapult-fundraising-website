@@ -190,6 +190,7 @@ interface ProfileData {
   givingCapacity: string;
   wealthRating: string;
   photo: string;
+  photo2: string;
   catapultId: string;
   clientId: string;
   homeAddress: string;
@@ -237,6 +238,7 @@ function emptyProfile(): ProfileData {
     givingCapacity: "",
     wealthRating: "",
     photo: "",
+    photo2: "",
     catapultId: "",
     clientId: "",
     homeAddress: "",
@@ -359,7 +361,8 @@ function Field({
           }}
           placeholder={placeholder}
           disabled={disabled}
-          className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))] disabled:bg-[rgb(var(--paper))] disabled:opacity-70"
+  
+        className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))] disabled:bg-[rgb(var(--paper))] disabled:opacity-70"
         />
       )}
     </div>
@@ -456,7 +459,9 @@ function ResearchProfileFormInner() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const photoInputRef = useRef<HTMLInputElement>(null);
+  const photo2InputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
+  const [showPhoto2, setShowPhoto2] = useState(false);
   const [roster, setRoster] = useState<RosterProspect[]>([]);
   const [selectedRosterName, setSelectedRosterName] = useState("");
   const [lockedFromRoster, setLockedFromRoster] = useState(false);
@@ -475,9 +480,11 @@ function ResearchProfileFormInner() {
           const json = await res.json();
           const envelope = json.data || {};
           if (!cancelled) {
-            setData({ ...emptyProfile(), ...(envelope.data ?? {}) });
+            const merged = { ...emptyProfile(), ...(envelope.data ?? {}) };
+            setData(merged);
             setStatus((envelope.status as ProfileStatus) || "draft");
             setProfileId(urlId);
+            if (merged.photo2) setShowPhoto2(true);
           }
         } catch (err: any) {
           if (!cancelled) setLoadError(err?.message || "Could not load that profile.");
@@ -489,8 +496,10 @@ function ResearchProfileFormInner() {
           const raw = localStorage.getItem(draftKey(null));
           if (raw) {
             const parsed = JSON.parse(raw);
-            setData({ ...emptyProfile(), ...parsed });
+            const merged = { ...emptyProfile(), ...parsed };
+            setData(merged);
             setRestoredNotice(true);
+            if (merged.photo2) setShowPhoto2(true);
           }
         } catch {
           // ignore
@@ -623,6 +632,11 @@ function ResearchProfileFormInner() {
   async function handlePhotoUpload(file: File) {
     const uri = await resizeImageToDataUri(file, 900, 0.85);
     set("photo", uri);
+  }
+
+  async function handlePhotoUpload2(file: File) {
+    const uri = await resizeImageToDataUri(file, 900, 0.85);
+    set("photo2", uri);
   }
 
   function addRealEstate() {
@@ -942,40 +956,90 @@ function ResearchProfileFormInner() {
 
       {/* Photo */}
       <SectionHeading>Prospect Photo</SectionHeading>
-      <div className="mt-4 flex items-center gap-5">
-        <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-[rgb(var(--brass))] bg-[rgb(var(--paper))]">
-          {data.photo ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={data.photo} alt="Prospect" className="h-full w-full object-cover" />
-          ) : (
-            <span className="text-[11px] text-[rgb(var(--ink))]/40">No photo</span>
-          )}
-        </div>
-        <div>
-          <input
-            ref={photoInputRef}
-            type="file"
-            accept="image/*"
-            className="hidden"
-            onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])}
-          />
-          <button
-            type="button"
-            onClick={() => photoInputRef.current?.click()}
-            className="rounded-full bg-[rgb(var(--navy))] px-4 py-2 text-xs font-semibold text-white hover:bg-[rgb(var(--brass))]"
-          >
-            Upload Photo
-          </button>
-          {data.photo && (
+      <div className="mt-4 flex flex-wrap items-center gap-5">
+        <div className="flex items-center gap-5">
+          <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-[rgb(var(--brass))] bg-[rgb(var(--paper))]">
+            {data.photo ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={data.photo} alt="Prospect" className="h-full w-full object-cover" />
+            ) : (
+              <span className="text-[11px] text-[rgb(var(--ink))]/40">No photo</span>
+            )}
+          </div>
+          <div>
+            <input
+              ref={photoInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={(e) => e.target.files?.[0] && handlePhotoUpload(e.target.files[0])}
+            />
             <button
               type="button"
-              onClick={() => set("photo", "")}
-              className="ml-3 text-xs font-semibold text-[rgb(var(--ink))]/50 hover:text-[rgb(var(--ink))]"
+              onClick={() => photoInputRef.current?.click()}
+              className="rounded-full bg-[rgb(var(--navy))] px-4 py-2 text-xs font-semibold text-white hover:bg-[rgb(var(--brass))]"
             >
-              Remove
+              {data.photo ? "Replace Photo" : "Upload Photo"}
             </button>
-          )}
+            {data.photo && (
+              <button
+                type="button"
+                onClick={() => set("photo", "")}
+                className="ml-3 text-xs font-semibold text-[rgb(var(--ink))]/50 hover:text-[rgb(var(--ink))]"
+              >
+                Remove
+              </button>
+            )}
+          </div>
         </div>
+
+        {showPhoto2 ? (
+          <div className="flex items-center gap-5">
+            <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-[rgb(var(--brass))] bg-[rgb(var(--paper))]">
+              {data.photo2 ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={data.photo2} alt="Prospect (second photo)" className="h-full w-full object-cover" />
+              ) : (
+                <span className="text-[11px] text-[rgb(var(--ink))]/40">No photo</span>
+              )}
+            </div>
+            <div>
+              <input
+                ref={photo2InputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => e.target.files?.[0] && handlePhotoUpload2(e.target.files[0])}
+              />
+              <button
+                type="button"
+                onClick={() => photo2InputRef.current?.click()}
+                className="rounded-full bg-[rgb(var(--navy))] px-4 py-2 text-xs font-semibold text-white hover:bg-[rgb(var(--brass))]"
+              >
+                {data.photo2 ? "Replace Photo" : "Upload Photo"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  set("photo2", "");
+                  setShowPhoto2(false);
+                }}
+                className="ml-3 text-xs font-semibold text-[rgb(var(--ink))]/50 hover:text-[rgb(var(--ink))]"
+              >
+                Remove
+              </button>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setShowPhoto2(true)}
+            className="inline-flex items-center gap-2 self-center rounded-full border border-dashed border-[rgb(var(--brass))] px-4 py-2 text-xs font-semibold text-[rgb(var(--navy))] hover:bg-[rgb(var(--paper))]"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            Add Second Photo
+          </button>
+        )}
       </div>
 
       {/* Identification & personal details */}
@@ -1234,7 +1298,7 @@ function ResearchProfileFormInner() {
           <>
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.org} onChange={(e) => updateFecRow(i, { org: e.target.value })} placeholder="Organization" />
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateFecRow(i, { year: e.target.value })} placeholder="Year" />
-            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateFecRow(i, { amount: e.target.value })} onBlur={(e) => updateFecRow(i, { amount: smartFormatCurrency(e.target.value) })} placeholder="Amount" />
+            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateFecRow(i, { amount: smartFormatCurrency(e.target.value) })} placeholder="Amount" />
           </>
         )}
         onRemove={removeFecRow}
