@@ -70,14 +70,14 @@ const SHEETS: Sheet[] = [
     title: "Thank You Postcard",
     description:
       "Branded postcard for handwritten notes after sales calls and meetings — front and back, print-ready with bleed and embedded fonts.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0a7eb35e-ba01-4ec5-a119-3ce0827d53a2.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d80d994a-9c40-4d35-b490-d750dc1c879e.pdf",
   },
   {
     icon: Mail,
     title: "Postcard Envelope",
     description:
       "Matching A6 envelope for mailing the thank you postcard — return address and logo included, print-ready with bleed.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0f963bf4-971f-4d5d-944a-c7da0f7863e1.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a7bc7ad-4f02-4783-a069-3086c3afb77a.pdf",
   },
 ];
 
