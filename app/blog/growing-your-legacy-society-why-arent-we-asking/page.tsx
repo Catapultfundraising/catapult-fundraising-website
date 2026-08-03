@@ -91,6 +91,9 @@ export default function GrowingYourLegacySocietyPost() {
         </blockquote>
       <div className="clear-both" />
 
+        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
+          Identify prospects by loyalty, not wealth
+        </h2>
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
@@ -101,11 +104,6 @@ export default function GrowingYourLegacySocietyPost() {
             />
           </div>
         </div>
-
-
-        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
-          Identify prospects by loyalty, not wealth
-        </h2>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Build your legacy prospect list from consecutive years of giving first: donors with
           twenty-plus consecutive years, then fifteen-plus, then ten-plus, layered with those who
@@ -123,6 +121,16 @@ export default function GrowingYourLegacySocietyPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           A two-step call process that doesn&rsquo;t require a planned giving expert on staff
         </h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
+            <Image
+              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fcffab2c-17b9-461c-a6bd-b51f69fc9977.png"
+              alt="Infographic: the two-step legacy call process, pre-call letter then qualification call"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Eighty percent of all planned gifts are simple bequests, you don&rsquo;t need deep
           technical expertise to start these conversations, only a process. Here&rsquo;s the
@@ -155,33 +163,11 @@ export default function GrowingYourLegacySocietyPost() {
           </li>
         </ol>
 
-
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
-          <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-            <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fcffab2c-17b9-461c-a6bd-b51f69fc9977.png"
-              alt="Infographic: the two-step legacy call process, pre-call letter then qualification call"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
+      <div className="clear-both" />
 
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           The return on investment is real
         </h2>
-        <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
-          In one recent program for a public broadcasting client, outreach to 2,279 long-time
-          donors produced 852 real conversations, 21 percent of which expressed interest in a
-          legacy gift, and ultimately closed 63 planned gifts totaling $4.6 million, against a
-          program cost in the range of $160,000 to $170,000. Even setting aside the dollars
-          closed, every one of those calls accomplished the baseline goal: thanking a loyal donor
-          for years of support they&rsquo;d never been properly acknowledged for.
-        </p>
-
-      <div className="clear-both" />
-
-
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
@@ -192,6 +178,17 @@ export default function GrowingYourLegacySocietyPost() {
             />
           </div>
         </div>
+
+        <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          In one recent program for a public broadcasting client, outreach to 2,279 long-time
+          donors produced 852 real conversations, 21 percent of which expressed interest in a
+          legacy gift, and ultimately closed 63 planned gifts totaling $4.6 million, against a
+          program cost in the range of $160,000 to $170,000. Even setting aside the dollars
+          closed, every one of those calls accomplished the baseline goal: thanking a loyal donor
+          for years of support they&rsquo;d never been properly acknowledged for.
+        </p>
+
+      <div className="clear-both" />
 
         <blockquote className="mt-6 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           Thousands of loyal donors are waiting to be asked. If we do nothing else through this

@@ -222,7 +222,9 @@ export default function CatapultVsCompetitorsPost() {
           </div>
         </div>
 
-
+        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
+          Catapult vs. campaign-only consulting firms
+        </h2>
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
@@ -233,10 +235,6 @@ export default function CatapultVsCompetitorsPost() {
             />
           </div>
         </div>
-
-        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
-          Catapult vs. campaign-only consulting firms
-        </h2>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Firms like {CAMPAIGN_ONLY_FIRMS.slice(0, -1).join(", ")}, and {CAMPAIGN_ONLY_FIRMS[CAMPAIGN_ONLY_FIRMS.length - 1]} are
           respected names in capital campaign strategy. They excel at feasibility studies, case statement writing, and
