@@ -4,9 +4,8 @@ import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/render
 export const runtime = "nodejs";
 
 // Full-color horizontal Catapult Fundraising lockup (icon + "Catapult" +
-// "FUNDRAISING"), pulled directly from the official logo package rather than
-// the compact square-ish header mark — this is the wide lockup used in the
-// approved business card reference design.
+// "FUNDRAISING"), pulled directly from the official logo package — the wide
+// lockup used in the approved business card reference design.
 const LOGO_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
 const LOGO_ASPECT = 9225 / 2342;
@@ -42,10 +41,15 @@ const PAD = BLEED + SAFE; // 18pt inset from the bleed edge to the safe content 
 const CONTENT_W = PAGE_W - PAD * 2; // 234pt
 const CONTENT_H = PAGE_H - PAD * 2; // 126pt
 
-const FRONT_LOGO_H = 21;
-const BACK_LOGO_H = 34;
-const FRONT_NAME_COL_W = 100;
-const FRONT_CONTACT_COL_W = 130;
+// Sizes below were measured directly off the approved reference mockup
+// (which renders at an exact 7.111px/pt scale of the 3.5"x2" trim box) so
+// the logo size, column widths, and vertical rhythm match it closely.
+const FRONT_LOGO_H = 26;
+const BACK_LOGO_H = 30;
+const FRONT_LOGO_W = FRONT_LOGO_H * LOGO_ASPECT;
+const BACK_LOGO_W = BACK_LOGO_H * LOGO_ASPECT;
+const FRONT_NAME_COL_W = 122;
+const FRONT_CONTACT_COL_W = 108;
 
 const styles = StyleSheet.create({
   page: {
@@ -59,20 +63,27 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica",
   },
   frontContent: { width: CONTENT_W, height: CONTENT_H, flexDirection: "column" },
-  frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_H * LOGO_ASPECT, objectFit: "contain" },
+  frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_W, objectFit: "contain", marginTop: 4 },
   frontRule: {
     height: 1.4,
-    width: FRONT_LOGO_H * LOGO_ASPECT,
+    width: FRONT_LOGO_W,
     backgroundColor: BRASS,
-    marginTop: 7,
-    marginBottom: 14,
+    marginTop: 18,
+    marginBottom: 8,
     borderRadius: 1,
   },
-  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", flexGrow: 1 },
-  frontNameCol: { width: FRONT_NAME_COL_W, justifyContent: "flex-end" },
-  name: { fontSize: 12.5, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.2, width: FRONT_NAME_COL_W },
+  frontBottomRow: { flexDirection: "row", justifyContent: "space-between" },
+  frontNameCol: { width: FRONT_NAME_COL_W },
+  name: {
+    fontSize: 11.2,
+    fontFamily: "Helvetica-Bold",
+    color: NAVY,
+    lineHeight: 1.2,
+    width: FRONT_NAME_COL_W,
+    marginTop: 10,
+  },
   title: {
-    fontSize: 7.2,
+    fontSize: 6.5,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
@@ -80,17 +91,17 @@ const styles = StyleSheet.create({
     marginTop: 3,
     width: FRONT_NAME_COL_W,
   },
-  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end", justifyContent: "flex-start" },
-  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 6.8, color: NAVY, lineHeight: 1.65, textAlign: "right" },
+  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end" },
+  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 6.7, color: NAVY, lineHeight: 1.4, textAlign: "right" },
   contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
-  addressBlock: { width: FRONT_CONTACT_COL_W, marginTop: 7 },
-  addressRow: { width: FRONT_CONTACT_COL_W, fontSize: 5.9, color: NAVY, lineHeight: 1.5, textAlign: "right" },
+  addressBlock: { width: FRONT_CONTACT_COL_W, marginTop: 5 },
+  addressRow: { width: FRONT_CONTACT_COL_W, fontSize: 5.4, color: NAVY, lineHeight: 1.35, textAlign: "right" },
   officesLine: {
     width: FRONT_CONTACT_COL_W,
-    fontSize: 6.1,
+    fontSize: 5.6,
     fontFamily: "Helvetica-Oblique",
     color: BRASS,
-    marginTop: 7,
+    marginTop: 5,
     textAlign: "right",
   },
   backContent: {
@@ -99,24 +110,24 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  backLogo: { height: BACK_LOGO_H, width: BACK_LOGO_H * LOGO_ASPECT, objectFit: "contain" },
-  backRule: { width: 70, height: 1.6, backgroundColor: BRASS, marginTop: 10, marginBottom: 10, borderRadius: 1 },
+  backLogo: { height: BACK_LOGO_H, width: BACK_LOGO_W, objectFit: "contain" },
+  backRule: { width: 74, height: 1.6, backgroundColor: BRASS, marginTop: 13, marginBottom: 11, borderRadius: 1 },
   backTagline: {
-    fontSize: 8,
+    fontSize: 8.2,
     fontFamily: "Helvetica-Oblique",
     color: NAVY,
     textAlign: "center",
     maxWidth: 220,
-    lineHeight: 1.45,
+    lineHeight: 1.4,
   },
   backTags: {
-    fontSize: 6.4,
+    fontSize: 6.3,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
     letterSpacing: 0.7,
     textAlign: "center",
-    marginTop: 11,
+    marginTop: 9,
     maxWidth: 230,
     lineHeight: 1.5,
   },

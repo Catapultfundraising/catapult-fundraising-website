@@ -174,18 +174,18 @@ export function BusinessCardGeneratorForm() {
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[26px] w-auto object-contain" />
-              <div className="mt-2 h-[1.5px] w-[102px] rounded-full bg-[#B28C46]" />
-              <div className="mt-3 flex flex-1 items-end justify-between">
-                <div className="max-w-[42%]">
-                  <p className="font-display text-base font-bold leading-tight text-[#15212E]">
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[31px] w-auto object-contain" />
+              <div className="mt-3 h-[1.5px] w-[122px] rounded-full bg-[#B28C46]" />
+              <div className="mt-2 flex flex-1 items-end justify-between">
+                <div className="max-w-[52%] pt-3">
+                  <p className="whitespace-nowrap font-display text-[15px] font-bold leading-tight text-[#15212E]">
                     {fullName || "Your Name"}
                   </p>
-                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-[#B28C46]">
+                  <p className="mt-1 text-[8px] font-bold uppercase tracking-wider text-[#B28C46]">
                     {title || "Your Title"}
                   </p>
                 </div>
-                <div className="flex max-w-[52%] flex-col items-end text-right text-[9px] leading-relaxed text-[#15212E]">
+                <div className="flex max-w-[46%] flex-col items-end text-right text-[8.5px] leading-snug text-[#15212E]">
                   {officePhone && (
                     <p>
                       <span className="font-bold text-[#B28C46]">Office: </span>
@@ -200,9 +200,9 @@ export function BusinessCardGeneratorForm() {
                   )}
                   {email && <p>{email}</p>}
                   <p>catapultfr.com</p>
-                  <p className="mt-1.5 text-[8px]">{OFFICE_ADDRESS_LINE_1}</p>
-                  <p className="text-[8px]">{OFFICE_ADDRESS_LINE_2}</p>
-                  <p className="mt-1.5 text-[8px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
+                  <p className="mt-1.5 text-[7px]">{OFFICE_ADDRESS_LINE_1}</p>
+                  <p className="text-[7px]">{OFFICE_ADDRESS_LINE_2}</p>
+                  <p className="mt-1.5 text-[7px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
                 </div>
               </div>
             </div>
@@ -213,7 +213,7 @@ export function BusinessCardGeneratorForm() {
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[42px] w-auto object-contain" />
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[36px] w-auto object-contain" />
               <div className="mt-2 mb-2 h-[1.5px] w-10 rounded-full bg-[#B28C46]" />
               <p className="max-w-[220px] text-[9px] italic text-[#15212E]">{TAGLINE}</p>
               <p className="mt-2 max-w-[230px] text-[8px] font-bold uppercase tracking-wide text-[#B28C46]">
