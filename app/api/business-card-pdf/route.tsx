@@ -62,7 +62,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
   },
   frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 26, width: CONTENT_W },
-  frontNameCol: { width: FRONT_NAME_COL_W },
+  frontNameCol: { width: FRONT_NAME_COL_W, marginTop: 20 },
   name: { fontSize: 10.7, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.15, width: FRONT_NAME_COL_W },
   title: {
     fontSize: 6.2,
@@ -81,9 +81,9 @@ const styles = StyleSheet.create({
     fontSize: 7.6,
     color: BRASS,
     fontFamily: "Helvetica-Bold",
-    textAlign: "left",
+    textAlign: "right",
   },
-  contactValue: { width: CONTACT_VALUE_W, fontSize: 7.6, color: NAVY, textAlign: "left" },
+  contactValue: { width: CONTACT_VALUE_W, fontSize: 7.6, color: NAVY, textAlign: "right" },
   contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right" },
   contactRowSpaced: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right", marginTop: 5 },
   backContent: {
