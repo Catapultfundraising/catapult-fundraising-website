@@ -6,7 +6,7 @@ import { Users2 } from "lucide-react";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Mid-Level Donor Engagement | Catapult Fundraising",
+  title: "Mid-Level Donor Engagement",
   description:
     "A multi-channel Donor Engagement program that upgrades mid-level donors, deepens retention, and builds a qualified major-gift pipeline.",
   keywords: [
