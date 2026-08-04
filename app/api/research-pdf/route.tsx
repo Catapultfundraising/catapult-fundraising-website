@@ -55,14 +55,18 @@ function metaText(data: any): string {
 const NAVY = "#15212E";
 const NAVY_DEEP = "#0C131C";
 const BRASS = "#B28C46";
+const BRASS_LIGHT = "#CDAA6E";
 const CREAM = "#FFFFFF";
 const INK = "#181B19";
 const MUTED = "#5C5D59";
 const LINE = "#D6CDBA";
-// Print-friendly redesign: white background throughout, navy borders only —
-// no solid navy/tan fills, so the document stays light on both color and
-// black & white printers. ROW_TINT replaces the old tan zebra-stripe color
-// with a barely-there neutral gray instead.
+// Print-friendly redesign: white background throughout the body content, navy
+// borders only — no solid navy/tan fills in the wealth panel, stat boxes, or
+// tables, so the bulk of the document stays light on both color and
+// black & white printers. The hero band, continuation top bar, and footer
+// keep their solid navy brand color (kept by explicit request) since they're
+// a small, consistent strip rather than the whole page. ROW_TINT replaces the
+// old tan zebra-stripe color with a barely-there neutral gray instead.
 const ROW_TINT = "#F3F4F6";
 
 // One "empty line" of breathing room, reused consistently between every
@@ -82,20 +86,18 @@ const styles = StyleSheet.create({
   },
   topBar: {
     flex: 1,
-    backgroundColor: CREAM,
+    backgroundColor: NAVY,
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 40,
-    borderBottomWidth: 1,
-    borderBottomColor: NAVY,
   },
-  topBarContinuedText: { color: NAVY, fontSize: 8.5, fontFamily: "Helvetica-Bold" },
-  topBarText: { color: "rgba(21,33,46,0.65)", fontSize: 7 },
-  topBarConfidential: { color: BRASS, fontSize: 7, fontFamily: "Helvetica-Bold", letterSpacing: 1.5 },
+  topBarContinuedText: { color: CREAM, fontSize: 8.5, fontFamily: "Helvetica-Bold" },
+  topBarText: { color: "rgba(255,255,255,0.65)", fontSize: 7 },
+  topBarConfidential: { color: BRASS_LIGHT, fontSize: 7, fontFamily: "Helvetica-Bold", letterSpacing: 1.5 },
   heroBand: {
     position: "relative",
-    backgroundColor: CREAM,
+    backgroundColor: NAVY_DEEP,
     paddingHorizontal: 40,
     paddingTop: 18,
     paddingBottom: 8,
@@ -105,14 +107,14 @@ const styles = StyleSheet.create({
     alignItems: "flex-start",
     justifyContent: "space-between",
     borderBottomWidth: 2,
-    borderBottomColor: NAVY,
+    borderBottomColor: BRASS,
   },
   heroMetaAbs: { position: "absolute", top: 16, right: 40, width: 230, alignItems: "flex-end" },
   heroLogo: { position: "absolute", top: 16, left: 40, height: 43, width: 180, objectFit: "contain" },
   heroContentCol: { flex: 1, marginTop: 66 },
-  heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS },
-  heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 6, maxWidth: 420 },
-  heroTitleId: { fontSize: 13, fontFamily: "Helvetica", color: BRASS },
+  heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
+  heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: CREAM, marginTop: 6, maxWidth: 420 },
+  heroTitleId: { fontSize: 13, fontFamily: "Helvetica", color: BRASS_LIGHT },
   heroPhoto: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS, objectFit: "cover", marginTop: 48 },
   heroPhotoSmall: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: BRASS, objectFit: "cover", marginTop: 48 },
   heroPhotoPlaceholder: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS, backgroundColor: "rgba(21,33,46,0.05)", marginTop: 48 },
@@ -122,14 +124,12 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: CREAM,
+    backgroundColor: NAVY_DEEP,
     textAlign: "left",
     paddingVertical: 8,
     paddingHorizontal: 40,
-    borderTopWidth: 1,
-    borderTopColor: NAVY,
   },
-  footerText: { fontSize: 6.3, color: "rgba(21,33,46,0.65)", marginBottom: 2 },
+  footerText: { fontSize: 6.3, color: "rgba(255,255,255,0.65)", marginBottom: 2 },
   sectionHeading: { fontSize: 13, color: NAVY, fontFamily: "Helvetica-Bold", marginTop: 16, marginBottom: 7 },
   sectionAccent: { width: 26, height: 3, backgroundColor: BRASS, marginBottom: 5, borderRadius: 1.5 },
   wealthPanel: { backgroundColor: CREAM, borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: NAVY },
