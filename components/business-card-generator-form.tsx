@@ -10,7 +10,7 @@ const FIELD_CLASS =
   "border-[rgb(var(--line))] bg-white text-[rgb(var(--navy))] placeholder:text-[rgb(var(--ink))]/30 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
 
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
+  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
 
 const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
 const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
@@ -170,42 +170,40 @@ export function BusinessCardGeneratorForm() {
           <div className="flex flex-col items-center gap-6">
             {/* Front */}
             <div
-              className="flex w-full max-w-[336px] flex-row items-end justify-between rounded-md border border-[rgb(var(--line))] p-5"
+              className="flex w-full max-w-[336px] flex-col rounded-md border border-[rgb(var(--line))] p-5"
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
-              <div className="flex h-full flex-col justify-between">
-                <div>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={LOGO_URL} alt="Catapult Fundraising" className="h-6 w-auto object-contain" />
-                  <div className="mt-1.5 h-[1.5px] w-9 rounded-full bg-[#B28C46]" />
-                </div>
-                <div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[26px] w-auto object-contain" />
+              <div className="mt-2 h-[1.5px] w-[102px] rounded-full bg-[#B28C46]" />
+              <div className="mt-3 flex flex-1 items-end justify-between">
+                <div className="max-w-[42%]">
                   <p className="font-display text-base font-bold leading-tight text-[#15212E]">
                     {fullName || "Your Name"}
                   </p>
-                  <p className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-[#B28C46]">
+                  <p className="mt-1 text-[9px] font-bold uppercase tracking-wider text-[#B28C46]">
                     {title || "Your Title"}
                   </p>
                 </div>
-              </div>
-              <div className="flex flex-col items-end text-right text-[9px] leading-relaxed text-[#15212E]">
-                {officePhone && (
-                  <p>
-                    <span className="font-bold text-[#B28C46]">Office: </span>
-                    {officePhone}
-                  </p>
-                )}
-                {cellPhone && (
-                  <p>
-                    <span className="font-bold text-[#B28C46]">Cell: </span>
-                    {cellPhone}
-                  </p>
-                )}
-                {email && <p>{email}</p>}
-                <p>catapultfr.com</p>
-                <p className="mt-1.5 text-[8px]">{OFFICE_ADDRESS_LINE_1}</p>
-                <p className="text-[8px]">{OFFICE_ADDRESS_LINE_2}</p>
-                <p className="mt-1.5 text-[8px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
+                <div className="flex max-w-[52%] flex-col items-end text-right text-[9px] leading-relaxed text-[#15212E]">
+                  {officePhone && (
+                    <p>
+                      <span className="font-bold text-[#B28C46]">Office: </span>
+                      {officePhone}
+                    </p>
+                  )}
+                  {cellPhone && (
+                    <p>
+                      <span className="font-bold text-[#B28C46]">Cell: </span>
+                      {cellPhone}
+                    </p>
+                  )}
+                  {email && <p>{email}</p>}
+                  <p>catapultfr.com</p>
+                  <p className="mt-1.5 text-[8px]">{OFFICE_ADDRESS_LINE_1}</p>
+                  <p className="text-[8px]">{OFFICE_ADDRESS_LINE_2}</p>
+                  <p className="mt-1.5 text-[8px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
+                </div>
               </div>
             </div>
 
@@ -215,7 +213,7 @@ export function BusinessCardGeneratorForm() {
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-9 w-auto object-contain" />
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[42px] w-auto object-contain" />
               <div className="mt-2 mb-2 h-[1.5px] w-10 rounded-full bg-[#B28C46]" />
               <p className="max-w-[220px] text-[9px] italic text-[#15212E]">{TAGLINE}</p>
               <p className="mt-2 max-w-[230px] text-[8px] font-bold uppercase tracking-wide text-[#B28C46]">

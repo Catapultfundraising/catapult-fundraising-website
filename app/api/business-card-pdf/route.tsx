@@ -3,12 +3,13 @@ import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/render
 
 export const runtime = "nodejs";
 
-// Full-color Catapult Fundraising logo (navy + brass), the same file used in
-// the site header and email signature on light backgrounds — matches the
-// cream business card background approved by the team.
+// Full-color horizontal Catapult Fundraising lockup (icon + "Catapult" +
+// "FUNDRAISING"), pulled directly from the official logo package rather than
+// the compact square-ish header mark — this is the wide lockup used in the
+// approved business card reference design.
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
-const LOGO_ASPECT = 1536 / 1024;
+  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
+const LOGO_ASPECT = 9225 / 2342;
 
 const NAVY = "#15212E";
 const BRASS = "#B28C46";
@@ -41,8 +42,10 @@ const PAD = BLEED + SAFE; // 18pt inset from the bleed edge to the safe content 
 const CONTENT_W = PAGE_W - PAD * 2; // 234pt
 const CONTENT_H = PAGE_H - PAD * 2; // 126pt
 
-const FRONT_LOGO_H = 22;
-const BACK_LOGO_H = 40;
+const FRONT_LOGO_H = 21;
+const BACK_LOGO_H = 34;
+const FRONT_NAME_COL_W = 100;
+const FRONT_CONTACT_COL_W = 130;
 
 const styles = StyleSheet.create({
   page: {
@@ -55,36 +58,39 @@ const styles = StyleSheet.create({
     paddingRight: PAD,
     fontFamily: "Helvetica",
   },
-  frontContent: {
-    width: CONTENT_W,
-    height: CONTENT_H,
-    flexDirection: "row",
-    justifyContent: "space-between",
-  },
-  frontLeftCol: { width: 78, height: CONTENT_H, justifyContent: "space-between" },
+  frontContent: { width: CONTENT_W, height: CONTENT_H, flexDirection: "column" },
   frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_H * LOGO_ASPECT, objectFit: "contain" },
-  frontRule: { height: 1.4, backgroundColor: BRASS, marginTop: 6, borderRadius: 1 },
-  name: { fontSize: 12.5, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.18, width: 78 },
+  frontRule: {
+    height: 1.4,
+    width: FRONT_LOGO_H * LOGO_ASPECT,
+    backgroundColor: BRASS,
+    marginTop: 7,
+    marginBottom: 14,
+    borderRadius: 1,
+  },
+  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", flexGrow: 1 },
+  frontNameCol: { width: FRONT_NAME_COL_W, justifyContent: "flex-end" },
+  name: { fontSize: 12.5, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.2, width: FRONT_NAME_COL_W },
   title: {
-    fontSize: 7,
+    fontSize: 7.2,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginTop: 2,
-    width: 78,
+    marginTop: 3,
+    width: FRONT_NAME_COL_W,
   },
-  frontRightCol: { width: 156, height: CONTENT_H, alignItems: "flex-end", justifyContent: "flex-end" },
-  contactRow: { width: 156, fontSize: 6.8, color: NAVY, lineHeight: 1.5, textAlign: "right" },
+  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end", justifyContent: "flex-start" },
+  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 6.8, color: NAVY, lineHeight: 1.65, textAlign: "right" },
   contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
-  addressBlock: { width: 156, marginTop: 5 },
-  addressRow: { width: 156, fontSize: 6.1, color: NAVY, lineHeight: 1.45, textAlign: "right" },
+  addressBlock: { width: FRONT_CONTACT_COL_W, marginTop: 7 },
+  addressRow: { width: FRONT_CONTACT_COL_W, fontSize: 5.9, color: NAVY, lineHeight: 1.5, textAlign: "right" },
   officesLine: {
-    width: 156,
-    fontSize: 6.3,
+    width: FRONT_CONTACT_COL_W,
+    fontSize: 6.1,
     fontFamily: "Helvetica-Oblique",
     color: BRASS,
-    marginTop: 5,
+    marginTop: 7,
     textAlign: "right",
   },
   backContent: {
@@ -94,24 +100,25 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backLogo: { height: BACK_LOGO_H, width: BACK_LOGO_H * LOGO_ASPECT, objectFit: "contain" },
-  backRule: { width: 40, height: 1.4, backgroundColor: BRASS, marginTop: 8, marginBottom: 8, borderRadius: 1 },
+  backRule: { width: 70, height: 1.6, backgroundColor: BRASS, marginTop: 10, marginBottom: 10, borderRadius: 1 },
   backTagline: {
-    fontSize: 7.6,
+    fontSize: 8,
     fontFamily: "Helvetica-Oblique",
     color: NAVY,
     textAlign: "center",
     maxWidth: 220,
-    lineHeight: 1.4,
+    lineHeight: 1.45,
   },
   backTags: {
-    fontSize: 6.2,
+    fontSize: 6.4,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
     letterSpacing: 0.7,
     textAlign: "center",
-    marginTop: 9,
+    marginTop: 11,
     maxWidth: 230,
+    lineHeight: 1.5,
   },
 });
 
@@ -129,36 +136,34 @@ function BusinessCardDocument({ data }: { data: CardData }) {
       {/* Front — page 1 */}
       <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
         <View style={styles.frontContent}>
-          <View style={styles.frontLeftCol}>
-            <View>
-              <Image src={LOGO_URL} style={styles.frontLogo} />
-              <View style={[styles.frontRule, { width: FRONT_LOGO_H * LOGO_ASPECT }]} />
-            </View>
-            <View>
+          <Image src={LOGO_URL} style={styles.frontLogo} />
+          <View style={styles.frontRule} />
+          <View style={styles.frontBottomRow}>
+            <View style={styles.frontNameCol}>
               <Text style={styles.name}>{data.fullName || "Your Name"}</Text>
               <Text style={styles.title}>{data.title || "Your Title"}</Text>
             </View>
-          </View>
-          <View style={styles.frontRightCol}>
-            {data.officePhone ? (
-              <Text style={styles.contactRow}>
-                <Text style={styles.contactLabel}>Office: </Text>
-                {data.officePhone}
-              </Text>
-            ) : null}
-            {data.cellPhone ? (
-              <Text style={styles.contactRow}>
-                <Text style={styles.contactLabel}>Cell: </Text>
-                {data.cellPhone}
-              </Text>
-            ) : null}
-            {data.email ? <Text style={styles.contactRow}>{data.email}</Text> : null}
-            <Text style={styles.contactRow}>{WEBSITE}</Text>
-            <View style={styles.addressBlock}>
-              <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_1}</Text>
-              <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_2}</Text>
+            <View style={styles.frontContactCol}>
+              {data.officePhone ? (
+                <Text style={styles.contactRow}>
+                  <Text style={styles.contactLabel}>Office: </Text>
+                  {data.officePhone}
+                </Text>
+              ) : null}
+              {data.cellPhone ? (
+                <Text style={styles.contactRow}>
+                  <Text style={styles.contactLabel}>Cell: </Text>
+                  {data.cellPhone}
+                </Text>
+              ) : null}
+              {data.email ? <Text style={styles.contactRow}>{data.email}</Text> : null}
+              <Text style={styles.contactRow}>{WEBSITE}</Text>
+              <View style={styles.addressBlock}>
+                <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_1}</Text>
+                <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_2}</Text>
+              </View>
+              <Text style={styles.officesLine}>{ADDITIONAL_OFFICES_LINE}</Text>
             </View>
-            <Text style={styles.officesLine}>{ADDITIONAL_OFFICES_LINE}</Text>
           </View>
         </View>
       </Page>
