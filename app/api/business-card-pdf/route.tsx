@@ -14,42 +14,33 @@ const NAVY = "#15212E";
 const BRASS = "#B28C46";
 const PAPER = "#FAF7F0";
 
-// Fixed company info shown on every card, regardless of who generates it.
-const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
-const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
-const ADDITIONAL_OFFICES_LINE = "Additional Offices in New Jersey and Texas";
 const WEBSITE = "catapultfr.com";
 const TAGLINE = "Growing your donor base at every stage of the giving journey.";
 // Requested order: Capital Campaign(s), Legacy Giving, Donor Engagement, Annual Fund.
 const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
 
 // Standard US business card, print-vendor spec: 3.5" x 2" trim size with a
-// 0.125" (1/8") bleed on every side — the industry-standard bleed most print
-// vendors (Vistaprint, GotPrint, local shops, etc.) expect. No crop marks are
-// drawn on purpose: most online print vendors run their own automated
-// preflight/cutting and foreign crop marks in the uploaded file can confuse
-// that process or get flagged. The safe content margin (also 0.125") keeps
-// text clear of the trim line so nothing is at risk of being cut off.
-const IN = 72; // points per inch in a PDF
-const BLEED = 0.125 * IN; // 9pt
-const SAFE = 0.125 * IN; // 9pt safety margin inside the trim line
-const TRIM_W = 3.5 * IN; // 252pt
-const TRIM_H = 2 * IN; // 144pt
-const PAGE_W = TRIM_W + BLEED * 2; // 270pt (3.75")
-const PAGE_H = TRIM_H + BLEED * 2; // 162pt (2.25")
-const PAD = BLEED + SAFE; // 18pt inset from the bleed edge to the safe content area
-const CONTENT_W = PAGE_W - PAD * 2; // 234pt
-const CONTENT_H = PAGE_H - PAD * 2; // 126pt
+// 0.125" (1/8") bleed on every side. No crop marks by design (see prior
+// commits/notes) — most online print vendors run their own preflight.
+const IN = 72;
+const BLEED = 0.125 * IN;
+const SAFE = 0.125 * IN;
+const TRIM_W = 3.5 * IN;
+const TRIM_H = 2 * IN;
+const PAGE_W = TRIM_W + BLEED * 2;
+const PAGE_H = TRIM_H + BLEED * 2;
+const PAD = BLEED + SAFE;
+const CONTENT_W = PAGE_W - PAD * 2;
+const CONTENT_H = PAGE_H - PAD * 2;
 
-// Sizes below were measured directly off the approved reference mockup
-// (which renders at an exact 7.111px/pt scale of the 3.5"x2" trim box) so
-// the logo size, column widths, and vertical rhythm match it closely.
-const FRONT_LOGO_H = 26;
+// Sizes measured directly off the approved reference mockups, which render
+// at an exact 7.111px/pt scale of the 3.5"x2" trim box.
+const FRONT_LOGO_H = 29;
 const BACK_LOGO_H = 30;
 const FRONT_LOGO_W = FRONT_LOGO_H * LOGO_ASPECT;
 const BACK_LOGO_W = BACK_LOGO_H * LOGO_ASPECT;
-const FRONT_NAME_COL_W = 122;
-const FRONT_CONTACT_COL_W = 108;
+const FRONT_NAME_COL_W = 138;
+const FRONT_CONTACT_COL_W = 92;
 
 const styles = StyleSheet.create({
   page: {
@@ -63,27 +54,19 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica",
   },
   frontContent: { width: CONTENT_W, height: CONTENT_H, flexDirection: "column" },
-  frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_W, objectFit: "contain", marginTop: 4 },
+  frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_W, objectFit: "contain" },
   frontRule: {
     height: 1.4,
     width: FRONT_LOGO_W,
     backgroundColor: BRASS,
-    marginTop: 18,
-    marginBottom: 8,
+    marginTop: 21,
     borderRadius: 1,
   },
-  frontBottomRow: { flexDirection: "row", justifyContent: "space-between" },
+  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 16 },
   frontNameCol: { width: FRONT_NAME_COL_W },
-  name: {
-    fontSize: 11.2,
-    fontFamily: "Helvetica-Bold",
-    color: NAVY,
-    lineHeight: 1.2,
-    width: FRONT_NAME_COL_W,
-    marginTop: 10,
-  },
+  name: { fontSize: 10.6, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.15, width: FRONT_NAME_COL_W },
   title: {
-    fontSize: 6.5,
+    fontSize: 6.2,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
@@ -92,18 +75,8 @@ const styles = StyleSheet.create({
     width: FRONT_NAME_COL_W,
   },
   frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end" },
-  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 6.7, color: NAVY, lineHeight: 1.4, textAlign: "right" },
-  contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
-  addressBlock: { width: FRONT_CONTACT_COL_W, marginTop: 5 },
-  addressRow: { width: FRONT_CONTACT_COL_W, fontSize: 5.4, color: NAVY, lineHeight: 1.35, textAlign: "right" },
-  officesLine: {
-    width: FRONT_CONTACT_COL_W,
-    fontSize: 5.6,
-    fontFamily: "Helvetica-Oblique",
-    color: BRASS,
-    marginTop: 5,
-    textAlign: "right",
-  },
+  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right" },
+  contactRowSmall: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right", marginTop: 5 },
   backContent: {
     width: CONTENT_W,
     height: CONTENT_H,
@@ -155,25 +128,10 @@ function BusinessCardDocument({ data }: { data: CardData }) {
               <Text style={styles.title}>{data.title || "Your Title"}</Text>
             </View>
             <View style={styles.frontContactCol}>
-              {data.officePhone ? (
-                <Text style={styles.contactRow}>
-                  <Text style={styles.contactLabel}>Office: </Text>
-                  {data.officePhone}
-                </Text>
-              ) : null}
-              {data.cellPhone ? (
-                <Text style={styles.contactRow}>
-                  <Text style={styles.contactLabel}>Cell: </Text>
-                  {data.cellPhone}
-                </Text>
-              ) : null}
-              {data.email ? <Text style={styles.contactRow}>{data.email}</Text> : null}
-              <Text style={styles.contactRow}>{WEBSITE}</Text>
-              <View style={styles.addressBlock}>
-                <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_1}</Text>
-                <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_2}</Text>
-              </View>
-              <Text style={styles.officesLine}>{ADDITIONAL_OFFICES_LINE}</Text>
+              {data.cellPhone ? <Text style={styles.contactRow}>{data.cellPhone}</Text> : null}
+              {data.officePhone ? <Text style={styles.contactRowSmall}>{data.officePhone}</Text> : null}
+              {data.email ? <Text style={styles.contactRowSmall}>{data.email}</Text> : null}
+              <Text style={styles.contactRowSmall}>{WEBSITE}</Text>
             </View>
           </View>
         </View>

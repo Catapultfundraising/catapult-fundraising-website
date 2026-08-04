@@ -12,9 +12,6 @@ const FIELD_CLASS =
 const LOGO_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
 
-const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
-const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
-const ADDITIONAL_OFFICES_LINE = "Additional Offices in New Jersey and Texas";
 const TAGLINE = "Growing your donor base at every stage of the giving journey.";
 const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
 
@@ -174,35 +171,22 @@ export function BusinessCardGeneratorForm() {
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[31px] w-auto object-contain" />
-              <div className="mt-3 h-[1.5px] w-[122px] rounded-full bg-[#B28C46]" />
-              <div className="mt-2 flex flex-1 items-end justify-between">
-                <div className="max-w-[52%] pt-3">
-                  <p className="whitespace-nowrap font-display text-[15px] font-bold leading-tight text-[#15212E]">
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[34px] w-auto object-contain" />
+              <div className="mt-3 h-[1.5px] w-[136px] rounded-full bg-[#B28C46]" />
+              <div className="mt-2.5 flex flex-1 items-start justify-between">
+                <div className="max-w-[58%]">
+                  <p className="whitespace-nowrap font-display text-[16px] font-bold leading-tight text-[#15212E]">
                     {fullName || "Your Name"}
                   </p>
                   <p className="mt-1 text-[8px] font-bold uppercase tracking-wider text-[#B28C46]">
                     {title || "Your Title"}
                   </p>
                 </div>
-                <div className="flex max-w-[46%] flex-col items-end text-right text-[8.5px] leading-snug text-[#15212E]">
-                  {officePhone && (
-                    <p>
-                      <span className="font-bold text-[#B28C46]">Office: </span>
-                      {officePhone}
-                    </p>
-                  )}
-                  {cellPhone && (
-                    <p>
-                      <span className="font-bold text-[#B28C46]">Cell: </span>
-                      {cellPhone}
-                    </p>
-                  )}
-                  {email && <p>{email}</p>}
-                  <p>catapultfr.com</p>
-                  <p className="mt-1.5 text-[7px]">{OFFICE_ADDRESS_LINE_1}</p>
-                  <p className="text-[7px]">{OFFICE_ADDRESS_LINE_2}</p>
-                  <p className="mt-1.5 text-[7px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
+                <div className="flex max-w-[38%] flex-col items-end text-right text-[9.5px] leading-snug text-[#15212E]">
+                  {cellPhone && <p>{cellPhone}</p>}
+                  {officePhone && <p className="mt-1">{officePhone}</p>}
+                  {email && <p className="mt-1">{email}</p>}
+                  <p className="mt-1">catapultfr.com</p>
                 </div>
               </div>
             </div>
