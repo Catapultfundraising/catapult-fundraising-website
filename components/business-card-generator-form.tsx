@@ -14,6 +14,7 @@ const LOGO_URL =
 
 const TAGLINE = "Growing your donor base at every stage of the giving journey.";
 const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
+const ADDITIONAL_OFFICES_LINE = "Additional Offices: New Jersey & Texas";
 
 export function BusinessCardGeneratorForm() {
   const [fullName, setFullName] = useState("");
@@ -90,7 +91,7 @@ export function BusinessCardGeneratorForm() {
         </div>
         <div className="grid gap-6 sm:grid-cols-2">
           <div className="space-y-2">
-            <Label htmlFor="bcCellPhone">Cell phone (optional)</Label>
+            <Label htmlFor="bcCellPhone">Direct / cell line (D:)</Label>
             <Input
               id="bcCellPhone"
               type="tel"
@@ -101,7 +102,7 @@ export function BusinessCardGeneratorForm() {
             />
           </div>
           <div className="space-y-2">
-            <Label htmlFor="bcOfficePhone">Office phone</Label>
+            <Label htmlFor="bcOfficePhone">Office line (O:)</Label>
             <Input
               id="bcOfficePhone"
               type="tel"
@@ -171,9 +172,9 @@ export function BusinessCardGeneratorForm() {
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[34px] w-auto object-contain" />
-              <div className="mt-3 h-[1.5px] w-[136px] rounded-full bg-[#B28C46]" />
-              <div className="mt-2.5 flex flex-1 items-start justify-between">
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[40px] w-auto object-contain" />
+              <div className="mt-2.5 h-[1.5px] w-[158px] rounded-full bg-[#B28C46]" />
+              <div className="mt-3 flex flex-1 items-start justify-between">
                 <div className="max-w-[58%]">
                   <p className="whitespace-nowrap font-display text-[16px] font-bold leading-tight text-[#15212E]">
                     {fullName || "Your Name"}
@@ -182,9 +183,17 @@ export function BusinessCardGeneratorForm() {
                     {title || "Your Title"}
                   </p>
                 </div>
-                <div className="flex max-w-[38%] flex-col items-end text-right text-[9.5px] leading-snug text-[#15212E]">
-                  {cellPhone && <p>{cellPhone}</p>}
-                  {officePhone && <p className="mt-1">{officePhone}</p>}
+                <div className="mt-3 flex max-w-[38%] flex-col items-end text-right text-[9.5px] leading-snug text-[#15212E]">
+                  {cellPhone && (
+                    <p>
+                      <span className="font-bold text-[#B28C46]">D:</span> {cellPhone}
+                    </p>
+                  )}
+                  {officePhone && (
+                    <p className="mt-1">
+                      <span className="font-bold text-[#B28C46]">O:</span> {officePhone}
+                    </p>
+                  )}
                   {email && <p className="mt-1">{email}</p>}
                   <p className="mt-1">catapultfr.com</p>
                 </div>
@@ -197,12 +206,13 @@ export function BusinessCardGeneratorForm() {
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[36px] w-auto object-contain" />
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[34px] w-auto object-contain" />
               <div className="mt-2 mb-2 h-[1.5px] w-10 rounded-full bg-[#B28C46]" />
               <p className="max-w-[220px] text-[9px] italic text-[#15212E]">{TAGLINE}</p>
-              <p className="mt-2 max-w-[230px] text-[8px] font-bold uppercase tracking-wide text-[#B28C46]">
+              <p className="mt-2 max-w-[230px] text-[7px] font-bold uppercase tracking-wide text-[#B28C46]">
                 {SERVICE_TAGS.join("  ·  ")}
               </p>
+              <p className="mt-2 text-[8px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
             </div>
           </div>
         </div>

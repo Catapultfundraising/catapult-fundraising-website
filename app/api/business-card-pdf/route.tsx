@@ -4,8 +4,7 @@ import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/render
 export const runtime = "nodejs";
 
 // Full-color horizontal Catapult Fundraising lockup (icon + "Catapult" +
-// "FUNDRAISING"), pulled directly from the official logo package — the wide
-// lockup used in the approved business card reference design.
+// "FUNDRAISING"), pulled directly from the official logo package.
 const LOGO_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
 const LOGO_ASPECT = 9225 / 2342;
@@ -16,12 +15,11 @@ const PAPER = "#FAF7F0";
 
 const WEBSITE = "catapultfr.com";
 const TAGLINE = "Growing your donor base at every stage of the giving journey.";
-// Requested order: Capital Campaign(s), Legacy Giving, Donor Engagement, Annual Fund.
 const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
+const ADDITIONAL_OFFICES_LINE = "Additional Offices: New Jersey & Texas";
 
 // Standard US business card, print-vendor spec: 3.5" x 2" trim size with a
-// 0.125" (1/8") bleed on every side. No crop marks by design (see prior
-// commits/notes) — most online print vendors run their own preflight.
+// 0.125" (1/8") bleed on every side.
 const IN = 72;
 const BLEED = 0.125 * IN;
 const SAFE = 0.125 * IN;
@@ -33,10 +31,10 @@ const PAD = BLEED + SAFE;
 const CONTENT_W = PAGE_W - PAD * 2;
 const CONTENT_H = PAGE_H - PAD * 2;
 
-// Sizes measured directly off the approved reference mockups, which render
-// at an exact 7.111px/pt scale of the 3.5"x2" trim box.
-const FRONT_LOGO_H = 29;
-const BACK_LOGO_H = 30;
+// Sizes below match the user-approved mockup exactly (measured directly off
+// the approved reference image at its precise 700px = 252pt scale).
+const FRONT_LOGO_H = 28.2;
+const BACK_LOGO_H = 27.5;
 const FRONT_LOGO_W = FRONT_LOGO_H * LOGO_ASPECT;
 const BACK_LOGO_W = BACK_LOGO_H * LOGO_ASPECT;
 const FRONT_NAME_COL_W = 138;
@@ -56,27 +54,28 @@ const styles = StyleSheet.create({
   frontContent: { width: CONTENT_W, height: CONTENT_H, flexDirection: "column" },
   frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_W, objectFit: "contain" },
   frontRule: {
-    height: 1.4,
+    height: 1.5,
     width: FRONT_LOGO_W,
     backgroundColor: BRASS,
-    marginTop: 21,
+    marginTop: 8.3,
     borderRadius: 1,
   },
-  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 16 },
+  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 14.4 },
   frontNameCol: { width: FRONT_NAME_COL_W },
-  name: { fontSize: 10.6, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.15, width: FRONT_NAME_COL_W },
+  name: { fontSize: 10.7, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.15, width: FRONT_NAME_COL_W },
   title: {
     fontSize: 6.2,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginTop: 3,
+    marginTop: 3.6,
     width: FRONT_NAME_COL_W,
   },
-  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end" },
+  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end", marginTop: 28.2 },
   contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right" },
-  contactRowSmall: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right", marginTop: 5 },
+  contactRowSpaced: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right", marginTop: 5 },
+  contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
   backContent: {
     width: CONTENT_W,
     height: CONTENT_H,
@@ -84,25 +83,33 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backLogo: { height: BACK_LOGO_H, width: BACK_LOGO_W, objectFit: "contain" },
-  backRule: { width: 74, height: 1.6, backgroundColor: BRASS, marginTop: 13, marginBottom: 11, borderRadius: 1 },
+  backRule: { width: 39.3, height: 1.5, backgroundColor: BRASS, marginTop: 8, marginBottom: 8, borderRadius: 1 },
   backTagline: {
-    fontSize: 8.2,
+    fontSize: 8,
     fontFamily: "Helvetica-Oblique",
     color: NAVY,
     textAlign: "center",
     maxWidth: 220,
-    lineHeight: 1.4,
+    lineHeight: 1.3,
   },
   backTags: {
-    fontSize: 6.3,
+    fontSize: 5.4,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
-    letterSpacing: 0.7,
+    letterSpacing: 0.6,
     textAlign: "center",
-    marginTop: 9,
-    maxWidth: 230,
-    lineHeight: 1.5,
+    marginTop: 7,
+    maxWidth: 232,
+    lineHeight: 1.3,
+  },
+  backOfficesLine: {
+    fontSize: 6.4,
+    fontFamily: "Helvetica-Oblique",
+    color: BRASS,
+    textAlign: "center",
+    marginTop: 7,
+    maxWidth: 220,
   },
 });
 
@@ -128,10 +135,20 @@ function BusinessCardDocument({ data }: { data: CardData }) {
               <Text style={styles.title}>{data.title || "Your Title"}</Text>
             </View>
             <View style={styles.frontContactCol}>
-              {data.cellPhone ? <Text style={styles.contactRow}>{data.cellPhone}</Text> : null}
-              {data.officePhone ? <Text style={styles.contactRowSmall}>{data.officePhone}</Text> : null}
-              {data.email ? <Text style={styles.contactRowSmall}>{data.email}</Text> : null}
-              <Text style={styles.contactRowSmall}>{WEBSITE}</Text>
+              {data.cellPhone ? (
+                <Text style={styles.contactRow}>
+                  <Text style={styles.contactLabel}>D: </Text>
+                  {data.cellPhone}
+                </Text>
+              ) : null}
+              {data.officePhone ? (
+                <Text style={styles.contactRowSpaced}>
+                  <Text style={styles.contactLabel}>O: </Text>
+                  {data.officePhone}
+                </Text>
+              ) : null}
+              {data.email ? <Text style={styles.contactRowSpaced}>{data.email}</Text> : null}
+              <Text style={styles.contactRowSpaced}>{WEBSITE}</Text>
             </View>
           </View>
         </View>
@@ -144,6 +161,7 @@ function BusinessCardDocument({ data }: { data: CardData }) {
           <View style={styles.backRule} />
           <Text style={styles.backTagline}>{TAGLINE}</Text>
           <Text style={styles.backTags}>{SERVICE_TAGS.join("   ·   ")}</Text>
+          <Text style={styles.backOfficesLine}>{ADDITIONAL_OFFICES_LINE}</Text>
         </View>
       </Page>
     </Document>
