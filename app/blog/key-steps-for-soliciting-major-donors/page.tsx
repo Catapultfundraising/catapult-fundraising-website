@@ -7,7 +7,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "key-steps-for-soliciting-major-donors";
 
 export const metadata = {
-  title: "Key Steps for Soliciting Major Donors | Catapult Fundraising",
+  title: "Key Steps for Soliciting Major Donors",
   description:
     "Catapult's “four-right rule” for turning long-time supporters into major gift donors: the right person asking the right prospect for the right amount at the right time.",
   keywords: [
