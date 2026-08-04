@@ -6,7 +6,7 @@ import { Landmark } from "lucide-react";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Legacy & Planned Giving Programs | Catapult Fundraising",
+  title: "Legacy & Planned Giving Programs",
   description:
     "Catapult's Legacy Call program uncovers bequests, beneficiary designations, and other deferred gifts from your most loyal donors, the segment most capital campaigns never fully engage.",
   keywords: [
