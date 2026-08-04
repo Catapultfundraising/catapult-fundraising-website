@@ -29,6 +29,8 @@ const FIELD_CLASS =
 const LOGO_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
 
+const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
+const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
 const TAGLINE = "Growing your donor base at every stage of the giving journey.";
 const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
 const ADDITIONAL_OFFICES_LINE = "Additional Offices: New Jersey & Texas";
@@ -189,32 +191,34 @@ export function BusinessCardGeneratorForm() {
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[46px] w-auto self-start object-contain" />
-              <div className="mt-2.5 h-[1.5px] w-[190px] self-start rounded-full bg-[#B28C46]" />
-              <div className="mt-5 flex w-full flex-1 items-start justify-between">
-                <div className="max-w-[58%]">
-                  <p className="whitespace-nowrap font-display text-[16px] font-bold leading-tight text-[#15212E]">
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[52px] w-auto self-start object-contain" />
+              <div className="mt-2 h-[1.5px] w-[214px] self-start rounded-full bg-[#B28C46]" />
+              <div className="mt-4 flex w-full flex-1 items-start justify-between">
+                <div className="mt-3 max-w-[58%]">
+                  <p className="whitespace-nowrap font-display text-[15px] font-bold leading-tight text-[#15212E]">
                     {fullName || "Your Name"}
                   </p>
-                  <p className="mt-1 text-[8px] font-bold uppercase tracking-wider text-[#B28C46]">
+                  <p className="mt-1 text-[7.5px] font-bold uppercase tracking-wider text-[#B28C46]">
                     {title || "Your Title"}
                   </p>
                 </div>
-                <div className="mt-2.5 flex max-w-[42%] flex-col items-end text-[9.5px] leading-snug text-[#15212E]">
+                <div className="flex max-w-[42%] flex-col items-end text-[9px] leading-snug text-[#15212E]">
                   {cellPhone && (
-                    <p className="flex w-full justify-end gap-1">
-                      <span className="w-3 font-bold text-[#B28C46]">D:</span>
-                      <span>{cellPhone}</span>
+                    <p>
+                      <span className="font-bold text-[#B28C46]">D:</span> {cellPhone}
                     </p>
                   )}
                   {officePhone && (
-                    <p className="mt-1 flex w-full justify-end gap-1">
-                      <span className="w-3 font-bold text-[#B28C46]">O:</span>
-                      <span>{officePhone}</span>
+                    <p className="mt-1">
+                      <span className="font-bold text-[#B28C46]">O:</span> {officePhone}
                     </p>
                   )}
                   {email && <p className="mt-1">{email}</p>}
                   <p className="mt-1">catapultfr.com</p>
+                  <div className="mt-1.5 text-[6.5px] leading-snug">
+                    <p>{OFFICE_ADDRESS_LINE_1}</p>
+                    <p>{OFFICE_ADDRESS_LINE_2}</p>
+                  </div>
                 </div>
               </div>
             </div>

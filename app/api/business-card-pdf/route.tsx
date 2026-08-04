@@ -14,6 +14,8 @@ const BRASS = "#B28C46";
 const PAPER = "#FAF7F0";
 
 const WEBSITE = "catapultfr.com";
+const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
+const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
 const TAGLINE = "Growing your donor base at every stage of the giving journey.";
 const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
 const ADDITIONAL_OFFICES_LINE = "Additional Offices: New Jersey & Texas";
@@ -31,14 +33,12 @@ const PAD = BLEED + SAFE;
 const CONTENT_W = PAGE_W - PAD * 2;
 const CONTENT_H = PAGE_H - PAD * 2;
 
-const FRONT_LOGO_H = 32;
+const FRONT_LOGO_H = 36;
 const BACK_LOGO_H = 32;
 const FRONT_LOGO_W = FRONT_LOGO_H * LOGO_ASPECT;
 const BACK_LOGO_W = BACK_LOGO_H * LOGO_ASPECT;
 const FRONT_NAME_COL_W = 138;
 const FRONT_CONTACT_COL_W = 96;
-const CONTACT_LABEL_W = 11;
-const CONTACT_VALUE_W = 85;
 
 const styles = StyleSheet.create({
   page: {
@@ -57,35 +57,41 @@ const styles = StyleSheet.create({
     height: 1.5,
     width: FRONT_LOGO_W,
     backgroundColor: BRASS,
-    marginTop: 8.5,
+    marginTop: 7,
     borderRadius: 1,
     alignSelf: "flex-start",
   },
-  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 26, width: CONTENT_W },
-  frontNameCol: { width: FRONT_NAME_COL_W, marginTop: 20 },
-  name: { fontSize: 10.7, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.15, width: FRONT_NAME_COL_W },
+  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 16, width: CONTENT_W },
+  frontNameCol: { width: FRONT_NAME_COL_W, marginTop: 14 },
+  name: { fontSize: 10.4, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.15, width: FRONT_NAME_COL_W },
   title: {
-    fontSize: 6.2,
+    fontSize: 6,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
     letterSpacing: 0.5,
-    marginTop: 3.6,
+    marginTop: 3,
     width: FRONT_NAME_COL_W,
   },
-  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end", marginTop: 13 },
-  labelRow: { flexDirection: "row", justifyContent: "flex-end", width: FRONT_CONTACT_COL_W },
-  labelRowSpaced: { flexDirection: "row", justifyContent: "flex-end", width: FRONT_CONTACT_COL_W, marginTop: 5 },
-  contactLabel: {
-    width: CONTACT_LABEL_W,
-    fontSize: 7.6,
-    color: BRASS,
-    fontFamily: "Helvetica-Bold",
+  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end" },
+  contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
+  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7.3, color: NAVY, lineHeight: 1.25, textAlign: "right" },
+  contactRowSpaced: {
+    width: FRONT_CONTACT_COL_W,
+    fontSize: 7.3,
+    color: NAVY,
+    lineHeight: 1.25,
+    textAlign: "right",
+    marginTop: 4,
+  },
+  addressBlock: { marginTop: 6 },
+  addressRow: {
+    width: FRONT_CONTACT_COL_W,
+    fontSize: 5.1,
+    color: NAVY,
+    lineHeight: 1.25,
     textAlign: "right",
   },
-  contactValue: { width: CONTACT_VALUE_W, fontSize: 7.6, color: NAVY, textAlign: "right" },
-  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right" },
-  contactRowSpaced: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right", marginTop: 5 },
   backContent: {
     width: CONTENT_W,
     height: CONTENT_H,
@@ -129,15 +135,6 @@ interface CardData {
   email?: string;
 }
 
-function LabeledRow({ label, value, spaced }: { label: string; value: string; spaced?: boolean }) {
-  return (
-    <View style={spaced ? styles.labelRowSpaced : styles.labelRow}>
-      <Text style={styles.contactLabel}>{label}</Text>
-      <Text style={styles.contactValue}>{value}</Text>
-    </View>
-  );
-}
-
 function BusinessCardDocument({ data }: { data: CardData }) {
   return (
     <Document>
@@ -152,10 +149,24 @@ function BusinessCardDocument({ data }: { data: CardData }) {
               <Text style={styles.title}>{data.title || "Your Title"}</Text>
             </View>
             <View style={styles.frontContactCol}>
-              {data.cellPhone ? <LabeledRow label="D:" value={data.cellPhone} /> : null}
-              {data.officePhone ? <LabeledRow label="O:" value={data.officePhone} spaced /> : null}
+              {data.cellPhone ? (
+                <Text style={styles.contactRow}>
+                  <Text style={styles.contactLabel}>D: </Text>
+                  {data.cellPhone}
+                </Text>
+              ) : null}
+              {data.officePhone ? (
+                <Text style={styles.contactRowSpaced}>
+                  <Text style={styles.contactLabel}>O: </Text>
+                  {data.officePhone}
+                </Text>
+              ) : null}
               {data.email ? <Text style={styles.contactRowSpaced}>{data.email}</Text> : null}
               <Text style={styles.contactRowSpaced}>{WEBSITE}</Text>
+              <View style={styles.addressBlock}>
+                <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_1}</Text>
+                <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_2}</Text>
+              </View>
             </View>
           </View>
         </View>
