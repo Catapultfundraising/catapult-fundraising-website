@@ -9,7 +9,7 @@ const SLUG = "the-state-of-fundraising-in-nevada";
 const PDF_URL = "/downloads/the-state-of-fundraising-in-nevada.pdf";
 
 export const metadata = {
-  title: "The State of Fundraising in Nevada | Catapult Fundraising",
+  title: "The State of Fundraising in Nevada",
   description:
     "Nevada ranks 49th out of 50 states in WalletHub's 2025 Most Charitable States study. Here's what the data actually means for capital campaign strategy.",
   keywords: [
