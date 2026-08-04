@@ -9,6 +9,9 @@ const LOGO_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
 const LOGO_ASPECT = 9225 / 2342;
 
+// NAVY is the exact brand blue used site-wide (headlines, nav, buttons on
+// catapultfr.com — see app/globals.css --navy). All body text on the card
+// uses this, never plain black. BRASS (gold) stays for accents throughout.
 const NAVY = "#15212E";
 const BRASS = "#B28C46";
 const PAPER = "#FAF7F0";
@@ -16,9 +19,9 @@ const PAPER = "#FAF7F0";
 const WEBSITE = "catapultfr.com";
 const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
 const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
+const ADDITIONAL_OFFICES_LINE = "Additional Offices: New Jersey & Texas";
 const TAGLINE = "Growing your donor base at every stage of the giving journey.";
 const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
-const ADDITIONAL_OFFICES_LINE = "Additional Offices: New Jersey & Texas";
 
 // Standard US business card, print-vendor spec: 3.5" x 2" trim size with a
 // 0.125" (1/8") bleed on every side.
@@ -33,7 +36,7 @@ const PAD = BLEED + SAFE;
 const CONTENT_W = PAGE_W - PAD * 2;
 const CONTENT_H = PAGE_H - PAD * 2;
 
-const FRONT_LOGO_H = 36;
+const FRONT_LOGO_H = 40;
 const BACK_LOGO_H = 32;
 const FRONT_LOGO_W = FRONT_LOGO_H * LOGO_ASPECT;
 const BACK_LOGO_W = BACK_LOGO_H * LOGO_ASPECT;
@@ -57,40 +60,49 @@ const styles = StyleSheet.create({
     height: 1.5,
     width: FRONT_LOGO_W,
     backgroundColor: BRASS,
-    marginTop: 7,
+    marginTop: 5,
     borderRadius: 1,
     alignSelf: "flex-start",
   },
-  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 16, width: CONTENT_W },
-  frontNameCol: { width: FRONT_NAME_COL_W, marginTop: 14 },
-  name: { fontSize: 10.4, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.15, width: FRONT_NAME_COL_W },
+  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 13, width: CONTENT_W },
+  frontNameCol: { width: FRONT_NAME_COL_W, marginTop: 10 },
+  name: { fontSize: 12, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.1, width: FRONT_NAME_COL_W },
   title: {
-    fontSize: 6,
+    fontSize: 5.8,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
-    letterSpacing: 0.5,
+    letterSpacing: 0.4,
     marginTop: 3,
     width: FRONT_NAME_COL_W,
   },
   frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end" },
   contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
-  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7.3, color: NAVY, lineHeight: 1.25, textAlign: "right" },
+  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7, color: NAVY, lineHeight: 1.2, textAlign: "right" },
   contactRowSpaced: {
     width: FRONT_CONTACT_COL_W,
-    fontSize: 7.3,
+    fontSize: 7,
     color: NAVY,
-    lineHeight: 1.25,
+    lineHeight: 1.2,
     textAlign: "right",
-    marginTop: 4,
+    marginTop: 3.5,
   },
-  addressBlock: { marginTop: 6 },
+  addressBlock: { marginTop: 5 },
   addressRow: {
     width: FRONT_CONTACT_COL_W,
-    fontSize: 5.1,
+    fontSize: 5,
     color: NAVY,
-    lineHeight: 1.25,
+    lineHeight: 1.2,
     textAlign: "right",
+  },
+  officesLine: {
+    width: FRONT_CONTACT_COL_W,
+    fontSize: 5,
+    fontFamily: "Helvetica-Oblique",
+    color: BRASS,
+    lineHeight: 1.2,
+    textAlign: "right",
+    marginTop: 3,
   },
   backContent: {
     width: CONTENT_W,
@@ -99,7 +111,14 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backLogo: { height: BACK_LOGO_H, width: BACK_LOGO_W, objectFit: "contain" },
-  backRule: { width: 42, height: 1.5, backgroundColor: BRASS, marginTop: 8, marginBottom: 8, borderRadius: 1 },
+  backRule: {
+    width: BACK_LOGO_W,
+    height: 1.5,
+    backgroundColor: BRASS,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 1,
+  },
   backTagline: {
     fontSize: 7.2,
     fontFamily: "Helvetica-Oblique",
@@ -113,14 +132,6 @@ const styles = StyleSheet.create({
     color: BRASS,
     textTransform: "uppercase",
     letterSpacing: 0.4,
-    textAlign: "center",
-    marginTop: 7,
-    width: CONTENT_W,
-  },
-  backOfficesLine: {
-    fontSize: 6.4,
-    fontFamily: "Helvetica-Oblique",
-    color: BRASS,
     textAlign: "center",
     marginTop: 7,
     width: CONTENT_W,
@@ -167,6 +178,7 @@ function BusinessCardDocument({ data }: { data: CardData }) {
                 <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_1}</Text>
                 <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_2}</Text>
               </View>
+              <Text style={styles.officesLine}>{ADDITIONAL_OFFICES_LINE}</Text>
             </View>
           </View>
         </View>
@@ -179,7 +191,6 @@ function BusinessCardDocument({ data }: { data: CardData }) {
           <View style={styles.backRule} />
           <Text style={styles.backTagline}>{TAGLINE}</Text>
           <Text style={styles.backTags}>{SERVICE_TAGS.join("  ·  ")}</Text>
-          <Text style={styles.backOfficesLine}>{ADDITIONAL_OFFICES_LINE}</Text>
         </View>
       </Page>
     </Document>
