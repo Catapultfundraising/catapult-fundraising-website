@@ -6,7 +6,7 @@ import { CaseStudyCard } from "@/components/case-study-card";
 import { CASE_STUDIES } from "@/lib/case-studies";
 
 export const metadata = {
-  title: "Insights | Catapult Fundraising",
+  title: "Insights",
   description:
     "Articles and case studies on capital campaigns, telefundraising, and donor engagement from the Catapult Fundraising team.",
   alternates: { canonical: "/insights" },
