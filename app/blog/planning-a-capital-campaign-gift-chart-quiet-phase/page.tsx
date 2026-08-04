@@ -7,7 +7,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "planning-a-capital-campaign-gift-chart-quiet-phase";
 
 export const metadata = {
-  title: "Planning a Capital Campaign: The Gift Chart and Quiet Phase | Catapult Fundraising",
+  title: "Planning a Capital Campaign: The Gift Chart and Quiet Phase",
   description:
     "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign, Catapult Fundraising's field-tested framework.",
   keywords: [
