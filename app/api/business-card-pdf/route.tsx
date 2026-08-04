@@ -31,14 +31,14 @@ const PAD = BLEED + SAFE;
 const CONTENT_W = PAGE_W - PAD * 2;
 const CONTENT_H = PAGE_H - PAD * 2;
 
-// Sizes below match the user-approved mockup exactly (measured directly off
-// the approved reference image at its precise 700px = 252pt scale).
-const FRONT_LOGO_H = 28.2;
-const BACK_LOGO_H = 27.5;
+const FRONT_LOGO_H = 32;
+const BACK_LOGO_H = 32;
 const FRONT_LOGO_W = FRONT_LOGO_H * LOGO_ASPECT;
 const BACK_LOGO_W = BACK_LOGO_H * LOGO_ASPECT;
 const FRONT_NAME_COL_W = 138;
-const FRONT_CONTACT_COL_W = 92;
+const FRONT_CONTACT_COL_W = 96;
+const CONTACT_LABEL_W = 11;
+const CONTACT_VALUE_W = 85;
 
 const styles = StyleSheet.create({
   page: {
@@ -51,16 +51,17 @@ const styles = StyleSheet.create({
     paddingRight: PAD,
     fontFamily: "Helvetica",
   },
-  frontContent: { width: CONTENT_W, height: CONTENT_H, flexDirection: "column" },
-  frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_W, objectFit: "contain" },
+  frontContent: { width: CONTENT_W, height: CONTENT_H, flexDirection: "column", alignItems: "flex-start" },
+  frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_W, objectFit: "contain", alignSelf: "flex-start" },
   frontRule: {
     height: 1.5,
     width: FRONT_LOGO_W,
     backgroundColor: BRASS,
-    marginTop: 8.3,
+    marginTop: 8.5,
     borderRadius: 1,
+    alignSelf: "flex-start",
   },
-  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 14.4 },
+  frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 26, width: CONTENT_W },
   frontNameCol: { width: FRONT_NAME_COL_W },
   name: { fontSize: 10.7, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.15, width: FRONT_NAME_COL_W },
   title: {
@@ -72,10 +73,19 @@ const styles = StyleSheet.create({
     marginTop: 3.6,
     width: FRONT_NAME_COL_W,
   },
-  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end", marginTop: 28.2 },
+  frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end", marginTop: 13 },
+  labelRow: { flexDirection: "row", justifyContent: "flex-end", width: FRONT_CONTACT_COL_W },
+  labelRowSpaced: { flexDirection: "row", justifyContent: "flex-end", width: FRONT_CONTACT_COL_W, marginTop: 5 },
+  contactLabel: {
+    width: CONTACT_LABEL_W,
+    fontSize: 7.6,
+    color: BRASS,
+    fontFamily: "Helvetica-Bold",
+    textAlign: "left",
+  },
+  contactValue: { width: CONTACT_VALUE_W, fontSize: 7.6, color: NAVY, textAlign: "left" },
   contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right" },
   contactRowSpaced: { width: FRONT_CONTACT_COL_W, fontSize: 7.6, color: NAVY, lineHeight: 1.3, textAlign: "right", marginTop: 5 },
-  contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
   backContent: {
     width: CONTENT_W,
     height: CONTENT_H,
@@ -83,25 +93,23 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   backLogo: { height: BACK_LOGO_H, width: BACK_LOGO_W, objectFit: "contain" },
-  backRule: { width: 39.3, height: 1.5, backgroundColor: BRASS, marginTop: 8, marginBottom: 8, borderRadius: 1 },
+  backRule: { width: 42, height: 1.5, backgroundColor: BRASS, marginTop: 8, marginBottom: 8, borderRadius: 1 },
   backTagline: {
-    fontSize: 8,
+    fontSize: 7.2,
     fontFamily: "Helvetica-Oblique",
     color: NAVY,
     textAlign: "center",
-    maxWidth: 220,
-    lineHeight: 1.3,
+    width: CONTENT_W,
   },
   backTags: {
-    fontSize: 5.4,
+    fontSize: 5.1,
     fontFamily: "Helvetica-Bold",
     color: BRASS,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
+    letterSpacing: 0.4,
     textAlign: "center",
     marginTop: 7,
-    maxWidth: 232,
-    lineHeight: 1.3,
+    width: CONTENT_W,
   },
   backOfficesLine: {
     fontSize: 6.4,
@@ -109,7 +117,7 @@ const styles = StyleSheet.create({
     color: BRASS,
     textAlign: "center",
     marginTop: 7,
-    maxWidth: 220,
+    width: CONTENT_W,
   },
 });
 
@@ -119,6 +127,15 @@ interface CardData {
   cellPhone?: string;
   officePhone?: string;
   email?: string;
+}
+
+function LabeledRow({ label, value, spaced }: { label: string; value: string; spaced?: boolean }) {
+  return (
+    <View style={spaced ? styles.labelRowSpaced : styles.labelRow}>
+      <Text style={styles.contactLabel}>{label}</Text>
+      <Text style={styles.contactValue}>{value}</Text>
+    </View>
+  );
 }
 
 function BusinessCardDocument({ data }: { data: CardData }) {
@@ -135,18 +152,8 @@ function BusinessCardDocument({ data }: { data: CardData }) {
               <Text style={styles.title}>{data.title || "Your Title"}</Text>
             </View>
             <View style={styles.frontContactCol}>
-              {data.cellPhone ? (
-                <Text style={styles.contactRow}>
-                  <Text style={styles.contactLabel}>D: </Text>
-                  {data.cellPhone}
-                </Text>
-              ) : null}
-              {data.officePhone ? (
-                <Text style={styles.contactRowSpaced}>
-                  <Text style={styles.contactLabel}>O: </Text>
-                  {data.officePhone}
-                </Text>
-              ) : null}
+              {data.cellPhone ? <LabeledRow label="D:" value={data.cellPhone} /> : null}
+              {data.officePhone ? <LabeledRow label="O:" value={data.officePhone} spaced /> : null}
               {data.email ? <Text style={styles.contactRowSpaced}>{data.email}</Text> : null}
               <Text style={styles.contactRowSpaced}>{WEBSITE}</Text>
             </View>
@@ -160,7 +167,7 @@ function BusinessCardDocument({ data }: { data: CardData }) {
           <Image src={LOGO_URL} style={styles.backLogo} />
           <View style={styles.backRule} />
           <Text style={styles.backTagline}>{TAGLINE}</Text>
-          <Text style={styles.backTags}>{SERVICE_TAGS.join("   ·   ")}</Text>
+          <Text style={styles.backTags}>{SERVICE_TAGS.join("  ·  ")}</Text>
           <Text style={styles.backOfficesLine}>{ADDITIONAL_OFFICES_LINE}</Text>
         </View>
       </Page>

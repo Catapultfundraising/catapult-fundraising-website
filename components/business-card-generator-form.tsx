@@ -6,6 +6,23 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Download, Loader2 } from "lucide-react";
 
+function formatPhoneNumber(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 10);
+  const len = digits.length;
+  if (len === 0) return "";
+  if (len < 4) return `(${digits}`;
+  if (len < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
+  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
+}
+
+function toTitleCase(value: string): string {
+  return value.replace(/\w\S*/g, (word) => {
+    // Preserve common all-caps abbreviations (CEO, CFO, VP, etc.) if already typed that way
+    if (word.length <= 4 && word === word.toUpperCase() && /[A-Z]/.test(word)) return word;
+    return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+  });
+}
+
 const FIELD_CLASS =
   "border-[rgb(var(--line))] bg-white text-[rgb(var(--navy))] placeholder:text-[rgb(var(--ink))]/30 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
 
@@ -83,7 +100,7 @@ export function BusinessCardGeneratorForm() {
             <Input
               id="bcTitle"
               value={title}
-              onChange={(e) => setTitle(e.target.value)}
+              onChange={(e) => setTitle(toTitleCase(e.target.value))}
               placeholder="President & CEO"
               className={FIELD_CLASS}
             />
@@ -96,7 +113,7 @@ export function BusinessCardGeneratorForm() {
               id="bcCellPhone"
               type="tel"
               value={cellPhone}
-              onChange={(e) => setCellPhone(e.target.value)}
+              onChange={(e) => setCellPhone(formatPhoneNumber(e.target.value))}
               placeholder="(973) 809-7100"
               className={FIELD_CLASS}
             />
@@ -107,7 +124,7 @@ export function BusinessCardGeneratorForm() {
               id="bcOfficePhone"
               type="tel"
               value={officePhone}
-              onChange={(e) => setOfficePhone(e.target.value)}
+              onChange={(e) => setOfficePhone(formatPhoneNumber(e.target.value))}
               placeholder="(702) 508-0101"
               className={FIELD_CLASS}
             />
@@ -168,13 +185,13 @@ export function BusinessCardGeneratorForm() {
           <div className="flex flex-col items-center gap-6">
             {/* Front */}
             <div
-              className="flex w-full max-w-[336px] flex-col rounded-md border border-[rgb(var(--line))] p-5"
+              className="flex w-full max-w-[336px] flex-col items-start rounded-md border border-[rgb(var(--line))] p-5"
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[40px] w-auto object-contain" />
-              <div className="mt-2.5 h-[1.5px] w-[158px] rounded-full bg-[#B28C46]" />
-              <div className="mt-3 flex flex-1 items-start justify-between">
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[46px] w-auto self-start object-contain" />
+              <div className="mt-2.5 h-[1.5px] w-[190px] self-start rounded-full bg-[#B28C46]" />
+              <div className="mt-5 flex w-full flex-1 items-start justify-between">
                 <div className="max-w-[58%]">
                   <p className="whitespace-nowrap font-display text-[16px] font-bold leading-tight text-[#15212E]">
                     {fullName || "Your Name"}
@@ -183,15 +200,17 @@ export function BusinessCardGeneratorForm() {
                     {title || "Your Title"}
                   </p>
                 </div>
-                <div className="mt-3 flex max-w-[38%] flex-col items-end text-right text-[9.5px] leading-snug text-[#15212E]">
+                <div className="mt-2.5 flex max-w-[42%] flex-col items-end text-[9.5px] leading-snug text-[#15212E]">
                   {cellPhone && (
-                    <p>
-                      <span className="font-bold text-[#B28C46]">D:</span> {cellPhone}
+                    <p className="flex w-full justify-end gap-1">
+                      <span className="w-3 font-bold text-[#B28C46]">D:</span>
+                      <span>{cellPhone}</span>
                     </p>
                   )}
                   {officePhone && (
-                    <p className="mt-1">
-                      <span className="font-bold text-[#B28C46]">O:</span> {officePhone}
+                    <p className="mt-1 flex w-full justify-end gap-1">
+                      <span className="w-3 font-bold text-[#B28C46]">O:</span>
+                      <span>{officePhone}</span>
                     </p>
                   )}
                   {email && <p className="mt-1">{email}</p>}
@@ -206,10 +225,10 @@ export function BusinessCardGeneratorForm() {
               style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[34px] w-auto object-contain" />
-              <div className="mt-2 mb-2 h-[1.5px] w-10 rounded-full bg-[#B28C46]" />
-              <p className="max-w-[220px] text-[9px] italic text-[#15212E]">{TAGLINE}</p>
-              <p className="mt-2 max-w-[230px] text-[7px] font-bold uppercase tracking-wide text-[#B28C46]">
+              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[42px] w-auto object-contain" />
+              <div className="mt-2 mb-2 h-[1.5px] w-11 rounded-full bg-[#B28C46]" />
+              <p className="w-full whitespace-nowrap text-[8.3px] italic text-[#15212E]">{TAGLINE}</p>
+              <p className="mt-2 w-full whitespace-nowrap text-[6px] font-bold uppercase tracking-wide text-[#B28C46]">
                 {SERVICE_TAGS.join("  ·  ")}
               </p>
               <p className="mt-2 text-[8px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
