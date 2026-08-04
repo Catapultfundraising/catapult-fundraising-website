@@ -10,7 +10,13 @@ const FIELD_CLASS =
   "border-[rgb(var(--line))] bg-white text-[rgb(var(--navy))] placeholder:text-[rgb(var(--ink))]/30 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
 
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.png";
+  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
+
+const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
+const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
+const ADDITIONAL_OFFICES_LINE = "Additional Offices in New Jersey and Texas";
+const TAGLINE = "Growing your donor base at every stage of the giving journey.";
+const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
 
 export function BusinessCardGeneratorForm() {
   const [fullName, setFullName] = useState("");
@@ -18,7 +24,6 @@ export function BusinessCardGeneratorForm() {
   const [cellPhone, setCellPhone] = useState("");
   const [officePhone, setOfficePhone] = useState("(702) 508-0101");
   const [email, setEmail] = useState("");
-  const [tagline, setTagline] = useState("Growing your donor base at every stage of the giving journey.");
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
@@ -33,7 +38,7 @@ export function BusinessCardGeneratorForm() {
       const res = await fetch("/api/business-card-pdf", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fullName, title, cellPhone, officePhone, email, tagline }),
+        body: JSON.stringify({ fullName, title, cellPhone, officePhone, email }),
       });
       if (!res.ok) {
         const errBody = await res.json().catch(() => ({}));
@@ -59,7 +64,8 @@ export function BusinessCardGeneratorForm() {
           <p className="mt-2 text-sm leading-relaxed text-[rgb(var(--ink))]/65">
             Fill in your information and download a print-vendor-ready PDF&mdash;front and back, sized to
             the standard 3.5&Prime; &times; 2&Prime; business card with 0.125&Prime; bleed on every side.
-            Send the PDF straight to your printer.
+            Send the PDF straight to your printer. The back of the card is fixed brand artwork and is the
+            same for everyone.
           </p>
         </div>
 
@@ -70,7 +76,7 @@ export function BusinessCardGeneratorForm() {
               id="bcFullName"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              placeholder="Jane Smith"
+              placeholder="Anthony R. Alonso"
               className={FIELD_CLASS}
             />
           </div>
@@ -80,7 +86,7 @@ export function BusinessCardGeneratorForm() {
               id="bcTitle"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
-              placeholder="Engagement Officer"
+              placeholder="President & CEO"
               className={FIELD_CLASS}
             />
           </div>
@@ -93,7 +99,7 @@ export function BusinessCardGeneratorForm() {
               type="tel"
               value={cellPhone}
               onChange={(e) => setCellPhone(e.target.value)}
-              placeholder="(702) 555-0100"
+              placeholder="(973) 809-7100"
               className={FIELD_CLASS}
             />
           </div>
@@ -116,16 +122,7 @@ export function BusinessCardGeneratorForm() {
             type="email"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            placeholder="jane@catapultfr.com"
-            className={FIELD_CLASS}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="bcTagline">Back-of-card tagline (optional)</Label>
-          <Input
-            id="bcTagline"
-            value={tagline}
-            onChange={(e) => setTagline(e.target.value)}
+            placeholder="anthonya@catapultfr.com"
             className={FIELD_CLASS}
           />
         </div>
@@ -173,49 +170,57 @@ export function BusinessCardGeneratorForm() {
           <div className="flex flex-col items-center gap-6">
             {/* Front */}
             <div
-              className="flex w-full max-w-[336px] flex-col justify-start rounded-md p-5"
-              style={{ aspectRatio: "3.5 / 2", backgroundColor: "#0C131C" }}
+              className="flex w-full max-w-[336px] flex-row items-end justify-between rounded-md border border-[rgb(var(--line))] p-5"
+              style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={LOGO_URL} alt="Catapult Fundraising" className="h-5 w-auto object-contain" />
-              <p className="mt-2 font-display text-lg leading-tight text-white">{fullName || "Your Name"}</p>
-              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-[#CDAA6E]">
-                {title || "Your Title"}
-              </p>
-              <div className="mt-2 mb-2 h-[2px] w-8 rounded-full bg-[#B28C46]" />
-              <div className="space-y-0.5 text-[10px] leading-relaxed text-white/85">
-                {cellPhone && (
-                  <p>
-                    <span className="font-bold text-[#CDAA6E]">Cell: </span>
-                    {cellPhone}
+              <div className="flex h-full flex-col justify-between">
+                <div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={LOGO_URL} alt="Catapult Fundraising" className="h-6 w-auto object-contain" />
+                  <div className="mt-1.5 h-[1.5px] w-9 rounded-full bg-[#B28C46]" />
+                </div>
+                <div>
+                  <p className="font-display text-base font-bold leading-tight text-[#15212E]">
+                    {fullName || "Your Name"}
                   </p>
-                )}
+                  <p className="mt-0.5 text-[9px] font-bold uppercase tracking-wider text-[#B28C46]">
+                    {title || "Your Title"}
+                  </p>
+                </div>
+              </div>
+              <div className="flex flex-col items-end text-right text-[9px] leading-relaxed text-[#15212E]">
                 {officePhone && (
                   <p>
-                    <span className="font-bold text-[#CDAA6E]">Office: </span>
+                    <span className="font-bold text-[#B28C46]">Office: </span>
                     {officePhone}
                   </p>
                 )}
-                {email && (
+                {cellPhone && (
                   <p>
-                    <span className="font-bold text-[#CDAA6E]">Email: </span>
-                    {email}
+                    <span className="font-bold text-[#B28C46]">Cell: </span>
+                    {cellPhone}
                   </p>
                 )}
+                {email && <p>{email}</p>}
+                <p>catapultfr.com</p>
+                <p className="mt-1.5 text-[8px]">{OFFICE_ADDRESS_LINE_1}</p>
+                <p className="text-[8px]">{OFFICE_ADDRESS_LINE_2}</p>
+                <p className="mt-1.5 text-[8px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
               </div>
             </div>
 
-            {/* Back */}
+            {/* Back — fixed brand design */}
             <div
-              className="flex w-full max-w-[336px] flex-col items-center justify-center rounded-md p-5 text-center"
-              style={{ aspectRatio: "3.5 / 2", backgroundColor: "#0C131C" }}
+              className="flex w-full max-w-[336px] flex-col items-center justify-center rounded-md border border-[rgb(var(--line))] p-5 text-center"
+              style={{ aspectRatio: "3.5 / 2", backgroundColor: "#FAF7F0" }}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={LOGO_URL} alt="Catapult Fundraising" className="h-9 w-auto object-contain" />
-              {tagline && (
-                <p className="mt-2.5 max-w-[220px] text-[10px] italic text-[#CDAA6E]">{tagline}</p>
-              )}
-              <p className="mt-2 text-[10px] font-bold tracking-wide text-white">catapultfr.com</p>
+              <div className="mt-2 mb-2 h-[1.5px] w-10 rounded-full bg-[#B28C46]" />
+              <p className="max-w-[220px] text-[9px] italic text-[#15212E]">{TAGLINE}</p>
+              <p className="mt-2 max-w-[230px] text-[8px] font-bold uppercase tracking-wide text-[#B28C46]">
+                {SERVICE_TAGS.join("  ·  ")}
+              </p>
             </div>
           </div>
         </div>

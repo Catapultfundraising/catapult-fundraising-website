@@ -3,16 +3,25 @@ import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/render
 
 export const runtime = "nodejs";
 
-// Light/white Catapult Fundraising logo variant — same one used on the navy
-// hero band of the Prospect Intelligence Profile PDF and the site's navy
-// footer, so it reads cleanly against the card's navy background.
+// Full-color Catapult Fundraising logo (navy + brass), the same file used in
+// the site header and email signature on light backgrounds — matches the
+// cream business card background approved by the team.
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.png";
+  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
+const LOGO_ASPECT = 1536 / 1024;
 
-const NAVY_DEEP = "#0C131C";
+const NAVY = "#15212E";
 const BRASS = "#B28C46";
-const BRASS_LIGHT = "#CDAA6E";
-const CREAM = "#FFFFFF";
+const PAPER = "#FAF7F0";
+
+// Fixed company info shown on every card, regardless of who generates it.
+const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
+const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
+const ADDITIONAL_OFFICES_LINE = "Additional Offices in New Jersey and Texas";
+const WEBSITE = "catapultfr.com";
+const TAGLINE = "Growing your donor base at every stage of the giving journey.";
+// Requested order: Capital Campaign(s), Legacy Giving, Donor Engagement, Annual Fund.
+const SERVICE_TAGS = ["CAPITAL CAMPAIGNS", "LEGACY GIVING", "DONOR ENGAGEMENT", "ANNUAL FUND"];
 
 // Standard US business card, print-vendor spec: 3.5" x 2" trim size with a
 // 0.125" (1/8") bleed on every side — the industry-standard bleed most print
@@ -29,12 +38,17 @@ const TRIM_H = 2 * IN; // 144pt
 const PAGE_W = TRIM_W + BLEED * 2; // 270pt (3.75")
 const PAGE_H = TRIM_H + BLEED * 2; // 162pt (2.25")
 const PAD = BLEED + SAFE; // 18pt inset from the bleed edge to the safe content area
+const CONTENT_W = PAGE_W - PAD * 2; // 234pt
+const CONTENT_H = PAGE_H - PAD * 2; // 126pt
+
+const FRONT_LOGO_H = 22;
+const BACK_LOGO_H = 40;
 
 const styles = StyleSheet.create({
   page: {
     width: PAGE_W,
     height: PAGE_H,
-    backgroundColor: NAVY_DEEP,
+    backgroundColor: PAPER,
     paddingTop: PAD,
     paddingBottom: PAD,
     paddingLeft: PAD,
@@ -42,45 +56,62 @@ const styles = StyleSheet.create({
     fontFamily: "Helvetica",
   },
   frontContent: {
-    width: PAGE_W - PAD * 2,
-    height: PAGE_H - PAD * 2,
-    flexDirection: "column",
+    width: CONTENT_W,
+    height: CONTENT_H,
+    flexDirection: "row",
+    justifyContent: "space-between",
   },
-  logo: { height: 20, width: 92, objectFit: "contain" },
-  name: { fontSize: 15, fontFamily: "Helvetica-Bold", color: CREAM, marginTop: 8, lineHeight: 1.15 },
+  frontLeftCol: { width: 78, height: CONTENT_H, justifyContent: "space-between" },
+  frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_H * LOGO_ASPECT, objectFit: "contain" },
+  frontRule: { height: 1.4, backgroundColor: BRASS, marginTop: 6, borderRadius: 1 },
+  name: { fontSize: 12.5, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.18, width: 78 },
   title: {
-    fontSize: 8,
+    fontSize: 7,
     fontFamily: "Helvetica-Bold",
-    color: BRASS_LIGHT,
+    color: BRASS,
     textTransform: "uppercase",
-    letterSpacing: 0.6,
+    letterSpacing: 0.5,
     marginTop: 2,
+    width: 78,
   },
-  rule: { width: 30, height: 1.5, backgroundColor: BRASS, marginTop: 7, marginBottom: 7, borderRadius: 1 },
-  contactRow: { fontSize: 7.4, color: "rgba(255,255,255,0.88)", lineHeight: 1.55 },
-  contactLabel: { color: BRASS_LIGHT, fontFamily: "Helvetica-Bold" },
+  frontRightCol: { width: 156, height: CONTENT_H, alignItems: "flex-end", justifyContent: "flex-end" },
+  contactRow: { width: 156, fontSize: 6.8, color: NAVY, lineHeight: 1.5, textAlign: "right" },
+  contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
+  addressBlock: { width: 156, marginTop: 5 },
+  addressRow: { width: 156, fontSize: 6.1, color: NAVY, lineHeight: 1.45, textAlign: "right" },
+  officesLine: {
+    width: 156,
+    fontSize: 6.3,
+    fontFamily: "Helvetica-Oblique",
+    color: BRASS,
+    marginTop: 5,
+    textAlign: "right",
+  },
   backContent: {
-    width: PAGE_W - PAD * 2,
-    height: PAGE_H - PAD * 2,
+    width: CONTENT_W,
+    height: CONTENT_H,
     alignItems: "center",
     justifyContent: "center",
   },
-  backLogo: { height: 34, width: 156, objectFit: "contain" },
+  backLogo: { height: BACK_LOGO_H, width: BACK_LOGO_H * LOGO_ASPECT, objectFit: "contain" },
+  backRule: { width: 40, height: 1.4, backgroundColor: BRASS, marginTop: 8, marginBottom: 8, borderRadius: 1 },
   backTagline: {
-    fontSize: 8,
+    fontSize: 7.6,
     fontFamily: "Helvetica-Oblique",
-    color: BRASS_LIGHT,
+    color: NAVY,
     textAlign: "center",
-    marginTop: 10,
-    maxWidth: 210,
+    maxWidth: 220,
     lineHeight: 1.4,
   },
-  backWebsite: {
-    fontSize: 8,
+  backTags: {
+    fontSize: 6.2,
     fontFamily: "Helvetica-Bold",
-    color: CREAM,
-    letterSpacing: 0.5,
+    color: BRASS,
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+    textAlign: "center",
     marginTop: 9,
+    maxWidth: 230,
   },
 });
 
@@ -90,39 +121,55 @@ interface CardData {
   cellPhone?: string;
   officePhone?: string;
   email?: string;
-  tagline?: string;
 }
 
 function BusinessCardDocument({ data }: { data: CardData }) {
-  const rows: Array<{ label: string; value: string }> = [];
-  if (data.cellPhone) rows.push({ label: "Cell", value: data.cellPhone });
-  if (data.officePhone) rows.push({ label: "Office", value: data.officePhone });
-  if (data.email) rows.push({ label: "Email", value: data.email });
-
   return (
     <Document>
       {/* Front — page 1 */}
       <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
         <View style={styles.frontContent}>
-          <Image src={LOGO_URL} style={styles.logo} />
-          <Text style={styles.name}>{data.fullName || "Your Name"}</Text>
-          <Text style={styles.title}>{data.title || "Your Title"}</Text>
-          <View style={styles.rule} />
-          {rows.map((row) => (
-            <Text style={styles.contactRow} key={row.label}>
-              <Text style={styles.contactLabel}>{row.label}: </Text>
-              {row.value}
-            </Text>
-          ))}
+          <View style={styles.frontLeftCol}>
+            <View>
+              <Image src={LOGO_URL} style={styles.frontLogo} />
+              <View style={[styles.frontRule, { width: FRONT_LOGO_H * LOGO_ASPECT }]} />
+            </View>
+            <View>
+              <Text style={styles.name}>{data.fullName || "Your Name"}</Text>
+              <Text style={styles.title}>{data.title || "Your Title"}</Text>
+            </View>
+          </View>
+          <View style={styles.frontRightCol}>
+            {data.officePhone ? (
+              <Text style={styles.contactRow}>
+                <Text style={styles.contactLabel}>Office: </Text>
+                {data.officePhone}
+              </Text>
+            ) : null}
+            {data.cellPhone ? (
+              <Text style={styles.contactRow}>
+                <Text style={styles.contactLabel}>Cell: </Text>
+                {data.cellPhone}
+              </Text>
+            ) : null}
+            {data.email ? <Text style={styles.contactRow}>{data.email}</Text> : null}
+            <Text style={styles.contactRow}>{WEBSITE}</Text>
+            <View style={styles.addressBlock}>
+              <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_1}</Text>
+              <Text style={styles.addressRow}>{OFFICE_ADDRESS_LINE_2}</Text>
+            </View>
+            <Text style={styles.officesLine}>{ADDITIONAL_OFFICES_LINE}</Text>
+          </View>
         </View>
       </Page>
 
-      {/* Back — page 2 */}
+      {/* Back — page 2 (fixed brand content, same on every card) */}
       <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
         <View style={styles.backContent}>
           <Image src={LOGO_URL} style={styles.backLogo} />
-          {data.tagline ? <Text style={styles.backTagline}>{data.tagline}</Text> : null}
-          <Text style={styles.backWebsite}>catapultfr.com</Text>
+          <View style={styles.backRule} />
+          <Text style={styles.backTagline}>{TAGLINE}</Text>
+          <Text style={styles.backTags}>{SERVICE_TAGS.join("   ·   ")}</Text>
         </View>
       </Page>
     </Document>
