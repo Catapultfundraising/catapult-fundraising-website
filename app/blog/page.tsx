@@ -5,7 +5,7 @@ import { CtaBand } from "@/components/cta-band";
 import { ArrowRight } from "lucide-react";
 
 export const metadata = {
-  title: "Fundraising Insights & Best Practices | Catapult Fundraising",
+  title: "Fundraising Insights & Best Practices",
   description:
     "Practical guidance on capital campaigns, major gift asks, legacy giving, multicultural fundraising, and multi-channel donor engagement, plus how Catapult Fundraising compares to other nonprofit fundraising consultants.",
   keywords: [

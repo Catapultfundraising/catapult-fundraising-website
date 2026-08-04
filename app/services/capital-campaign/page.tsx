@@ -6,7 +6,7 @@ import { ClipboardList } from "lucide-react";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Capital Campaign Counsel | Catapult Fundraising",
+  title: "Capital Campaign Counsel",
   description:
     "Feasibility studies, campaign planning, quiet-phase major gift strategy, and public-phase calling, with one accountable partner from start to finish.",
   keywords: [

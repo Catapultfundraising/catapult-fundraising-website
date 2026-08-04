@@ -7,7 +7,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "how-to-effectively-use-the-phone-today";
 
 export const metadata = {
-  title: "How to Effectively Use the Phone Today | Catapult Fundraising",
+  title: "How to Effectively Use the Phone Today",
   description:
     "Anthony R. Alonso on why telefundraising is far from dead, and the two-step, personalized method that lifts gift sizes 25 to 30 percent.",
   keywords: [

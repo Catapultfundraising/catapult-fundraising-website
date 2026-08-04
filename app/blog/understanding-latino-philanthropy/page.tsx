@@ -7,7 +7,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "understanding-latino-philanthropy";
 
 export const metadata = {
-  title: "Understanding Latino Philanthropy: Lessons for Nonprofit Fundraisers | Catapult Fundraising",
+  title: "Understanding Latino Philanthropy: Lessons for Nonprofit Fundraisers",
   description:
     "Anthony Alonso on why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates with family, community, and tradition.",
   keywords: [

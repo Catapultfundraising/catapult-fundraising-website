@@ -6,7 +6,7 @@ import { PhoneCall } from "lucide-react";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Annual Fund Calling Services (AF Connect) | Catapult Fundraising",
+  title: "Annual Fund Calling Services (AF Connect)",
   description:
     "High-end annual fund calling that treats every donor like a major gift prospect, with segmented outreach, personalized ask amounts, and digital stewardship included.",
   keywords: [

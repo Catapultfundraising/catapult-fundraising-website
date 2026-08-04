@@ -7,7 +7,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "multi-channel-fundraising-are-you-missing-the-mark";
 
 export const metadata = {
-  title: "Multi-Channel Fundraising — Are You Missing the Mark? | Catapult Fundraising",
+  title: "Multi-Channel Fundraising — Are You Missing the Mark?",
   description:
     "Anthony Alonso on why digital fundraising alone can't upgrade donors or build a major gift pipeline, and the segmentation, storytelling, and calling strategy that can.",
   keywords: [

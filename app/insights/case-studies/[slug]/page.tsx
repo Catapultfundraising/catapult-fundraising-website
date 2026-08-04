@@ -19,7 +19,7 @@ export async function generateMetadata({
   const cs = getCaseStudyBySlug(slug);
   if (!cs) return {};
   return {
-    title: `${cs.title} | Insights | Catapult Fundraising`,
+    title: `${cs.title} | Insights`,
     description: cs.summary,
     alternates: { canonical: `/insights/case-studies/${cs.slug}` },
   };
