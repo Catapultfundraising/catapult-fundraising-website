@@ -6,7 +6,7 @@ import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/l
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Contact | Catapult Fundraising",
+  title: "Contact",
   description:
     "Start a conversation about capital campaign counsel, annual fund calling, mid-level donor engagement, or legacy giving with Catapult Fundraising.",
   keywords: [
