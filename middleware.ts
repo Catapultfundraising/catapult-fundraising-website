@@ -18,6 +18,17 @@ const GATES = [
     secretEnv: "JAG_DASHBOARD_AUTH_SECRET",
   },
   {
+    // Same gate as /jag-dashboard: the printable PDF summary contains the
+    // same private interview data, so it needs the same cookie check rather
+    // than being reachable directly by anyone who guesses the URL.
+    matchPrefix: "/api/jag-summary-pdf",
+    loginPath: "/jag-dashboard/login",
+    apiPath: "/api/jag-login",
+    cookieName: "catapult_jag_auth",
+    passwordEnv: "JAG_DASHBOARD_PASSWORD",
+    secretEnv: "JAG_DASHBOARD_AUTH_SECRET",
+  },
+  {
     matchPrefix: "/research",
     loginPath: "/research/login",
     apiPath: "/api/research-login",
@@ -69,6 +80,7 @@ export const config = {
     "/assets/:path*",
     "/jag-dashboard",
     "/jag-dashboard/:path*",
+    "/api/jag-summary-pdf",
     "/research",
     "/research/:path*",
   ],
