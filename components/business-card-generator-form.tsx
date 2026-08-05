@@ -219,7 +219,7 @@ export function BusinessCardGeneratorForm() {
                     <p>{OFFICE_ADDRESS_LINE_1}</p>
                     <p>{OFFICE_ADDRESS_LINE_2}</p>
                   </div>
-                  <p className="mt-1 text-[6px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
+                  <p className="mt-1 font-display text-[6px] italic text-[#B28C46]">{ADDITIONAL_OFFICES_LINE}</p>
                 </div>
               </div>
             </div>
@@ -232,7 +232,7 @@ export function BusinessCardGeneratorForm() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[42px] w-auto object-contain" />
               <div className="mt-2 mb-2 h-[1.5px] w-[168px] rounded-full bg-[#B28C46]" />
-              <p className="w-full whitespace-nowrap text-[8.3px] italic text-[#15212E]">{TAGLINE}</p>
+              <p className="w-full whitespace-nowrap font-display text-[8.3px] italic text-[#15212E]">{TAGLINE}</p>
               <p className="mt-2 w-full whitespace-nowrap text-[6px] font-bold uppercase tracking-wide text-[#B28C46]">
                 {SERVICE_TAGS.join("  ·  ")}
               </p>

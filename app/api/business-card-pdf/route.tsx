@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Document, Page, View, Text, Image, StyleSheet } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 
 export const runtime = "nodejs";
 
@@ -8,6 +8,37 @@ export const runtime = "nodejs";
 const LOGO_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
 const LOGO_ASPECT = 9225 / 2342;
+
+// The site's two brand typefaces (see app/globals.css): Fraunces for
+// headings/display moments, Manrope for everything else. These are static
+// weight instances cut from the same variable font files Google serves for
+// the website, so the letterforms match exactly.
+Font.register({
+  family: "Fraunces",
+  fonts: [
+    {
+      src: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/cc2d6b8f-0c3e-4698-9c68-b5d415be1099.ttf",
+      fontWeight: 700,
+    },
+    {
+      src: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/db212b4c-d637-4eff-8bba-60ffe9621fc2.ttf",
+      fontStyle: "italic",
+    },
+  ],
+});
+Font.register({
+  family: "Manrope",
+  fonts: [
+    {
+      src: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/35abe087-db6f-4eaf-9cc4-71431c314986.ttf",
+      fontWeight: 400,
+    },
+    {
+      src: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ff98cee2-dc89-4bf9-a134-1308b5b6cbce.ttf",
+      fontWeight: 700,
+    },
+  ],
+});
 
 // NAVY is the exact brand blue used site-wide (headlines, nav, buttons on
 // catapultfr.com — see app/globals.css --navy). All body text on the card
@@ -52,7 +83,7 @@ const styles = StyleSheet.create({
     paddingBottom: PAD,
     paddingLeft: PAD,
     paddingRight: PAD,
-    fontFamily: "Helvetica",
+    fontFamily: "Manrope",
   },
   frontContent: { width: CONTENT_W, height: CONTENT_H, flexDirection: "column", alignItems: "flex-start" },
   frontLogo: { height: FRONT_LOGO_H, width: FRONT_LOGO_W, objectFit: "contain", alignSelf: "flex-start" },
@@ -66,10 +97,11 @@ const styles = StyleSheet.create({
   },
   frontBottomRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 13, width: CONTENT_W },
   frontNameCol: { width: FRONT_NAME_COL_W, marginTop: 10 },
-  name: { fontSize: 12, fontFamily: "Helvetica-Bold", color: NAVY, lineHeight: 1.1, width: FRONT_NAME_COL_W },
+  name: { fontSize: 12, fontFamily: "Fraunces", fontWeight: 700, color: NAVY, lineHeight: 1.1, width: FRONT_NAME_COL_W },
   title: {
     fontSize: 5.8,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Manrope",
+    fontWeight: 700,
     color: BRASS,
     textTransform: "uppercase",
     letterSpacing: 0.4,
@@ -77,11 +109,21 @@ const styles = StyleSheet.create({
     width: FRONT_NAME_COL_W,
   },
   frontContactCol: { width: FRONT_CONTACT_COL_W, alignItems: "flex-end" },
-  contactLabel: { color: BRASS, fontFamily: "Helvetica-Bold" },
-  contactRow: { width: FRONT_CONTACT_COL_W, fontSize: 7, color: NAVY, lineHeight: 1.2, textAlign: "right" },
+  contactLabel: { color: BRASS, fontFamily: "Manrope", fontWeight: 700 },
+  contactRow: {
+    width: FRONT_CONTACT_COL_W,
+    fontSize: 7,
+    fontFamily: "Manrope",
+    fontWeight: 400,
+    color: NAVY,
+    lineHeight: 1.2,
+    textAlign: "right",
+  },
   contactRowSpaced: {
     width: FRONT_CONTACT_COL_W,
     fontSize: 7,
+    fontFamily: "Manrope",
+    fontWeight: 400,
     color: NAVY,
     lineHeight: 1.2,
     textAlign: "right",
@@ -91,6 +133,8 @@ const styles = StyleSheet.create({
   addressRow: {
     width: FRONT_CONTACT_COL_W,
     fontSize: 5,
+    fontFamily: "Manrope",
+    fontWeight: 400,
     color: NAVY,
     lineHeight: 1.2,
     textAlign: "right",
@@ -98,7 +142,8 @@ const styles = StyleSheet.create({
   officesLine: {
     width: FRONT_CONTACT_COL_W,
     fontSize: 5,
-    fontFamily: "Helvetica-Oblique",
+    fontFamily: "Fraunces",
+    fontStyle: "italic",
     color: BRASS,
     lineHeight: 1.2,
     textAlign: "right",
@@ -121,14 +166,16 @@ const styles = StyleSheet.create({
   },
   backTagline: {
     fontSize: 7.2,
-    fontFamily: "Helvetica-Oblique",
+    fontFamily: "Fraunces",
+    fontStyle: "italic",
     color: NAVY,
     textAlign: "center",
     width: CONTENT_W,
   },
   backTags: {
     fontSize: 5.1,
-    fontFamily: "Helvetica-Bold",
+    fontFamily: "Manrope",
+    fontWeight: 700,
     color: BRASS,
     textTransform: "uppercase",
     letterSpacing: 0.4,
