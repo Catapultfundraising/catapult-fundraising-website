@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 // Reuses the exact brand assets (logo + fonts) already registered for the
 // printable business card, so this PDF looks and feels identical to every
@@ -39,7 +40,7 @@ Font.register({
 
 const NAVY = "#15212E";
 const BRASS = "#B28C46";
-const PAPER = "#FAF7F0";
+const PAPER = "#FFFFFF"; // print deliverable uses a plain white page, per client request
 const LINE = "#D6CDBA";
 
 const REPORT_DATE = "August 5, 2026";
@@ -128,6 +129,36 @@ const FEASIBILITY_SIGNALS = [
     detail: "11 Yes, another 6 said Maybe",
   },
 ];
+
+// ---- Interview quotes ----
+// Source: JAG-Feasibility-Study_Survey_Results_080326.xlsx, verbatim (lightly
+// trimmed for length) comments from completed interview surveys. A random
+// subset is selected on every PDF generation so repeat downloads surface
+// different voices from the study.
+const QUOTES: { text: string; name: string }[] = [
+  { text: "I believe JAG has a very good reputation among those who know about the organization and understand the work it does in the community.", name: "Jay Bloom" },
+  { text: "I believe JAG has a very good reputation because it consistently delivers measurable results for students who are most at risk of not graduating.", name: "Tray Abney" },
+  { text: "I feel JAG is a wonderful organization, is well respected, and has a positive reputation.", name: "Ann Silver" },
+  { text: "JAG aligns closely with what motivates me because it prepares young people for successful careers while helping them overcome challenges that could prevent them from reaching their goals.", name: "Alletha Muzorewa" },
+  { text: "JAG aligns with my passion for public education, helping young people develop meaningful life skills, and creating opportunities for students who may otherwise struggle to find their path.", name: "Chris Giunchigliani" },
+  { text: "It aligns completely — I feel a strong sense of ownership and can clearly see the direct impact and immense return on investment it brings to youth.", name: "Dennis Perea" },
+  { text: "That alignment is one of the reasons I serve on the board. I believe in the organization's mission, leadership, and ability to produce results.", name: "Tracy Brown-May" },
+  { text: "JAG is very valuable and needed in Las Vegas. I see the dropout rates improving and feel JAG is doing a very good job.", name: "Catherine Bellver" },
+  { text: "I have seen firsthand the instructors' enthusiasm and passion, and it is very inspirational.", name: "Greg Moore" },
+  { text: "From what I've seen, JAG gets really good results for those that need another outlet and need a chance.", name: "David Foster" },
+  { text: "JAG's focus on youth and its commitment to preparing students for quality employment strongly align with my values.", name: "Joselyn Cousins" },
+  { text: "JAG aligns closely with our organization's priorities because it focuses on education and workforce development.", name: "Angel Williams" },
+];
+
+function pickRandomQuotes(count: number) {
+  const pool = [...QUOTES];
+  const picked: typeof QUOTES = [];
+  while (picked.length < count && pool.length > 0) {
+    const i = Math.floor(Math.random() * pool.length);
+    picked.push(pool.splice(i, 1)[0]);
+  }
+  return picked;
+}
 
 const MISSION_THEMES = [
   { label: "Workforce development", pct: "73%" },
@@ -220,6 +251,28 @@ const styles = StyleSheet.create({
   },
   themeText: { fontSize: 8, fontFamily: "Manrope", fontWeight: 700, color: NAVY },
   themePct: { fontSize: 8, fontFamily: "Manrope", fontWeight: 700, color: BRASS, marginLeft: 4 },
+  quoteCard: {
+    borderLeftWidth: 2.5,
+    borderLeftColor: BRASS,
+    paddingLeft: 14,
+    marginBottom: 16,
+  },
+  quoteText: {
+    fontSize: 12,
+    fontFamily: "Fraunces",
+    fontStyle: "italic",
+    color: NAVY,
+    lineHeight: 1.4,
+  },
+  quoteName: {
+    fontSize: 8.5,
+    fontFamily: "Manrope",
+    fontWeight: 700,
+    color: BRASS,
+    marginTop: 8,
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
   table: { marginTop: 4 },
   tHeadRow: { flexDirection: "row", backgroundColor: BRASS },
   tRow: { flexDirection: "row", borderBottomWidth: 0.75, borderBottomColor: LINE },
@@ -259,6 +312,7 @@ function Footer({ page }: { page: string }) {
 
 export async function GET() {
   const { renderToBuffer } = await import("@react-pdf/renderer");
+  const quotes = pickRandomQuotes(3);
 
   const doc = (
     <Document>
@@ -304,6 +358,23 @@ export async function GET() {
           </View>
         ))}
 
+        <Footer page="Page 1 of 3" />
+      </Page>
+
+      {/* Page 2 — In their own words + mission themes */}
+      <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
+        <Header />
+        <Text style={styles.sectionTitle}>In Their Own Words</Text>
+        <Text style={{ fontSize: 8, color: NAVY, opacity: 0.6, marginTop: -4, marginBottom: 14 }}>
+          A random sample of comments from completed feasibility study interviews
+        </Text>
+        {quotes.map((q) => (
+          <View key={q.name} style={styles.quoteCard}>
+            <Text style={styles.quoteText}>&ldquo;{q.text}&rdquo;</Text>
+            <Text style={styles.quoteName}>— {q.name}</Text>
+          </View>
+        ))}
+
         <Text style={[styles.sectionTitle, { marginTop: 10 }]}>Mission Themes That Resonate Most</Text>
         <View style={styles.themeRow}>
           {MISSION_THEMES.map((m) => (
@@ -314,10 +385,10 @@ export async function GET() {
           ))}
         </View>
 
-        <Footer page="Page 1 of 2" />
+        <Footer page="Page 2 of 3" />
       </Page>
 
-      {/* Page 2 — Completed interviews */}
+      {/* Page 3 — Completed interviews */}
       <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
         <Header />
         <Text style={styles.sectionTitle}>Completed Interviews ({COMPLETED_INTERVIEWS.length})</Text>
@@ -335,7 +406,7 @@ export async function GET() {
             </View>
           ))}
         </View>
-        <Footer page="Page 2 of 2" />
+        <Footer page="Page 3 of 3" />
       </Page>
     </Document>
   );
