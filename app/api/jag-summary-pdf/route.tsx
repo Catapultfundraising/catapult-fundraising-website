@@ -98,6 +98,45 @@ const COMPLETED_INTERVIEWS = [
   { name: "Jane'e Murphy", org: "Al Davis Eddie Robinson Leadership Academy", date: "8/4/2026" },
 ];
 
+// Source: JAG Nevada Weekly Interview Status Report, 8/5/2026, "To Be Rescheduled" (page 5).
+const TO_BE_RESCHEDULED = [
+  { name: "Becky Harris", org: "" },
+  { name: "Cinthia Moore", org: "" },
+  { name: "Nora Perez", org: "Enterprise Financial Serv Corp" },
+  { name: "Nick Rowe", org: "Bank of America" },
+  { name: "Brook Sweeting", org: "United Federal Credit Union" },
+];
+
+// Source: JAG Nevada Weekly Interview Status Report, 8/5/2026, "Declined to Interview" (page 6).
+const DECLINED = [
+  { name: "Elizabeth Day", org: "", reason: "Not Interested" },
+  { name: "Michael Dermody", org: "Dermody Properties", reason: "Not Interested" },
+  { name: "Eaton Dunkelberger", org: "Community Foundation NN", reason: "Does not do study interviews" },
+  { name: "EL Cord Foundation", org: "EL Cord Foundation", reason: "Does not do study interviews" },
+  { name: "Matt Engle", org: "Insurance Office of America", reason: "Too Busy" },
+  { name: "Caesar Fonte", org: "", reason: "No longer lives in Las Vegas" },
+  { name: "Nicole Freestone", org: "", reason: "Too Busy" },
+  { name: "Steven Hussain", org: "Prologis", reason: "Recommended another person in his office" },
+  { name: "Gary Kantor", org: "", reason: "Personal Issues" },
+  { name: "Gary Klein", org: "LPL Financial", reason: "Too Busy, but likes what JAG does" },
+  { name: "Mike Kramer", org: "", reason: "Too Busy" },
+  { name: "Tim Kuptz", org: "", reason: "Too Busy" },
+  { name: "Charles Litt", org: "", reason: "Not Interested" },
+  { name: "Dawn Mack", org: "Cyrus and Michael Tang Foundation", reason: "Out of Country" },
+  { name: "Erica Mosca", org: "", reason: "Too Busy" },
+  { name: "Melanie Narish", org: "", reason: "Too Busy" },
+  { name: "Lori Nelson", org: "", reason: "Too Busy" },
+  { name: "John Shepherd", org: "", reason: "Not Interested" },
+  { name: "Don Snyder", org: "United Way of Southern Nevada", reason: "Out of Town" },
+  { name: "Nathan Thomas", org: "Empire Cat", reason: "Not Interested" },
+  { name: "Gerry Tomac", org: "", reason: "Not Interested" },
+  { name: "LaWanda Torres", org: "", reason: "No longer interested" },
+  { name: "George Wallace", org: "", reason: "Not Interested" },
+];
+
+// Source: JAG Nevada Weekly Interview Status Report, 8/5/2026, "Deceased" (page 7).
+const DECEASED = [{ name: "Robert Mendenhall", reason: "Passed Away" }];
+
 // ---- Feasibility study signals ----
 // Source: JAG-Feasibility-Study_Survey_Results_080326.xlsx, 26 completed
 // interview surveys analyzed as of 8/3/2026. Percentages computed from the
@@ -132,27 +171,29 @@ const FEASIBILITY_SIGNALS = [
 
 // ---- Interview quotes ----
 // Source: JAG-Feasibility-Study_Survey_Results_080326.xlsx, verbatim (lightly
-// trimmed for length) comments from completed interview surveys. A random
-// subset is selected on every PDF generation so repeat downloads surface
-// different voices from the study.
-const QUOTES: { text: string; name: string }[] = [
-  { text: "I believe JAG has a very good reputation among those who know about the organization and understand the work it does in the community.", name: "Jay Bloom" },
-  { text: "I believe JAG has a very good reputation because it consistently delivers measurable results for students who are most at risk of not graduating.", name: "Tray Abney" },
-  { text: "I feel JAG is a wonderful organization, is well respected, and has a positive reputation.", name: "Ann Silver" },
-  { text: "JAG aligns closely with what motivates me because it prepares young people for successful careers while helping them overcome challenges that could prevent them from reaching their goals.", name: "Alletha Muzorewa" },
-  { text: "JAG aligns with my passion for public education, helping young people develop meaningful life skills, and creating opportunities for students who may otherwise struggle to find their path.", name: "Chris Giunchigliani" },
-  { text: "It aligns completely — I feel a strong sense of ownership and can clearly see the direct impact and immense return on investment it brings to youth.", name: "Dennis Perea" },
-  { text: "That alignment is one of the reasons I serve on the board. I believe in the organization's mission, leadership, and ability to produce results.", name: "Tracy Brown-May" },
-  { text: "JAG is very valuable and needed in Las Vegas. I see the dropout rates improving and feel JAG is doing a very good job.", name: "Catherine Bellver" },
-  { text: "I have seen firsthand the instructors' enthusiasm and passion, and it is very inspirational.", name: "Greg Moore" },
-  { text: "From what I've seen, JAG gets really good results for those that need another outlet and need a chance.", name: "David Foster" },
-  { text: "JAG's focus on youth and its commitment to preparing students for quality employment strongly align with my values.", name: "Joselyn Cousins" },
-  { text: "JAG aligns closely with our organization's priorities because it focuses on education and workforce development.", name: "Angel Williams" },
+// trimmed for length) comments from completed interview surveys. This is a
+// confidential assessment study, so quotes are intentionally NOT attributed
+// to any respondent by name — no name field is stored or rendered anywhere
+// near the quote text. A random subset is selected on every PDF generation
+// so repeat downloads surface different voices from the study.
+const QUOTES: string[] = [
+  "I believe JAG has a very good reputation among those who know about the organization and understand the work it does in the community.",
+  "I believe JAG has a very good reputation because it consistently delivers measurable results for students who are most at risk of not graduating.",
+  "I feel JAG is a wonderful organization, is well respected, and has a positive reputation.",
+  "JAG aligns closely with what motivates me because it prepares young people for successful careers while helping them overcome challenges that could prevent them from reaching their goals.",
+  "JAG aligns with my passion for public education, helping young people develop meaningful life skills, and creating opportunities for students who may otherwise struggle to find their path.",
+  "It aligns completely — I feel a strong sense of ownership and can clearly see the direct impact and immense return on investment it brings to youth.",
+  "That alignment is one of the reasons I serve on the board. I believe in the organization's mission, leadership, and ability to produce results.",
+  "JAG is very valuable and needed in Las Vegas. I see the dropout rates improving and feel JAG is doing a very good job.",
+  "I have seen firsthand the instructors' enthusiasm and passion, and it is very inspirational.",
+  "From what I've seen, JAG gets really good results for those that need another outlet and need a chance.",
+  "JAG's focus on youth and its commitment to preparing students for quality employment strongly align with my values.",
+  "JAG aligns closely with our organization's priorities because it focuses on education and workforce development.",
 ];
 
 function pickRandomQuotes(count: number) {
   const pool = [...QUOTES];
-  const picked: typeof QUOTES = [];
+  const picked: string[] = [];
   while (picked.length < count && pool.length > 0) {
     const i = Math.floor(Math.random() * pool.length);
     picked.push(pool.splice(i, 1)[0]);
@@ -264,15 +305,6 @@ const styles = StyleSheet.create({
     color: NAVY,
     lineHeight: 1.4,
   },
-  quoteName: {
-    fontSize: 8.5,
-    fontFamily: "Manrope",
-    fontWeight: 700,
-    color: BRASS,
-    marginTop: 8,
-    textTransform: "uppercase",
-    letterSpacing: 0.5,
-  },
   table: { marginTop: 4 },
   tHeadRow: { flexDirection: "row", backgroundColor: BRASS },
   tRow: { flexDirection: "row", borderBottomWidth: 0.75, borderBottomColor: LINE },
@@ -282,6 +314,9 @@ const styles = StyleSheet.create({
   colName: { width: CONTENT_W * 0.28 },
   colOrg: { width: CONTENT_W * 0.52 },
   colDate: { width: CONTENT_W * 0.2 },
+  colName2: { width: CONTENT_W * 0.22 },
+  colOrg2: { width: CONTENT_W * 0.36 },
+  colReason: { width: CONTENT_W * 0.42 },
   footer: {
     position: "absolute",
     bottom: 20,
@@ -296,7 +331,7 @@ const styles = StyleSheet.create({
 
 function Header() {
   return (
-    <View>
+    <View fixed>
       <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
         <Image src={LOGO_URL} style={styles.logo} />
         <Text style={{ fontSize: 8.5, color: NAVY, opacity: 0.55 }}>Prepared by Catapult Fundraising</Text>
@@ -307,7 +342,11 @@ function Header() {
 }
 
 function Footer({ page }: { page: string }) {
-  return <Text style={styles.footer}>{CLIENT_NAME} · Donor Assessment Study · {REPORT_DATE} · {page}</Text>;
+  return (
+    <Text style={styles.footer} fixed>
+      {CLIENT_NAME} · Donor Assessment Study · {REPORT_DATE} · {page}
+    </Text>
+  );
 }
 
 export async function GET() {
@@ -358,7 +397,7 @@ export async function GET() {
           </View>
         ))}
 
-        <Footer page="Page 1 of 3" />
+        <Footer page="Page 1 of 4" />
       </Page>
 
       {/* Page 2 — In their own words + mission themes */}
@@ -369,9 +408,8 @@ export async function GET() {
           A random sample of comments from completed feasibility study interviews
         </Text>
         {quotes.map((q) => (
-          <View key={q.name} style={styles.quoteCard}>
-            <Text style={styles.quoteText}>&ldquo;{q.text}&rdquo;</Text>
-            <Text style={styles.quoteName}>— {q.name}</Text>
+          <View key={q} style={styles.quoteCard}>
+            <Text style={styles.quoteText}>&ldquo;{q}&rdquo;</Text>
           </View>
         ))}
 
@@ -385,7 +423,7 @@ export async function GET() {
           ))}
         </View>
 
-        <Footer page="Page 2 of 3" />
+        <Footer page="Page 2 of 4" />
       </Page>
 
       {/* Page 3 — Completed interviews */}
@@ -406,7 +444,57 @@ export async function GET() {
             </View>
           ))}
         </View>
-        <Footer page="Page 3 of 3" />
+        <Footer page="Page 3 of 4" />
+      </Page>
+
+      {/* Page 4 — To be rescheduled, declined, and deceased */}
+      <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
+        <Header />
+        <Text style={styles.sectionTitle}>To Be Rescheduled ({TO_BE_RESCHEDULED.length})</Text>
+        <View style={styles.table}>
+          <View style={styles.tHeadRow}>
+            <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
+            <Text style={[styles.tCellHead, { width: CONTENT_W * 0.72 }]}>Organization</Text>
+          </View>
+          {TO_BE_RESCHEDULED.map((row, i) => (
+            <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow}>
+              <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
+              <Text style={[styles.tCell, { width: CONTENT_W * 0.72 }]}>{row.org || "—"}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={[styles.sectionTitle, { marginTop: 14 }]}>Declined to Interview ({DECLINED.length})</Text>
+        <View style={styles.table}>
+          <View style={styles.tHeadRow}>
+            <Text style={[styles.tCellHead, styles.colName2]}>Name</Text>
+            <Text style={[styles.tCellHead, styles.colOrg2]}>Organization</Text>
+            <Text style={[styles.tCellHead, styles.colReason]}>Reason</Text>
+          </View>
+          {DECLINED.map((row, i) => (
+            <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow}>
+              <Text style={[styles.tCell, styles.colName2]}>{row.name}</Text>
+              <Text style={[styles.tCell, styles.colOrg2]}>{row.org || "—"}</Text>
+              <Text style={[styles.tCell, styles.colReason]}>{row.reason}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Text style={[styles.sectionTitle, { marginTop: 14 }]}>Deceased ({DECEASED.length})</Text>
+        <View style={styles.table}>
+          <View style={styles.tHeadRow}>
+            <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
+            <Text style={[styles.tCellHead, { width: CONTENT_W * 0.72 }]}>Reason</Text>
+          </View>
+          {DECEASED.map((row, i) => (
+            <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow}>
+              <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
+              <Text style={[styles.tCell, { width: CONTENT_W * 0.72 }]}>{row.reason}</Text>
+            </View>
+          ))}
+        </View>
+
+        <Footer page="Page 4 of 4" />
       </Page>
     </Document>
   );

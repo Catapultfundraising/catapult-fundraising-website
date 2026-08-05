@@ -27,25 +27,27 @@ const SNAPSHOT_STATS = [
 // ---- Interview quotes ----
 // Source: JAG-Feasibility-Study_Survey_Results_080326.xlsx, verbatim
 // (lightly trimmed for length) comments from completed interview surveys.
-// A random subset is shown on every page load.
-const QUOTES: { text: string; name: string }[] = [
-  { text: "I believe JAG has a very good reputation among those who know about the organization and understand the work it does in the community.", name: "Jay Bloom" },
-  { text: "I believe JAG has a very good reputation because it consistently delivers measurable results for students who are most at risk of not graduating.", name: "Tray Abney" },
-  { text: "I feel JAG is a wonderful organization, is well respected, and has a positive reputation.", name: "Ann Silver" },
-  { text: "JAG aligns closely with what motivates me because it prepares young people for successful careers while helping them overcome challenges that could prevent them from reaching their goals.", name: "Alletha Muzorewa" },
-  { text: "JAG aligns with my passion for public education, helping young people develop meaningful life skills, and creating opportunities for students who may otherwise struggle to find their path.", name: "Chris Giunchigliani" },
-  { text: "It aligns completely — I feel a strong sense of ownership and can clearly see the direct impact and immense return on investment it brings to youth.", name: "Dennis Perea" },
-  { text: "That alignment is one of the reasons I serve on the board. I believe in the organization's mission, leadership, and ability to produce results.", name: "Tracy Brown-May" },
-  { text: "JAG is very valuable and needed in Las Vegas. I see the dropout rates improving and feel JAG is doing a very good job.", name: "Catherine Bellver" },
-  { text: "I have seen firsthand the instructors' enthusiasm and passion, and it is very inspirational.", name: "Greg Moore" },
-  { text: "From what I've seen, JAG gets really good results for those that need another outlet and need a chance.", name: "David Foster" },
-  { text: "JAG's focus on youth and its commitment to preparing students for quality employment strongly align with my values.", name: "Joselyn Cousins" },
-  { text: "JAG aligns closely with our organization's priorities because it focuses on education and workforce development.", name: "Angel Williams" },
+// This is a confidential assessment study, so quotes are intentionally NOT
+// attributed to any respondent by name. A random subset is shown on every
+// page load.
+const QUOTES: string[] = [
+  "I believe JAG has a very good reputation among those who know about the organization and understand the work it does in the community.",
+  "I believe JAG has a very good reputation because it consistently delivers measurable results for students who are most at risk of not graduating.",
+  "I feel JAG is a wonderful organization, is well respected, and has a positive reputation.",
+  "JAG aligns closely with what motivates me because it prepares young people for successful careers while helping them overcome challenges that could prevent them from reaching their goals.",
+  "JAG aligns with my passion for public education, helping young people develop meaningful life skills, and creating opportunities for students who may otherwise struggle to find their path.",
+  "It aligns completely — I feel a strong sense of ownership and can clearly see the direct impact and immense return on investment it brings to youth.",
+  "That alignment is one of the reasons I serve on the board. I believe in the organization's mission, leadership, and ability to produce results.",
+  "JAG is very valuable and needed in Las Vegas. I see the dropout rates improving and feel JAG is doing a very good job.",
+  "I have seen firsthand the instructors' enthusiasm and passion, and it is very inspirational.",
+  "From what I've seen, JAG gets really good results for those that need another outlet and need a chance.",
+  "JAG's focus on youth and its commitment to preparing students for quality employment strongly align with my values.",
+  "JAG aligns closely with our organization's priorities because it focuses on education and workforce development.",
 ];
 
 function pickRandomQuotes(count: number) {
   const pool = [...QUOTES];
-  const picked: typeof QUOTES = [];
+  const picked: string[] = [];
   while (picked.length < count && pool.length > 0) {
     const i = Math.floor(Math.random() * pool.length);
     picked.push(pool.splice(i, 1)[0]);
@@ -92,15 +94,12 @@ export default function JagDashboardPage() {
           <div className="mt-4 grid gap-5 sm:grid-cols-2">
             {quotes.map((q) => (
               <blockquote
-                key={q.name}
+                key={q}
                 className="border-l-2 border-[rgb(var(--brass))] pl-5"
               >
                 <p className="font-display text-lg italic leading-snug text-[rgb(var(--navy))]">
-                  &ldquo;{q.text}&rdquo;
+                  &ldquo;{q}&rdquo;
                 </p>
-                <cite className="mt-2 block text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))] not-italic">
-                  — {q.name}
-                </cite>
               </blockquote>
             ))}
           </div>
