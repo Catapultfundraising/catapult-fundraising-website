@@ -40,10 +40,13 @@ Font.register({
   ],
 });
 
-// NAVY is the exact brand blue used site-wide (headlines, nav, buttons on
-// catapultfr.com — see app/globals.css --navy). All body text on the card
-// uses this, never plain black. BRASS (gold) stays for accents throughout.
-const NAVY = "#15212E";
+// CARD_BLUE is a lighter tint of the site's brand navy (#15212E), same hue
+// family, boosted lightness/saturation so it visibly reads as blue at small
+// print sizes instead of looking near-black. The exact brand navy is nearly
+// indistinguishable from black once printed this small, so this is a
+// deliberate deviation from the literal --navy value, done at the user's
+// request. BRASS (gold) is unchanged and stays for accents throughout.
+const NAVY = "#29507A";
 const BRASS = "#B28C46";
 const PAPER = "#FAF7F0";
 

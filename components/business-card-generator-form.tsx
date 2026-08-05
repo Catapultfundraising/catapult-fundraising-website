@@ -195,14 +195,14 @@ export function BusinessCardGeneratorForm() {
               <div className="mt-1.5 h-[1.5px] w-[238px] self-start rounded-full bg-[#B28C46]" />
               <div className="mt-3.5 flex w-full flex-1 items-start justify-between">
                 <div className="mt-2.5 max-w-[58%]">
-                  <p className="whitespace-nowrap font-display text-[17px] font-bold leading-tight text-[#15212E]">
+                  <p className="whitespace-nowrap font-display text-[17px] font-bold leading-tight text-[#29507A]">
                     {fullName || "Your Name"}
                   </p>
                   <p className="mt-1 text-[7px] font-bold uppercase tracking-wider text-[#B28C46]">
                     {title || "Your Title"}
                   </p>
                 </div>
-                <div className="flex max-w-[42%] flex-col items-end text-[8.5px] leading-snug text-[#15212E]">
+                <div className="flex max-w-[42%] flex-col items-end text-[8.5px] leading-snug text-[#29507A]">
                   {cellPhone && (
                     <p>
                       <span className="font-bold text-[#B28C46]">D:</span> {cellPhone}
@@ -232,7 +232,7 @@ export function BusinessCardGeneratorForm() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={LOGO_URL} alt="Catapult Fundraising" className="h-[42px] w-auto object-contain" />
               <div className="mt-2 mb-2 h-[1.5px] w-[168px] rounded-full bg-[#B28C46]" />
-              <p className="w-full whitespace-nowrap font-display text-[8.3px] italic text-[#15212E]">{TAGLINE}</p>
+              <p className="w-full whitespace-nowrap font-display text-[8.3px] italic text-[#29507A]">{TAGLINE}</p>
               <p className="mt-2 w-full whitespace-nowrap text-[6px] font-bold uppercase tracking-wide text-[#B28C46]">
                 {SERVICE_TAGS.join("  ·  ")}
               </p>
