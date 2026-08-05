@@ -50,5 +50,12 @@
     "autoprefixer": "^10.4.20",
     "tailwindcss-animate": "^1.0.7",
     "typescript": "^5"
-  }
+  },
+  "browserslist": [
+    "chrome >= 84",
+    "edge >= 84",
+    "firefox >= 78",
+    "safari >= 14",
+    "opera >= 70"
+  ]
 }

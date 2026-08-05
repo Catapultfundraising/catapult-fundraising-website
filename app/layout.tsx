@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Fraunces, Manrope } from "next/font/google";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
@@ -7,6 +8,26 @@ import { FIRM_PHONE, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
 const OG_IMAGE = "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e656b128-f2e0-427e-a4c2-07e58fa6812e.png";
+
+// Self-hosted via next/font/google instead of the external
+// fonts.googleapis.com/fonts.gstatic.com <link>/@import used previously.
+// This inlines the font-face CSS at build time and serves the woff2 files
+// from our own domain, removing an external render-blocking stylesheet
+// fetch (and the chained font-file requests behind it) from the critical
+// rendering path. Weights/styles mirror the previous Google Fonts URL.
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
+  display: "swap",
+  variable: "--font-fraunces",
+});
+const manrope = Manrope({
+  subsets: ["latin"],
+  weight: ["300", "400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-manrope",
+});
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
@@ -298,7 +319,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="en" className={`${fraunces.variable} ${manrope.variable}`}>
       <body className="bg-[rgb(var(--paper))] text-[rgb(var(--ink))] antialiased">
         <script
           type="application/ld+json"

@@ -55,6 +55,14 @@ export function SiteHeader() {
             alt="Catapult Fundraising"
             width={680}
             height={415}
+            // Rendered height is 144/176/208px (h-36/sm:h-44/lg:h-52) at a
+            // 680:415 aspect ratio, i.e. ~236/288/341px wide on screen.
+            // Without an explicit `sizes`, Next.js assumes this fills its
+            // full 680px intrinsic width and serves a near-native-resolution
+            // image on every page (this logo is in the sticky header, so it
+            // loads site-wide). Declaring the real rendered width lets the
+            // image optimizer pick a properly small variant instead.
+            sizes="(min-width: 1024px) 341px, (min-width: 640px) 288px, 236px"
             className="h-36 w-auto sm:h-44 lg:h-52"
             priority
           />

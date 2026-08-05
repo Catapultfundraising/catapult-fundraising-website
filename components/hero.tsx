@@ -10,6 +10,12 @@ export function Hero() {
         alt=""
         fill
         priority
+        sizes="100vw"
+        // This is a full-bleed background image sitting behind a navy
+        // gradient overlay at only 30% opacity, so a lower encode quality
+        // is visually indistinguishable here while meaningfully shrinking
+        // the download on every page load.
+        quality={45}
         className="object-cover opacity-30"
       />
       <div className="absolute inset-0 bg-gradient-to-r from-[rgb(var(--navy))] via-[rgb(var(--navy))]/85 to-[rgb(var(--navy))]/40" />
