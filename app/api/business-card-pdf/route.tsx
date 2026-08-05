@@ -46,6 +46,31 @@ const NAVY = "#15212E";
 const BRASS = "#B28C46";
 const PAPER = "#FAF7F0";
 
+// Uppercase "tracked caps" labels (title, service tags) previously used the
+// PDF renderer's native letterSpacing property combined with a CSS-style
+// textTransform. That combination — letter-spacing + uppercase transform on
+// a custom (variable-font-instanced) embedded font — is a known trouble spot
+// in PDF text-run rendering: some PDF consumers occasionally drop the FIRST
+// glyph of a letter-spaced run (seen in production as "CHIEF" rendering as
+// "HIEF"). To eliminate that whole class of bug, we build the visual tracking
+// manually with real Unicode thin-space characters instead of the renderer's
+// letterSpacing engine, so every glyph is just a normal character in a plain
+// text run with no special per-glyph positioning.
+const THIN_SPACE = " ";
+function trackedWord(word: string): string {
+  return word.toUpperCase().split("").join(THIN_SPACE);
+}
+function trackedLabel(text: string): string {
+  return text
+    .split(" ")
+    .filter(Boolean)
+    .map(trackedWord)
+    .join(THIN_SPACE + THIN_SPACE + " ");
+}
+function trackedTags(tags: string[]): string {
+  return tags.map(trackedWord).join("   ·   ");
+}
+
 const WEBSITE = "catapultfr.com";
 const OFFICE_ADDRESS_LINE_1 = "2551 N. Green Valley Parkway, Suite 202B";
 const OFFICE_ADDRESS_LINE_2 = "Henderson, NV 89014";
@@ -102,8 +127,6 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope",
     fontWeight: 700,
     color: BRASS,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
     marginTop: 3,
     width: FRONT_NAME_COL_W,
   },
@@ -176,8 +199,6 @@ const styles = StyleSheet.create({
     fontFamily: "Manrope",
     fontWeight: 700,
     color: BRASS,
-    textTransform: "uppercase",
-    letterSpacing: 0.4,
     textAlign: "center",
     marginTop: 7,
     width: CONTENT_W,
@@ -203,7 +224,7 @@ function BusinessCardDocument({ data }: { data: CardData }) {
           <View style={styles.frontBottomRow}>
             <View style={styles.frontNameCol}>
               <Text style={styles.name}>{data.fullName || "Your Name"}</Text>
-              <Text style={styles.title}>{data.title || "Your Title"}</Text>
+              <Text style={styles.title}>{trackedLabel(data.title || "Your Title")}</Text>
             </View>
             <View style={styles.frontContactCol}>
               {data.cellPhone ? (
@@ -236,7 +257,7 @@ function BusinessCardDocument({ data }: { data: CardData }) {
           <Image src={LOGO_URL} style={styles.backLogo} />
           <View style={styles.backRule} />
           <Text style={styles.backTagline}>{TAGLINE}</Text>
-          <Text style={styles.backTags}>{SERVICE_TAGS.join("  ·  ")}</Text>
+          <Text style={styles.backTags}>{trackedTags(SERVICE_TAGS)}</Text>
         </View>
       </Page>
     </Document>
