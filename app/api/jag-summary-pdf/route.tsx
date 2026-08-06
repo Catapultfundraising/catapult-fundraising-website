@@ -255,7 +255,7 @@ export async function GET() {
         {data.feasibilitySignals.length > 0 && (
           <View>
             <View wrap={false}>
-              <Text style={styles.sectionTitle}>Feasibility Signals</Text>
+              <Text style={styles.sectionTitle}>Donor Signals</Text>
               <Text style={{ fontSize: 8, color: NAVY, opacity: 0.6, marginTop: -4, marginBottom: 6 }}>
                 Based on {data.surveyRespondentCount} completed interview surveys
               </Text>

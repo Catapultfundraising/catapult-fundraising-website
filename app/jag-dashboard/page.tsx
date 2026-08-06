@@ -14,17 +14,60 @@ export const metadata = {
 // /jag-admin) always shows without needing a redeploy.
 export const dynamic = "force-dynamic";
 
-function StatCard({ value, label }: { value: string | number; label: string }) {
+// Every section below shares the same card treatment as the original
+// updated-info strip (rounded-2xl white card, thin line border) so the page
+// keeps its original clean look — the difference from before is only that
+// this content is now real, live data instead of a separate uncontrolled
+// iframe.
+function Card({ children }: { children: React.ReactNode }) {
   return (
-    <div className="rounded-xl border border-[rgb(var(--line))] bg-white px-4 py-3">
-      <p className="font-display text-xl text-[rgb(var(--navy))]">{value}</p>
-      <p className="text-[11px] uppercase tracking-wider text-[rgb(var(--ink))]/55">{label}</p>
-    </div>
+    <div className="rounded-2xl border border-[rgb(var(--line))] bg-white px-6 py-6">{children}</div>
   );
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
-  return <h2 className="font-display text-xl text-[rgb(var(--navy))]">{children}</h2>;
+function CardTitle({ children }: { children: React.ReactNode }) {
+  return <h2 className="font-display text-lg text-[rgb(var(--navy))]">{children}</h2>;
+}
+
+function DataTable({
+  columns,
+  rows,
+}: {
+  columns: string[];
+  rows: (string | number)[][];
+}) {
+  return (
+    <div className="mt-4 overflow-x-auto">
+      <table className="w-full min-w-[420px] border-collapse text-sm">
+        <thead>
+          <tr>
+            {columns.map((c) => (
+              <th
+                key={c}
+                className="border-b border-[rgb(var(--line))] px-3 py-2 text-left text-xs font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/55"
+              >
+                {c}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((row, i) => (
+            <tr key={i} className="border-b border-[rgb(var(--line))]/70 last:border-0">
+              {row.map((cell, j) => (
+                <td
+                  key={j}
+                  className={`px-3 py-2 ${j === 0 ? "text-[rgb(var(--navy))]" : "text-[rgb(var(--ink))]/75"}`}
+                >
+                  {cell || "—"}
+                </td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
 }
 
 export default async function JagDashboardPage() {
@@ -36,10 +79,10 @@ export default async function JagDashboardPage() {
       <PageHero
         eyebrow="JAG Nevada · Donor Assessment Study"
         title="Weekly Interview &amp; Calling Status"
-        description={`Prospect outreach, completed interviews, and feasibility signals for the JAG Nevada donor assessment study. Updated ${data.reportDate}.`}
+        description={`Prospect outreach, completed interviews, and donor signals for the JAG Nevada donor assessment study. Updated ${data.reportDate}.`}
       />
 
-      <section className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
+      <section className="mx-auto max-w-7xl space-y-8 px-6 py-10 lg:px-10 lg:py-14">
         {/* Updated-info strip + PDF download */}
         <div className="flex flex-wrap items-center justify-between gap-6 rounded-2xl border border-[rgb(var(--line))] bg-white px-6 py-5">
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3">
@@ -75,7 +118,7 @@ export default async function JagDashboardPage() {
 
         {/* Quotes */}
         {quotes.length > 0 && (
-          <div className="mt-8 grid gap-5 sm:grid-cols-2">
+          <div className="grid gap-5 sm:grid-cols-2">
             {quotes.map((q) => (
               <blockquote key={q} className="border-l-2 border-[rgb(var(--brass))] pl-5">
                 <p className="font-display text-lg italic leading-snug text-[rgb(var(--navy))]">
@@ -87,19 +130,22 @@ export default async function JagDashboardPage() {
         )}
 
         {/* This Week's Snapshot */}
-        <div className="mt-14">
-          <SectionTitle>This Week&apos;s Snapshot</SectionTitle>
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <StatCard value={data.stats.totalProspects} label="Total Prospects" />
-            <StatCard value={data.stats.dials.toLocaleString()} label="Number of Dials" />
-            <StatCard value={data.stats.emailsSent} label="Emails Sent" />
-            <StatCard value={data.stats.completed} label="Interviews Completed" />
-            <StatCard value={data.stats.scheduled} label="Interviews Scheduled" />
-            <StatCard value={data.stats.toBeRescheduled} label="To Be Rescheduled" />
-            <StatCard value={data.stats.declined} label="Declined" />
-            <StatCard value={data.stats.inCallingProcess} label="In Calling Process" />
+        <Card>
+          <CardTitle>This Week&apos;s Snapshot</CardTitle>
+          <div className="mt-4 grid grid-cols-2 gap-x-8 gap-y-4 sm:grid-cols-4">
+            {[
+              ["Interviews Scheduled", data.stats.scheduled],
+              ["To Be Rescheduled", data.stats.toBeRescheduled],
+              ["Declined", data.stats.declined],
+              ["Deceased", data.stats.deceased],
+            ].map(([label, value]) => (
+              <div key={label as string}>
+                <p className="font-display text-2xl text-[rgb(var(--navy))]">{value}</p>
+                <p className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">{label}</p>
+              </div>
+            ))}
           </div>
-          <div className="mt-4 flex flex-wrap gap-x-6 gap-y-2">
+          <div className="mt-5 flex flex-wrap gap-x-6 gap-y-2 border-t border-[rgb(var(--line))] pt-4">
             {[
               ["Tier 1", data.stats.tier1],
               ["Tier 2", data.stats.tier2],
@@ -113,18 +159,18 @@ export default async function JagDashboardPage() {
               </div>
             ))}
           </div>
-        </div>
+        </Card>
 
-        {/* Feasibility Signals */}
+        {/* Donor Signals */}
         {data.feasibilitySignals.length > 0 && (
-          <div className="mt-14">
-            <SectionTitle>Feasibility Signals</SectionTitle>
+          <Card>
+            <CardTitle>Donor Signals</CardTitle>
             <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">
               Based on {data.surveyRespondentCount} completed interview surveys
             </p>
-            <div className="mt-4 divide-y divide-[rgb(var(--line))] border-t border-[rgb(var(--line))]">
+            <div className="mt-4 divide-y divide-[rgb(var(--line))]">
               {data.feasibilitySignals.map((f) => (
-                <div key={f.label} className="flex items-start gap-4 py-3">
+                <div key={f.label} className="flex items-start gap-4 py-3 first:pt-0 last:pb-0">
                   <p className="w-16 shrink-0 font-display text-2xl text-[rgb(var(--brass))]">{f.stat}</p>
                   <div>
                     <p className="text-sm font-semibold text-[rgb(var(--navy))]">{f.label}</p>
@@ -133,13 +179,13 @@ export default async function JagDashboardPage() {
                 </div>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Mission Themes */}
         {data.missionThemes.length > 0 && (
-          <div className="mt-14">
-            <SectionTitle>Mission Themes That Resonate Most</SectionTitle>
+          <Card>
+            <CardTitle>Mission Themes That Resonate Most</CardTitle>
             <div className="mt-4 flex flex-wrap gap-2">
               {data.missionThemes.map((m) => (
                 <span
@@ -151,143 +197,59 @@ export default async function JagDashboardPage() {
                 </span>
               ))}
             </div>
-          </div>
+          </Card>
         )}
 
         {/* Completed Interviews */}
         {data.completedInterviews.length > 0 && (
-          <div className="mt-14 overflow-x-auto">
-            <SectionTitle>Completed Interviews ({data.completedInterviews.length})</SectionTitle>
-            <table className="mt-4 w-full min-w-[480px] border-collapse text-sm">
-              <thead>
-                <tr className="bg-[rgb(var(--brass))] text-left text-[rgb(var(--navy))]">
-                  <th className="px-3 py-2 font-semibold">Name</th>
-                  <th className="px-3 py-2 font-semibold">Organization</th>
-                  <th className="px-3 py-2 font-semibold">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.completedInterviews.map((row, i) => (
-                  <tr
-                    key={row.name + row.date}
-                    className={`border-b border-[rgb(var(--line))] ${i % 2 === 1 ? "bg-[#F1ECE0]/50" : ""}`}
-                  >
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]">{row.name}</td>
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]/80">{row.org || "—"}</td>
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]/80">{row.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card>
+            <CardTitle>Completed Interviews ({data.completedInterviews.length})</CardTitle>
+            <DataTable
+              columns={["Name", "Organization", "Date"]}
+              rows={data.completedInterviews.map((r) => [r.name, r.org, r.date])}
+            />
+          </Card>
         )}
 
         {/* Scheduled Interviews */}
         {data.scheduledInterviews.length > 0 && (
-          <div className="mt-14 overflow-x-auto">
-            <SectionTitle>Scheduled Interviews ({data.scheduledInterviews.length})</SectionTitle>
-            <table className="mt-4 w-full min-w-[480px] border-collapse text-sm">
-              <thead>
-                <tr className="bg-[rgb(var(--brass))] text-left text-[rgb(var(--navy))]">
-                  <th className="px-3 py-2 font-semibold">Name</th>
-                  <th className="px-3 py-2 font-semibold">Organization</th>
-                  <th className="px-3 py-2 font-semibold">Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.scheduledInterviews.map((row, i) => (
-                  <tr
-                    key={row.name + row.date}
-                    className={`border-b border-[rgb(var(--line))] ${i % 2 === 1 ? "bg-[#F1ECE0]/50" : ""}`}
-                  >
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]">{row.name}</td>
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]/80">{row.org || "—"}</td>
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]/80">{row.date}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card>
+            <CardTitle>Scheduled Interviews ({data.scheduledInterviews.length})</CardTitle>
+            <DataTable
+              columns={["Name", "Organization", "Date"]}
+              rows={data.scheduledInterviews.map((r) => [r.name, r.org, r.date])}
+            />
+          </Card>
         )}
 
         {/* To Be Rescheduled */}
         {data.toBeRescheduled.length > 0 && (
-          <div className="mt-14 overflow-x-auto">
-            <SectionTitle>To Be Rescheduled ({data.toBeRescheduled.length})</SectionTitle>
-            <table className="mt-4 w-full min-w-[420px] border-collapse text-sm">
-              <thead>
-                <tr className="bg-[rgb(var(--brass))] text-left text-[rgb(var(--navy))]">
-                  <th className="px-3 py-2 font-semibold">Name</th>
-                  <th className="px-3 py-2 font-semibold">Organization</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.toBeRescheduled.map((row, i) => (
-                  <tr
-                    key={row.name}
-                    className={`border-b border-[rgb(var(--line))] ${i % 2 === 1 ? "bg-[#F1ECE0]/50" : ""}`}
-                  >
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]">{row.name}</td>
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]/80">{row.org || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card>
+            <CardTitle>To Be Rescheduled ({data.toBeRescheduled.length})</CardTitle>
+            <DataTable
+              columns={["Name", "Organization"]}
+              rows={data.toBeRescheduled.map((r) => [r.name, r.org])}
+            />
+          </Card>
         )}
 
         {/* Declined to Interview */}
         {data.declined.length > 0 && (
-          <div className="mt-14 overflow-x-auto">
-            <SectionTitle>Declined to Interview ({data.declined.length})</SectionTitle>
-            <table className="mt-4 w-full min-w-[560px] border-collapse text-sm">
-              <thead>
-                <tr className="bg-[rgb(var(--brass))] text-left text-[rgb(var(--navy))]">
-                  <th className="px-3 py-2 font-semibold">Name</th>
-                  <th className="px-3 py-2 font-semibold">Organization</th>
-                  <th className="px-3 py-2 font-semibold">Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.declined.map((row, i) => (
-                  <tr
-                    key={row.name}
-                    className={`border-b border-[rgb(var(--line))] ${i % 2 === 1 ? "bg-[#F1ECE0]/50" : ""}`}
-                  >
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]">{row.name}</td>
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]/80">{row.org || "—"}</td>
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]/80">{row.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card>
+            <CardTitle>Declined to Interview ({data.declined.length})</CardTitle>
+            <DataTable
+              columns={["Name", "Organization", "Reason"]}
+              rows={data.declined.map((r) => [r.name, r.org, r.reason])}
+            />
+          </Card>
         )}
 
         {/* Deceased */}
         {data.deceased.length > 0 && (
-          <div className="mt-14 overflow-x-auto">
-            <SectionTitle>Deceased ({data.deceased.length})</SectionTitle>
-            <table className="mt-4 w-full min-w-[420px] border-collapse text-sm">
-              <thead>
-                <tr className="bg-[rgb(var(--brass))] text-left text-[rgb(var(--navy))]">
-                  <th className="px-3 py-2 font-semibold">Name</th>
-                  <th className="px-3 py-2 font-semibold">Reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.deceased.map((row, i) => (
-                  <tr
-                    key={row.name}
-                    className={`border-b border-[rgb(var(--line))] ${i % 2 === 1 ? "bg-[#F1ECE0]/50" : ""}`}
-                  >
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]">{row.name}</td>
-                    <td className="px-3 py-2 text-[rgb(var(--ink))]/80">{row.reason}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <Card>
+            <CardTitle>Deceased ({data.deceased.length})</CardTitle>
+            <DataTable columns={["Name", "Reason"]} rows={data.deceased.map((r) => [r.name, r.reason])} />
+          </Card>
         )}
       </section>
     </>
