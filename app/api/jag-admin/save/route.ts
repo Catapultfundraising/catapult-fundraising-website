@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isJagAdminAuthed } from "@/lib/jag-admin-auth";
-import { saveJagDashboardData, type JagDashboardData } from "@/lib/jag-data";
+import { getJagDashboardData, saveJagDashboardData, type JagDashboardData } from "@/lib/jag-data";
 
 export const runtime = "nodejs";
 
@@ -35,7 +35,25 @@ export async function POST(req: NextRequest) {
   }
 
   try {
-    await saveJagDashboardData({ ...body, updatedAt: new Date().toISOString() });
+    // Snapshot the stats that were live immediately before this save, so the
+    // tracker can show "+N vs. last report" deltas going forward — captured
+    // automatically each time, the data manager never has to enter it by hand.
+    const previous = await getJagDashboardData();
+    const previousStats = previous?.stats
+      ? {
+          totalProspects: previous.stats.totalProspects,
+          completed: previous.stats.completed,
+          scheduled: previous.stats.scheduled,
+          toBeRescheduled: previous.stats.toBeRescheduled,
+          declined: previous.stats.declined,
+          deceased: previous.stats.deceased,
+          inCallingProcess: previous.stats.inCallingProcess,
+          dials: previous.stats.dials,
+          emailsSent: previous.stats.emailsSent,
+        }
+      : undefined;
+
+    await saveJagDashboardData({ ...body, previousStats, updatedAt: new Date().toISOString() });
     return NextResponse.json({ ok: true });
   } catch (err) {
     console.error("jag-admin save error", err);

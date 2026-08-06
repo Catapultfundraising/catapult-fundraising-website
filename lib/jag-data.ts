@@ -26,6 +26,22 @@ export interface JagStats {
   inCallingProcess: number;
 }
 
+// Snapshot of the stats that were live immediately before the most recent
+// save, captured automatically by /api/jag-admin/save. Powers the "+N vs.
+// last report" deltas on the tracker, the way the original standalone
+// tracker app did.
+export interface PreviousStats {
+  totalProspects: number;
+  completed: number;
+  scheduled: number;
+  toBeRescheduled: number;
+  declined: number;
+  deceased: number;
+  inCallingProcess: number;
+  dials: number;
+  emailsSent: number;
+}
+
 export interface NameDateOrg {
   name: string;
   org: string;
@@ -64,6 +80,7 @@ export interface JagDashboardData {
   updatedAt: string;
   surveyRespondentCount: number;
   stats: JagStats;
+  previousStats?: PreviousStats;
   completedInterviews: NameDateOrg[];
   scheduledInterviews: NameDateOrg[];
   toBeRescheduled: NameOrg[];
@@ -98,6 +115,21 @@ export const DEFAULT_JAG_DATA: JagDashboardData = {
     declined: 24,
     deceased: 1,
     inCallingProcess: 210,
+  },
+  // The prior report's actual figures (the last snapshot the old standalone
+  // tracker ever displayed, since it was never wired to later reports) —
+  // used as the seed "last report" comparison until /jag-admin captures a
+  // fresh one on the next save.
+  previousStats: {
+    totalProspects: 268,
+    completed: 22,
+    scheduled: 5,
+    toBeRescheduled: 6,
+    declined: 18,
+    deceased: 1,
+    inCallingProcess: 216,
+    dials: 1250,
+    emailsSent: 282,
   },
   completedInterviews: [
     { name: "Dennis Perea", org: "KGHM", date: "6/15/2026" },
@@ -246,4 +278,116 @@ export function pickRandomQuotes(quotes: string[], count: number): string[] {
     picked.push(pool.splice(i, 1)[0]);
   }
   return picked;
+}
+
+// ---------------------------------------------------------------------------
+// Tracker helpers — used by the in-app tracker on /jag-dashboard, which
+// recreates the standalone jag-nevada-tracker app's layout (stat cards with
+// week-over-week deltas, status breakdown, contact list, observations) using
+// live data from this same store, so it updates every time /jag-admin saves.
+// ---------------------------------------------------------------------------
+
+export type ContactStatus = "Completed" | "Scheduled" | "To Be Rescheduled" | "Declined" | "Deceased";
+
+export interface ContactRow {
+  name: string;
+  org: string;
+  status: ContactStatus;
+  date: string;
+  note: string;
+}
+
+export function buildContactList(data: JagDashboardData): ContactRow[] {
+  const rows: ContactRow[] = [];
+  for (const r of data.completedInterviews) {
+    rows.push({ name: r.name, org: r.org, status: "Completed", date: r.date, note: "" });
+  }
+  for (const r of data.scheduledInterviews) {
+    rows.push({ name: r.name, org: r.org, status: "Scheduled", date: r.date, note: "" });
+  }
+  for (const r of data.toBeRescheduled) {
+    rows.push({ name: r.name, org: r.org, status: "To Be Rescheduled", date: "", note: "" });
+  }
+  for (const r of data.declined) {
+    rows.push({ name: r.name, org: r.org, status: "Declined", date: "", note: r.reason });
+  }
+  for (const r of data.deceased) {
+    rows.push({ name: r.name, org: "", status: "Deceased", date: "", note: r.reason });
+  }
+  return rows;
+}
+
+// Returns a "+N vs. last report" / "-N vs. last report" string, or null if
+// there's no prior snapshot yet (e.g. the very first save).
+export function deltaLabel(current: number, previous?: number): string | null {
+  if (previous === undefined || previous === null) return null;
+  const diff = current - previous;
+  if (diff === 0) return "No change vs. last report";
+  return `${diff > 0 ? "+" : ""}${diff} vs. last report`;
+}
+
+// Share of total prospects that have any tracked outreach outcome so far
+// (completed, scheduled, to-be-rescheduled, declined, or deceased) versus
+// the full prospect pool.
+export function computeResponseRate(stats: JagStats): number {
+  if (!stats.totalProspects) return 0;
+  const reached = stats.completed + stats.scheduled + stats.toBeRescheduled + stats.declined + stats.deceased;
+  return Math.round((reached / stats.totalProspects) * 100);
+}
+
+const LOGISTICAL_KEYWORDS = ["busy", "out of", "no longer lives", "personal issues", "another person"];
+
+export function classifyDeclineReasons(declined: DeclinedRow[]): { logistical: number; other: number } {
+  let logistical = 0;
+  for (const d of declined) {
+    const r = d.reason.toLowerCase();
+    if (LOGISTICAL_KEYWORDS.some((k) => r.includes(k))) logistical++;
+  }
+  return { logistical, other: declined.length - logistical };
+}
+
+// Auto-written narrative bullets, mirroring the "General Observations"
+// section of the original standalone tracker.
+export function generateObservations(data: JagDashboardData): string[] {
+  const { stats, feasibilitySignals, missionThemes, declined, previousStats } = data;
+  const obs: string[] = [];
+
+  for (const f of feasibilitySignals) {
+    const label = f.label.charAt(0).toLowerCase() + f.label.slice(1);
+    obs.push(`${f.stat} ${label} — ${f.detail}.`);
+  }
+
+  if (missionThemes.length > 0) {
+    const top = missionThemes[0];
+    const others = missionThemes.slice(1, 3).map((m) => m.label);
+    const othersText = others.length ? ` followed by ${others.join(" and ")}` : "";
+    obs.push(`“${top.label}” is the top-resonating mission theme (${top.pct})${othersText}.`);
+  }
+
+  if (previousStats) {
+    const diff = stats.completed - previousStats.completed;
+    if (diff > 0) {
+      obs.push(
+        `${stats.completed} interviews have now been completed, up from ${previousStats.completed} at the last report — ${diff} new completed interview${diff === 1 ? "" : "s"} since then.`
+      );
+    } else if (diff === 0) {
+      obs.push(`${stats.completed} interviews have been completed to date, unchanged since the last report.`);
+    }
+  }
+
+  const reached = stats.completed + stats.scheduled + stats.toBeRescheduled + stats.declined + stats.deceased;
+  obs.push(
+    `${reached} of ${stats.totalProspects} total prospects (${computeResponseRate(stats)}%) have a tracked outreach outcome, with ${stats.dials.toLocaleString()} dials and ${stats.emailsSent} emails sent to date.`
+  );
+
+  if (declined.length > 0) {
+    const { logistical, other } = classifyDeclineReasons(declined);
+    const skew =
+      logistical >= other
+        ? `remain overwhelmingly logistical (“too busy”, “out of town/country”)`
+        : `include a meaningful mix of logistical reasons and outright disinterest`;
+    obs.push(`${declined.length} decline${declined.length === 1 ? "" : "s"} to date ${skew} rather than disinterest alone.`);
+  }
+
+  return obs;
 }
