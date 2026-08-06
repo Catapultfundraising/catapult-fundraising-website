@@ -114,7 +114,7 @@ const styles = StyleSheet.create({
   heroContentCol: { flex: 1, marginTop: 66 },
   heroEyebrow: { fontSize: 9, fontFamily: "Helvetica-Bold", letterSpacing: 2, textTransform: "uppercase", color: BRASS_LIGHT },
   heroTitle: { fontSize: 25, fontFamily: "Helvetica-Bold", color: CREAM, marginTop: 6, maxWidth: 420 },
-  heroTitleId: { fontSize: 13, fontFamily: "Helvetica", color: BRASS_LIGHT },
+  heroTitleId: { fontSize: 12, fontFamily: "Helvetica", color: BRASS_LIGHT, marginTop: 4 },
   heroPhoto: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS, objectFit: "cover", marginTop: 48 },
   heroPhotoSmall: { width: 80, height: 80, borderRadius: 40, borderWidth: 2, borderColor: BRASS, objectFit: "cover", marginTop: 48 },
   heroPhotoPlaceholder: { width: 111, height: 111, borderRadius: 55.5, borderWidth: 2, borderColor: BRASS, backgroundColor: "rgba(21,33,46,0.05)", marginTop: 48 },
@@ -298,10 +298,18 @@ function MiniTable({
   renderRow: (row: any, i: number) => string[];
 }) {
   if (!rows || rows.length === 0) return null;
+  // Note: no wrap={false} on this outer container — a large table (many rows,
+  // or rows with long wrapping text) must be allowed to flow across a page
+  // break naturally. Forcing the whole table into one non-splittable block
+  // is what previously caused rows to render with mismatched vertical offsets
+  // (visually overlapping) whenever the table didn't fit in the remaining
+  // space on a page and had to be auto-pushed to the next one. Each row
+  // still gets its own wrap={false} below so an individual row is never cut
+  // mid-row, and the title/header stay together so they don't orphan alone.
   return (
-    <View style={{ marginBottom: 8 }} wrap={false}>
+    <View style={{ marginBottom: 8 }}>
       {title ? (
-        <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]}>
+        <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]} wrap={false}>
           {icon ? <IconGlyph name={icon} color={BRASS} size={9} /> : null}
           <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: icon ? 4 : 0 }}>
             {title.toUpperCase()}
@@ -310,7 +318,7 @@ function MiniTable({
       ) : null}
       {note ? <Text style={styles.italicNote}>{note}</Text> : null}
       <View style={{ borderRadius: 8, overflow: "hidden", borderWidth: 1, borderColor: LINE }}>
-      <View style={styles.tableHeaderRow}>
+      <View style={styles.tableHeaderRow} wrap={false}>
         {headers.map((h, i) => (
           <Text key={h} style={[styles.tableHeaderCell, { width: colWidths[i] }]}>
             {h}
@@ -429,10 +437,8 @@ function ProfileDocument({ data }: { data: any }) {
           </View>
           <View style={styles.heroContentCol}>
             <Text style={styles.heroEyebrow}>PROSPECT INTELLIGENCE PROFILE</Text>
-            <Text style={styles.heroTitle}>
-              {data.name || "NAME"}
-              {data.clientId ? <Text style={styles.heroTitleId}> ({data.clientId})</Text> : null}
-            </Text>
+            <Text style={styles.heroTitle}>{data.name || "NAME"}</Text>
+            {data.clientId ? <Text style={styles.heroTitleId}>Client ID: {data.clientId}</Text> : null}
           </View>
           {data.photo2 ? (
             <View style={{ flexDirection: "row" }}>
@@ -493,9 +499,9 @@ function ProfileDocument({ data }: { data: any }) {
           </View>
         )}
 
-        <View wrap={false}>
-          <View style={styles.sectionAccent} />
-          <Text style={styles.sectionHeading}>Biographical Information</Text>
+        <View style={styles.sectionAccent} wrap={false} />
+        <Text style={styles.sectionHeading} wrap={false}>Biographical Information</Text>
+        <View>
           {hasPhones && hasEmails ? (
             <View style={{ flexDirection: "row" }} wrap={false}>
               <View style={{ flex: 1, marginRight: 10 }}>
@@ -584,13 +590,18 @@ function ProfileDocument({ data }: { data: any }) {
         />
 
         {data.realEstate?.length > 0 && (
-          <View wrap={false}>
-            <View style={[styles.sectionHeadingRow, styles.sectionHeading]}>
+          <View>
+            <View style={[styles.sectionHeadingRow, styles.sectionHeading]} wrap={false}>
               <IconGlyph name="home" color={NAVY} size={12} />
               <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 5 }}>Real Estate</Text>
             </View>
             {data.realEstate.map((re: any, i: number) => (
-              <View style={styles.propertyCard} key={i}>
+              // wrap={false} keeps a single property card from being cut mid-card
+              // by a page break (which previously let the last card on a page
+              // overlap the footer) — but lets DIFFERENT cards flow onto the
+              // next page normally, since the list as a whole is no longer
+              // forced into one indivisible block.
+              <View style={styles.propertyCard} key={i} wrap={false}>
                 {re.photo ? (
                   <Image src={re.photo} style={styles.propertyPhoto} />
                 ) : (
@@ -616,18 +627,16 @@ function ProfileDocument({ data }: { data: any }) {
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
         <View style={styles.body}>
-        <View wrap={false}>
-          <View style={styles.sectionAccent} />
-          <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
-          <FieldRow label="Boards" value={data.boards} />
-        </View>
+        <View style={styles.sectionAccent} wrap={false} />
+        <Text style={styles.sectionHeading} wrap={false}>Boards &amp; Affiliations</Text>
+        <FieldRow label="Boards" value={data.boards} />
         <FieldRow label="Clubs & Affiliations" value={data.clubsAffiliations} />
         <FieldRow label="Business Colleagues" value={data.businessColleagues} />
 
         {data.otherGiving?.length > 0 && (
-          <View wrap={false}>
-            <View style={styles.sectionAccent} />
-            <Text style={styles.sectionHeading}>Other Giving History</Text>
+          <View>
+            <View style={styles.sectionAccent} wrap={false} />
+            <Text style={styles.sectionHeading} wrap={false}>Other Giving History</Text>
             <MiniTable
               note="The amounts listed are representative of donations found in publicly available records and in donor history provided to Catapult. As such, the individual amounts will not necessarily total the Total Giving amount."
               headers={["RECIPIENT", "GIVING", "YEAR", "AMOUNT"]}
@@ -639,15 +648,13 @@ function ProfileDocument({ data }: { data: any }) {
         )}
 
         {data.fecGiving?.length > 0 && (
-          <View wrap={false}>
-            <MiniTable
-              title="FEC Recipient Organization"
-              headers={["ORGANIZATION", "YEAR", "AMOUNT"]}
-              colWidths={["55%", "20%", "25%"]}
-              rows={data.fecGiving}
-              renderRow={(row: any) => [row.org || "", row.year || "", fmtMoney(row.amount)]}
-            />
-          </View>
+          <MiniTable
+            title="FEC Recipient Organization"
+            headers={["ORGANIZATION", "YEAR", "AMOUNT"]}
+            colWidths={["55%", "20%", "25%"]}
+            rows={data.fecGiving}
+            renderRow={(row: any) => [row.org || "", row.year || "", fmtMoney(row.amount)]}
+          />
         )}
         </View>
       </Page>
