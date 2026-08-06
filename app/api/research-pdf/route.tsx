@@ -289,6 +289,7 @@ function MiniTable({
   colWidths,
   rows,
   renderRow,
+  keepTogether,
 }: {
   title?: string;
   // Renders `title` with the larger navy section-heading style (with its
@@ -302,10 +303,67 @@ function MiniTable({
   colWidths: string[];
   rows: any[];
   renderRow: (row: any, i: number) => string[];
+  // Forces the ENTIRE table (title + header + every row) into one
+  // wrap={false} block instead of only grouping the first row. Use this for
+  // tables that are always short (e.g. "Children") — without it, a table
+  // can split mid-way across a page break with no repeated header on the
+  // continuation page, leaving bare unlabeled rows floating at the top of
+  // the next page. Not used for long tables (Giving History, Other Giving,
+  // FEC) since forcing a tall block to be indivisible is what caused the
+  // earlier overlap bug — those are safe to split because they're long
+  // enough that a mid-table break reads as a natural continuation, not as
+  // orphaned/unlabeled data.
+  keepTogether?: boolean;
 }) {
   if (!rows || rows.length === 0) return null;
   const [firstRow, ...restRows] = rows;
   const firstCells = renderRow(firstRow, 0);
+
+  const titleBlock = title ? (
+    bigTitle ? (
+      <>
+        <View style={styles.sectionAccent} />
+        <Text style={styles.sectionHeading}>{title}</Text>
+      </>
+    ) : (
+      <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]}>
+        {icon ? <IconGlyph name={icon} color={BRASS} size={9} /> : null}
+        <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: icon ? 4 : 0 }}>
+          {title.toUpperCase()}
+        </Text>
+      </View>
+    )
+  ) : null;
+
+  if (keepTogether) {
+    return (
+      <View style={{ marginBottom: 8 }} wrap={false}>
+        {titleBlock}
+        {note ? <Text style={styles.italicNote}>{note}</Text> : null}
+        <View style={{ borderRadius: 8, overflow: "hidden", borderWidth: 1, borderColor: LINE }}>
+          <View style={styles.tableHeaderRow}>
+            {headers.map((h, i) => (
+              <Text key={h} style={[styles.tableHeaderCell, { width: colWidths[i] }]}>
+                {h}
+              </Text>
+            ))}
+          </View>
+          {rows.map((row, i) => {
+            const cells = renderRow(row, i);
+            return (
+              <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM }]} key={i}>
+                {cells.map((c, ci) => (
+                  <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
+                    {c}
+                  </Text>
+                ))}
+              </View>
+            );
+          })}
+        </View>
+      </View>
+    );
+  }
 
   // The title, header row, and first data row are grouped into ONE
   // wrap={false} block. This is the key anti-orphan fix: without it, the
@@ -319,21 +377,7 @@ function MiniTable({
   return (
     <View style={{ marginBottom: 8 }}>
       <View wrap={false}>
-        {title ? (
-          bigTitle ? (
-            <>
-              <View style={styles.sectionAccent} />
-              <Text style={styles.sectionHeading}>{title}</Text>
-            </>
-          ) : (
-            <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]}>
-              {icon ? <IconGlyph name={icon} color={BRASS} size={9} /> : null}
-              <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: icon ? 4 : 0 }}>
-                {title.toUpperCase()}
-              </Text>
-            </View>
-          )
-        ) : null}
+        {titleBlock}
         {note ? <Text style={styles.italicNote}>{note}</Text> : null}
         <View style={{ borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: LINE, borderTopLeftRadius: 8, borderTopRightRadius: 8, overflow: "hidden" }}>
           <View style={styles.tableHeaderRow}>
@@ -587,6 +631,7 @@ function ProfileDocument({ data }: { data: any }) {
           colWidths={["25%", "15%", "60%"]}
           rows={data.childrenRows}
           renderRow={(row: any) => [row.name || "", row.age || "", row.otherInfo || ""]}
+          keepTogether
         />
         <MiniTable
           title="Education"
