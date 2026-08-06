@@ -74,7 +74,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1.5,
   },
   title: { fontSize: 21, fontFamily: "Fraunces", fontWeight: 700, color: NAVY, marginTop: 4, lineHeight: 1.15 },
-  meta: { fontSize: 9, color: NAVY, opacity: 0.65, marginTop: 5 },
+  meta: { fontSize: 9, color: NAVY, opacity: 0.65, marginTop: 5, marginBottom: 4 },
   sectionTitle: {
     fontSize: 12.5,
     fontFamily: "Fraunces",
@@ -178,11 +178,15 @@ function Header() {
   );
 }
 
-function Footer({ page, reportDate }: { page: string; reportDate: string }) {
+function Footer({ reportDate }: { reportDate: string }) {
   return (
-    <Text style={styles.footer} fixed>
-      {CLIENT_NAME} · Donor Assessment Study · {reportDate} · {page}
-    </Text>
+    <Text
+      style={styles.footer}
+      fixed
+      render={({ pageNumber, totalPages }) =>
+        `${CLIENT_NAME} · Weekly Status Report · ${reportDate} · Page ${pageNumber} of ${totalPages}`
+      }
+    />
   );
 }
 
@@ -209,167 +213,188 @@ export async function GET() {
     { label: "Tier 5", value: data.stats.tier5 },
   ];
 
+  // One continuous logical page: react-pdf auto-paginates additional physical
+  // pages (repeating any `fixed` elements) whenever content overflows, so
+  // sections simply flow into each other with no artificial breaks or blank
+  // gaps between them. Each section's heading is grouped with wrap={false}
+  // so a title is never left stranded alone at the bottom of a page — if it
+  // doesn't fit, the whole heading (and the row right after it) moves to the
+  // next page together, which is the only case that should ever leave
+  // trailing white space.
   const doc = (
     <Document>
-      {/* Page 1 — Cover + weekly stats + feasibility signals */}
       <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
         <Header />
 
         <Text style={styles.eyebrow}>{CLIENT_NAME} · Donor Assessment Study</Text>
-        <Text style={styles.title}>Weekly Status &amp; Feasibility Summary</Text>
-        <Text style={styles.meta}>Prepared for the {CLIENT_NAME} Board · {data.reportDate}</Text>
+        <Text style={styles.title}>Weekly Status Report</Text>
+        <Text style={styles.meta}>Prepared for {CLIENT_NAME} · {data.reportDate}</Text>
 
-        <Text style={styles.sectionTitle}>This Week&apos;s Snapshot</Text>
-        <View style={styles.statGrid}>
-          {STAT_CARDS.map((s) => (
-            <View key={s.label} style={styles.statCard}>
-              <Text style={styles.statValue}>{s.value}</Text>
-              <Text style={styles.statLabel}>{s.label}</Text>
-            </View>
-          ))}
+        <View wrap={false}>
+          <Text style={styles.sectionTitle}>This Week&apos;s Snapshot</Text>
+          <View style={styles.statGrid}>
+            {STAT_CARDS.map((s) => (
+              <View key={s.label} style={styles.statCard}>
+                <Text style={styles.statValue}>{s.value}</Text>
+                <Text style={styles.statLabel}>{s.label}</Text>
+              </View>
+            ))}
+          </View>
+          <View style={styles.tierRow}>
+            {TIERS.map((t) => (
+              <View key={t.label} style={styles.tierPill}>
+                <View style={styles.tierDot} />
+                <Text style={styles.tierText}>
+                  {t.label}: {t.value}
+                </Text>
+              </View>
+            ))}
+          </View>
         </View>
-        <View style={styles.tierRow}>
-          {TIERS.map((t) => (
-            <View key={t.label} style={styles.tierPill}>
-              <View style={styles.tierDot} />
-              <Text style={styles.tierText}>
-                {t.label}: {t.value}
+
+        {data.feasibilitySignals.length > 0 && (
+          <View>
+            <View wrap={false}>
+              <Text style={styles.sectionTitle}>Feasibility Signals</Text>
+              <Text style={{ fontSize: 8, color: NAVY, opacity: 0.6, marginTop: -4, marginBottom: 6 }}>
+                Based on {data.surveyRespondentCount} completed interview surveys
               </Text>
             </View>
-          ))}
-        </View>
+            {data.feasibilitySignals.map((f) => (
+              <View key={f.label} style={styles.signalRow} wrap={false}>
+                <Text style={styles.signalStat}>{f.stat}</Text>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.signalLabel}>{f.label}</Text>
+                  <Text style={styles.signalDetail}>{f.detail}</Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
 
-        <Text style={styles.sectionTitle}>Feasibility Study Signals</Text>
-        <Text style={{ fontSize: 8, color: NAVY, opacity: 0.6, marginTop: -4, marginBottom: 6 }}>
-          Based on {data.surveyRespondentCount} completed interview surveys
-        </Text>
-        {data.feasibilitySignals.map((f) => (
-          <View key={f.label} style={styles.signalRow}>
-            <Text style={styles.signalStat}>{f.stat}</Text>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.signalLabel}>{f.label}</Text>
-              <Text style={styles.signalDetail}>{f.detail}</Text>
+        {quotes.length > 0 && (
+          <View style={{ marginTop: 16 }}>
+            {quotes.map((q) => (
+              <View key={q} style={styles.quoteCard} wrap={false}>
+                <Text style={styles.quoteText}>&ldquo;{q}&rdquo;</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {data.missionThemes.length > 0 && (
+          <View>
+            <View wrap={false}>
+              <Text style={styles.sectionTitle}>Mission Themes That Resonate Most</Text>
+            </View>
+            <View style={styles.themeRow}>
+              {data.missionThemes.map((m) => (
+                <View key={m.label} style={styles.themePill}>
+                  <Text style={styles.themeText}>{m.label}</Text>
+                  <Text style={styles.themePct}>{m.pct}</Text>
+                </View>
+              ))}
             </View>
           </View>
-        ))}
+        )}
 
-        <Footer page="Page 1 of 4" reportDate={data.reportDate} />
-      </Page>
-
-      {/* Page 2 — Quotes + mission themes */}
-      <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
-        <Header />
-        {quotes.map((q) => (
-          <View key={q} style={styles.quoteCard}>
-            <Text style={styles.quoteText}>&ldquo;{q}&rdquo;</Text>
-          </View>
-        ))}
-
-        <Text style={styles.sectionTitle}>Mission Themes That Resonate Most</Text>
-        <View style={styles.themeRow}>
-          {data.missionThemes.map((m) => (
-            <View key={m.label} style={styles.themePill}>
-              <Text style={styles.themeText}>{m.label}</Text>
-              <Text style={styles.themePct}>{m.pct}</Text>
-            </View>
-          ))}
-        </View>
-
-        <Footer page="Page 2 of 4" reportDate={data.reportDate} />
-      </Page>
-
-      {/* Page 3 — Completed + Scheduled interviews */}
-      <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
-        <Header />
-        <Text style={styles.sectionTitle}>Completed Interviews ({data.completedInterviews.length})</Text>
-        <View style={styles.table}>
-          <View style={styles.tHeadRow}>
-            <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
-            <Text style={[styles.tCellHead, styles.colOrg]}>Organization</Text>
-            <Text style={[styles.tCellHead, styles.colDate]}>Date</Text>
-          </View>
-          {data.completedInterviews.map((row, i) => (
-            <View key={row.name + row.date} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow}>
-              <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
-              <Text style={[styles.tCell, styles.colOrg]}>{row.org || "—"}</Text>
-              <Text style={[styles.tCell, styles.colDate]}>{row.date}</Text>
-            </View>
-          ))}
-        </View>
-
-        {data.scheduledInterviews.length > 0 && (
-          <>
-            <Text style={[styles.sectionTitle, { marginTop: 14 }]}>
-              Scheduled Interviews ({data.scheduledInterviews.length})
-            </Text>
-            <View style={styles.table}>
+        {data.completedInterviews.length > 0 && (
+          <View>
+            <View style={styles.table} wrap={false}>
+              <Text style={styles.sectionTitle}>Completed Interviews ({data.completedInterviews.length})</Text>
               <View style={styles.tHeadRow}>
                 <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
                 <Text style={[styles.tCellHead, styles.colOrg]}>Organization</Text>
                 <Text style={[styles.tCellHead, styles.colDate]}>Date</Text>
               </View>
-              {data.scheduledInterviews.map((row, i) => (
-                <View key={row.name + row.date} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow}>
-                  <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
-                  <Text style={[styles.tCell, styles.colOrg]}>{row.org || "—"}</Text>
-                  <Text style={[styles.tCell, styles.colDate]}>{row.date}</Text>
-                </View>
-              ))}
             </View>
-          </>
+            {data.completedInterviews.map((row, i) => (
+              <View key={row.name + row.date} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow} wrap={false}>
+                <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
+                <Text style={[styles.tCell, styles.colOrg]}>{row.org || "—"}</Text>
+                <Text style={[styles.tCell, styles.colDate]}>{row.date}</Text>
+              </View>
+            ))}
+          </View>
         )}
 
-        <Footer page="Page 3 of 4" reportDate={data.reportDate} />
-      </Page>
-
-      {/* Page 4 — To be rescheduled, declined, and deceased */}
-      <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
-        <Header />
-        <Text style={styles.sectionTitle}>To Be Rescheduled ({data.toBeRescheduled.length})</Text>
-        <View style={styles.table}>
-          <View style={styles.tHeadRow}>
-            <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
-            <Text style={[styles.tCellHead, { width: CONTENT_W * 0.72 }]}>Organization</Text>
-          </View>
-          {data.toBeRescheduled.map((row, i) => (
-            <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow}>
-              <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
-              <Text style={[styles.tCell, { width: CONTENT_W * 0.72 }]}>{row.org || "—"}</Text>
+        {data.scheduledInterviews.length > 0 && (
+          <View>
+            <View style={styles.table} wrap={false}>
+              <Text style={styles.sectionTitle}>Scheduled Interviews ({data.scheduledInterviews.length})</Text>
+              <View style={styles.tHeadRow}>
+                <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
+                <Text style={[styles.tCellHead, styles.colOrg]}>Organization</Text>
+                <Text style={[styles.tCellHead, styles.colDate]}>Date</Text>
+              </View>
             </View>
-          ))}
-        </View>
-
-        <Text style={[styles.sectionTitle, { marginTop: 14 }]}>Declined to Interview ({data.declined.length})</Text>
-        <View style={styles.table}>
-          <View style={styles.tHeadRow}>
-            <Text style={[styles.tCellHead, styles.colName2]}>Name</Text>
-            <Text style={[styles.tCellHead, styles.colOrg2]}>Organization</Text>
-            <Text style={[styles.tCellHead, styles.colReason]}>Reason</Text>
+            {data.scheduledInterviews.map((row, i) => (
+              <View key={row.name + row.date} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow} wrap={false}>
+                <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
+                <Text style={[styles.tCell, styles.colOrg]}>{row.org || "—"}</Text>
+                <Text style={[styles.tCell, styles.colDate]}>{row.date}</Text>
+              </View>
+            ))}
           </View>
-          {data.declined.map((row, i) => (
-            <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow}>
-              <Text style={[styles.tCell, styles.colName2]}>{row.name}</Text>
-              <Text style={[styles.tCell, styles.colOrg2]}>{row.org || "—"}</Text>
-              <Text style={[styles.tCell, styles.colReason]}>{row.reason}</Text>
-            </View>
-          ))}
-        </View>
+        )}
 
-        <Text style={[styles.sectionTitle, { marginTop: 14 }]}>Deceased ({data.deceased.length})</Text>
-        <View style={styles.table}>
-          <View style={styles.tHeadRow}>
-            <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
-            <Text style={[styles.tCellHead, { width: CONTENT_W * 0.72 }]}>Reason</Text>
+        {data.toBeRescheduled.length > 0 && (
+          <View>
+            <View style={styles.table} wrap={false}>
+              <Text style={styles.sectionTitle}>To Be Rescheduled ({data.toBeRescheduled.length})</Text>
+              <View style={styles.tHeadRow}>
+                <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
+                <Text style={[styles.tCellHead, { width: CONTENT_W * 0.72 }]}>Organization</Text>
+              </View>
+            </View>
+            {data.toBeRescheduled.map((row, i) => (
+              <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow} wrap={false}>
+                <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
+                <Text style={[styles.tCell, { width: CONTENT_W * 0.72 }]}>{row.org || "—"}</Text>
+              </View>
+            ))}
           </View>
-          {data.deceased.map((row, i) => (
-            <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow}>
-              <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
-              <Text style={[styles.tCell, { width: CONTENT_W * 0.72 }]}>{row.reason}</Text>
-            </View>
-          ))}
-        </View>
+        )}
 
-        <Footer page="Page 4 of 4" reportDate={data.reportDate} />
+        {data.declined.length > 0 && (
+          <View>
+            <View style={styles.table} wrap={false}>
+              <Text style={styles.sectionTitle}>Declined to Interview ({data.declined.length})</Text>
+              <View style={styles.tHeadRow}>
+                <Text style={[styles.tCellHead, styles.colName2]}>Name</Text>
+                <Text style={[styles.tCellHead, styles.colOrg2]}>Organization</Text>
+                <Text style={[styles.tCellHead, styles.colReason]}>Reason</Text>
+              </View>
+            </View>
+            {data.declined.map((row, i) => (
+              <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow} wrap={false}>
+                <Text style={[styles.tCell, styles.colName2]}>{row.name}</Text>
+                <Text style={[styles.tCell, styles.colOrg2]}>{row.org || "—"}</Text>
+                <Text style={[styles.tCell, styles.colReason]}>{row.reason}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {data.deceased.length > 0 && (
+          <View>
+            <View style={styles.table} wrap={false}>
+              <Text style={styles.sectionTitle}>Deceased ({data.deceased.length})</Text>
+              <View style={styles.tHeadRow}>
+                <Text style={[styles.tCellHead, styles.colName]}>Name</Text>
+                <Text style={[styles.tCellHead, { width: CONTENT_W * 0.72 }]}>Reason</Text>
+              </View>
+            </View>
+            {data.deceased.map((row, i) => (
+              <View key={row.name} style={i % 2 === 1 ? styles.tRowAlt : styles.tRow} wrap={false}>
+                <Text style={[styles.tCell, styles.colName]}>{row.name}</Text>
+                <Text style={[styles.tCell, { width: CONTENT_W * 0.72 }]}>{row.reason}</Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <Footer reportDate={data.reportDate} />
       </Page>
     </Document>
   );
