@@ -282,6 +282,7 @@ function militaryValue(data: any): string {
 
 function MiniTable({
   title,
+  bigTitle,
   icon,
   note,
   headers,
@@ -290,6 +291,11 @@ function MiniTable({
   renderRow,
 }: {
   title?: string;
+  // Renders `title` with the larger navy section-heading style (with its
+  // accent bar) instead of the small brass label style, for tables that
+  // serve as an entire section's heading (e.g. "Other Giving History")
+  // rather than a sub-table within a section (e.g. "Phone Numbers").
+  bigTitle?: boolean;
   icon?: IconName;
   note?: string;
   headers: string[];
@@ -298,46 +304,71 @@ function MiniTable({
   renderRow: (row: any, i: number) => string[];
 }) {
   if (!rows || rows.length === 0) return null;
-  // Note: no wrap={false} on this outer container — a large table (many rows,
-  // or rows with long wrapping text) must be allowed to flow across a page
-  // break naturally. Forcing the whole table into one non-splittable block
-  // is what previously caused rows to render with mismatched vertical offsets
-  // (visually overlapping) whenever the table didn't fit in the remaining
-  // space on a page and had to be auto-pushed to the next one. Each row
-  // still gets its own wrap={false} below so an individual row is never cut
-  // mid-row, and the title/header stay together so they don't orphan alone.
+  const [firstRow, ...restRows] = rows;
+  const firstCells = renderRow(firstRow, 0);
+
+  // The title, header row, and first data row are grouped into ONE
+  // wrap={false} block. This is the key anti-orphan fix: without it, the
+  // title+header can render alone at the very bottom of a page (with zero
+  // rows visible under it) while every row gets pushed to the next page —
+  // exactly the "Education" bug reported. Grouping a SMALL block (title +
+  // header + one row) rather than the WHOLE table avoids reintroducing the
+  // earlier overlap bug, which was caused by forcing an entire multi-row
+  // table into one indivisible block. Remaining rows flow normally after,
+  // each still individually wrap={false} so no single row is ever cut mid-row.
   return (
     <View style={{ marginBottom: 8 }}>
-      {title ? (
-        <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]} wrap={false}>
-          {icon ? <IconGlyph name={icon} color={BRASS} size={9} /> : null}
-          <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: icon ? 4 : 0 }}>
-            {title.toUpperCase()}
-          </Text>
-        </View>
-      ) : null}
-      {note ? <Text style={styles.italicNote}>{note}</Text> : null}
-      <View style={{ borderRadius: 8, overflow: "hidden", borderWidth: 1, borderColor: LINE }}>
-      <View style={styles.tableHeaderRow} wrap={false}>
-        {headers.map((h, i) => (
-          <Text key={h} style={[styles.tableHeaderCell, { width: colWidths[i] }]}>
-            {h}
-          </Text>
-        ))}
-      </View>
-      {rows.map((row, i) => {
-        const cells = renderRow(row, i);
-        return (
-          <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM }]} key={i} wrap={false}>
-            {cells.map((c, ci) => (
+      <View wrap={false}>
+        {title ? (
+          bigTitle ? (
+            <>
+              <View style={styles.sectionAccent} />
+              <Text style={styles.sectionHeading}>{title}</Text>
+            </>
+          ) : (
+            <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]}>
+              {icon ? <IconGlyph name={icon} color={BRASS} size={9} /> : null}
+              <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: icon ? 4 : 0 }}>
+                {title.toUpperCase()}
+              </Text>
+            </View>
+          )
+        ) : null}
+        {note ? <Text style={styles.italicNote}>{note}</Text> : null}
+        <View style={{ borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: LINE, borderTopLeftRadius: 8, borderTopRightRadius: 8, overflow: "hidden" }}>
+          <View style={styles.tableHeaderRow}>
+            {headers.map((h, i) => (
+              <Text key={h} style={[styles.tableHeaderCell, { width: colWidths[i] }]}>
+                {h}
+              </Text>
+            ))}
+          </View>
+          <View style={[styles.tableRow, { backgroundColor: CREAM }]}>
+            {firstCells.map((c, ci) => (
               <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
                 {c}
               </Text>
             ))}
           </View>
-        );
-      })}
+        </View>
       </View>
+      {restRows.length > 0 && (
+        <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: LINE, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: "hidden" }}>
+          {restRows.map((row, i) => {
+            const idx = i + 1;
+            const cells = renderRow(row, idx);
+            return (
+              <View style={[styles.tableRow, { backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM }]} key={idx} wrap={false}>
+                {cells.map((c, ci) => (
+                  <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
+                    {c}
+                  </Text>
+                ))}
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
@@ -499,9 +530,9 @@ function ProfileDocument({ data }: { data: any }) {
           </View>
         )}
 
-        <View style={styles.sectionAccent} wrap={false} />
-        <Text style={styles.sectionHeading} wrap={false}>Biographical Information</Text>
-        <View>
+        <View wrap={false}>
+          <View style={styles.sectionAccent} />
+          <Text style={styles.sectionHeading}>Biographical Information</Text>
           {hasPhones && hasEmails ? (
             <View style={{ flexDirection: "row" }} wrap={false}>
               <View style={{ flex: 1, marginRight: 10 }}>
@@ -591,30 +622,39 @@ function ProfileDocument({ data }: { data: any }) {
 
         {data.realEstate?.length > 0 && (
           <View>
-            <View style={[styles.sectionHeadingRow, styles.sectionHeading]} wrap={false}>
-              <IconGlyph name="home" color={NAVY} size={12} />
-              <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 5 }}>Real Estate</Text>
-            </View>
-            {data.realEstate.map((re: any, i: number) => (
-              // wrap={false} keeps a single property card from being cut mid-card
-              // by a page break (which previously let the last card on a page
-              // overlap the footer) — but lets DIFFERENT cards flow onto the
-              // next page normally, since the list as a whole is no longer
-              // forced into one indivisible block.
-              <View style={styles.propertyCard} key={i} wrap={false}>
-                {re.photo ? (
-                  <Image src={re.photo} style={styles.propertyPhoto} />
-                ) : (
-                  <View style={[styles.propertyPhoto, { backgroundColor: CREAM }]} />
-                )}
-                <View style={{ flex: 1 }}>
-                  {re.address ? <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 }}>{re.address}</Text> : null}
-                  {re.description ? <Text style={{ fontSize: 9, color: INK, marginBottom: 2 }}>{re.description}</Text> : null}
-                  {re.value ? <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginBottom: 2 }}>{fmtMoney(re.value)}</Text> : null}
-                  {re.purchaseInfo ? <Text style={{ fontSize: 8.5, color: MUTED }}>{re.purchaseInfo}</Text> : null}
+            {(() => {
+              const [firstProperty, ...restProperties] = data.realEstate;
+              const renderCard = (re: any, i: number) => (
+                <View style={styles.propertyCard} key={i} wrap={false}>
+                  {re.photo ? (
+                    <Image src={re.photo} style={styles.propertyPhoto} />
+                  ) : (
+                    <View style={[styles.propertyPhoto, { backgroundColor: CREAM }]} />
+                  )}
+                  <View style={{ flex: 1 }}>
+                    {re.address ? <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 }}>{re.address}</Text> : null}
+                    {re.description ? <Text style={{ fontSize: 9, color: INK, marginBottom: 2 }}>{re.description}</Text> : null}
+                    {re.value ? <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginBottom: 2 }}>{fmtMoney(re.value)}</Text> : null}
+                    {re.purchaseInfo ? <Text style={{ fontSize: 8.5, color: MUTED }}>{re.purchaseInfo}</Text> : null}
+                  </View>
                 </View>
-              </View>
-            ))}
+              );
+              return (
+                <>
+                  {/* Heading grouped with the first card in one wrap={false}
+                      block so "Real Estate" never renders alone at the
+                      bottom of a page with every card pushed to the next one. */}
+                  <View wrap={false}>
+                    <View style={[styles.sectionHeadingRow, styles.sectionHeading]}>
+                      <IconGlyph name="home" color={NAVY} size={12} />
+                      <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 5 }}>Real Estate</Text>
+                    </View>
+                    {renderCard(firstProperty, 0)}
+                  </View>
+                  {restProperties.map((re: any, i: number) => renderCard(re, i + 1))}
+                </>
+              );
+            })()}
           </View>
         )}
 
@@ -627,25 +667,23 @@ function ProfileDocument({ data }: { data: any }) {
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
         <View style={styles.body}>
-        <View style={styles.sectionAccent} wrap={false} />
-        <Text style={styles.sectionHeading} wrap={false}>Boards &amp; Affiliations</Text>
-        <FieldRow label="Boards" value={data.boards} />
+        <View wrap={false}>
+          <View style={styles.sectionAccent} />
+          <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
+          <FieldRow label="Boards" value={data.boards} />
+        </View>
         <FieldRow label="Clubs & Affiliations" value={data.clubsAffiliations} />
         <FieldRow label="Business Colleagues" value={data.businessColleagues} />
 
-        {data.otherGiving?.length > 0 && (
-          <View>
-            <View style={styles.sectionAccent} wrap={false} />
-            <Text style={styles.sectionHeading} wrap={false}>Other Giving History</Text>
-            <MiniTable
-              note="The amounts listed are representative of donations found in publicly available records and in donor history provided to Catapult. As such, the individual amounts will not necessarily total the Total Giving amount."
-              headers={["RECIPIENT", "GIVING", "YEAR", "AMOUNT"]}
-              colWidths={["40%", "30%", "12%", "18%"]}
-              rows={data.otherGiving}
-              renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoney(row.amount)]}
-            />
-          </View>
-        )}
+        <MiniTable
+          title="Other Giving History"
+          bigTitle
+          note="The amounts listed are representative of donations found in publicly available records and in donor history provided to Catapult. As such, the individual amounts will not necessarily total the Total Giving amount."
+          headers={["RECIPIENT", "GIVING", "YEAR", "AMOUNT"]}
+          colWidths={["40%", "30%", "12%", "18%"]}
+          rows={data.otherGiving}
+          renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoney(row.amount)]}
+        />
 
         {data.fecGiving?.length > 0 && (
           <MiniTable
