@@ -1,0 +1,44 @@
+import { NextRequest, NextResponse } from "next/server";
+import { isJagAdminAuthed } from "@/lib/jag-admin-auth";
+import { saveJagDashboardData, type JagDashboardData } from "@/lib/jag-data";
+
+export const runtime = "nodejs";
+
+function isValidData(data: any): data is JagDashboardData {
+  return (
+    data &&
+    typeof data.reportDate === "string" &&
+    data.stats &&
+    typeof data.stats.totalProspects === "number" &&
+    Array.isArray(data.completedInterviews) &&
+    Array.isArray(data.scheduledInterviews) &&
+    Array.isArray(data.toBeRescheduled) &&
+    Array.isArray(data.declined) &&
+    Array.isArray(data.deceased) &&
+    Array.isArray(data.feasibilitySignals) &&
+    Array.isArray(data.missionThemes) &&
+    Array.isArray(data.quotes)
+  );
+}
+
+export async function POST(req: NextRequest) {
+  if (!(await isJagAdminAuthed(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const body = await req.json().catch(() => null);
+  if (!isValidData(body)) {
+    return NextResponse.json(
+      { error: "The data doesn't look right (missing a required field or table). Nothing was saved." },
+      { status: 400 }
+    );
+  }
+
+  try {
+    await saveJagDashboardData({ ...body, updatedAt: new Date().toISOString() });
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("jag-admin save error", err);
+    return NextResponse.json({ error: "Failed to save. Please try again." }, { status: 500 });
+  }
+}

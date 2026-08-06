@@ -29,6 +29,19 @@ const GATES = [
     secretEnv: "JAG_DASHBOARD_AUTH_SECRET",
   },
   {
+    // Separate, internal-only tool where the data manager uploads the
+    // weekly report + survey files. Uses its own password (JAG_ADMIN_PASSWORD)
+    // — deliberately NOT the same as JAG_DASHBOARD_PASSWORD, since the
+    // client (who has the dashboard password) must never be able to reach
+    // this page or edit the data behind it.
+    matchPrefix: "/jag-admin",
+    loginPath: "/jag-admin/login",
+    apiPath: "/api/jag-admin-login",
+    cookieName: "catapult_jag_admin_auth",
+    passwordEnv: "JAG_ADMIN_PASSWORD",
+    secretEnv: "JAG_ADMIN_AUTH_SECRET",
+  },
+  {
     matchPrefix: "/research",
     loginPath: "/research/login",
     apiPath: "/api/research-login",
@@ -81,6 +94,8 @@ export const config = {
     "/jag-dashboard",
     "/jag-dashboard/:path*",
     "/api/jag-summary-pdf",
+    "/jag-admin",
+    "/jag-admin/:path*",
     "/research",
     "/research/:path*",
   ],
