@@ -257,7 +257,7 @@ export async function GET() {
             <View wrap={false}>
               <Text style={styles.sectionTitle}>Donor Signals</Text>
               <Text style={{ fontSize: 8, color: NAVY, opacity: 0.6, marginTop: -4, marginBottom: 6 }}>
-                Based on {data.surveyRespondentCount} of {data.stats.completed} completed interviews surveyed
+                Based on {data.stats.completed} completed interviews
               </Text>
             </View>
             {data.feasibilitySignals.map((f) => (
