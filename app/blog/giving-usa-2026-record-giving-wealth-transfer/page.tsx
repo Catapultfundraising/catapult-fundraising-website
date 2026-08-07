@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
+import { ShareButtons } from "@/components/share-buttons";
 
 const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "giving-usa-2026-record-giving-wealth-transfer";
@@ -82,6 +83,7 @@ export default function GivingUsa2026Post() {
       />
 
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+        <ShareButtons url={`/blog/giving-usa-2026-record-giving-wealth-transfer`} title="Giving USA 2026: Record Giving, the Great Wealth Transfer, and the Ask We Keep Avoiding" />
         <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
           By Anthony R. Alonso, President &amp; CEO, Catapult Fundraising
         </p>

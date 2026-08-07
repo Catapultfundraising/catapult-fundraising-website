@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
+import { ShareButtons } from "@/components/share-buttons";
 
 const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "understanding-latino-philanthropy";
@@ -63,6 +64,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         description="Anthony Alonso's mother asked him the same question for thirty-five years: do people really give? The truth is she gave every week, she just never called it philanthropy."
       />
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+        <ShareButtons url={`/blog/understanding-latino-philanthropy`} title="Understanding Latino Philanthropy: Lessons for Nonprofit Fundraisers" />
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image

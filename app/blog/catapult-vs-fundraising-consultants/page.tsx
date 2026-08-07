@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
+import { ShareButtons } from "@/components/share-buttons";
 import { CheckCircle, XCircle } from "lucide-react";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -128,6 +129,7 @@ export default function CatapultVsCompetitorsPost() {
         description="The nonprofit fundraising industry is fragmented on purpose. Firms that write campaign strategy rarely make the calls, and firms that make calls rarely understand campaign strategy. Here's how Catapult closes that gap, and how we stack up against the firms nonprofits usually consider alongside us."
       />
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+        <ShareButtons url={`/blog/catapult-vs-fundraising-consultants`} title="Catapult Fundraising vs. Other Fundraising Consultants | What Sets Us Apart" />
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image

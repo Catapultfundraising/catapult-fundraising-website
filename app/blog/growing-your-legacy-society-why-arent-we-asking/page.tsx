@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
+import { ShareButtons } from "@/components/share-buttons";
 
 const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "growing-your-legacy-society-why-arent-we-asking";
@@ -63,6 +64,7 @@ export default function GrowingYourLegacySocietyPost() {
         description="Only one in five donors say they've ever been asked for a legacy gift. Almost everyone has the ability to leave a bequest, even a modest one, all we have to do is ask."
       />
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+        <ShareButtons url={`/blog/growing-your-legacy-society-why-arent-we-asking`} title="Growing Your Legacy Society: Why Aren't We Asking?" />
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
