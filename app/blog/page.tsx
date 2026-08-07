@@ -33,6 +33,15 @@ const FEATHER = {
 
 const POSTS = [
   {
+    slug: "giving-usa-2026-record-giving-wealth-transfer",
+    title: "Giving USA 2026: Record Giving, the Great Wealth Transfer, and the Ask We Keep Avoiding",
+    description:
+      "Anthony R. Alonso on what Giving USA 2026's record $617.2 billion, a 19.7% jump in bequest giving, and the aging of the Baby Boomer generation mean for nonprofit fundraisers who've stopped asking.",
+    readTime: "7 min read",
+    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/37c1fee2-8ec9-4776-997f-51cd02b24659.png",
+    alt: "A multigenerational family looking through a photo album together, symbolizing the great wealth transfer in philanthropy",
+  },
+  {
     slug: "the-state-of-fundraising-in-nevada",
     title: "The State of Fundraising in Nevada",
     description:
