@@ -28,6 +28,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/legacy-call",
+        destination: "/services/legacy-giving",
+        permanent: true,
+      },
+      {
         source: "/capitalcampaignservices",
         destination: "/services/capital-campaign",
         permanent: true,
@@ -40,6 +45,11 @@ const nextConfig = {
       {
         source: "/ourteam",
         destination: "/about",
+        permanent: true,
+      },
+      {
+        source: "/team",
+        destination: "/our-team",
         permanent: true,
       },
       {
@@ -88,6 +98,11 @@ const nextConfig = {
         permanent: true,
       },
       {
+        source: "/case-studies",
+        destination: "/insights/case-studies",
+        permanent: true,
+      },
+      {
         source: "/contact-10",
         destination: "/contact",
         permanent: true,
@@ -105,6 +120,11 @@ const nextConfig = {
       {
         source: "/apply-for-job",
         destination: "/apply",
+        permanent: true,
+      },
+      {
+        source: "/resources",
+        destination: "/resources/associations",
         permanent: true,
       },
     ];

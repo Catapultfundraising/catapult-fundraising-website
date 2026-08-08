@@ -36,6 +36,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/our-team": "2026-08-02",
   "/contact": "2026-08-02",
   "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices": "2026-07-22",
+  "/blog/giving-usa-2026-record-giving-wealth-transfer": "2026-07-25",
 };
 
 const FALLBACK_DATE = "2026-07-22";
@@ -64,6 +65,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/insights/case-studies/legacy-call-presidential-library",
     "/insights/case-studies/af-connect-special-olympics-indiana",
     "/blog",
+    "/blog/giving-usa-2026-record-giving-wealth-transfer",
     "/blog/how-much-does-a-capital-campaign-cost",
     "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices",
     "/blog/understanding-latino-philanthropy",
@@ -75,6 +77,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/blog/how-to-effectively-use-the-phone-today",
     "/blog/multi-channel-fundraising-are-you-missing-the-mark",
     "/blog/the-state-of-fundraising-in-nevada",
+    "/resources/associations",
   ];
 
   return routes.map((route) => ({
