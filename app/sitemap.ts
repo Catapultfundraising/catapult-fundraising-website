@@ -77,7 +77,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/blog/how-to-effectively-use-the-phone-today",
     "/blog/multi-channel-fundraising-are-you-missing-the-mark",
     "/blog/the-state-of-fundraising-in-nevada",
-    "/resources/associations",
+    // NOTE: /resources/associations is intentionally excluded here. That page
+    // sets `robots: { index: false, follow: false }` (it's an internal
+    // reference list, not a public SEO page), so listing it in the sitemap
+    // sends Google a contradictory signal and shows up in Search Console as
+    // "Excluded by noindex tag." A noindex page should never appear in the
+    // sitemap. The route itself still resolves at /resources/associations;
+    // it just isn't submitted for indexing.
   ];
 
   return routes.map((route) => ({
