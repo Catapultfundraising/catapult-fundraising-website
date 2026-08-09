@@ -4,6 +4,16 @@ import { LEAD_EMAILS } from "@/lib/constants";
 const HUBSPOT_NOTES_BASE = "https://api.hubapi.com/crm/v3/objects/notes";
 const NOTE_TO_CONTACT_ASSOCIATION_TYPE_ID = 202;
 
+// Basic email shape check. This isn't meant to be a full RFC validator,
+// just enough to reject the obviously-fake addresses bot submissions use.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+// Bots that fill out every form field usually also fill in this hidden
+// honeypot input, and they almost always submit within a second or two of
+// the page loading. Real visitors never see the honeypot field and always
+// take longer than this to read the form and type a message.
+const MIN_HUMAN_SUBMIT_MS = 1500;
+
 // Splits a full name into first/last for HubSpot's contact schema.
 function splitName(fullName: string) {
   const parts = fullName.trim().split(/\s+/);
@@ -142,11 +152,37 @@ async function createSubmissionNote({
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, title, org, email, phone, service, message } = await req.json();
+    const { name, title, org, email, phone, service, message, company, startedAt } = await req.json();
+
+    // Anti-spam: "company" here is a honeypot input that is hidden from real
+    // visitors via CSS, so only an automated form-filler would ever put
+    // anything in it. "startedAt" is a timestamp captured when the form
+    // first rendered; a submission that arrives faster than a human could
+    // plausibly read and fill out the form is almost certainly a bot.
+    // Both cases return a normal-looking success response so bots don't
+    // learn they were caught and adjust their script.
+    const honeypotTripped = typeof company === "string" && company.trim().length > 0;
+    const submittedTooFast =
+      typeof startedAt === "number" && Number.isFinite(startedAt) && Date.now() - startedAt < MIN_HUMAN_SUBMIT_MS;
+
+    if (honeypotTripped || submittedTooFast) {
+      console.warn("Contact form: blocked a likely bot submission", {
+        honeypotTripped,
+        submittedTooFast,
+      });
+      return NextResponse.json({ ok: true, emailSent: true, hubspotSynced: true });
+    }
 
     if (!name || !email || !message) {
       return NextResponse.json(
         { error: "Name, email, and message are required." },
+        { status: 400 }
+      );
+    }
+
+    if (!EMAIL_RE.test(email)) {
+      return NextResponse.json(
+        { error: "Please enter a valid email address." },
         { status: 400 }
       );
     }

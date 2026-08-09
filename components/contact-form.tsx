@@ -57,6 +57,13 @@ export function ContactForm() {
   const [service, setService] = useState("");
   const [message, setMessage] = useState("");
 
+  // Anti-spam: a hidden field real visitors never see or fill in (bots that
+  // auto-fill every input on the page do), plus a timestamp captured when
+  // the form first rendered so we can reject submissions that arrive faster
+  // than a person could actually read and fill out the form.
+  const [company, setCompany] = useState("");
+  const [formStartedAt] = useState(() => Date.now());
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -66,7 +73,17 @@ export function ContactForm() {
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, title, org, email, phone, service, message }),
+        body: JSON.stringify({
+          name,
+          title,
+          org,
+          email,
+          phone,
+          service,
+          message,
+          company,
+          startedAt: formStartedAt,
+        }),
       });
 
       const data = await res.json().catch(() => ({}));
@@ -114,6 +131,35 @@ export function ContactForm() {
           <p>{errorMessage}</p>
         </div>
       )}
+
+      {/*
+        Honeypot field. Hidden from sighted and screen-reader users
+        (aria-hidden + off-screen positioning + not focusable), so only an
+        automated script filling in every input on the page will ever
+        populate it. Name it something a scraper would find plausible.
+      */}
+      <div
+        aria-hidden="true"
+        style={{
+          position: "absolute",
+          left: "-9999px",
+          top: "-9999px",
+          width: 0,
+          height: 0,
+          overflow: "hidden",
+        }}
+      >
+        <Label htmlFor="company">Company website</Label>
+        <Input
+          id="company"
+          name="company"
+          type="text"
+          tabIndex={-1}
+          autoComplete="off"
+          value={company}
+          onChange={(e) => setCompany(e.target.value)}
+        />
+      </div>
 
       <div className="space-y-6 rounded-2xl border border-[rgb(var(--line))] bg-white p-8 lg:p-10">
         <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Your information</h2>
