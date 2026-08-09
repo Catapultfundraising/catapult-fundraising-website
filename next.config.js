@@ -127,6 +127,17 @@ const nextConfig = {
         destination: "/resources/associations",
         permanent: true,
       },
+      {
+        // Legacy Wix URL (no hyphens) for the same legacy-giving webinar
+        // content, now covered by this blog post. Google Search Console
+        // has this old URL queued as "Crawled - currently not indexed"
+        // from the pre-migration site; redirecting it to the closest live
+        // equivalent lets Google consolidate it instead of treating it as
+        // a dead end.
+        source: "/webinargrowingyourlegacysociety",
+        destination: "/blog/growing-your-legacy-society-why-arent-we-asking",
+        permanent: true,
+      },
     ];
   },
 };
