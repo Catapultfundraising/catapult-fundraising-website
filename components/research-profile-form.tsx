@@ -36,8 +36,13 @@ import {
   Target,
   Lock,
   MapPin,
+  Bold,
+  Underline,
+  ArrowUp,
+  ArrowDown,
   type LucideIcon,
 } from "lucide-react";
+import { parseFormattedText } from "@/lib/rich-text";
 
 const DRAFT_KEY_PREFIX = "catapult_research_profile_draft_v1";
 const draftKey = (id: string | null) => `${DRAFT_KEY_PREFIX}:${id || "unsaved"}`;
@@ -89,6 +94,33 @@ const DEGREE_OPTIONS = [
   "Honorary Degree",
   "Other",
   "Unknown",
+];
+
+// Alphabetized standard giving/organization categories for the Other Giving
+// History table -- covers the four from the training discussion (Education,
+// Social Service, Healthcare, Other) plus the rest of the common nonprofit
+// sector taxonomy so profilers rarely need to reach for "Other."
+const GIVING_CATEGORY_OPTIONS = [
+  "Animal Welfare",
+  "Arts & Culture",
+  "Civic & Community",
+  "Disaster Relief",
+  "Education",
+  "Environment & Conservation",
+  "Faith-Based / Religious",
+  "Foundation / Grantmaking",
+  "Healthcare",
+  "Higher Education",
+  "Human Services",
+  "International",
+  "Other",
+  "Political",
+  "Public / Societal Benefit",
+  "Social Service",
+  "Sports & Recreation",
+  "Unknown",
+  "Veterans",
+  "Youth Development",
 ];
 
 function parseCurrencyToNumber(value: string): number {
@@ -331,6 +363,7 @@ function Field({
   money,
   disabled,
   lockedHint,
+  richText,
 }: {
   label: string;
   value: string;
@@ -342,7 +375,31 @@ function Field({
   money?: boolean;
   disabled?: boolean;
   lockedHint?: string;
+  // Adds Bold/Underline toolbar buttons above the textarea (they wrap the
+  // current selection with **bold**/__underline__ markers) plus a small
+  // live preview below showing how it will render, both on screen and in
+  // the generated PDF. Only meaningful when textarea is also true.
+  richText?: boolean;
 }) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  function wrapSelection(marker: string, placeholderText: string) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const start = el.selectionStart ?? value.length;
+    const end = el.selectionEnd ?? value.length;
+    const selected = value.slice(start, end);
+    const inner = selected || placeholderText;
+    const wrapped = `${marker}${inner}${marker}`;
+    const newValue = value.slice(0, start) + wrapped + value.slice(end);
+    onChange(newValue);
+    requestAnimationFrame(() => {
+      el.focus();
+      const cursorStart = start + marker.length;
+      el.setSelectionRange(cursorStart, cursorStart + inner.length);
+    });
+  }
+
   return (
     <div className="mt-5">
       <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
@@ -356,14 +413,46 @@ function Field({
         )}
       </label>
       {textarea ? (
-        <textarea
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          rows={rows}
-          disabled={disabled}
-          className="mt-1.5 w-full resize-y rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))] disabled:bg-[rgb(var(--paper))] disabled:opacity-70"
-        />
+        <>
+          {richText && !disabled && (
+            <div className="mt-1.5 flex items-center gap-1.5">
+              <button
+                type="button"
+                onClick={() => wrapSelection("**", "bold text")}
+                title="Bold selected text"
+                className="inline-flex items-center gap-1 rounded-md border border-[rgb(var(--line))] px-2 py-1 text-[11px] font-semibold text-[rgb(var(--ink))]/70 hover:border-[rgb(var(--brass))] hover:text-[rgb(var(--navy))]"
+              >
+                <Bold className="h-3 w-3" />
+                Bold
+              </button>
+              <button
+                type="button"
+                onClick={() => wrapSelection("__", "underlined text")}
+                title="Underline selected text"
+                className="inline-flex items-center gap-1 rounded-md border border-[rgb(var(--line))] px-2 py-1 text-[11px] font-semibold text-[rgb(var(--ink))]/70 hover:border-[rgb(var(--brass))] hover:text-[rgb(var(--navy))]"
+              >
+                <Underline className="h-3 w-3" />
+                Underline
+              </button>
+              <span className="text-[10px] text-[rgb(var(--ink))]/40">Select text first, then click Bold/Underline</span>
+            </div>
+          )}
+          <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            rows={rows}
+            disabled={disabled}
+            className="mt-1.5 w-full resize-y rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))] disabled:bg-[rgb(var(--paper))] disabled:opacity-70"
+          />
+          {richText && value && /\*\*.+?\*\*|__.+?__/.test(value) && (
+            <div className="mt-1.5 rounded-lg bg-[rgb(var(--paper))] px-3 py-2 text-sm text-[rgb(var(--ink))]">
+              <p className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/40">Preview</p>
+              <FormattedPreview value={value} />
+            </div>
+          )}
+        </>
       ) : (
         <input
           type="text"
@@ -377,11 +466,25 @@ function Field({
           }}
           placeholder={placeholder}
           disabled={disabled}
-  
+
         className="mt-1.5 w-full rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm text-[rgb(var(--ink))] outline-none focus:border-[rgb(var(--brass))] disabled:bg-[rgb(var(--paper))] disabled:opacity-70"
         />
       )}
     </div>
+  );
+}
+
+function FormattedPreview({ value }: { value: string }) {
+  const segments = parseFormattedText(value);
+  return (
+    <p className="whitespace-pre-wrap">
+      {segments.map((seg, i) => {
+        let node: React.ReactNode = seg.text;
+        if (seg.bold) node = <strong key={i}>{node}</strong>;
+        if (seg.underline) node = <u key={i}>{node}</u>;
+        return <span key={i}>{node}</span>;
+      })}
+    </p>
   );
 }
 
@@ -678,6 +781,13 @@ function ResearchProfileFormInner() {
   function removeGivingRow(i: number) {
     set("otherGiving", data.otherGiving.filter((_, idx) => idx !== i));
   }
+  function moveGivingRow(i: number, direction: -1 | 1) {
+    const next = [...data.otherGiving];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("otherGiving", next);
+  }
 
   function addFecRow() {
     set("fecGiving", [...data.fecGiving, { org: "", year: "", amount: "" }]);
@@ -689,6 +799,13 @@ function ResearchProfileFormInner() {
   }
   function removeFecRow(i: number) {
     set("fecGiving", data.fecGiving.filter((_, idx) => idx !== i));
+  }
+  function moveFecRow(i: number, direction: -1 | 1) {
+    const next = [...data.fecGiving];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("fecGiving", next);
   }
 
   function addChildRow() {
@@ -1080,7 +1197,7 @@ function ResearchProfileFormInner() {
           lockedHint="Locked from prospect list"
         />
       </div>
-      <Field label="Home Address" value={data.homeAddress} onChange={(v) => set("homeAddress", v)} textarea rows={2} icon={MapPin} placeholder="Street, city, state, ZIP" />
+      <Field label="Home Address" value={data.homeAddress} onChange={(v) => set("homeAddress", v)} textarea rows={2} icon={MapPin} placeholder="Street, city, state, ZIP" richText />
       <div className="mt-5">
         <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
           <Phone className="h-3.5 w-3.5" />
@@ -1166,7 +1283,7 @@ function ResearchProfileFormInner() {
           colWidths={["25%", "30%", "45%"]}
         />
       </div>
-      <Field label="Born" value={data.born} onChange={(v) => set("born", v)} placeholder="DOB, Age, aka" textarea rows={2} icon={CalendarDays} />
+      <Field label="Born" value={data.born} onChange={(v) => set("born", v)} placeholder="DOB, Age, aka" textarea rows={2} icon={CalendarDays} richText />
       <SelectField label="Marital Status" value={data.maritalStatus} onChange={(v) => set("maritalStatus", v)} options={MARITAL_STATUS_OPTIONS} icon={Users} />
 
       <div className="mt-5">
@@ -1230,8 +1347,8 @@ function ResearchProfileFormInner() {
       </div>
 
       <Field label="Religion" value={data.religion} onChange={(v) => set("religion", v)} icon={BookOpen} />
-      <Field label="Hobbies & Interests" value={data.hobbiesInterests} onChange={(v) => set("hobbiesInterests", v)} textarea rows={2} icon={Heart} />
-      <Field label="Relationship to [Organization]" value={data.relationshipToOrg} onChange={(v) => set("relationshipToOrg", v)} textarea rows={3} icon={Handshake} />
+      <Field label="Hobbies & Interests" value={data.hobbiesInterests} onChange={(v) => set("hobbiesInterests", v)} textarea rows={2} icon={Heart} richText />
+      <Field label="Relationship to [Organization]" value={data.relationshipToOrg} onChange={(v) => set("relationshipToOrg", v)} textarea rows={3} icon={Handshake} richText />
 
       <div className="mt-5">
         <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
@@ -1279,13 +1396,13 @@ function ResearchProfileFormInner() {
 
       {/* Business / Foundation / Political */}
       <SectionHeading icon={Briefcase}>Business, Foundation &amp; Affiliations</SectionHeading>
-      <Field label="Business Address(es) & Phone(s)" value={data.businessAddresses} onChange={(v) => set("businessAddresses", v)} textarea rows={4} icon={Briefcase} />
-      <Field label="Family Foundation" value={data.familyFoundation} onChange={(v) => set("familyFoundation", v)} textarea rows={3} icon={Landmark} />
+      <Field label="Business Address(es) & Phone(s)" value={data.businessAddresses} onChange={(v) => set("businessAddresses", v)} textarea rows={4} icon={Briefcase} richText />
+      <Field label="Family Foundation" value={data.familyFoundation} onChange={(v) => set("familyFoundation", v)} textarea rows={3} icon={Landmark} richText />
       <SelectField label="Political Affiliation" value={data.politicalAffiliation} onChange={(v) => set("politicalAffiliation", v)} options={POLITICAL_AFFILIATION_OPTIONS} icon={Vote} />
-      <Field label="Additional Information" value={data.additionalInformation} onChange={(v) => set("additionalInformation", v)} textarea rows={8} icon={FileText} />
-      <Field label="Boards" value={data.boards} onChange={(v) => set("boards", v)} textarea rows={4} icon={Users2} />
-      <Field label="Clubs & Affiliations" value={data.clubsAffiliations} onChange={(v) => set("clubsAffiliations", v)} textarea rows={4} icon={Users2} />
-      <Field label="Business Colleagues" value={data.businessColleagues} onChange={(v) => set("businessColleagues", v)} textarea rows={4} icon={Briefcase} />
+      <Field label="Additional Information" value={data.additionalInformation} onChange={(v) => set("additionalInformation", v)} textarea rows={8} icon={FileText} richText />
+      <Field label="Boards" value={data.boards} onChange={(v) => set("boards", v)} textarea rows={4} icon={Users2} richText />
+      <Field label="Clubs & Affiliations" value={data.clubsAffiliations} onChange={(v) => set("clubsAffiliations", v)} textarea rows={4} icon={Users2} richText />
+      <Field label="Business Colleagues" value={data.businessColleagues} onChange={(v) => set("businessColleagues", v)} textarea rows={4} icon={Briefcase} richText />
 
       {/* Other Giving History */}
       <SectionHeading icon={Gift}>Other Giving History</SectionHeading>
@@ -1295,20 +1412,32 @@ function ResearchProfileFormInner() {
         total the Total Giving amount.
       </p>
       <RowTable
-        headers={["Recipient", "Giving", "Year", "Amount"]}
+        headers={["Recipient", "Category", "Year", "Amount"]}
         rows={data.otherGiving}
         onAdd={addGivingRow}
         addLabel="Add Giving Row"
         renderRow={(row: GivingRow, i) => (
           <>
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.recipient} onChange={(e) => updateGivingRow(i, { recipient: e.target.value })} placeholder="Recipient" />
-            <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.giving} onChange={(e) => updateGivingRow(i, { giving: e.target.value })} placeholder="Giving detail" />
+            <select
+              className="w-full min-w-0 border-none bg-transparent text-sm outline-none"
+              value={row.giving}
+              onChange={(e) => updateGivingRow(i, { giving: e.target.value })}
+            >
+              <option value="">Select category</option>
+              {GIVING_CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt} value={opt}>
+                  {opt}
+                </option>
+              ))}
+            </select>
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateGivingRow(i, { year: e.target.value })} placeholder="Year" />
             <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.amount} onChange={(e) => updateGivingRow(i, { amount: e.target.value })} onBlur={(e) => updateGivingRow(i, { amount: smartFormatCurrency(e.target.value) })} placeholder="Amount" />
           </>
         )}
         onRemove={removeGivingRow}
-        colWidths={["40%", "30%", "12%", "18%"]}
+        onMove={moveGivingRow}
+        colWidths={["35%", "27%", "12%", "18%"]}
       />
 
       <div className="mt-8">
@@ -1330,6 +1459,7 @@ function ResearchProfileFormInner() {
           </>
         )}
         onRemove={removeFecRow}
+        onMove={moveFecRow}
         colWidths={["55%", "20%", "25%"]}
       />
 
@@ -1427,8 +1557,8 @@ function RealEstateCard({
       </div>
 
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
-        <Field label="Address" value={item.address} onChange={(v) => onChange({ address: v })} textarea rows={2} />
-        <Field label="Description" value={item.description} onChange={(v) => onChange({ description: v })} placeholder="Bedrooms, bathrooms, sq ft, details" textarea rows={2} />
+        <Field label="Address" value={item.address} onChange={(v) => onChange({ address: v })} textarea rows={2} richText />
+        <Field label="Description" value={item.description} onChange={(v) => onChange({ description: v })} placeholder="Bedrooms, bathrooms, sq ft, details" textarea rows={2} richText />
         <Field label="Value" value={item.value} onChange={(v) => onChange({ value: v })} placeholder="$" money />
         <Field label="Purchase Info" value={item.purchaseInfo} onChange={(v) => onChange({ purchaseInfo: v })} placeholder="Purchased on [date], Purchase Amount $" />
       </div>
@@ -1444,6 +1574,7 @@ function RowTable<T>({
   onRemove,
   addLabel,
   colWidths,
+  onMove,
 }: {
   headers: string[];
   rows: T[];
@@ -1452,6 +1583,11 @@ function RowTable<T>({
   onRemove: (i: number) => void;
   addLabel: string;
   colWidths: string[];
+  // Optional up/down reordering buttons per row, for tables where profilers
+  // need manual control over entry order (e.g. "most recent year first"
+  // isn't always a clean auto-sort once soft-credit/lifetime-total rows
+  // with blank years are mixed in).
+  onMove?: (i: number, direction: -1 | 1) => void;
 }) {
   return (
     <div className="mt-3">
@@ -1474,6 +1610,28 @@ function RowTable<T>({
                 {child}
               </div>
             ))}
+            {onMove && (
+              <div className="flex flex-col">
+                <button
+                  type="button"
+                  onClick={() => onMove(i, -1)}
+                  disabled={i === 0}
+                  title="Move up"
+                  className="text-[rgb(var(--ink))]/40 hover:text-[rgb(var(--navy))] disabled:opacity-20"
+                >
+                  <ArrowUp className="h-3 w-3" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onMove(i, 1)}
+                  disabled={i === rows.length - 1}
+                  title="Move down"
+                  className="text-[rgb(var(--ink))]/40 hover:text-[rgb(var(--navy))] disabled:opacity-20"
+                >
+                  <ArrowDown className="h-3 w-3" />
+                </button>
+              </div>
+            )}
             <button type="button" onClick={() => onRemove(i)} className="w-10 text-red-600/70 hover:text-red-700">
               <Trash2 className="h-4 w-4" />
             </button>
