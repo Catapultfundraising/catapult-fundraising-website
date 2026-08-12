@@ -636,10 +636,10 @@ function ProfileDocument({ data }: { data: any }) {
         <MiniTable
           title="Education"
           icon="graduationCap"
-          headers={["INSTITUTION", "GRADUATION YEAR"]}
-          colWidths={["70%", "30%"]}
+          headers={["UNIVERSITY", "DEGREE", "GRADUATION YEAR"]}
+          colWidths={["40%", "35%", "25%"]}
           rows={data.educationEntries}
-          renderRow={(row: any) => [row.institution || "", row.year || ""]}
+          renderRow={(row: any) => [row.institution || "", row.degree || "", row.year || ""]}
         />
 
         {religiousRow.length > 0 && (
