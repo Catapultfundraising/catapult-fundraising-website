@@ -70,11 +70,26 @@ const POLITICAL_AFFILIATION_OPTIONS = [
   "Republican",
   "Leans Republican",
   "Independent",
+  "Supports Both Parties",
   "Unknown",
 ];
 
 const PHONE_TYPE_OPTIONS = ["Mobile", "Home", "Work", "Fax", "Spouse", "Other"];
 const EMAIL_TYPE_OPTIONS = ["Personal", "Work", "Spouse", "Other"];
+
+const DEGREE_OPTIONS = [
+  "High School Diploma",
+  "Associate's",
+  "Bachelor's",
+  "Master's",
+  "MBA",
+  "JD",
+  "MD",
+  "PhD",
+  "Honorary Degree",
+  "Other",
+  "Unknown",
+];
 
 function parseCurrencyToNumber(value: string): number {
   if (!value) return 0;
@@ -155,8 +170,9 @@ interface EmailRow {
 }
 
 interface EducationEntry {
-  institution: string;
-  year: string;
+  institution: string; // university/institution name
+  degree: string;
+  year: string; // graduation year
 }
 
 interface RosterGivingRow {
@@ -688,7 +704,7 @@ function ResearchProfileFormInner() {
   }
 
   function addEducationEntry() {
-    set("educationEntries", [...data.educationEntries, { institution: "", year: "" }]);
+    set("educationEntries", [...data.educationEntries, { institution: "", degree: "", year: "" }]);
   }
   function updateEducationEntry(i: number, patch: Partial<EducationEntry>) {
     const next = [...data.educationEntries];
@@ -1181,18 +1197,30 @@ function ResearchProfileFormInner() {
           Education
         </label>
         <RowTable
-          headers={["Institution", "Graduation Year"]}
+          headers={["University", "Degree", "Graduation Year"]}
           rows={data.educationEntries}
           onAdd={addEducationEntry}
           addLabel="Add Institution"
           renderRow={(row: EducationEntry, i) => (
             <>
-              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.institution} onChange={(e) => updateEducationEntry(i, { institution: e.target.value })} placeholder="Institution, degree" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.institution} onChange={(e) => updateEducationEntry(i, { institution: e.target.value })} placeholder="University" />
+              <select
+                className="w-full min-w-0 border-none bg-transparent text-sm outline-none"
+                value={row.degree}
+                onChange={(e) => updateEducationEntry(i, { degree: e.target.value })}
+              >
+                <option value="">Select degree</option>
+                {DEGREE_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>
+                    {opt}
+                  </option>
+                ))}
+              </select>
               <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.year} onChange={(e) => updateEducationEntry(i, { year: e.target.value })} placeholder="Graduation year" />
             </>
           )}
           onRemove={removeEducationEntry}
-          colWidths={["70%", "30%"]}
+          colWidths={["40%", "35%", "25%"]}
         />
       </div>
 
