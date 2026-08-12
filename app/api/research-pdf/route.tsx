@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon } from "@react-pdf/renderer";
+import { parseFormattedText } from "@/lib/rich-text";
 
 export const runtime = "nodejs";
 
@@ -235,12 +236,34 @@ function IconGlyph({ name, color = BRASS, size = 10 }: { name: IconName; color?:
   }
 }
 
+// Renders a value that may contain **bold**/__underline__ markers (applied
+// via the Bold/Underline toolbar buttons in the form) as properly styled
+// inline PDF text instead of literal asterisks/underscores.
+function FormattedText({ value, style }: { value?: string; style?: any }) {
+  if (!value) return null;
+  const segments = parseFormattedText(value);
+  return (
+    <Text style={style}>
+      {segments.map((seg, i) => {
+        const segStyle: any[] = [];
+        if (seg.bold) segStyle.push({ fontFamily: "Helvetica-Bold" });
+        if (seg.underline) segStyle.push({ textDecoration: "underline" });
+        return (
+          <Text key={i} style={segStyle}>
+            {seg.text}
+          </Text>
+        );
+      })}
+    </Text>
+  );
+}
+
 function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   return (
     <View style={styles.fieldRow} wrap={false}>
       <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
-      <Text style={styles.fieldValue}>{value}</Text>
+      <FormattedText value={value} style={styles.fieldValue} />
     </View>
   );
 }
@@ -677,8 +700,8 @@ function ProfileDocument({ data }: { data: any }) {
                     <View style={[styles.propertyPhoto, { backgroundColor: CREAM }]} />
                   )}
                   <View style={{ flex: 1 }}>
-                    {re.address ? <Text style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 }}>{re.address}</Text> : null}
-                    {re.description ? <Text style={{ fontSize: 9, color: INK, marginBottom: 2 }}>{re.description}</Text> : null}
+                    {re.address ? <FormattedText value={re.address} style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 }} /> : null}
+                    {re.description ? <FormattedText value={re.description} style={{ fontSize: 9, color: INK, marginBottom: 2 }} /> : null}
                     {re.value ? <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginBottom: 2 }}>{fmtMoney(re.value)}</Text> : null}
                     {re.purchaseInfo ? <Text style={{ fontSize: 8.5, color: MUTED }}>{re.purchaseInfo}</Text> : null}
                   </View>
@@ -724,7 +747,7 @@ function ProfileDocument({ data }: { data: any }) {
           title="Other Giving History"
           bigTitle
           note="The amounts listed are representative of donations found in publicly available records and in donor history provided to Catapult. As such, the individual amounts will not necessarily total the Total Giving amount."
-          headers={["RECIPIENT", "GIVING", "YEAR", "AMOUNT"]}
+          headers={["RECIPIENT", "CATEGORY", "YEAR", "AMOUNT"]}
           colWidths={["40%", "30%", "12%", "18%"]}
           rows={data.otherGiving}
           renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoney(row.amount)]}
