@@ -52,11 +52,68 @@ function metaText(data: any): string {
   return [data.dateCreated, data.clientProfiler].filter(Boolean).join("   •   ");
 }
 
+// Maps DonorSearch (DS) wealth ratings to a 1-5 star "at a glance" score for
+// the PDF, while the raw rating text (e.g. "1-1") is always kept visible
+// alongside it -- per DS Ratings Guide: 1-1/1-2/1-3 are DS's own top-tier
+// "capable of major gifts" bracket, 1-4/1-5 are lesser-but-real wealth
+// markers, DS 2 is a narrower exact-match marker, and DS 3 means no
+// noteworthy matches at all.
+const DS_RATING_STARS: Record<string, number> = {
+  "1-1": 5,
+  "1-2": 4,
+  "1-3": 3,
+  "1-4": 2,
+  "1-5": 1,
+  "2": 1,
+  "3": 0,
+};
+
+// Accepts common variants profilers might type: "DS 1-1", "ds1-1", "1-1",
+// extra spaces, etc. Returns null (not 0 stars) when the text doesn't match
+// a known DS tier, so we fall back to showing the raw text with no stars
+// rather than guessing.
+function dsRatingToStars(raw?: string): number | null {
+  if (!raw) return null;
+  const normalized = raw.trim().toUpperCase().replace(/^DS\s*/, "").replace(/\s+/g, "");
+  return normalized in DS_RATING_STARS ? DS_RATING_STARS[normalized] : null;
+}
+
+// Political affiliation positions along the 5-point spectrum gauge, left
+// (Democrat) to right (Republican). "Supports Both Parties" and "Unknown"
+// are handled separately since they don't sit on this axis.
+const POLITICAL_GAUGE_POSITIONS: Record<string, number> = {
+  Democrat: 0,
+  "Leans Democrat": 1,
+  Independent: 2,
+  "Leans Republican": 3,
+  Republican: 4,
+};
+const POLITICAL_GAUGE_LABELS = ["DEM", "LEANS D", "IND", "LEANS R", "REP"];
+
+// Standard SVG polar-to-cartesian + arc-path helpers for the donut chart --
+// react-pdf has no charting library, so pie slices are hand-computed here.
+function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
+  const angleRad = ((angleDeg - 90) * Math.PI) / 180;
+  return { x: cx + r * Math.cos(angleRad), y: cy + r * Math.sin(angleRad) };
+}
+function describeArc(cx: number, cy: number, r: number, startAngle: number, endAngle: number): string {
+  // Full circle (single-category case) can't be expressed as one arc path;
+  // draw it as two half-arcs instead.
+  if (endAngle - startAngle >= 359.999) {
+    const mid = startAngle + 180;
+    return `${describeArc(cx, cy, r, startAngle, mid)} ${describeArc(cx, cy, r, mid, endAngle)}`;
+  }
+  const start = polarToCartesian(cx, cy, r, endAngle);
+  const end = polarToCartesian(cx, cy, r, startAngle);
+  const largeArcFlag = endAngle - startAngle <= 180 ? 0 : 1;
+  return `M ${cx} ${cy} L ${start.x} ${start.y} A ${r} ${r} 0 ${largeArcFlag} 0 ${end.x} ${end.y} Z`;
+}
 // Palette matches the one-sheets' brand system exactly (build.py CSS vars).
 const NAVY = "#15212E";
 const NAVY_DEEP = "#0C131C";
 const BRASS = "#B28C46";
 const BRASS_LIGHT = "#CDAA6E";
+const CHART_PALETTE = [BRASS, NAVY, "#6B8CA3", BRASS_LIGHT, "#4A5D6B", "#8C6B3F", "#A3B8C2", "#3D4F5C", "#D9BC80", "#7A6248"];
 const CREAM = "#FFFFFF";
 const INK = "#181B19";
 const MUTED = "#5C5D59";
@@ -159,6 +216,18 @@ const styles = StyleSheet.create({
   propertyCard: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8, backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 9 },
   propertyPhoto: { width: 88, height: 64, borderRadius: 6, marginRight: 10, objectFit: "cover" },
   italicNote: { fontSize: 7.4, color: MUTED, fontStyle: "italic", marginBottom: 10 },
+  starRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
+  ratingRawText: { fontSize: 7, color: MUTED, marginTop: 2 },
+  gaugeWrap: { marginTop: 4 },
+  gaugeLabelRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 3 },
+  gaugeTickLabel: { fontSize: 5.6, color: MUTED, textTransform: "uppercase" },
+  gaugeBadge: { marginTop: 4, alignSelf: "flex-start", backgroundColor: "rgba(178,140,70,0.12)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
+  gaugeBadgeText: { fontSize: 7, fontFamily: "Helvetica-Bold", color: BRASS },
+  chartRow: { flexDirection: "row", alignItems: "center" },
+  legendRow: { flexDirection: "row", alignItems: "center", marginBottom: 3 },
+  legendSwatch: { width: 7, height: 7, borderRadius: 1.5, marginRight: 5 },
+  legendText: { fontSize: 7.6, color: INK },
+  legendPct: { fontSize: 7.6, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 3 },
 });
 
 type IconName = "home" | "dollar" | "chart" | "gift" | "star" | "phone" | "mail" | "users" | "graduationCap";
@@ -285,6 +354,157 @@ function FieldRowPair({
       <View style={{ flexDirection: "row", flex: 1 }}>
         <Text style={styles.fieldLabelSmall}>{right.value ? right.label.toUpperCase() : ""}</Text>
         <Text style={styles.fieldValue}>{right.value || ""}</Text>
+      </View>
+    </View>
+  );
+}
+
+function StarIcon({ filled }: { filled: boolean }) {
+  return (
+    <Svg viewBox="0 0 24 24" width={10} height={10}>
+      <Polygon
+        points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"
+        fill={filled ? BRASS : "none"}
+        stroke={filled ? "none" : LINE}
+        strokeWidth={filled ? 0 : 1.5}
+      />
+    </Svg>
+  );
+}
+
+// Shows the raw wealth rating text exactly as entered, with a 1-5 star
+// "at a glance" score layered underneath when it matches a known DS
+// Ratings Guide tier (see DS_RATING_STARS above). Unrecognized values fall
+// back to plain text, same as before this feature existed.
+function StarRating({ rawValue }: { rawValue?: string }) {
+  if (!rawValue) return null;
+  const stars = dsRatingToStars(rawValue);
+  if (stars === null) {
+    return <Text style={styles.statBoxValue}>{rawValue}</Text>;
+  }
+  return (
+    <View>
+      <View style={styles.starRow}>
+        {[0, 1, 2, 3, 4].map((i) => (
+          <View key={i} style={{ marginRight: 1 }}>
+            <StarIcon filled={i < stars} />
+          </View>
+        ))}
+      </View>
+      <Text style={styles.ratingRawText}>{rawValue}</Text>
+    </View>
+  );
+}
+
+// Draws the 5-position horizontal spectrum bar with a triangular marker
+// pinned at `position` (0 = Democrat ... 4 = Republican).
+function renderGaugeBar(position: number) {
+  const width = 200;
+  const step = width / 4;
+  const x = position * step;
+  return (
+    <Svg viewBox={`0 0 ${width} 20`} width={160} height={16}>
+      <Rect x={0} y={8} width={width} height={6} rx={3} fill={LINE} />
+      <Polygon points={`${x - 5},2 ${x + 5},2 ${x},10`} fill={BRASS} />
+    </Svg>
+  );
+}
+
+// Political Affiliation as a spectrum gauge instead of plain text.
+// "Supports Both Parties" and "Unknown" don't sit on a left-right axis, so
+// they get their own treatment rather than being forced onto the spectrum.
+function PoliticalGauge({ value }: { value?: string }) {
+  if (!value) return null;
+  if (value === "Supports Both Parties") {
+    return (
+      <View style={styles.gaugeWrap}>
+        {renderGaugeBar(2)}
+        <View style={styles.gaugeBadge}>
+          <Text style={styles.gaugeBadgeText}>SUPPORTS BOTH PARTIES</Text>
+        </View>
+      </View>
+    );
+  }
+  const position = POLITICAL_GAUGE_POSITIONS[value];
+  if (position === undefined) {
+    // "Unknown" or any other free-text value -- no spectrum to plot, just show it.
+    return <Text style={styles.wealthCellValue}>{value}</Text>;
+  }
+  return (
+    <View style={styles.gaugeWrap}>
+      {renderGaugeBar(position)}
+      <View style={styles.gaugeLabelRow}>
+        {POLITICAL_GAUGE_LABELS.map((l, i) => (
+          <Text key={l} style={[styles.gaugeTickLabel, i === position ? { color: BRASS, fontFamily: "Helvetica-Bold" } : {}]}>
+            {l}
+          </Text>
+        ))}
+      </View>
+    </View>
+  );
+}
+
+// Sums Other Giving History amounts by category (skipping blank/shorthand
+// amounts, same rule as sumAmounts elsewhere) and returns each category's
+// share of the total, largest first.
+function computeGivingByCategory(rows: any[]): Array<{ label: string; value: number; pct: number }> {
+  if (!rows || rows.length === 0) return [];
+  const totals = new Map<string, number>();
+  let grandTotal = 0;
+  for (const row of rows) {
+    const raw = String(row?.amount || "").trim();
+    if (!raw || /[a-zA-Z]/.test(raw)) continue;
+    const cleaned = raw.replace(/[^0-9.-]/g, "");
+    if (!cleaned) continue;
+    const n = parseFloat(cleaned);
+    if (!Number.isFinite(n) || n <= 0) continue;
+    const category = (row?.giving || "").trim() || "Uncategorized";
+    totals.set(category, (totals.get(category) || 0) + n);
+    grandTotal += n;
+  }
+  if (grandTotal <= 0) return [];
+  return Array.from(totals.entries())
+    .map(([label, value]) => ({ label, value, pct: (value / grandTotal) * 100 }))
+    .sort((a, b) => b.value - a.value);
+}
+
+function GivingByCategoryChart({ rows }: { rows: any[] }) {
+  const data = computeGivingByCategory(rows);
+  if (data.length === 0) return null;
+  const size = 90;
+  const r = size / 2;
+  const cx = r;
+  const cy = r;
+  let cursor = 0;
+  const slices = data.map((d, i) => {
+    const startAngle = cursor;
+    const sweep = (d.pct / 100) * 360;
+    cursor += sweep;
+    return { ...d, startAngle, endAngle: cursor, color: CHART_PALETTE[i % CHART_PALETTE.length] };
+  });
+  return (
+    <View style={{ marginBottom: 8 }} wrap={false}>
+      <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]}>
+        <IconGlyph name="gift" color={BRASS} size={9} />
+        <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: 4 }}>
+          GIVING BY CATEGORY
+        </Text>
+      </View>
+      <View style={styles.chartRow}>
+        <Svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
+          {slices.map((s, i) => (
+            <Path key={i} d={describeArc(cx, cy, r, s.startAngle, s.endAngle)} fill={s.color} />
+          ))}
+        </Svg>
+        <View style={{ marginLeft: 14, flex: 1 }}>
+          {slices.map((s, i) => (
+            <View style={styles.legendRow} key={i}>
+              <View style={[styles.legendSwatch, { backgroundColor: s.color }]} />
+              <Text style={styles.legendText}>{s.label}</Text>
+              <Text style={styles.legendPct}>{Math.round(s.pct)}%</Text>
+            </View>
+          ))}
+        </View>
       </View>
     </View>
   );
@@ -591,7 +811,7 @@ function ProfileDocument({ data }: { data: any }) {
                   <IconGlyph name="star" color={BRASS} size={11} />
                   <Text style={styles.statBoxLabel}>Wealth Rating</Text>
                 </View>
-                <Text style={styles.statBoxValue}>{wealthRatingValue}</Text>
+                <StarRating rawValue={wealthRatingValue} />
               </View>
             ) : null}
           </View>
@@ -671,7 +891,7 @@ function ProfileDocument({ data }: { data: any }) {
               {religiousRow.map(([label, value]) => (
                 <View style={styles.wealthCell} key={label}>
                   <Text style={styles.wealthCellLabelNoIcon}>{label.toUpperCase()}</Text>
-                  <Text style={styles.wealthCellValue}>{value}</Text>
+                  {label === "Political Affiliation" ? <PoliticalGauge value={value} /> : <Text style={styles.wealthCellValue}>{value}</Text>}
                 </View>
               ))}
             </View>
@@ -752,6 +972,8 @@ function ProfileDocument({ data }: { data: any }) {
           rows={data.otherGiving}
           renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoney(row.amount)]}
         />
+
+        <GivingByCategoryChart rows={data.otherGiving} />
 
         {data.fecGiving?.length > 0 && (
           <MiniTable
