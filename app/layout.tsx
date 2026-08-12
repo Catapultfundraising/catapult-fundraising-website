@@ -4,7 +4,6 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { CookieConsent } from "@/components/cookie-consent";
-import Script from "next/script";
 import { FIRM_PHONE, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -326,10 +325,14 @@ export default function RootLayout({
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
         />
-        {/* Apollo.io website visitor tracking */}
-        <Script
+        {/* Apollo.io website visitor tracking. Deliberately a plain <script> tag
+            (not next/script's <Script> component) so it is server-rendered as a
+            literal <script> element in the initial HTML response -- Apollo's own
+            install-verification check fetches raw HTML and looks for the literal
+            tag, and next/script's client-hydration-only injection was invisible
+            to that check even though it still ran fine in real browsers. */}
+        <script
           id="apollo-tracker"
-          strategy="afterInteractive"
           dangerouslySetInnerHTML={{
             __html: `function initApollo(){var n=Math.random().toString(36).substring(7),o=document.createElement("script");
 o.src="https://assets.apollo.io/micro/website-tracker/tracker.iife.js?nocache="+n,o.async=!0,o.defer=!0,
