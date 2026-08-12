@@ -482,15 +482,21 @@ function GivingByCategoryChart({ rows }: { rows: any[] }) {
     cursor += sweep;
     return { ...d, startAngle, endAngle: cursor, color: CHART_PALETTE[i % CHART_PALETTE.length] };
   });
+  // Deliberately NOT wrap={false} here: an atomic block that doesn't fit
+  // the remaining space on a page gets pushed whole to the next page by
+  // react-pdf, which let the (usually short) FEC table below render in that
+  // leftover space first -- making the chart appear AFTER FEC even though
+  // it comes before it in the document. Letting it flow normally keeps it
+  // pinned directly under Other Giving History, where it belongs.
   return (
-    <View style={{ marginBottom: 8 }} wrap={false}>
-      <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]}>
+    <View style={{ marginBottom: 8 }}>
+      <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]} wrap={false}>
         <IconGlyph name="gift" color={BRASS} size={9} />
         <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: 4 }}>
           GIVING BY CATEGORY
         </Text>
       </View>
-      <View style={styles.chartRow}>
+      <View style={styles.chartRow} wrap={false}>
         <Svg viewBox={`0 0 ${size} ${size}`} width={size} height={size}>
           {slices.map((s, i) => (
             <Path key={i} d={describeArc(cx, cy, r, s.startAngle, s.endAngle)} fill={s.color} />
