@@ -7,7 +7,7 @@ import { ArrowRight } from "lucide-react";
 export const metadata = {
   title: "Fundraising Insights & Best Practices",
   description:
-    "Practical guidance on capital campaigns, major gift asks, legacy giving, multicultural fundraising, and multi-channel donor engagement, plus how Catapult Fundraising compares to other nonprofit fundraising consultants.",
+    "Practical guidance on capital campaigns, major gift asks, legacy giving, and donor engagement from Catapult Fundraising's consulting team.",
   keywords: [
     "nonprofit fundraising blog",
     "capital campaign best practices",
