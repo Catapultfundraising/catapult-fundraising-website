@@ -3,6 +3,11 @@ import type { ContentBlock } from "@/components/content-blocks";
 export interface CaseStudy {
   slug: string;
   title: string;
+  // Short (<=47 char) title/description pair used only for the <title> tag
+  // and meta description on the case study page. `title`/`summary` stay
+  // long-form since they're also the on-page H1 and hero copy.
+  metaTitle: string;
+  metaDescription: string;
   sector: string;
   summary: string;
   stats: { value: string; label: string }[];
@@ -13,6 +18,8 @@ export interface CaseStudy {
 export const CASE_STUDIES: CaseStudy[] = [
   {
     slug: "legacy-call-northeast-university",
+    metaTitle: "Legacy Call Secures $4.8M for a University",
+    metaDescription: "A 500-donor Legacy Call outreach program confirmed 50 planned gifts totaling $4,894,000 for a Northeast university's most loyal donors.",
     title:
       "Catapult Fundraising's Legacy Call Program Secures Over $4.8 Million in Confirmed Planned Gifts for a Prestigious Northeast University",
     sector: "Higher Education · Legacy & Planned Giving",
@@ -93,6 +100,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "mid-level-donor-engagement-faith-based-organization",
+    metaTitle: "Mid-Level Engagement Builds a Gift Pipeline",
+    metaDescription: "A mid-level donor engagement program built a qualified major gift pipeline for a faith-based organization through personalized outreach.",
     title:
       "Catapult Fundraising's Mid-Level Donor Engagement Program Builds a Major Gift Pipeline for a Faith-Based Organization",
     sector: "Faith-Based Organization · Mid-Level Donor Engagement",
@@ -158,6 +167,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "legacy-call-new-jersey-hospital",
+    metaTitle: "Legacy Call Secures $1M+ for an NJ Hospital",
+    metaDescription: "A Legacy Call telephone outreach program secured $1,023,000 in confirmed planned gifts for a New Jersey hospital's loyal donor base.",
     title:
       "Catapult Fundraising's Legacy Call Program Secures $1,023,000 in Planned Gifts for a New Jersey Hospital",
     sector: "Healthcare · Legacy & Planned Giving",
@@ -235,6 +246,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "engaging-hidden-donor-potential-performing-arts-organization",
+    metaTitle: "Hidden Major Gift Potential in Performing Arts",
+    metaDescription: "How Catapult uncovered hidden major gift potential within a performing arts organization's existing donor base through targeted research.",
     title:
       "Catapult Fundraising Uncovers Hidden Major Gift Potential Within a Performing Arts Organization's Donor Base",
     sector: "Performing Arts Organization · Mid-Level Donor Engagement",
@@ -293,6 +306,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "legacy-calls-hill-school",
+    metaTitle: "Legacy Calls Secure $7.5M for The Hill School",
+    metaDescription: "Two phases of Legacy Call outreach secured over $7,500,000 in confirmed planned gifts for The Hill School, a Pennsylvania boarding school.",
     title:
       "Catapult Fundraising's Legacy Calls Program Secures Over $7,500,000 in Planned Gifts for The Hill School",
     sector: "Independent School · Legacy & Planned Giving",
@@ -382,6 +397,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "af-connect-special-olympics-indiana",
+    metaTitle: "AF Connect: 85% Pledge Rate, Special Olympics",
+    metaDescription: "Catapult's AF Connect calling program achieved an 85% pledge rate with lapsed donors for Special Olympics of Indiana.",
     title:
       "Catapult Fundraising's AF Connect Calling Program Achieves an 85% Pledge Rate with Lapsed Donors for Special Olympics of Indiana",
     sector: "Annual Fund Calling · Donor Engagement",
@@ -440,6 +457,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "legacy-call-international-ministry",
+    metaTitle: "Legacy Call Secures $6.8M for a Global Ministry",
+    metaDescription: "A Legacy Call telephone outreach program secured over $6.8 million in confirmed planned gifts for an international ministry.",
     title:
       "Catapult Fundraising's Legacy Call Program Secures Over $6.8 Million in Planned Gifts for an International Ministry",
     sector: "Faith-Based Organization · Legacy & Planned Giving",
@@ -539,6 +558,8 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "legacy-call-presidential-library",
+    metaTitle: "Legacy Call Secures $2.8M for a Library",
+    metaDescription: "A 2,000-donor Legacy Call telephone outreach program confirmed 26 planned gifts totaling $2,825,000 for a U.S. Presidential Library.",
     title:
       "Catapult Fundraising's Legacy Call Program Secures $2,825,000 in Planned Gifts for a U.S. Presidential Library",
     sector: "Museum & Cultural Institution · Legacy & Planned Giving",
