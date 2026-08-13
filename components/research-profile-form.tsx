@@ -132,7 +132,10 @@ function parseCurrencyToNumber(value: string): number {
 
 function formatCurrency(n: number): string {
   if (!n) return "";
-  return `$${Math.round(n).toLocaleString("en-US")}`;
+  // Never round the entered value -- only add thousands separators, and
+  // only show cents if the profiler actually typed a fractional amount.
+  const hasCents = Math.abs(n % 1) > 1e-9;
+  return `$${n.toLocaleString("en-US", hasCents ? { minimumFractionDigits: 2, maximumFractionDigits: 2 } : { maximumFractionDigits: 0 })}`;
 }
 
 // Allows freehand, non-currency entries (e.g. "$10M+", "TBD", "N/A") to pass
@@ -802,6 +805,13 @@ function ResearchProfileFormInner() {
   function removeRealEstate(i: number) {
     set("realEstate", data.realEstate.filter((_, idx) => idx !== i));
   }
+  function moveRealEstate(i: number, direction: -1 | 1) {
+    const next = [...data.realEstate];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("realEstate", next);
+  }
 
   function addGivingRow() {
     set("otherGiving", [...data.otherGiving, { recipient: "", giving: "", year: "", amount: "" }]);
@@ -852,6 +862,13 @@ function ResearchProfileFormInner() {
   function removeChildRow(i: number) {
     set("childrenRows", data.childrenRows.filter((_, idx) => idx !== i));
   }
+  function moveChildRow(i: number, direction: -1 | 1) {
+    const next = [...data.childrenRows];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("childrenRows", next);
+  }
 
   function addEducationEntry() {
     set("educationEntries", [...data.educationEntries, { institution: "", degree: "", year: "" }]);
@@ -863,6 +880,13 @@ function ResearchProfileFormInner() {
   }
   function removeEducationEntry(i: number) {
     set("educationEntries", data.educationEntries.filter((_, idx) => idx !== i));
+  }
+  function moveEducationEntry(i: number, direction: -1 | 1) {
+    const next = [...data.educationEntries];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("educationEntries", next);
   }
 
   function addPhoneRow() {
@@ -876,6 +900,13 @@ function ResearchProfileFormInner() {
   function removePhoneRow(i: number) {
     set("phones", data.phones.filter((_, idx) => idx !== i));
   }
+  function movePhoneRow(i: number, direction: -1 | 1) {
+    const next = [...data.phones];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("phones", next);
+  }
 
   function addEmailRow() {
     set("emails", [...data.emails, { type: "Personal", customType: "", address: "" }]);
@@ -887,6 +918,13 @@ function ResearchProfileFormInner() {
   }
   function removeEmailRow(i: number) {
     set("emails", data.emails.filter((_, idx) => idx !== i));
+  }
+  function moveEmailRow(i: number, direction: -1 | 1) {
+    const next = [...data.emails];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("emails", next);
   }
 
   function addGivingHistoryRow() {
@@ -900,6 +938,13 @@ function ResearchProfileFormInner() {
   function removeGivingHistoryRow(i: number) {
     set("givingHistoryRows", data.givingHistoryRows.filter((_, idx) => idx !== i));
   }
+  function moveGivingHistoryRow(i: number, direction: -1 | 1) {
+    const next = [...data.givingHistoryRows];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("givingHistoryRows", next);
+  }
 
   // Auto-calculate Real Estate Value + # of Properties from the property rows.
   useEffect(() => {
@@ -911,13 +956,6 @@ function ResearchProfileFormInner() {
       return { ...d, realEstateValue: computedValue, realEstatePropertyCount: computedCount };
     });
   }, [data.realEstate]);
-
-  // Auto-calculate Total Charitable Giving from Other Giving History amounts.
-  useEffect(() => {
-    const sum = data.otherGiving.reduce((acc, r) => acc + parseCurrencyToNumber(r.amount), 0);
-    const computed = data.otherGiving.length ? formatCurrency(sum) : "";
-    setData((d) => (d.totalCharitableGiving === computed ? d : { ...d, totalCharitableGiving: computed }));
-  }, [data.otherGiving]);
 
   // Auto-calculate Non-Philanthropic Political Giving from FEC amounts.
   useEffect(() => {
@@ -1270,6 +1308,7 @@ function ResearchProfileFormInner() {
             </>
           )}
           onRemove={removePhoneRow}
+          onMove={movePhoneRow}
           colWidths={["25%", "30%", "45%"]}
         />
       </div>
@@ -1313,6 +1352,7 @@ function ResearchProfileFormInner() {
             </>
           )}
           onRemove={removeEmailRow}
+          onMove={moveEmailRow}
           colWidths={["25%", "30%", "45%"]}
         />
       </div>
@@ -1337,6 +1377,7 @@ function ResearchProfileFormInner() {
             </>
           )}
           onRemove={removeChildRow}
+          onMove={moveChildRow}
           colWidths={["30%", "15%", "55%"]}
         />
       </div>
@@ -1370,6 +1411,7 @@ function ResearchProfileFormInner() {
             </>
           )}
           onRemove={removeEducationEntry}
+          onMove={moveEducationEntry}
           colWidths={["40%", "35%", "25%"]}
         />
       </div>
@@ -1401,6 +1443,7 @@ function ResearchProfileFormInner() {
             </>
           )}
           onRemove={removeGivingHistoryRow}
+          onMove={moveGivingHistoryRow}
           colWidths={["20%", "20%", "60%"]}
         />
       </div>
@@ -1415,6 +1458,9 @@ function ResearchProfileFormInner() {
             index={i}
             onChange={(patch) => updateRealEstate(i, patch)}
             onRemove={() => removeRealEstate(i)}
+            onMove={(direction) => moveRealEstate(i, direction)}
+            canMoveUp={i > 0}
+            canMoveDown={i < data.realEstate.length - 1}
           />
         ))}
       </div>
@@ -1497,7 +1543,7 @@ function ResearchProfileFormInner() {
       />
 
       <div className="mt-8 grid gap-4 sm:grid-cols-2">
-        <ComputedField label="Total Charitable Giving" value={data.totalCharitableGiving} hint="auto-calculated from Other Giving History" icon={Gift} />
+        <Field label="Total Charitable Giving" value={data.totalCharitableGiving} onChange={(v) => set("totalCharitableGiving", v)} placeholder="$" icon={Gift} money />
         <ComputedField label="Non-Philanthropic Political Giving" value={data.nonPhilanthropicPoliticalGiving} hint="auto-calculated from FEC amounts" icon={Vote} />
       </div>
       <Field label="Recommended Ask Amount" value={data.recommendedAskAmount} onChange={(v) => set("recommendedAskAmount", v)} icon={Target} money />
@@ -1549,11 +1595,17 @@ function RealEstateCard({
   index,
   onChange,
   onRemove,
+  onMove,
+  canMoveUp,
+  canMoveDown,
 }: {
   item: RealEstateItem;
   index: number;
   onChange: (patch: Partial<RealEstateItem>) => void;
   onRemove: () => void;
+  onMove?: (direction: -1 | 1) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -1566,10 +1618,34 @@ function RealEstateCard({
     <div className="rounded-2xl border border-[rgb(var(--line))] p-5">
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-[rgb(var(--navy))]">Property {index + 1}</p>
-        <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 text-xs font-semibold text-red-600/80 hover:text-red-700">
-          <Trash2 className="h-3.5 w-3.5" />
-          Remove
-        </button>
+        <div className="flex items-center gap-3">
+          {onMove && (
+            <div className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => onMove(-1)}
+                disabled={!canMoveUp}
+                title="Move up"
+                className="text-[rgb(var(--ink))]/40 hover:text-[rgb(var(--navy))] disabled:opacity-20"
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onMove(1)}
+                disabled={!canMoveDown}
+                title="Move down"
+                className="text-[rgb(var(--ink))]/40 hover:text-[rgb(var(--navy))] disabled:opacity-20"
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 text-xs font-semibold text-red-600/80 hover:text-red-700">
+            <Trash2 className="h-3.5 w-3.5" />
+            Remove
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 flex items-center gap-4">
