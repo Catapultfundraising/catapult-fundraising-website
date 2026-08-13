@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import * as XLSX from "xlsx";
 import { isResearchAuthed } from "@/lib/research-auth";
-import { getRoster, saveRoster, clearRoster, type RosterProspect } from "@/lib/research-roster-store";
+import { getRoster, saveRoster, clearRoster, upsertRosterProspect, type RosterProspect } from "@/lib/research-roster-store";
 
 export const runtime = "nodejs";
 
@@ -204,6 +204,42 @@ export async function POST(req: NextRequest) {
   } catch (err) {
     console.error("research-roster POST error", err);
     return NextResponse.json({ error: "Failed to read that spreadsheet. Please check the format and try again." }, { status: 500 });
+  }
+}
+
+// Adds (or updates) a single prospect into this week's roster -- used when
+// a profiler creates a "one-off" profile that wasn't part of Sean's
+// uploaded spreadsheet, so it still shows up in the week's list for
+// everyone else instead of only living inside its own saved profile.
+// Matches by name (case-insensitive), so re-saving the same one-off
+// profile updates its existing entry instead of duplicating it.
+export async function PATCH(req: NextRequest) {
+  if (!(await isResearchAuthed(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  try {
+    const body = await req.json();
+    const prospect = body?.prospect;
+    if (!prospect?.name || typeof prospect.name !== "string" || !prospect.name.trim()) {
+      return NextResponse.json({ error: "Missing prospect name." }, { status: 400 });
+    }
+    const normalized: RosterProspect = {
+      name: prospect.name.trim(),
+      clientProfiler: prospect.clientProfiler || "",
+      catapultId: prospect.catapultId || "",
+      clientId: prospect.clientId || "",
+      wealthRating: prospect.wealthRating || "",
+      givingCapacity: prospect.givingCapacity || "",
+      address: prospect.address || "",
+      phones: Array.isArray(prospect.phones) ? prospect.phones.filter(Boolean) : [],
+      emails: Array.isArray(prospect.emails) ? prospect.emails.filter(Boolean) : [],
+      givingHistoryRows: Array.isArray(prospect.givingHistoryRows) ? prospect.givingHistoryRows : [],
+    };
+    const roster = await upsertRosterProspect(normalized);
+    return NextResponse.json({ ok: true, roster });
+  } catch (err) {
+    console.error("research-roster PATCH error", err);
+    return NextResponse.json({ error: "Failed to add this profile to the weekly list." }, { status: 500 });
   }
 }
 
