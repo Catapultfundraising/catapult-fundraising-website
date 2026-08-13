@@ -9,9 +9,9 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "catapult-vs-fundraising-consultants";
 
 export const metadata = {
-  title: "Catapult Fundraising vs. Other Fundraising Consultants | What Sets Us Apart",
+  title: "Catapult Fundraising vs. Other Consultants",
   description:
-    "Most fundraising consultants either plan a campaign or make the calls, rarely both. See how Catapult Fundraising's one-firm, every-phase model compares to campaign-only counsel, calling-only vendors, and major gift specialists.",
+    "Most fundraising consultants plan a campaign or make the calls, rarely both. See how Catapult's one-firm, every-phase model compares.",
   keywords: [
     "fundraising consultant comparison",
     "capital campaign consultant vs calling firm",

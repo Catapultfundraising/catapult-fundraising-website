@@ -17,9 +17,9 @@ const FEATHER = {
 } as const;
 
 export const metadata = {
-  title: "Giving USA 2026: Record Giving, the Great Wealth Transfer, and the Ask We Keep Avoiding",
+  title: "Giving USA 2026: Record Giving, Wealth Shift",
   description:
-    "Anthony R. Alonso on what Giving USA 2026's record $617.2 billion, a 19.7% jump in bequest giving, and the aging of the Baby Boomer generation mean for nonprofit fundraisers who've stopped asking.",
+    "Anthony R. Alonso on what Giving USA 2026's record $617.2 billion and a 19.7% jump in bequest giving mean for fundraisers who've stopped asking.",
   keywords: [
     "Giving USA 2026",
     "charitable giving statistics",
