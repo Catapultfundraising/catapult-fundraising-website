@@ -140,7 +140,7 @@ const VALUES = [
 export const metadata = {
   title: "Our Team | Leadership",
   description:
-    "Meet the Catapult Fundraising leadership team: fundraising strategists, campaign managers, and Engagement Officers with over 30 years of combined capital campaign and donor engagement experience.",
+    "Meet the Catapult Fundraising leadership team: strategists, campaign managers, and Engagement Officers with 30+ years of experience.",
   keywords: [
     "nonprofit fundraising consultant",
     "capital campaign consulting firm",

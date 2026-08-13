@@ -8,9 +8,9 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "capital-campaign-donor-engagement-legacy-giving-best-practices";
 
 export const metadata = {
-  title: "Capital Campaign, Mid-Level Donor Engagement & Legacy Giving Best Practices",
+  title: "Capital Campaign & Donor Engagement Guide",
   description:
-    "A practical playbook for nonprofit capital campaigns, mid-level donor engagement, and legacy giving calls, feasibility studies, gift charts, donor upgrade paths, and planned giving conversations that work.",
+    "A practical playbook for nonprofit capital campaigns, mid-level donor engagement, and legacy giving: feasibility studies, gift charts, and more.",
   keywords: [
     "capital campaign best practices",
     "feasibility study best practices",
