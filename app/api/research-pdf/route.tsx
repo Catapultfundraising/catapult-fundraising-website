@@ -196,6 +196,7 @@ const styles = StyleSheet.create({
   wealthCellLabelRow: { flexDirection: "row", alignItems: "flex-start", flexShrink: 0, width: 150 },
   wealthCellLabel: { color: BRASS, fontSize: 6, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25 },
   wealthCellLabelNoIcon: { color: BRASS, fontSize: 6, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25, flexShrink: 0, width: 78 },
+  wealthCellLabelFull: { color: BRASS, fontSize: 6, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25, marginBottom: 4 },
   wealthCellValue: { color: NAVY, fontFamily: "Helvetica-Bold", fontSize: 9, marginLeft: 10, flex: 1 },
   statBoxRow: { flexDirection: "row", marginBottom: 12 },
   statBox: { flex: 1, backgroundColor: CREAM, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: NAVY },
@@ -398,13 +399,19 @@ function StarRating({ rawValue }: { rawValue?: string }) {
 
 // Draws the 5-position horizontal spectrum bar with a triangular marker
 // pinned at `position` (0 = Democrat ... 4 = Republican).
-function renderGaugeBar(position: number) {
-  const width = 200;
-  const step = width / 4;
+function renderGaugeBar(position: number, renderWidth: number) {
+  // viewBox width stays fixed (just an internal coordinate space); only the
+  // *rendered* width/height passed to <Svg> needs to match the container so
+  // the bar never runs past the page margin (this was the overflow bug --
+  // the gauge previously always rendered at a fixed 160pt regardless of how
+  // narrow its parent cell actually was).
+  const viewBoxWidth = 200;
+  const step = viewBoxWidth / 4;
   const x = position * step;
+  const renderHeight = (renderWidth / viewBoxWidth) * 20;
   return (
-    <Svg viewBox={`0 0 ${width} 20`} width={160} height={16}>
-      <Rect x={0} y={8} width={width} height={6} rx={3} fill={LINE} />
+    <Svg viewBox={`0 0 ${viewBoxWidth} 20`} width={renderWidth} height={renderHeight}>
+      <Rect x={0} y={8} width={viewBoxWidth} height={6} rx={3} fill={LINE} />
       <Polygon points={`${x - 5},2 ${x + 5},2 ${x},10`} fill={BRASS} />
     </Svg>
   );
@@ -413,12 +420,16 @@ function renderGaugeBar(position: number) {
 // Political Affiliation as a spectrum gauge instead of plain text.
 // "Supports Both Parties" and "Unknown" don't sit on a left-right axis, so
 // they get their own treatment rather than being forced onto the spectrum.
-function PoliticalGauge({ value }: { value?: string }) {
+// `fullWidth` renders the gauge at the full content-column width (used when
+// Political Affiliation gets its own dedicated row) instead of the narrow
+// fixed width that used to overflow off the page inside a 1-of-3 wealth cell.
+function PoliticalGauge({ value, fullWidth }: { value?: string; fullWidth?: boolean }) {
   if (!value) return null;
+  const renderWidth = fullWidth ? 480 : 130;
   if (value === "Supports Both Parties") {
     return (
       <View style={styles.gaugeWrap}>
-        {renderGaugeBar(2)}
+        {renderGaugeBar(2, renderWidth)}
         <View style={styles.gaugeBadge}>
           <Text style={styles.gaugeBadgeText}>SUPPORTS BOTH PARTIES</Text>
         </View>
@@ -432,8 +443,8 @@ function PoliticalGauge({ value }: { value?: string }) {
   }
   return (
     <View style={styles.gaugeWrap}>
-      {renderGaugeBar(position)}
-      <View style={styles.gaugeLabelRow}>
+      {renderGaugeBar(position, renderWidth)}
+      <View style={[styles.gaugeLabelRow, { width: renderWidth }]}>
         {POLITICAL_GAUGE_LABELS.map((l, i) => (
           <Text key={l} style={[styles.gaugeTickLabel, i === position ? { color: BRASS, fontFamily: "Helvetica-Bold" } : {}]}>
             {l}
@@ -745,8 +756,8 @@ function ProfileDocument({ data }: { data: any }) {
   const religiousRow: Array<[string, string]> = ([
     ["Religion", data.religion],
     ["Military Service", militaryValue(data)],
-    ["Political Affiliation", data.politicalAffiliation],
   ] as Array<[string, string]>).filter(([, v]) => v);
+  const politicalAffiliationValue = data.politicalAffiliation;
 
   return (
     <Document>
@@ -897,12 +908,19 @@ function ProfileDocument({ data }: { data: any }) {
               {religiousRow.map(([label, value]) => (
                 <View style={styles.wealthCell} key={label}>
                   <Text style={styles.wealthCellLabelNoIcon}>{label.toUpperCase()}</Text>
-                  {label === "Political Affiliation" ? <PoliticalGauge value={value} /> : <Text style={styles.wealthCellValue}>{value}</Text>}
+                  <Text style={styles.wealthCellValue}>{value}</Text>
                 </View>
               ))}
             </View>
           </View>
         )}
+
+        {politicalAffiliationValue ? (
+          <View style={styles.wealthPanel} wrap={false}>
+            <Text style={styles.wealthCellLabelFull}>POLITICAL AFFILIATION</Text>
+            <PoliticalGauge value={politicalAffiliationValue} fullWidth />
+          </View>
+        ) : null}
 
         <FieldRow label="Hobbies & Interests" value={data.hobbiesInterests} />
         <FieldRow label="Relationship to Organization" value={data.relationshipToOrg} />
