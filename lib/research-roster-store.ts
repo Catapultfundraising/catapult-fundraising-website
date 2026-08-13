@@ -60,3 +60,30 @@ export async function clearRoster(): Promise<void> {
     allowOverwrite: true,
   });
 }
+
+// Adds (or updates, matched by name) a single prospect into the CURRENT
+// week's roster without touching the rest of it. Used when a profiler
+// builds a "one-off" profile that wasn't in Sean's uploaded spreadsheet --
+// this keeps that prospect visible in the week's list (the "Prefill From
+// This Week's Prospect List" dropdown other profilers see) instead of only
+// existing inside its own saved profile. If no roster has been uploaded
+// yet this week, it creates one on the fly rather than failing.
+export async function upsertRosterProspect(prospect: RosterProspect): Promise<RosterEnvelope> {
+  const current = (await getRoster()) || { fileName: "", uploadedAt: new Date().toISOString(), prospects: [] };
+  const key = prospect.name.trim().toLowerCase();
+  const idx = current.prospects.findIndex((p) => p.name.trim().toLowerCase() === key);
+  const nextProspects = [...current.prospects];
+  if (idx >= 0) {
+    nextProspects[idx] = prospect;
+  } else {
+    nextProspects.push(prospect);
+  }
+  const full: RosterEnvelope = { ...current, prospects: nextProspects };
+  await put(ROSTER_PATH, JSON.stringify(full), {
+    access: "private",
+    contentType: "application/json",
+    addRandomSuffix: false,
+    allowOverwrite: true,
+  });
+  return full;
+}
