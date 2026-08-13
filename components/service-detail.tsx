@@ -33,7 +33,15 @@ export function ServiceDetail({
               {i === 0 && heroImage && (
                 <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
                   <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
-                    <Image src={heroImage} alt={heroImageAlt || ""} fill className="object-cover" priority />
+                    <Image
+                      src={heroImage}
+                      alt={heroImageAlt || ""}
+                      fill
+                      className="object-cover"
+                      priority
+                      sizes="(min-width: 768px) 320px, (min-width: 640px) 288px, 100vw"
+                      quality={60}
+                    />
                   </div>
                 </div>
               )}

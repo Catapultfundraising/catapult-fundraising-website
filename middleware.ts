@@ -65,6 +65,19 @@ async function expectedCookieValue(passwordEnv: string, secretEnv: string): Prom
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
+  // HubSpot's SEO crawl flagged several pages (homepage, /apply,
+  // /data-privacy, /cookie-policy, /sms-terms) as reachable over plain
+  // HTTP. Vercel terminates TLS and normally redirects bare HTTP requests
+  // at the edge, but we enforce it here too as a belt-and-suspenders check
+  // so every page — including ones fetched by crawlers that hit the origin
+  // directly — always redirects to the HTTPS canonical URL.
+  const proto = req.headers.get("x-forwarded-proto");
+  if (proto === "http") {
+    const httpsUrl = new URL(req.url);
+    httpsUrl.protocol = "https:";
+    return NextResponse.redirect(httpsUrl, 308);
+  }
+
   const gate = GATES.find((g) => pathname.startsWith(g.matchPrefix));
   if (!gate) {
     return NextResponse.next();
@@ -89,14 +102,8 @@ export async function middleware(req: NextRequest) {
 
 export const config = {
   matcher: [
-    "/assets",
-    "/assets/:path*",
-    "/jag-dashboard",
-    "/jag-dashboard/:path*",
-    "/api/jag-summary-pdf",
-    "/jag-admin",
-    "/jag-admin/:path*",
-    "/research",
-    "/research/:path*",
+    // Run on every page/route (except static assets & the Next internals)
+    // so the HTTPS check above applies site-wide, not just on gated paths.
+    "/((?!_next/static|_next/image|favicon.ico|apple-icon.png|icon.png).*)",
   ],
 };

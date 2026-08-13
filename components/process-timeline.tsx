@@ -44,6 +44,8 @@ export function ProcessTimeline() {
               alt="Illustration of the five connected phases of a Catapult Fundraising capital campaign"
               fill
               className="object-cover"
+              sizes="(min-width: 768px) 384px, (min-width: 640px) 320px, 100vw"
+              quality={60}
             />
           </div>
         </div>

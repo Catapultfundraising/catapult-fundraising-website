@@ -17,6 +17,11 @@ export function PageHero({ eyebrow, title, description, backgroundImage }: PageH
             alt=""
             fill
             priority
+            sizes="100vw"
+            // Full-bleed background sitting behind a navy gradient overlay
+            // at 30% opacity — a lower encode quality is visually
+            // indistinguishable here but meaningfully shrinks the download.
+            quality={45}
             className="object-cover opacity-30"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-[rgb(var(--navy))] via-[rgb(var(--navy))]/85 to-[rgb(var(--navy))]/40" />
