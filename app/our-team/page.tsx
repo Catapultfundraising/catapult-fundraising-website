@@ -212,6 +212,8 @@ export default function OurTeamPage() {
             fill
             className="object-cover"
             priority
+            sizes="100vw"
+            quality={55}
           />
           <div className="absolute inset-0 bg-gradient-to-t from-[rgb(var(--paper))] via-transparent to-transparent" />
         </div>

@@ -161,6 +161,8 @@ export default function ResultsPage() {
                 alt="Four ways Catapult grows your donor base: Capital Campaign Counsel, Annual Fund Calling, Mid-Level Donor Engagement, and Legacy & Planned Giving"
                 width={1024}
                 height={1536}
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                quality={70}
                 className="h-auto w-full"
               />
             </div>
@@ -170,6 +172,8 @@ export default function ResultsPage() {
                 alt="The Legacy Call process: a seven-step journey to a confirmed planned gift"
                 width={1024}
                 height={1536}
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                quality={70}
                 className="h-auto w-full"
               />
             </div>
@@ -182,6 +186,8 @@ export default function ResultsPage() {
                 alt="The Mid-Level Donor Engagement Journey: an eight-stage pathway to a confirmed increased gift"
                 width={1024}
                 height={1536}
+                sizes="(min-width: 1024px) 50vw, 100vw"
+                quality={70}
                 className="h-auto w-full"
               />
             </div>
