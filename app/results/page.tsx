@@ -8,7 +8,7 @@ const SITE_URL = "https://www.catapultfr.com";
 export const metadata = {
   title: "Results & Case Studies",
   description:
-    "Representative outcomes from Catapult's capital campaign, annual fund, mid-level donor engagement, and legacy giving programs across nonprofit sectors nationwide.",
+    "Representative outcomes from Catapult's capital campaign, annual fund, donor engagement, and legacy giving programs nationwide.",
   keywords: [
     "fundraising results",
     "capital campaign case studies",

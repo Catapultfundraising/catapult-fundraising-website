@@ -8,7 +8,7 @@ const SITE_URL = "https://www.catapultfr.com";
 export const metadata = {
   title: "Annual Fund Calling Services (AF Connect)",
   description:
-    "High-end annual fund calling that treats every donor like a major gift prospect, with segmented outreach, personalized ask amounts, and digital stewardship included.",
+    "High-end annual fund calling that treats every donor like a major gift prospect, with segmented outreach and digital stewardship.",
   keywords: [
     "annual fund calling services",
     "AF Connect",

@@ -10,7 +10,7 @@ const SLUG = "key-steps-for-soliciting-major-donors";
 export const metadata = {
   title: "Key Steps for Soliciting Major Donors",
   description:
-    "Catapult's “four-right rule” for turning long-time supporters into major gift donors: the right person asking the right prospect for the right amount at the right time.",
+    "Catapult's “four-right rule” for turning long-time supporters into major gift donors, asking the right person for the right amount.",
   keywords: [
     "major donor solicitation",
     "how to ask for a major gift",

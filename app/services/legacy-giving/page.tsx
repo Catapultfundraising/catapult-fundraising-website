@@ -8,7 +8,7 @@ const SITE_URL = "https://www.catapultfr.com";
 export const metadata = {
   title: "Legacy & Planned Giving Programs",
   description:
-    "Catapult's Legacy Call program uncovers bequests, beneficiary designations, and other deferred gifts from your most loyal donors, the segment most capital campaigns never fully engage.",
+    "Catapult's Legacy Call program uncovers bequests and deferred gifts from loyal donors, a segment most campaigns never fully engage.",
   keywords: [
     "legacy giving consultant",
     "planned giving program",
