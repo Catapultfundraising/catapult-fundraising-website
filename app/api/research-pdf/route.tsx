@@ -88,8 +88,6 @@ const POLITICAL_GAUGE_POSITIONS: Record<string, number> = {
   "Leans Republican": 3,
   Republican: 4,
 };
-const POLITICAL_GAUGE_LABELS = ["DEM", "LEANS D", "IND", "LEANS R", "REP"];
-
 // Standard SVG polar-to-cartesian + arc-path helpers for the donut chart --
 // react-pdf has no charting library, so pie slices are hand-computed here.
 function polarToCartesian(cx: number, cy: number, r: number, angleDeg: number) {
@@ -196,7 +194,6 @@ const styles = StyleSheet.create({
   wealthCellLabelRow: { flexDirection: "row", alignItems: "flex-start", flexShrink: 0, width: 150 },
   wealthCellLabel: { color: BRASS, fontSize: 6, marginLeft: 4, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25 },
   wealthCellLabelNoIcon: { color: BRASS, fontSize: 6, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25, flexShrink: 0, width: 78 },
-  wealthCellLabelFull: { color: BRASS, fontSize: 6, textTransform: "uppercase", letterSpacing: 0, lineHeight: 1.25, marginBottom: 4 },
   wealthCellValue: { color: NAVY, fontFamily: "Helvetica-Bold", fontSize: 9, marginLeft: 10, flex: 1 },
   statBoxRow: { flexDirection: "row", marginBottom: 12 },
   statBox: { flex: 1, backgroundColor: CREAM, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: NAVY },
@@ -219,11 +216,7 @@ const styles = StyleSheet.create({
   italicNote: { fontSize: 7.4, color: MUTED, fontStyle: "italic", marginBottom: 10 },
   starRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
   ratingRawText: { fontSize: 7, color: MUTED, marginTop: 2 },
-  gaugeWrap: { marginTop: 4 },
-  gaugeLabelRow: { flexDirection: "row", justifyContent: "space-between", marginTop: 3 },
-  gaugeTickLabel: { fontSize: 5.6, color: MUTED, textTransform: "uppercase" },
-  gaugeBadge: { marginTop: 4, alignSelf: "flex-start", backgroundColor: "rgba(178,140,70,0.12)", borderRadius: 4, paddingHorizontal: 6, paddingVertical: 2 },
-  gaugeBadgeText: { fontSize: 7, fontFamily: "Helvetica-Bold", color: BRASS },
+  gaugeCompactLabel: { fontSize: 7, fontFamily: "Helvetica-Bold", color: NAVY, marginTop: 2 },
   chartRow: { flexDirection: "row", alignItems: "center" },
   legendRow: { flexDirection: "row", alignItems: "center", marginBottom: 3 },
   legendSwatch: { width: 7, height: 7, borderRadius: 1.5, marginRight: 5 },
@@ -397,42 +390,47 @@ function StarRating({ rawValue }: { rawValue?: string }) {
   );
 }
 
-// Draws the 5-position horizontal spectrum bar with a triangular marker
-// pinned at `position` (0 = Democrat ... 4 = Republican).
-function renderGaugeBar(position: number, renderWidth: number) {
-  // viewBox width stays fixed (just an internal coordinate space); only the
-  // *rendered* width/height passed to <Svg> needs to match the container so
-  // the bar never runs past the page margin (this was the overflow bug --
-  // the gauge previously always rendered at a fixed 160pt regardless of how
-  // narrow its parent cell actually was).
-  const viewBoxWidth = 200;
-  const step = viewBoxWidth / 4;
-  const x = position * step;
-  const renderHeight = (renderWidth / viewBoxWidth) * 20;
+// Compact 5-segment "meter" instead of the old full spectrum bar + tick
+// labels -- that version needed ~480pt to read cleanly (or overflowed the
+// page when squeezed narrower), which was more visual weight than a single
+// biographical field warrants. This is a small dash-segment row (fits in
+// the same ~80pt-wide cell as Religion/Military Service) with the matching
+// segment lit up in brass, plus the exact value as plain text underneath --
+// same "small graphic + raw text below" pattern already used for Wealth
+// Rating's stars.
+const GAUGE_SEGMENT_COUNT = 5;
+function renderCompactGauge(position: number) {
+  const totalWidth = 60;
+  const gap = 2;
+  const segWidth = (totalWidth - gap * (GAUGE_SEGMENT_COUNT - 1)) / GAUGE_SEGMENT_COUNT;
+  const height = 6;
   return (
-    <Svg viewBox={`0 0 ${viewBoxWidth} 20`} width={renderWidth} height={renderHeight}>
-      <Rect x={0} y={8} width={viewBoxWidth} height={6} rx={3} fill={LINE} />
-      <Polygon points={`${x - 5},2 ${x + 5},2 ${x},10`} fill={BRASS} />
+    <Svg viewBox={`0 0 ${totalWidth} ${height}`} width={totalWidth} height={height}>
+      {Array.from({ length: GAUGE_SEGMENT_COUNT }).map((_, i) => (
+        <Rect
+          key={i}
+          x={i * (segWidth + gap)}
+          y={0}
+          width={segWidth}
+          height={height}
+          rx={1.5}
+          fill={i === position ? BRASS : LINE}
+        />
+      ))}
     </Svg>
   );
 }
 
-// Political Affiliation as a spectrum gauge instead of plain text.
+// Political Affiliation as a small at-a-glance meter instead of plain text.
 // "Supports Both Parties" and "Unknown" don't sit on a left-right axis, so
 // they get their own treatment rather than being forced onto the spectrum.
-// `fullWidth` renders the gauge at the full content-column width (used when
-// Political Affiliation gets its own dedicated row) instead of the narrow
-// fixed width that used to overflow off the page inside a 1-of-3 wealth cell.
-function PoliticalGauge({ value, fullWidth }: { value?: string; fullWidth?: boolean }) {
+function PoliticalGauge({ value }: { value?: string }) {
   if (!value) return null;
-  const renderWidth = fullWidth ? 480 : 130;
   if (value === "Supports Both Parties") {
     return (
-      <View style={styles.gaugeWrap}>
-        {renderGaugeBar(2, renderWidth)}
-        <View style={styles.gaugeBadge}>
-          <Text style={styles.gaugeBadgeText}>SUPPORTS BOTH PARTIES</Text>
-        </View>
+      <View>
+        {renderCompactGauge(2)}
+        <Text style={styles.gaugeCompactLabel}>Both Parties</Text>
       </View>
     );
   }
@@ -442,15 +440,9 @@ function PoliticalGauge({ value, fullWidth }: { value?: string; fullWidth?: bool
     return <Text style={styles.wealthCellValue}>{value}</Text>;
   }
   return (
-    <View style={styles.gaugeWrap}>
-      {renderGaugeBar(position, renderWidth)}
-      <View style={[styles.gaugeLabelRow, { width: renderWidth }]}>
-        {POLITICAL_GAUGE_LABELS.map((l, i) => (
-          <Text key={l} style={[styles.gaugeTickLabel, i === position ? { color: BRASS, fontFamily: "Helvetica-Bold" } : {}]}>
-            {l}
-          </Text>
-        ))}
-      </View>
+    <View>
+      {renderCompactGauge(position)}
+      <Text style={styles.gaugeCompactLabel}>{value}</Text>
     </View>
   );
 }
@@ -756,8 +748,8 @@ function ProfileDocument({ data }: { data: any }) {
   const religiousRow: Array<[string, string]> = ([
     ["Religion", data.religion],
     ["Military Service", militaryValue(data)],
+    ["Political Affiliation", data.politicalAffiliation],
   ] as Array<[string, string]>).filter(([, v]) => v);
-  const politicalAffiliationValue = data.politicalAffiliation;
 
   return (
     <Document>
@@ -908,19 +900,16 @@ function ProfileDocument({ data }: { data: any }) {
               {religiousRow.map(([label, value]) => (
                 <View style={styles.wealthCell} key={label}>
                   <Text style={styles.wealthCellLabelNoIcon}>{label.toUpperCase()}</Text>
-                  <Text style={styles.wealthCellValue}>{value}</Text>
+                  {label === "Political Affiliation" ? (
+                    <PoliticalGauge value={value} />
+                  ) : (
+                    <Text style={styles.wealthCellValue}>{value}</Text>
+                  )}
                 </View>
               ))}
             </View>
           </View>
         )}
-
-        {politicalAffiliationValue ? (
-          <View style={styles.wealthPanel} wrap={false}>
-            <Text style={styles.wealthCellLabelFull}>POLITICAL AFFILIATION</Text>
-            <PoliticalGauge value={politicalAffiliationValue} fullWidth />
-          </View>
-        ) : null}
 
         <FieldRow label="Hobbies & Interests" value={data.hobbiesInterests} />
         <FieldRow label="Relationship to Organization" value={data.relationshipToOrg} />
