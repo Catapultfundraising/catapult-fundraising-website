@@ -19,8 +19,8 @@ export async function generateMetadata({
   const cs = getCaseStudyBySlug(slug);
   if (!cs) return {};
   return {
-    title: `${cs.title} | Insights`,
-    description: cs.summary,
+    title: cs.metaTitle,
+    description: cs.metaDescription,
     alternates: { canonical: `/insights/case-studies/${cs.slug}` },
   };
 }

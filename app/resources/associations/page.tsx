@@ -1,7 +1,7 @@
 import { PageHero } from "@/components/page-hero";
 
 export const metadata = {
-  title: "Nonprofit Association Resources | Catapult Fundraising",
+  title: "Nonprofit Association Resources",
   description:
     "A working reference list of professional fundraising and nonprofit-sector associations, certifications, and publications.",
   robots: { index: false, follow: false },

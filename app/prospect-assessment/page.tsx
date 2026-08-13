@@ -2,7 +2,7 @@ import { PageHero } from "@/components/page-hero";
 import { ProspectAssessmentForm } from "@/components/prospect-assessment-form";
 
 export const metadata = {
-  title: "Prospect Counts and Average Gift Sizes | Catapult Fundraising",
+  title: "Prospect Counts and Average Gift Sizes",
   description:
     "Share your organization's donor data, case for support, and prior solicitation history with Catapult Fundraising.",
   robots: { index: false, follow: false },

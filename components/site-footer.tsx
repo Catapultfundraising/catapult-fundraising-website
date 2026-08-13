@@ -11,8 +11,11 @@ export function SiteFooter() {
           <Image
             src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png"
             alt="Catapult Fundraising"
-            width={880}
-            height={760}
+            // Source file is actually 1536x1024 (3:2); 880x760 (~1.16:1)
+            // didn't match, which is what HubSpot's SEO scan flagged as an
+            // incorrect/distorted aspect ratio site-wide.
+            width={900}
+            height={600}
             className="h-64 w-auto"
           />
           <div className="mt-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
