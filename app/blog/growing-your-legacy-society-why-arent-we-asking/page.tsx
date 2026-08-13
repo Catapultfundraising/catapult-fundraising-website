@@ -8,9 +8,9 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "growing-your-legacy-society-why-arent-we-asking";
 
 export const metadata = {
-  title: "Growing Your Legacy Society: Why Aren't We Asking?",
+  title: "Growing Your Legacy Society",
   description:
-    "Anthony Alonso on who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
+    "Anthony Alonso on who your best legacy giving prospects really are, and the two-step call process that closes bequests.",
   keywords: [
     "legacy society growth",
     "planned giving prospects",

@@ -10,7 +10,7 @@ const SITE_URL = "https://www.catapultfr.com";
 export const metadata = {
   title: "About | 30+ Years, National Full-Service Firm",
   description:
-    "Catapult Fundraising is the nation's full-service fundraising consulting firm, built on more than 30 years of capital campaign and donor engagement experience. Learn our story and how we work.",
+    "Catapult Fundraising is the nation's full-service fundraising firm, built on 30+ years of capital campaign and donor engagement experience.",
   keywords: [
     "nonprofit fundraising consultant",
     "capital campaign consulting firm",
