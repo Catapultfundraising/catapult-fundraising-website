@@ -706,6 +706,38 @@ function ResearchProfileFormInner() {
     router.replace("/research/new");
   }
 
+  // A "one-off" profile (not selected from Sean's uploaded weekly list) is
+  // otherwise invisible to that list -- other profilers wouldn't see it in
+  // the "Prefill From This Week's Prospect List" dropdown, and it wouldn't
+  // count as part of this week's roster. This adds/updates it there too,
+  // matched by name, every time the profile is saved. Non-fatal if it
+  // fails: the profile itself still saves fine either way.
+  async function syncOneOffIntoWeeklyRoster() {
+    if (lockedFromRoster || !data.name.trim()) return;
+    try {
+      await fetch("/api/research-roster", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prospect: {
+            name: data.name,
+            clientProfiler: data.clientProfiler,
+            catapultId: data.catapultId,
+            clientId: data.clientId,
+            wealthRating: data.wealthRating,
+            givingCapacity: data.givingCapacity,
+            address: data.homeAddress,
+            phones: data.phones.map((p) => p.number).filter(Boolean),
+            emails: data.emails.map((e) => e.address).filter(Boolean),
+            givingHistoryRows: data.givingHistoryRows,
+          },
+        }),
+      });
+    } catch {
+      // ignore -- non-fatal
+    }
+  }
+
   async function persistProfile(currentId: string | null): Promise<string | null> {
     try {
       const res = await fetch("/api/research-profiles", {
@@ -721,6 +753,7 @@ function ResearchProfileFormInner() {
       setProfileId(json.profile.id);
       setLastSavedAt(json.profile.updatedAt);
       router.replace(`/research/new?id=${json.profile.id}`);
+      syncOneOffIntoWeeklyRoster();
       return json.profile.id as string;
     } catch (err: any) {
       setSaveError(err?.message || "Something went wrong saving this profile.");
