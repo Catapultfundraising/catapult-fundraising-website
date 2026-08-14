@@ -447,27 +447,31 @@ function PoliticalGauge({ value }: { value?: string }) {
   );
 }
 
-// Sums Other Giving History amounts by category (skipping blank/shorthand
-// amounts, same rule as sumAmounts elsewhere) and returns each category's
-// share of the total, largest first.
+// Breaks down Other Giving History by category as a share of the NUMBER OF
+// GIFT RECORDS in each category, not dollar totals. Most rows in this table
+// come from public-record research and never get a confirmed dollar amount
+// (the Amount column is often "N/A" or blank) -- summing only the rows that
+// happen to have a parsable dollar figure meant a single $248 gift could
+// swamp seven other undated/unvalued gifts and show as "100% Education"
+// even though most of the giving history was a completely different
+// category. Counting rows instead means every logged gift counts equally
+// toward the pie, regardless of whether a dollar figure was ever confirmed.
+// Only fully-blank rows (no recipient AND no category) are skipped.
 function computeGivingByCategory(rows: any[]): Array<{ label: string; value: number; pct: number }> {
   if (!rows || rows.length === 0) return [];
-  const totals = new Map<string, number>();
-  let grandTotal = 0;
+  const counts = new Map<string, number>();
+  let total = 0;
   for (const row of rows) {
-    const raw = String(row?.amount || "").trim();
-    if (!raw || /[a-zA-Z]/.test(raw)) continue;
-    const cleaned = raw.replace(/[^0-9.-]/g, "");
-    if (!cleaned) continue;
-    const n = parseFloat(cleaned);
-    if (!Number.isFinite(n) || n <= 0) continue;
-    const category = (row?.giving || "").trim() || "Uncategorized";
-    totals.set(category, (totals.get(category) || 0) + n);
-    grandTotal += n;
+    const recipient = String(row?.recipient || "").trim();
+    const category = String(row?.giving || "").trim();
+    if (!recipient && !category) continue;
+    const key = category || "Uncategorized";
+    counts.set(key, (counts.get(key) || 0) + 1);
+    total += 1;
   }
-  if (grandTotal <= 0) return [];
-  return Array.from(totals.entries())
-    .map(([label, value]) => ({ label, value, pct: (value / grandTotal) * 100 }))
+  if (total <= 0) return [];
+  return Array.from(counts.entries())
+    .map(([label, value]) => ({ label, value, pct: (value / total) * 100 }))
     .sort((a, b) => b.value - a.value);
 }
 
