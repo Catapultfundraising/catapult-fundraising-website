@@ -77,7 +77,7 @@ const SHEETS: Sheet[] = [
     title: "Postcard Envelope",
     description:
       "Matching A6 envelope for mailing the thank you postcard — return address stacked below the logo, print-ready with bleed.",
-    href: "https://galaxy-prod.tlcdn.com/gen/21d16ee31e50475394529a9f3d96ccc7.pdf",
+    href: "https://galaxy-prod.tlcdn.com/gen/a523cec299a748869716bcb8e7751360.pdf",
   },
 ];
 
