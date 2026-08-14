@@ -35,7 +35,7 @@ import {
   PersonCard,
   emptyPerson,
   type PersonEntry,
-  resizeImageToDataUri,
+  compositeLogoOnWhiteSquare,
 } from "@/lib/profile-form-kit";
 
 interface GrantRow {
@@ -47,7 +47,8 @@ interface GrantRow {
 interface FoundationProfileData {
   dateCreated: string;
   clientProfiler: string;
-  catapultId: string; // CPTID # / EIN #
+  catapultId: string; // CPTID #
+  ein: string; // EIN #
   clientId: string;
   photo: string; // foundation logo
   name: string; // Foundation Name
@@ -77,6 +78,7 @@ function emptyProfile(): FoundationProfileData {
     dateCreated: new Date().toISOString().slice(0, 10),
     clientProfiler: "",
     catapultId: "",
+    ein: "",
     clientId: "",
     photo: "",
     name: "",
@@ -241,7 +243,7 @@ function FoundationProfileFormInner() {
   }
 
   async function handleLogoUpload(file: File) {
-    const uri = await resizeImageToDataUri(file, 900, 0.85);
+    const uri = await compositeLogoOnWhiteSquare(file);
     set("photo", uri);
   }
 
@@ -414,13 +416,14 @@ function FoundationProfileFormInner() {
           onChange={(v) => set("clientProfiler", v)}
           placeholder="e.g., SCFTA/JG"
         />
-        <Field label="CPTID # / EIN #" value={data.catapultId} onChange={(v) => set("catapultId", v)} />
+        <Field label="Catapult ID (CPTID)" value={data.catapultId} onChange={(v) => set("catapultId", v)} />
+        <Field label="EIN #" value={data.ein} onChange={(v) => set("ein", v)} placeholder="XX-XXXXXXX" />
         <Field label="Client ID" value={data.clientId} onChange={(v) => set("clientId", v)} />
       </div>
 
       <SectionHeading icon={Landmark}>Foundation Overview</SectionHeading>
       <div className="mt-4 flex items-center gap-4">
-        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-[rgb(var(--brass))]/60 bg-[rgb(var(--paper))]">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-[rgb(var(--brass))]/60 bg-white">
           {data.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.photo} alt={data.name || "Foundation logo"} className="h-full w-full object-contain" />
@@ -455,9 +458,7 @@ function FoundationProfileFormInner() {
         label="Relationship to Client"
         value={data.relationshipToOrg}
         onChange={(v) => set("relationshipToOrg", v)}
-        textarea
-        rows={2}
-        richText
+        placeholder="e.g., Two-time grantor to the client's youth programs"
       />
       <Field
         label="Giving History to Client"

@@ -31,6 +31,7 @@ function FoundationDocument({ data }: { data: any }) {
           <FieldRow label="Phone" value={data.phone} />
           <FieldRow label="Website" value={data.website} />
           <FieldRow label="Relationship to Client" value={data.relationshipToOrg} />
+          <FieldRow label="EIN #" value={data.ein} />
           <FieldRow label="Giving History to Client" value={data.givingHistoryToClient} />
 
           {data.executives?.length > 0 && (

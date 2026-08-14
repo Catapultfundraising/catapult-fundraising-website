@@ -36,7 +36,7 @@ import {
   PersonCard,
   emptyPerson,
   type PersonEntry,
-  resizeImageToDataUri,
+  compositeLogoOnWhiteSquare,
 } from "@/lib/profile-form-kit";
 
 interface CorporateProfileData {
@@ -246,7 +246,7 @@ function CorporateProfileFormInner() {
   }
 
   async function handleLogoUpload(file: File) {
-    const uri = await resizeImageToDataUri(file, 900, 0.85);
+    const uri = await compositeLogoOnWhiteSquare(file);
     set("photo", uri);
   }
 
@@ -406,7 +406,7 @@ function CorporateProfileFormInner() {
 
       <SectionHeading icon={Building2}>Company Overview</SectionHeading>
       <div className="mt-4 flex items-center gap-4">
-        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-[rgb(var(--brass))]/60 bg-[rgb(var(--paper))]">
+        <div className="flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-xl border-2 border-[rgb(var(--brass))]/60 bg-white">
           {data.photo ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={data.photo} alt={data.name || "Company logo"} className="h-full w-full object-contain" />
@@ -441,9 +441,7 @@ function CorporateProfileFormInner() {
         label="Relationship to Client"
         value={data.relationshipToOrg}
         onChange={(v) => set("relationshipToOrg", v)}
-        textarea
-        rows={2}
-        richText
+        placeholder="e.g., Board member's employer, longtime sponsor"
       />
 
       <SectionHeading icon={Handshake}>Giving History to Client</SectionHeading>

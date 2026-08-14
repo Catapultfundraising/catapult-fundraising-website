@@ -98,6 +98,51 @@ export async function resizeImageToDataUri(file: File, maxDim = 1000, quality = 
   return canvas.toDataURL("image/jpeg", quality);
 }
 
+// Composites an uploaded company/foundation logo onto a fixed-size white
+// square with padding, baking in the "clean white box" look at upload time
+// rather than leaving it to the PDF renderer's objectFit behavior -- source
+// logos vary wildly (wide wordmarks, tall marks, transparent PNGs, logos
+// with dark/colored backgrounds of their own) and react-pdf's Image doesn't
+// reliably letterbox/center a non-square source into a square box, which is
+// what was causing logos to appear stretched, cropped, or oddly placed
+// against the navy hero band. Every logo now renders as the exact same
+// size, centered and fully visible on a true white background, so a dark
+// navy header never clashes with a logo that has its own dark background.
+export async function compositeLogoOnWhiteSquare(file: File, size = 480, paddingRatio = 0.12): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+  const img = document.createElement("img");
+  await new Promise<void>((resolve, reject) => {
+    img.onload = () => resolve();
+    img.onerror = reject as any;
+    img.src = dataUrl;
+  });
+  const canvas = document.createElement("canvas");
+  canvas.width = size;
+  canvas.height = size;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return dataUrl;
+  ctx.fillStyle = "#FFFFFF";
+  ctx.fillRect(0, 0, size, size);
+  const pad = size * paddingRatio;
+  const maxDim = size - pad * 2;
+  // Standard "contain" fit against the padded box -- always scales the
+  // logo to use the available space (up or down) rather than only ever
+  // shrinking, so small source logos don't end up tiny and lost in a sea
+  // of white padding.
+  const scale = Math.min(maxDim / img.width, maxDim / img.height);
+  const drawW = img.width * scale;
+  const drawH = img.height * scale;
+  const x = (size - drawW) / 2;
+  const y = (size - drawH) / 2;
+  ctx.drawImage(img, x, y, drawW, drawH);
+  return canvas.toDataURL("image/png");
+}
+
 export function SectionHeading({ children, icon: Icon }: { children: ReactNode; icon?: LucideIcon }) {
   return (
     <h2 className="mt-10 flex items-center gap-2 border-b border-[rgb(var(--line))] pb-2 font-display text-2xl text-[rgb(var(--navy))]">
