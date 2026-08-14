@@ -76,8 +76,8 @@ const SHEETS: Sheet[] = [
     icon: Mail,
     title: "Postcard Envelope",
     description:
-      "Matching A6 envelope for mailing the thank you postcard — return address and logo included, print-ready with bleed.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a7bc7ad-4f02-4783-a069-3086c3afb77a.pdf",
+      "Matching A6 envelope for mailing the thank you postcard — return address stacked below the logo, print-ready with bleed.",
+    href: "https://galaxy-prod.tlcdn.com/gen/e1024ec7c33c44c9a788802b2bba377e.pdf",
   },
 ];
 
