@@ -38,8 +38,8 @@ const POSTS = [
     description:
       "Anthony R. Alonso on why National Make a Will Month is the perfect low-pressure moment to start the bequest conversation, and the two-tier calling model that turns loyal donors into legacy donors.",
     readTime: "6 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/790ec1df74a54b96875adbe7333729ed.png",
-    alt: "An older woman reviewing her will at her dining room table with a gift planning advisor, pointing to a paragraph in the document together",
+    image: "https://galaxy-prod.tlcdn.com/gen/195e3163b35e43c2813bec32cf08e4f6.jpeg",
+    alt: "A shaggy, wide-eyed puppy resting its chin on the table next to Monopoly money, looking up at the camera",
   },
   {
     slug: "giving-usa-2026-record-giving-wealth-transfer",

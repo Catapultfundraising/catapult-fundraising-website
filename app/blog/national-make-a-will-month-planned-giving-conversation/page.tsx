@@ -38,10 +38,10 @@ export const metadata = {
     url: `${SITE_URL}/blog/${SLUG}`,
     images: [
       {
-        url: "https://galaxy-prod.tlcdn.com/gen/790ec1df74a54b96875adbe7333729ed.png",
+        url: "https://galaxy-prod.tlcdn.com/gen/195e3163b35e43c2813bec32cf08e4f6.jpeg",
         width: 1536,
         height: 1024,
-        alt: "An older woman reviewing her will at her dining room table with a gift planning advisor, pointing to a paragraph in the document together",
+        alt: "A shaggy, wide-eyed puppy resting its chin on the table next to Monopoly money, looking up at the camera",
       },
     ],
   },
@@ -94,8 +94,8 @@ export default function NationalMakeAWillMonthPost() {
         <div className="mt-6 mb-6 w-full overflow-hidden rounded-2xl">
           <div className="relative aspect-[3/2] w-full">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/790ec1df74a54b96875adbe7333729ed.png"
-              alt="An older woman reviewing her will at her dining room table with a gift planning advisor, pointing to a paragraph in the document together"
+              src="https://galaxy-prod.tlcdn.com/gen/195e3163b35e43c2813bec32cf08e4f6.jpeg"
+              alt="A shaggy, wide-eyed puppy resting its chin on the table next to Monopoly money, looking up at the camera"
               fill
               className="object-cover"
               priority
