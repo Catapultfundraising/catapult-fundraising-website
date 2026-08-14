@@ -251,7 +251,7 @@ export default function NationalMakeAWillMonthPost() {
           their estate plans.
         </p>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
-          Here&rsquo;s something we&rsquo;ve learned working with dozens of organizations: a
+          Here&rsquo;s something we&rsquo;ve learned working with hundreds of organizations: a
           surprising number of your most loyal donors have already written you into their wills.
           They just assumed you knew. The discovery call isn&rsquo;t an ask. It&rsquo;s a
           thank-you with a question attached.
