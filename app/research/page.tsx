@@ -14,17 +14,31 @@ import {
   Download,
   Users,
   X,
+  User,
+  Building2,
+  Landmark,
 } from "lucide-react";
 
 type ProfileStatus = "draft" | "sent_for_approval" | "approved";
+type ProfileType = "individual" | "corporate" | "foundation";
 
 interface ProfileIndexEntry {
   id: string;
   name: string;
   status: ProfileStatus;
+  type: ProfileType;
   updatedAt: string;
   createdAt: string;
 }
+
+// Maps each profile type to the editor route it opens in and a small
+// badge shown next to the status pill, so mixed Individual/Corporate/
+// Foundation profiles are visually distinguishable at a glance in the list.
+const TYPE_META: Record<ProfileType, { label: string; href: string; icon: typeof User; bg: string; text: string }> = {
+  individual: { label: "Individual", href: "/research/new/individual", icon: User, bg: "bg-[rgb(var(--navy))]/5", text: "text-[rgb(var(--navy))]" },
+  corporate: { label: "Corporate", href: "/research/new/corporate", icon: Building2, bg: "bg-[rgb(var(--navy))]/5", text: "text-[rgb(var(--navy))]" },
+  foundation: { label: "Foundation", href: "/research/new/foundation", icon: Landmark, bg: "bg-[rgb(var(--navy))]/5", text: "text-[rgb(var(--navy))]" },
+};
 
 interface RosterProspect {
   name: string;
@@ -394,6 +408,15 @@ export default function ResearchProfilesPage() {
                       <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
                       {meta.label}
                     </span>
+                    {(() => {
+                      const typeMeta = TYPE_META[p.type || "individual"];
+                      return (
+                        <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${typeMeta.bg} ${typeMeta.text}`}>
+                          <typeMeta.icon className="h-3 w-3" />
+                          {typeMeta.label}
+                        </span>
+                      );
+                    })()}
                   </div>
                   <p className="mt-1.5 truncate font-display text-lg text-[rgb(var(--navy))]">
                     {p.name || "Untitled Prospect"}
@@ -402,7 +425,7 @@ export default function ResearchProfilesPage() {
                   {strategyError && <p className="mt-1.5 text-xs text-red-600">{strategyError}</p>}
                 </div>
                 <div className="flex items-center gap-2">
-                  {p.status === "approved" && (
+                  {p.status === "approved" && (p.type || "individual") === "individual" && (
                     <button
                       type="button"
                       onClick={() => handleGenerateAskStrategy(p.id, p.name)}
@@ -418,7 +441,7 @@ export default function ResearchProfilesPage() {
                     </button>
                   )}
                   <Link
-                    href={`/research/new?id=${p.id}`}
+                    href={`${TYPE_META[p.type || "individual"].href}?id=${p.id}`}
                     className="inline-flex items-center gap-1.5 rounded-full border border-[rgb(var(--line))] px-4 py-2 text-xs font-semibold text-[rgb(var(--navy))] hover:border-[rgb(var(--brass))]"
                   >
                     <FileEdit className="h-3.5 w-3.5" />
