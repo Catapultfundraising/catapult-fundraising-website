@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isResearchAuthed } from "@/lib/research-auth";
-import { listProfiles, saveProfile } from "@/lib/research-profiles-store";
+import { listProfiles, saveProfile, type ProfileType } from "@/lib/research-profiles-store";
 
 export const runtime = "nodejs";
 
@@ -23,14 +23,17 @@ export async function POST(req: NextRequest) {
   }
   try {
     const body = await req.json();
-    const { id, name, status, data } = body || {};
+    const { id, name, status, data, type } = body || {};
     if (!data) {
       return NextResponse.json({ error: "Missing profile data." }, { status: 400 });
     }
+    const validType: ProfileType | undefined =
+      type === "corporate" || type === "foundation" || type === "individual" ? type : undefined;
     const entry = await saveProfile({
       id: typeof id === "string" && id ? id : undefined,
       name: typeof name === "string" ? name : "",
       status: status === "sent_for_approval" || status === "approved" ? status : "draft",
+      type: validType,
       data,
     });
     return NextResponse.json({ ok: true, profile: entry });

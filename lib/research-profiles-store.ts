@@ -1,11 +1,16 @@
 import { put, get } from "@vercel/blob";
 
 export type ProfileStatus = "draft" | "sent_for_approval" | "approved";
+// Which builder created this profile. Defaults to "individual" everywhere
+// a profile predates this field, so old saved profiles keep working and
+// routing to the correct editor/PDF endpoint without a migration step.
+export type ProfileType = "individual" | "corporate" | "foundation";
 
 export interface ProfileIndexEntry {
   id: string;
   name: string;
   status: ProfileStatus;
+  type: ProfileType;
   updatedAt: string;
   createdAt: string;
 }
@@ -22,7 +27,7 @@ async function fetchJsonBlob<T>(pathname: string): Promise<T | null> {
 
 async function readIndex(): Promise<ProfileIndexEntry[]> {
   const data = await fetchJsonBlob<ProfileIndexEntry[]>(INDEX_PATH);
-  return data ?? [];
+  return (data ?? []).map((e) => ({ ...e, type: e.type || "individual" }));
 }
 
 async function writeIndex(entries: ProfileIndexEntry[]): Promise<void> {
@@ -42,26 +47,32 @@ export async function listProfiles(): Promise<ProfileIndexEntry[]> {
 export interface ProfileEnvelope {
   name: string;
   status: ProfileStatus;
+  type: ProfileType;
   data: any;
   updatedAt: string;
 }
 
 export async function getProfile(id: string): Promise<ProfileEnvelope | null> {
-  return fetchJsonBlob<ProfileEnvelope>(dataPath(id));
+  const envelope = await fetchJsonBlob<ProfileEnvelope>(dataPath(id));
+  if (!envelope) return null;
+  return { ...envelope, type: envelope.type || "individual" };
 }
 
 export async function saveProfile(params: {
   id?: string;
   name: string;
   status: ProfileStatus;
+  type?: ProfileType;
   data: any;
 }): Promise<ProfileIndexEntry> {
   const id = params.id || crypto.randomUUID();
   const now = new Date().toISOString();
+  const type: ProfileType = params.type || "individual";
 
   const envelope: ProfileEnvelope = {
     name: params.name || "Untitled Prospect",
     status: params.status,
+    type,
     data: params.data,
     updatedAt: now,
   };
@@ -78,6 +89,10 @@ export async function saveProfile(params: {
     id,
     name: params.name || "Untitled Prospect",
     status: params.status,
+    // Once a profile is created as a given type, that type never changes on
+    // subsequent saves even if the caller omits it -- only a brand-new
+    // profile can set it.
+    type: existing?.type || type,
     createdAt: existing?.createdAt || now,
     updatedAt: now,
   };
