@@ -33,6 +33,15 @@ const FEATHER = {
 
 const POSTS = [
   {
+    slug: "national-make-a-will-month-planned-giving-conversation",
+    title: "National Make a Will Month: The Planned Giving Conversation You Keep Avoiding",
+    description:
+      "Anthony R. Alonso on why National Make a Will Month is the perfect low-pressure moment to start the bequest conversation, and the two-tier calling model that turns loyal donors into legacy donors.",
+    readTime: "6 min read",
+    image: "https://galaxy-prod.tlcdn.com/gen/790ec1df74a54b96875adbe7333729ed.png",
+    alt: "An older woman reviewing her will at her dining room table with a gift planning advisor, pointing to a paragraph in the document together",
+  },
+  {
     slug: "giving-usa-2026-record-giving-wealth-transfer",
     title: "Giving USA 2026: Record Giving, the Great Wealth Transfer, and the Ask We Keep Avoiding",
     description:
