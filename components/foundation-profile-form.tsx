@@ -47,6 +47,7 @@ interface GrantRow {
 interface FoundationProfileData {
   dateCreated: string;
   clientProfiler: string;
+  projectLeadEmail: string;
   catapultId: string; // CPTID #
   ein: string; // EIN #
   clientId: string;
@@ -77,6 +78,7 @@ function emptyProfile(): FoundationProfileData {
   return {
     dateCreated: new Date().toISOString().slice(0, 10),
     clientProfiler: "",
+    projectLeadEmail: "",
     catapultId: "",
     ein: "",
     clientId: "",
@@ -107,6 +109,20 @@ function emptyProfile(): FoundationProfileData {
 const DRAFT_KEY_PREFIX = "catapult-foundation-profile-draft";
 const draftKey = (id: string | null) => `${DRAFT_KEY_PREFIX}:${id || "unsaved"}`;
 
+// Converts a Blob (the generated PDF) to a bare base64 string, stripping the
+// "data:application/pdf;base64," prefix that FileReader includes -- Resend's
+// attachments API expects just the raw base64 payload.
+async function blobToBase64(blob: Blob): Promise<string> {
+  const dataUrl = await new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = reject;
+    reader.readAsDataURL(blob);
+  });
+  const commaIndex = dataUrl.indexOf(",");
+  return commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl;
+}
+
 export default function FoundationProfileForm() {
   return (
     <Suspense fallback={null}>
@@ -126,6 +142,7 @@ function FoundationProfileFormInner() {
   const [generating, setGenerating] = useState(false);
   const [pdfUrl, setPdfUrl] = useState<string | null>(null);
   const [genError, setGenError] = useState<string | null>(null);
+  const [emailStatus, setEmailStatus] = useState<{ ok: boolean; message: string } | null>(null);
   const [restoredNotice, setRestoredNotice] = useState(false);
   const [loadingProfile, setLoadingProfile] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -289,6 +306,7 @@ function FoundationProfileFormInner() {
     setGenerating(true);
     setGenError(null);
     setPdfUrl(null);
+    setEmailStatus(null);
     try {
       await persistProfile(profileId);
       const res = await fetch("/api/research-pdf-foundation", {
@@ -303,10 +321,43 @@ function FoundationProfileFormInner() {
       const blob = await res.blob();
       const url = URL.createObjectURL(blob);
       setPdfUrl(url);
+
+      // Auto-email the freshly generated PDF to the project lead whenever
+      // this profile is marked "Sent for Approval" and an address has been
+      // entered -- this is the one moment both conditions ("generated" and
+      // "saved as Sent for Approval") are guaranteed true at the same time.
+      if (status === "sent_for_approval" && data.projectLeadEmail.trim()) {
+        await emailPdfToProjectLead(blob);
+      }
     } catch (err: any) {
       setGenError(err?.message || "Something went wrong generating the PDF.");
     } finally {
       setGenerating(false);
+    }
+  }
+
+  async function emailPdfToProjectLead(blob: Blob) {
+    try {
+      const base64 = await blobToBase64(blob);
+      const res = await fetch(`/api/research-profiles/${profileId}/email-pdf`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          to: data.projectLeadEmail.trim(),
+          fileName,
+          profileName: data.name,
+          profileType: "foundation",
+          pdfBase64: base64,
+        }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || json?.ok === false) {
+        setEmailStatus({ ok: false, message: json?.error || "Could not email the PDF to the project lead." });
+      } else {
+        setEmailStatus({ ok: true, message: `Emailed to ${data.projectLeadEmail.trim()}.` });
+      }
+    } catch {
+      setEmailStatus({ ok: false, message: "Could not email the PDF to the project lead." });
     }
   }
 
@@ -419,7 +470,17 @@ function FoundationProfileFormInner() {
         <Field label="Catapult ID (CPTID)" value={data.catapultId} onChange={(v) => set("catapultId", v)} />
         <Field label="EIN #" value={data.ein} onChange={(v) => set("ein", v)} placeholder="XX-XXXXXXX" />
         <Field label="Client ID" value={data.clientId} onChange={(v) => set("clientId", v)} />
+        <Field
+          label="Project Lead Email"
+          value={data.projectLeadEmail}
+          onChange={(v) => set("projectLeadEmail", v)}
+          placeholder="e.g., anthonya@catapultfr.com"
+        />
       </div>
+      <p className="mt-2 text-xs text-[rgb(var(--ink))]/45">
+        When the status above is set to &ldquo;Sent for Approval&rdquo; and you click &ldquo;Generate
+        PDF,&rdquo; this profile is automatically emailed to that address as an attachment.
+      </p>
 
       <SectionHeading icon={Landmark}>Foundation Overview</SectionHeading>
       <div className="mt-4 flex items-center gap-4">
@@ -568,6 +629,12 @@ function FoundationProfileFormInner() {
         </div>
 
         {genError && <p className="mt-4 text-sm text-red-600">{genError}</p>}
+        {emailStatus && (
+          <p className={`mt-4 text-sm ${emailStatus.ok ? "text-emerald-700" : "text-red-600"}`}>
+            {emailStatus.ok ? "✓ " : ""}
+            {emailStatus.message}
+          </p>
+        )}
 
         {pdfUrl && (
           <div className="mt-5 flex flex-wrap items-center gap-4 rounded-xl bg-white p-4">
