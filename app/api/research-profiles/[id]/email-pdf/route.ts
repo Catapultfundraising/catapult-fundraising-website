@@ -3,17 +3,32 @@ import { isResearchAuthed } from "@/lib/research-auth";
 
 export const runtime = "nodejs";
 
-// Basic email shape check, matching the same lightweight validator used by
-// the public contact form -- just enough to reject obviously-malformed
-// addresses before we spend a Resend call on them.
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-// Sends a just-generated research profile PDF to a project lead's inbox as
-// an email attachment. This is the automatic "PDF generated + status is
-// Sent for Approval" notification -- triggered from each profile builder's
-// generatePdf() function, not a standalone user-facing form. Reuses the
-// same Resend setup as the public contact form (see app/api/contact/route.ts)
-// rather than introducing a second email provider.
+// Splits a free-typed "to" value into a de-duplicated list of valid email
+// addresses. Accepts either a single string (comma, semicolon, and/or
+// whitespace separated -- e.g. "anthonya@catapultfr.com, karen@catapultfr.com")
+// or an array of strings, since sometimes two project leads sit on the same
+// program and both need the generated PDF.
+function parseRecipients(to: unknown): string[] {
+  const raw: string[] = Array.isArray(to)
+    ? to.flatMap((v) => String(v).split(/[,;]+/))
+    : typeof to === "string"
+      ? to.split(/[,;]+/)
+      : [];
+  const seen = new Set<string>();
+  const valid: string[] = [];
+  for (const candidate of raw) {
+    const email = candidate.trim();
+    if (!email || !EMAIL_RE.test(email)) continue;
+    const key = email.toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    valid.push(email);
+  }
+  return valid;
+}
+
 export async function POST(req: NextRequest) {
   if (!(await isResearchAuthed(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -22,8 +37,12 @@ export async function POST(req: NextRequest) {
   try {
     const { to, subject, fileName, pdfBase64, profileName, profileType } = await req.json();
 
-    if (!to || typeof to !== "string" || !EMAIL_RE.test(to)) {
-      return NextResponse.json({ error: "A valid project lead email is required." }, { status: 400 });
+    const recipients = parseRecipients(to);
+    if (recipients.length === 0) {
+      return NextResponse.json(
+        { error: "At least one valid project lead email is required." },
+        { status: 400 }
+      );
     }
     if (!pdfBase64 || typeof pdfBase64 !== "string") {
       return NextResponse.json({ error: "Missing PDF data." }, { status: 400 });
@@ -50,13 +69,6 @@ export async function POST(req: NextRequest) {
       <p>The formatted PDF is attached.</p>
     `;
 
-    // NOTE: Resend's sandbox sender (onboarding@resend.dev) can only deliver
-    // to the address the Resend account was signed up with. Sending to an
-    // arbitrary project lead's inbox requires a verified sending domain at
-    // resend.com/domains (e.g. sending "from" a catapultfr.com address).
-    // Until that's set up, this call will succeed for the account's own
-    // signup address and fail (with Resend's validation error surfaced
-    // below) for any other recipient.
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
       headers: {
@@ -65,7 +77,7 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         from: "Catapult Research Portal <onboarding@resend.dev>",
-        to: [to],
+        to: recipients,
         subject: subject || `${profileName || "Prospect"} — Sent for Approval`,
         html,
         attachments: [
@@ -86,7 +98,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, recipients });
   } catch (err) {
     console.error("research-profiles email-pdf error:", err);
     return NextResponse.json({ error: "Something went wrong sending the email." }, { status: 500 });
