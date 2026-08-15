@@ -653,7 +653,7 @@ function ResearchProfileFormInner() {
   }, [urlId]);
 
   // Fetch this week's uploaded prospect list (only useful when starting a
-  // brand-new profile — an existing profile already has its own data).
+  // brand-new profile -- an existing profile already has its own data).
   useEffect(() => {
     if (urlId) return;
     let cancelled = false;
@@ -663,7 +663,7 @@ function ResearchProfileFormInner() {
         if (!cancelled) setRoster(json?.roster?.prospects || []);
       })
       .catch(() => {
-        // Non-fatal — the dropdown just won't appear.
+        // Non-fatal -- the dropdown just won't appear.
       });
     return () => {
       cancelled = true;
@@ -694,7 +694,7 @@ function ResearchProfileFormInner() {
         : d.givingHistoryRows,
     }));
     // Name, Catapult ID, and Client ID must stay in sync with the master
-    // prospect list once a selection is made — the profiler can override
+    // prospect list once a selection is made -- the profiler can override
     // every other prefilled field, but not these three identifiers.
     setLockedFromRoster(true);
     setPdfUrl(null);
@@ -1038,7 +1038,13 @@ function ResearchProfileFormInner() {
       if (!res.ok || json?.ok === false) {
         setEmailStatus({ ok: false, message: json?.error || "Could not email the PDF to the project lead." });
       } else {
-        setEmailStatus({ ok: true, message: `Emailed to ${data.projectLeadEmail.trim()}.` });
+        setEmailStatus({
+          ok: true,
+          message:
+            Array.isArray(json?.recipients) && json.recipients.length > 0
+              ? `Emailed to ${json.recipients.join(", ")}.`
+              : `Emailed to ${data.projectLeadEmail.trim()}.`,
+        });
       }
     } catch {
       setEmailStatus({ ok: false, message: "Could not email the PDF to the project lead." });
@@ -1185,15 +1191,16 @@ function ResearchProfileFormInner() {
           placeholder="e.g., SCFTA/JG"
         />
         <Field
-          label="Project Lead Email"
+          label="Project Lead Email(s)"
           value={data.projectLeadEmail}
           onChange={(v) => set("projectLeadEmail", v)}
-          placeholder="e.g., anthonya@catapultfr.com"
+          placeholder="e.g., anthonya@catapultfr.com, karen@catapultfr.com"
         />
       </div>
       <p className="mt-2 text-xs text-[rgb(var(--ink))]/45">
         When the status above is set to &ldquo;Sent for Approval&rdquo; and you click &ldquo;Generate
-        PDF,&rdquo; this profile is automatically emailed to that address as an attachment.
+        PDF,&rdquo; this profile is automatically emailed to that address (or addresses&mdash;separate
+        multiple project leads with a comma) as an attachment.
       </p>
 
       {/* Name */}
