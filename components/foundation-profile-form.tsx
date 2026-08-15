@@ -354,7 +354,13 @@ function FoundationProfileFormInner() {
       if (!res.ok || json?.ok === false) {
         setEmailStatus({ ok: false, message: json?.error || "Could not email the PDF to the project lead." });
       } else {
-        setEmailStatus({ ok: true, message: `Emailed to ${data.projectLeadEmail.trim()}.` });
+        setEmailStatus({
+          ok: true,
+          message:
+            Array.isArray(json?.recipients) && json.recipients.length > 0
+              ? `Emailed to ${json.recipients.join(", ")}.`
+              : `Emailed to ${data.projectLeadEmail.trim()}.`,
+        });
       }
     } catch {
       setEmailStatus({ ok: false, message: "Could not email the PDF to the project lead." });
@@ -471,15 +477,16 @@ function FoundationProfileFormInner() {
         <Field label="EIN #" value={data.ein} onChange={(v) => set("ein", v)} placeholder="XX-XXXXXXX" />
         <Field label="Client ID" value={data.clientId} onChange={(v) => set("clientId", v)} />
         <Field
-          label="Project Lead Email"
+          label="Project Lead Email(s)"
           value={data.projectLeadEmail}
           onChange={(v) => set("projectLeadEmail", v)}
-          placeholder="e.g., anthonya@catapultfr.com"
+          placeholder="e.g., anthonya@catapultfr.com, karen@catapultfr.com"
         />
       </div>
       <p className="mt-2 text-xs text-[rgb(var(--ink))]/45">
         When the status above is set to &ldquo;Sent for Approval&rdquo; and you click &ldquo;Generate
-        PDF,&rdquo; this profile is automatically emailed to that address as an attachment.
+        PDF,&rdquo; this profile is automatically emailed to that address (or addresses&mdash;separate
+        multiple project leads with a comma) as an attachment.
       </p>
 
       <SectionHeading icon={Landmark}>Foundation Overview</SectionHeading>
