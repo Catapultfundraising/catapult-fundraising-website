@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Catapult Research Portal <research@catapultfr.com>",
+        from: "Catapult Research Portal <research@mail.catapultfr.com>",
         to: recipients,
         subject: subject || `${profileName || "Prospect"} — Sent for Approval`,
         html,
