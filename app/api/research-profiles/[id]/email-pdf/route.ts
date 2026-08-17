@@ -76,7 +76,7 @@ export async function POST(req: NextRequest) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: "Catapult Research Portal <onboarding@resend.dev>",
+        from: "Catapult Research Portal <research@catapultfr.com>",
         to: recipients,
         subject: subject || `${profileName || "Prospect"} — Sent for Approval`,
         html,
@@ -93,8 +93,8 @@ export async function POST(req: NextRequest) {
       const errorBody = await res.text();
       console.error("Resend API error (research profile email):", res.status, errorBody);
       return NextResponse.json(
-        { ok: false, error: `Email delivery failed (status ${res.status}).` },
-        { status: 200 }
+        { ok: false, error: `Email delivery failed (status ${res.status}): ${errorBody}` },
+        { status: res.status }
       );
     }
 
