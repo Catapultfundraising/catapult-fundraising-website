@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { ANSWERS } from "@/lib/answers";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -77,6 +78,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/blog/how-to-effectively-use-the-phone-today",
     "/blog/multi-channel-fundraising-are-you-missing-the-mark",
     "/blog/the-state-of-fundraising-in-nevada",
+    "/blog/catapult-vs-fundraising-consultants",
+    "/blog/national-make-a-will-month-planned-giving-conversation",
+    // Answers hub + individual AEO question pages -- not linked from the
+    // primary nav (see components/site-header.tsx / site-footer.tsx), but
+    // fully indexable, so they still need to be listed here for search
+    // engines and AI answer engines to discover them.
+    "/answers",
+    ...ANSWERS.map((a) => `/answers/${a.slug}`),
     // NOTE: /resources/associations is intentionally excluded here. That page
     // sets `robots: { index: false, follow: false }` (it's an internal
     // reference list, not a public SEO page), so listing it in the sitemap
