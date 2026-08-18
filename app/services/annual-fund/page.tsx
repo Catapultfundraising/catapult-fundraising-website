@@ -2,6 +2,7 @@ import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
 import { PhoneCall } from "lucide-react";
+import { testimonialsFor } from "@/lib/testimonials";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -155,21 +156,26 @@ export default function AnnualFundPage() {
           <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
             What Clients Say
           </p>
-          <blockquote className="mt-8 font-display text-[25px] leading-snug text-[rgb(var(--navy))] text-balance">
-            &ldquo;Catapult Fundraising has been a fantastic partner in relaunching and growing
-            UMGC&rsquo;s Annual Giving telemarketing program. Since restarting the program in FY24,
-            their team&rsquo;s personalized approach has helped us steadily strengthen our annual
-            fund by increasing both our average gift and pledge rate year over year. Beyond the
-            numbers, Catapult&rsquo;s team consistently delivers thoughtful, donor-centered
-            conversations that reflect well on our institution, and the team is responsive,
-            collaborative, and genuinely invested in our success. We&rsquo;re grateful for the
-            partnership and look forward to continuing to grow this program together.&rdquo;
-          </blockquote>
-          <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
-            <span className="font-semibold text-[rgb(var(--navy))]">Matthew Talley</span>
-            <br />
-            Assistant Director of Annual Giving, University of Maryland Global Campus
-          </p>
+          <div className="mt-8 space-y-12">
+            {testimonialsFor("annual-fund").map((t) => (
+              <div key={t.id}>
+                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))] text-balance">
+                  {t.quote.map((para, i) => (
+                    <p key={i}>
+                      {i === 0 && "“"}
+                      {para}
+                      {i === t.quote.length - 1 && "”"}
+                    </p>
+                  ))}
+                </blockquote>
+                <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
+                  <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
+                  <br />
+                  {t.org}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 

@@ -2,6 +2,7 @@ import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
 import { ClipboardList } from "lucide-react";
+import { testimonialsFor } from "@/lib/testimonials";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -180,6 +181,35 @@ export default function CapitalCampaignPage() {
           "Weekly progress reporting against the gift table",
         ]}
       />
+
+      <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
+        <div className="mx-auto max-w-4xl px-6 lg:px-10">
+          <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
+            What Clients Say
+          </p>
+          <div className="mt-8 space-y-12">
+            {testimonialsFor("capital-campaign").map((t) => (
+              <div key={t.id}>
+                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))] text-balance">
+                  {t.quote.map((para, i) => (
+                    <p key={i}>
+                      {i === 0 && "“"}
+                      {para}
+                      {i === t.quote.length - 1 && "”"}
+                    </p>
+                  ))}
+                </blockquote>
+                <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
+                  <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
+                  <br />
+                  {t.org}
+                </p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
       <CtaBand />
     </>
   );
