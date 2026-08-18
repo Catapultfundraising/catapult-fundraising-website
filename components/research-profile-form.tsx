@@ -600,6 +600,7 @@ function ResearchProfileFormInner() {
   const photoInputRef = useRef<HTMLInputElement>(null);
   const photo2InputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
+  const skipReloadIdRef = useRef<string | null>(null);
   const [showPhoto2, setShowPhoto2] = useState(false);
   const [roster, setRoster] = useState<RosterProspect[]>([]);
   const [selectedRosterName, setSelectedRosterName] = useState("");
@@ -611,6 +612,17 @@ function ResearchProfileFormInner() {
     let cancelled = false;
     async function load() {
       if (urlId) {
+        if (skipReloadIdRef.current === urlId) {
+          // This URL change came from our own persistProfile() call (Save or
+          // Generate PDF), not external navigation to a different saved
+          // profile -- the in-memory data is already the freshest copy, so
+          // re-fetching it here would just race the in-flight PDF/email
+          // request and risk a spurious "Could not load that profile" error
+          // if the store has any read-after-write lag.
+          skipReloadIdRef.current = null;
+          loadedRef.current = true;
+          return;
+        }
         setLoadingProfile(true);
         setLoadError(null);
         try {
@@ -770,6 +782,7 @@ function ResearchProfileFormInner() {
         throw new Error(errBody?.error || "Failed to save profile.");
       }
       const json = await res.json();
+      skipReloadIdRef.current = json.profile.id;
       setProfileId(json.profile.id);
       setLastSavedAt(json.profile.updatedAt);
       router.replace(`/research/new?id=${json.profile.id}`);

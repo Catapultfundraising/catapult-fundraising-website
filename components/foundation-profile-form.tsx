@@ -151,11 +151,23 @@ function FoundationProfileFormInner() {
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
+  const skipReloadIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       if (urlId) {
+        if (skipReloadIdRef.current === urlId) {
+          // This URL change came from our own persistProfile() call (Save or
+          // Generate PDF), not external navigation to a different saved
+          // profile -- the in-memory data is already the freshest copy, so
+          // re-fetching it here would just race the in-flight PDF/email
+          // request and risk a spurious "Could not load that profile" error
+          // if the store has any read-after-write lag.
+          skipReloadIdRef.current = null;
+          loadedRef.current = true;
+          return;
+        }
         setLoadingProfile(true);
         setLoadError(null);
         try {
@@ -229,6 +241,7 @@ function FoundationProfileFormInner() {
         throw new Error(errBody?.error || "Failed to save profile.");
       }
       const json = await res.json();
+      skipReloadIdRef.current = json.profile.id;
       setProfileId(json.profile.id);
       setLastSavedAt(json.profile.updatedAt);
       router.replace(`/research/new/foundation?id=${json.profile.id}`);
