@@ -292,7 +292,7 @@ function CorporateProfileFormInner() {
     setPdfUrl(null);
     setEmailStatus(null);
     try {
-      await persistProfile(profileId);
+      const resolvedProfileId = await persistProfile(profileId);
       const res = await fetch("/api/research-pdf-corporate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -311,7 +311,7 @@ function CorporateProfileFormInner() {
       // entered -- this is the one moment both conditions ("generated" and
       // "saved as Sent for Approval") are guaranteed true at the same time.
       if (status === "sent_for_approval" && data.projectLeadEmail.trim()) {
-        await emailPdfToProjectLead(blob);
+        await emailPdfToProjectLead(blob, resolvedProfileId);
       }
     } catch (err: any) {
       setGenError(err?.message || "Something went wrong generating the PDF.");
@@ -320,10 +320,14 @@ function CorporateProfileFormInner() {
     }
   }
 
-  async function emailPdfToProjectLead(blob: Blob) {
+  async function emailPdfToProjectLead(blob: Blob, targetProfileId: string | null) {
     try {
+      if (!targetProfileId) {
+        setEmailStatus({ ok: false, message: "Could not email the PDF: the profile hasn't finished saving yet. Please try again." });
+        return;
+      }
       const base64 = await blobToBase64(blob);
-      const res = await fetch(`/api/research-profiles/${profileId}/email-pdf`, {
+      const res = await fetch(`/api/research-profiles/${targetProfileId}/email-pdf`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
