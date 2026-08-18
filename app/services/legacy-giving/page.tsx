@@ -160,7 +160,7 @@ export default function LegacyGivingPage() {
           <div className="mt-8 space-y-12">
             {testimonialsFor("legacy-giving").map((t) => (
               <div key={t.id}>
-                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))] text-balance">
+                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]">
                   {t.quote.map((para, i) => (
                     <p key={i}>
                       {i === 0 && "“"}
