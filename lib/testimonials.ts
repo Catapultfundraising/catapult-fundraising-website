@@ -123,7 +123,7 @@ export const TESTIMONIALS: Testimonial[] = [
       "From securing a $10,000 bequest to cultivating recurring $50 gifts, and everything in between, the results have been measurable and meaningful.",
     name: "Emily Manck White",
     org: "Associate Director of Development, Theatre Under The Stars",
-    services: ["annual-fund", "legacy-giving"],
+    services: ["annual-fund"],
   },
 ];
 

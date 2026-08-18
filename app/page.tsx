@@ -4,7 +4,6 @@ import { Hero } from "@/components/hero";
 import { ServicesOverview } from "@/components/services-overview";
 import { ProcessTimeline } from "@/components/process-timeline";
 import { SectorsServed } from "@/components/sectors-served";
-import { TestimonialStrip } from "@/components/testimonial-strip";
 import { ScrollingQuoteBanner } from "@/components/scrolling-quote-banner";
 import { QaLinksSection } from "@/components/qa-links-section";
 import { CtaBand } from "@/components/cta-band";
@@ -135,7 +134,6 @@ export default function HomePage() {
       <ServicesOverview />
       <ProcessTimeline />
       <SectorsServed />
-      <TestimonialStrip />
       <ScrollingQuoteBanner />
 
       <QaLinksSection

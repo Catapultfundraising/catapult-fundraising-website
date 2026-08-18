@@ -1,7 +1,10 @@
 import { TESTIMONIALS } from "@/lib/testimonials";
 
-// A continuously auto-scrolling marquee of short client-quote excerpts, sitting
-// directly under the "What Clients Say" grid (components/testimonial-strip.tsx).
+// The homepage's "What Clients Say" section: a continuously auto-scrolling
+// marquee of short client-quote excerpts. This replaced the static grid
+// (components/testimonial-strip.tsx, still used standalone on /results) once
+// the marquee covered the same testimonials in a livelier format, so the
+// homepage doesn't show the same quotes twice.
 // The list is rendered twice back-to-back and animated exactly -50% so the loop
 // is seamless. Respects prefers-reduced-motion via the `motion-reduce:` variant
 // (Tailwind's built-in media-query modifier) by disabling the animation and
@@ -11,9 +14,14 @@ export function ScrollingQuoteBanner() {
   const track = [...quotes, ...quotes];
 
   return (
-    <section className="overflow-hidden border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))] py-10">
+    <section className="overflow-hidden border-y border-[rgb(var(--line))] bg-[rgb(var(--paper))] py-14 lg:py-16">
+      <div className="mx-auto max-w-7xl px-6 lg:px-10">
+        <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
+          What Clients Say
+        </p>
+      </div>
       <div
-        className="group flex w-max gap-6 motion-reduce:flex-wrap motion-reduce:w-full animate-marquee motion-reduce:animate-none hover:[animation-play-state:paused]"
+        className="group mt-10 flex w-max gap-6 motion-reduce:flex-wrap motion-reduce:w-full animate-marquee motion-reduce:animate-none hover:[animation-play-state:paused]"
         aria-hidden={false}
       >
         {track.map((t, i) => (
