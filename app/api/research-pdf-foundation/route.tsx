@@ -14,6 +14,14 @@ import {
 
 export const runtime = "nodejs";
 
+// Sections flow continuously, exactly like the Individual PDF -- no forced
+// page breaks (`break`) between sections. Only the section heading + the
+// FIRST item of a list (executive card, table row) are grouped into one
+// wrap={false} block, so the heading is never orphaned alone at the bottom
+// of a page with its content pushed to the next page. Everything else flows
+// naturally, which also means content that fits (e.g. the first executive)
+// stays on the same page as the section above it instead of always jumping
+// to a fresh page and leaving a mostly-empty page behind.
 function FoundationDocument({ data }: { data: any }) {
   const [firstExec, ...restExecs] = data.executives || [];
 
@@ -37,9 +45,6 @@ function FoundationDocument({ data }: { data: any }) {
         <HeroBand data={data} eyebrow="FOUNDATION INTELLIGENCE PROFILE" />
 
         <View style={pdfStyles.body}>
-          {/* Foundation Overview starts right after the hero band on page 1 --
-              every section after this one gets `break` so it always starts
-              on a fresh page instead of continuing mid-page. */}
           <View wrap={false}>
             <SectionHeading title="Foundation Overview" />
             <FieldRow label="Address" value={data.address} />
@@ -51,7 +56,7 @@ function FoundationDocument({ data }: { data: any }) {
           <FieldRow label="Giving History to Client" value={data.givingHistoryToClient} />
 
           {data.executives?.length > 0 && (
-            <View break>
+            <View>
               <View wrap={false}>
                 <SectionHeading icon="users" title="Executives" />
                 <PersonPdfCard person={firstExec} />
@@ -63,7 +68,7 @@ function FoundationDocument({ data }: { data: any }) {
           )}
 
           {hasMissionBackground && (
-            <View break wrap={false}>
+            <View wrap={false}>
               <SectionHeading icon="building" title="Mission & Background" />
             </View>
           )}
@@ -73,7 +78,7 @@ function FoundationDocument({ data }: { data: any }) {
           <FieldRow label="Financial Data" value={data.financialData} />
 
           {hasGrantmakingFocus && (
-            <View break wrap={false}>
+            <View wrap={false}>
               <SectionHeading icon="chart" title="Grantmaking Focus" />
             </View>
           )}
@@ -85,25 +90,21 @@ function FoundationDocument({ data }: { data: any }) {
           <FieldRow label="Limitations" value={data.limitations} />
 
           {hasApplicationProcess && (
-            <View break wrap={false}>
+            <View wrap={false}>
               <SectionHeading icon="mail" title="Application Process" />
             </View>
           )}
           <FieldRow label="Due Date" value={data.dueDate} />
           <FieldRow label="Application Information" value={data.applicationInformation} />
 
-          {data.selectedGrants?.length > 0 && (
-            <View break>
-              <MiniTable
-                title="Selected Grants"
-                bigTitle
-                headers={["YEAR", "GRANTEE / NOTE", "AMOUNT"]}
-                colWidths={["15%", "55%", "30%"]}
-                rows={data.selectedGrants}
-                renderRow={(row: any) => [row.year || "", row.grantee || "", fmtMoney(row.amount)]}
-              />
-            </View>
-          )}
+          <MiniTable
+            title="Selected Grants"
+            bigTitle
+            headers={["YEAR", "GRANTEE / NOTE", "AMOUNT"]}
+            colWidths={["15%", "55%", "30%"]}
+            rows={data.selectedGrants}
+            renderRow={(row: any) => [row.year || "", row.grantee || "", fmtMoney(row.amount)]}
+          />
         </View>
       </Page>
     </Document>

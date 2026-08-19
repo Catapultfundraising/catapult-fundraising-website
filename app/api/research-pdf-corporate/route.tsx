@@ -13,6 +13,13 @@ import {
 
 export const runtime = "nodejs";
 
+// Sections flow continuously, exactly like the Individual PDF -- no forced
+// page breaks (`break`) between sections. Only the section heading + the
+// FIRST item of a list/stat block (key person card, stat box) are grouped
+// into one wrap={false} block, so the heading is never orphaned alone at
+// the bottom of a page. Everything else flows naturally, so content that
+// fits (e.g. the first Key Person) stays on the same page as the section
+// above it instead of always jumping to a fresh, mostly-empty page.
 function CorporateDocument({ data }: { data: any }) {
   const givingRows: Array<[string, string]> = ([
     ["First Gift Amount", fmtMoney(data.firstGiftAmount)],
@@ -45,9 +52,6 @@ function CorporateDocument({ data }: { data: any }) {
         <HeroBand data={data} eyebrow="CORPORATE INTELLIGENCE PROFILE" />
 
         <View style={pdfStyles.body}>
-          {/* Company Overview is the first section on page 1 -- every
-              section after this one gets `break` so it always starts on a
-              fresh page instead of continuing mid-page. */}
           <View wrap={false}>
             <SectionHeading title="Company Overview" />
             <FieldRow label="Address" value={data.address} />
@@ -57,9 +61,9 @@ function CorporateDocument({ data }: { data: any }) {
           <FieldRow label="Relationship to Client" value={data.relationshipToOrg} />
 
           {givingRows.length > 0 && (
-            <View break>
+            <View wrap={false}>
               <SectionHeading icon="dollar" title="Giving History to Client" />
-              <View style={[pdfStyles.wealthPanel, { paddingBottom: 6 }]} wrap={false}>
+              <View style={[pdfStyles.wealthPanel, { paddingBottom: 6 }]}>
                 {/* Stat-box style (label above value, no fixed label width) rather
                     than the wealthCell pattern -- wealthCell's 150pt label column
                     is sized for 2-across rows and overlapped the value text badly
@@ -80,7 +84,7 @@ function CorporateDocument({ data }: { data: any }) {
           )}
 
           {revenueValue && (
-            <View break wrap={false}>
+            <View wrap={false}>
               <SectionHeading icon="dollar" title="Company Financials" />
               <View style={pdfStyles.statBoxRow}>
                 <View style={pdfStyles.statBox}>
@@ -95,7 +99,7 @@ function CorporateDocument({ data }: { data: any }) {
           )}
 
           {hasCompanyBackground && (
-            <View break wrap={false}>
+            <View wrap={false}>
               <SectionHeading icon="building" title="Company Background" />
             </View>
           )}
@@ -105,7 +109,7 @@ function CorporateDocument({ data }: { data: any }) {
           <FieldRow label="Values" value={data.values} />
 
           {data.keyPeople?.length > 0 && (
-            <View break>
+            <View>
               <View wrap={false}>
                 <SectionHeading icon="users" title="Key People" />
                 <PersonPdfCard person={firstPerson} />
@@ -117,14 +121,14 @@ function CorporateDocument({ data }: { data: any }) {
           )}
 
           {data.corporateGiving && (
-            <View break wrap={false}>
+            <View wrap={false}>
               <SectionHeading icon="gift" title="Corporate Giving" />
               <FieldRow label="Corporate Giving" value={data.corporateGiving} />
             </View>
           )}
 
           {hasFoundation && (
-            <View break wrap={false}>
+            <View wrap={false}>
               <SectionHeading icon="star" title="Company Foundation" />
               <FieldRow label="Foundation Name" value={data.foundationName} />
               <FieldRow label="Address" value={data.foundationAddress} />
@@ -136,7 +140,7 @@ function CorporateDocument({ data }: { data: any }) {
           )}
 
           {hasAffiliationsFindings && (
-            <View break wrap={false}>
+            <View wrap={false}>
               <SectionHeading icon="graduationCap" title="Company Affiliations & Findings" />
             </View>
           )}
