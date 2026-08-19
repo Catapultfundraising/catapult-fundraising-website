@@ -497,7 +497,7 @@ function computeGivingByCategory(rows: any[]): Array<{ label: string; value: num
     .sort((a, b) => b.value - a.value);
 }
 
-function GivngByCategoryChart({ rows }: { rows: any[] }) {
+function GivingByCategoryChart({ rows }: { rows: any[] }) {
   const data = computeGivingByCategory(rows);
   if (data.length === 0) return null;
   const size = 90;
@@ -1012,7 +1012,7 @@ function ProfileDocument({ data }: { data: any }) {
           renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoney(row.amount)]}
         />
 
-        <GivngByCategoryChart rows={data.otherGiving} />
+        <GivingByCategoryChart rows={data.otherGiving} />
 
         {data.fecGiving?.length > 0 && (
           <MiniTable
