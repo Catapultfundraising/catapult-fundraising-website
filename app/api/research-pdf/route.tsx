@@ -23,7 +23,11 @@ function buildProfilePdfFileName(
   // colliding into one run of words.
   const sanitize = (s?: string) =>
     (s || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
-  const parts = [sanitize(clientProfiler), sanitize(name), sanitize(dateCreated)].filter(Boolean);
+  // Only the Client Name portion (before the "/") is used in the filename --
+  // the Profiler Initials after the "/" are dropped here, though the field
+  // itself is untouched and still shows both on screen and in the PDF.
+  const clientNameOnly = (clientProfiler || "").split("/")[0];
+  const parts = [sanitize(clientNameOnly), sanitize(name), sanitize(dateCreated)].filter(Boolean);
   return parts.length > 0 ? `${parts.join(" ")}.pdf` : `${fallback}.pdf`;
 }
 
@@ -493,7 +497,7 @@ function computeGivingByCategory(rows: any[]): Array<{ label: string; value: num
     .sort((a, b) => b.value - a.value);
 }
 
-function GivingByCategoryChart({ rows }: { rows: any[] }) {
+function GivngByCategoryChart({ rows }: { rows: any[] }) {
   const data = computeGivingByCategory(rows);
   if (data.length === 0) return null;
   const size = 90;
@@ -1008,7 +1012,7 @@ function ProfileDocument({ data }: { data: any }) {
           renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoney(row.amount)]}
         />
 
-        <GivingByCategoryChart rows={data.otherGiving} />
+        <GivngByCategoryChart rows={data.otherGiving} />
 
         {data.fecGiving?.length > 0 && (
           <MiniTable
