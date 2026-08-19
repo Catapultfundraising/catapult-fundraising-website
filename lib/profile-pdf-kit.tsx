@@ -432,23 +432,44 @@ export function MiniTable({
           </View>
         </View>
       </View>
-      {restRows.length > 0 && (
-        <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: LINE, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: "hidden" }}>
-          {restRows.map((row, i) => {
-            const idx = i + 1;
-            const cells = renderRow(row, idx);
-            return (
-              <View style={[pdfStyles.tableRow, { backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM }]} key={idx} wrap={false}>
-                {cells.map((c, ci) => (
-                  <Text key={ci} style={[pdfStyles.tableCell, { width: colWidths[ci] }]}>
-                    {c}
-                  </Text>
-                ))}
-              </View>
-            );
-          })}
-        </View>
-      )}
+      {/* Each remaining row carries its OWN left/right border instead of
+          being wrapped in one shared bordered container. A shared container
+          border here caused a real bug: when this row group spans a page
+          break, react-pdf renders the container's left/right border lines
+          down to the bottom of the page on the page where the split
+          happens, well past the last visible row, overlapping the fixed
+          footer. Per-row borders avoid this entirely since every row is its
+          own independent wrap={false} block with no taller shared ancestor
+          for react-pdf to mis-measure across the break. */}
+      {restRows.map((row, i) => {
+        const idx = i + 1;
+        const isLast = idx === rows.length - 1;
+        const cells = renderRow(row, idx);
+        return (
+          <View
+            style={[
+              pdfStyles.tableRow,
+              {
+                backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM,
+                borderLeftWidth: 1,
+                borderRightWidth: 1,
+                borderColor: LINE,
+                borderBottomLeftRadius: isLast ? 8 : 0,
+                borderBottomRightRadius: isLast ? 8 : 0,
+                overflow: "hidden",
+              },
+            ]}
+            key={idx}
+            wrap={false}
+          >
+            {cells.map((c, ci) => (
+              <Text key={ci} style={[pdfStyles.tableCell, { width: colWidths[ci] }]}>
+                {c}
+              </Text>
+            ))}
+          </View>
+        );
+      })}
     </View>
   );
 }
