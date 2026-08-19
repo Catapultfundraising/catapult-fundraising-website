@@ -101,7 +101,7 @@ export const ROW_TINT = "#F3F4F6";
 export const HEADER_GAP = 14;
 
 export const pdfStyles = StyleSheet.create({
-  page: { paddingTop: 34, paddingBottom: 42, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
+  page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
   body: { paddingHorizontal: 40 },
   topBarFrame: { position: "absolute", top: 0, left: 0, right: 0, height: 20 },
   topBar: { flex: 1, backgroundColor: NAVY, flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 40 },
@@ -415,9 +415,9 @@ export function MiniTable({
               <Text key={h} style={[pdfStyles.tableHeaderCell, { width: colWidths[i] }]}>
                 {h}
               </Text>
-            ))}
-          </View>
-          {rows.map((row, i) => {
+          ))}
+        </View>
+        {rows.map((row, i) => {
             const cells = renderRow(row, i);
             return (
               <View style={[pdfStyles.tableRow, { backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM }]} key={i}>
@@ -428,8 +428,8 @@ export function MiniTable({
                 ))}
               </View>
             );
-          })}
-        </View>
+         })}
+      </View>
       </View>
     );
   }
@@ -445,15 +445,14 @@ export function MiniTable({
               <Text key={h} style={[pdfStyles.tableHeaderCell, { width: colWidths[i] }]}>
                 {h}
               </Text>
-            ))}
-          </View>
-          <View style={[pdfStyles.tableRow, { backgroundColor: CREAM }]}>
-            {firstCells.map((c, ci) => (
-              <Text key={ci} style={[pdfStyles.tableCell, { width: colWidths[ci] }]}>
-                {c}
-              </Text>
-            ))}
-          </View>
+          ))}
+        </View>
+        <View style={[pdfStyles.tableRow, { backgroundColor: CREAM }]}>
+          {firstCells.map((c, ci) => (
+            <Text key={ci} style={[pdfStyles.tableCell, { width: colWidths[ci] }]}>
+              {c}
+            </Text>
+          ))}
         </View>
       </View>
       {/* Each remaining row carries its OWN left/right border instead of
@@ -528,7 +527,7 @@ export function PersonPdfCard({ person }: { person: PersonEntry }) {
   }
   // Long bios (e.g. a 130+ word bio) are split OUT of the bordered card
   // entirely, mirroring the FieldRow "hanging indent" fix: the compact
-  // header (photo/name/title/contact) stays in its own small bordered box,
+  // header ((photo/name/title/contact) stays in its own small bordered box,
   // which is always short and therefore always safely wrap={false} -- it
   // never needs to split across a page. The bio itself renders as plain
   // indented text below/outside that border, with no border of its own,
