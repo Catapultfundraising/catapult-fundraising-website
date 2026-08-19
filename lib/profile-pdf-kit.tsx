@@ -247,8 +247,20 @@ export function FormattedText({ value, style }: { value?: string; style?: any })
 
 export function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
+  // Short values (a single line, e.g. address/phone/EIN) keep wrap={false} so
+  // the label is never orphaned from its value across a page break -- there's
+  // no risk of the block itself overflowing a page since it's short.
+  // Long, multi-line free-text values (Types of Support, Limitations,
+  // Application Information, History, etc.) must NOT be forced into one
+  // unbreakable wrap={false} block: when a block that tall doesn't fit in the
+  // remaining space on the current page, react-pdf/yoga can mis-measure the
+  // pagination and render the label column and the value column at
+  // conflicting Y-offsets, producing garbled overlapping text instead of
+  // cleanly flowing the row onto the next page. Letting these wrap normally
+  // (the default) lets react-pdf paginate them correctly.
+  const isLong = value.length > 200 || value.includes("\n");
   return (
-    <View style={pdfStyles.fieldRow} wrap={false}>
+    <View style={pdfStyles.fieldRow} wrap={isLong}>
       <Text style={pdfStyles.fieldLabel}>{label.toUpperCase()}</Text>
       <FormattedText value={value} style={pdfStyles.fieldValue} />
     </View>
