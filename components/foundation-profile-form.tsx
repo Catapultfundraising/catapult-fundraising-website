@@ -36,6 +36,7 @@ import {
   emptyPerson,
   type PersonEntry,
   compositeLogoOnWhiteSquare,
+  buildProfilePdfFileName,
 } from "@/lib/profile-form-kit";
 
 interface GrantRow {
@@ -384,7 +385,7 @@ function FoundationProfileFormInner() {
     }
   }
 
-  const fileName = `${(data.name || "Foundation_Intelligence_Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
+  const fileName = buildProfilePdfFileName(data.clientProfiler, data.name, data.dateCreated, "Foundation Intelligence Profile");
 
   const statusMeta: Record<ProfileStatus, string> = {
     draft: "bg-gray-100 text-gray-600",
