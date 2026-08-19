@@ -141,6 +141,10 @@ export const pdfStyles = StyleSheet.create({
   personTitle: { fontSize: 8.6, color: BRASS, fontFamily: "Helvetica-Bold", marginTop: 1 },
   personContact: { fontSize: 8, color: MUTED, marginTop: 2 },
   personBio: { fontSize: 8.6, color: INK, marginTop: 3, lineHeight: 1.35 },
+  fieldRowLong: { position: "relative", marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
+  fieldLabelAbs: { position: "absolute", top: 0, left: 0, width: 150, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
+  fieldValueIndented: { marginLeft: 150, fontSize: 9.6, color: INK, lineHeight: 1.4 },
+  bigSectionHeadingRow: { flexDirection: "row", alignItems: "center", marginTop: 16, marginBottom: 7 },
 });
 
 type IconName = "home" | "dollar" | "chart" | "gift" | "star" | "phone" | "mail" | "users" | "graduationCap" | "building";
@@ -247,23 +251,58 @@ export function FormattedText({ value, style }: { value?: string; style?: any })
 
 export function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
-  // Short values (a single line, e.g. address/phone/EIN) keep wrap={false} so
-  // the label is never orphaned from its value across a page break -- there's
-  // no risk of the block itself overflowing a page since it's short.
-  // Long, multi-line free-text values (Types of Support, Limitations,
-  // Application Information, History, etc.) must NOT be forced into one
-  // unbreakable wrap={false} block: when a block that tall doesn't fit in the
-  // remaining space on the current page, react-pdf/yoga can mis-measure the
-  // pagination and render the label column and the value column at
-  // conflicting Y-offsets, producing garbled overlapping text instead of
-  // cleanly flowing the row onto the next page. Letting these wrap normally
-  // (the default) lets react-pdf paginate them correctly.
+  // Short values (a single line, e.g. address/phone/EIN) keep the tight
+  // side-by-side row with wrap={false} -- the label is never orphaned from
+  // its value across a page break, and there's no overflow risk since the
+  // block is short.
   const isLong = value.length > 200 || value.includes("\n");
+  if (!isLong) {
+    return (
+      <View style={pdfStyles.fieldRow} wrap={false}>
+        <Text style={pdfStyles.fieldLabel}>{label.toUpperCase()}</Text>
+        <FormattedText value={value} style={pdfStyles.fieldValue} />
+      </View>
+    );
+  }
+  // Long, multi-line free-text values (Types of Support, Limitations,
+  // Application Information, History, etc.) use a "hanging indent" layout
+  // instead of a flexDirection:row pair: the label is absolutely positioned
+  // over the top-left corner, and the value's left indent is baked into its
+  // OWN style (marginLeft) rather than coming from a sibling column. This is
+  // what makes the indent survive a page break -- with the old row-based
+  // layout, once the label's column "finishes" on the first page, the value
+  // cell would collapse back to the full page width on the continuation
+  // page, causing the value to visually jump from the right-hand column back
+  // to the left margin. Baking the indent into the value's own text style
+  // means every wrapped line, including lines after a page break, keeps the
+  // same left offset.
   return (
-    <View style={pdfStyles.fieldRow} wrap={isLong}>
-      <Text style={pdfStyles.fieldLabel}>{label.toUpperCase()}</Text>
-      <FormattedText value={value} style={pdfStyles.fieldValue} />
+    <View style={pdfStyles.fieldRowLong}>
+      <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
+      <FormattedText value={value} style={pdfStyles.fieldValueIndented} />
     </View>
+  );
+}
+
+// Section heading used to divide a Corporate/Foundation PDF into its
+// distinct content groups (mirroring the on-screen form's SectionHeading
+// groupings: Foundation Overview, Executives, Mission & Background,
+// Grantmaking Focus, Application Process, etc.), so a large multi-field
+// profile doesn't read as one undifferentiated wall of FieldRows.
+export function SectionHeading({ icon, title }: { icon?: IconName; title: string }) {
+  if (icon) {
+    return (
+      <View style={pdfStyles.bigSectionHeadingRow}>
+        <IconGlyph name={icon} color={NAVY} size={13} />
+        <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 6 }}>{title}</Text>
+      </View>
+    );
+  }
+  return (
+    <>
+      <View style={pdfStyles.sectionAccent} />
+      <Text style={pdfStyles.sectionHeading}>{title}</Text>
+    </>
   );
 }
 

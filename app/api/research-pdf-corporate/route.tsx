@@ -5,6 +5,7 @@ import {
   HeaderFooter,
   HeroBand,
   FieldRow,
+  SectionHeading,
   IconGlyph,
   PersonPdfCard,
   fmtMoney,
@@ -32,6 +33,11 @@ function CorporateDocument({ data }: { data: any }) {
 
   const [firstPerson, ...restPeople] = data.keyPeople || [];
 
+  const hasCompanyBackground = Boolean(
+    data.companyHeritage || data.keyInformation || data.productsOperations || data.values
+  );
+  const hasAffiliationsFindings = Boolean(data.companyAffiliations || data.relevantFindings);
+
   return (
     <Document>
       <Page size="LETTER" style={pdfStyles.page}>
@@ -39,9 +45,11 @@ function CorporateDocument({ data }: { data: any }) {
         <HeroBand data={data} eyebrow="CORPORATE INTELLIGENCE PROFILE" />
 
         <View style={pdfStyles.body}>
+          {/* Company Overview is the first section on page 1 -- every
+              section after this one gets `break` so it always starts on a
+              fresh page instead of continuing mid-page. */}
           <View wrap={false}>
-            <View style={pdfStyles.sectionAccent} />
-            <Text style={pdfStyles.sectionHeading}>Company Overview</Text>
+            <SectionHeading title="Company Overview" />
             <FieldRow label="Address" value={data.address} />
           </View>
           <FieldRow label="Phone" value={data.phone} />
@@ -49,52 +57,57 @@ function CorporateDocument({ data }: { data: any }) {
           <FieldRow label="Relationship to Client" value={data.relationshipToOrg} />
 
           {givingRows.length > 0 && (
-            <View style={[pdfStyles.wealthPanel, { paddingBottom: 6 }]} wrap={false}>
-              <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: "#B28C46", letterSpacing: 0.5, marginBottom: 8 }}>
-                GIVING HISTORY TO CLIENT
-              </Text>
-              {/* Stat-box style (label above value, no fixed label width) rather
-                  than the wealthCell pattern -- wealthCell's 150pt label column
-                  is sized for 2-across rows and overlapped the value text badly
-                  when squeezed into 3 columns here. */}
-              <View style={{ flexDirection: "row" }}>
-                {givingRows.map(([label, value], i) => (
-                  <View style={{ flex: 1, marginLeft: i > 0 ? 10 : 0 }} key={label}>
-                    <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
-                      <IconGlyph name="gift" color="#B28C46" size={8} />
-                      <Text style={{ color: "#B28C46", fontSize: 6, marginLeft: 4, textTransform: "uppercase" }}>{label}</Text>
+            <View break>
+              <SectionHeading icon="dollar" title="Giving History to Client" />
+              <View style={[pdfStyles.wealthPanel, { paddingBottom: 6 }]} wrap={false}>
+                {/* Stat-box style (label above value, no fixed label width) rather
+                    than the wealthCell pattern -- wealthCell's 150pt label column
+                    is sized for 2-across rows and overlapped the value text badly
+                    when squeezed into 3 columns here. */}
+                <View style={{ flexDirection: "row" }}>
+                  {givingRows.map(([label, value], i) => (
+                    <View style={{ flex: 1, marginLeft: i > 0 ? 10 : 0 }} key={label}>
+                      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 3 }}>
+                        <IconGlyph name="gift" color="#B28C46" size={8} />
+                        <Text style={{ color: "#B28C46", fontSize: 6, marginLeft: 4, textTransform: "uppercase" }}>{label}</Text>
+                      </View>
+                      <Text style={{ color: "#15212E", fontFamily: "Helvetica-Bold", fontSize: 10 }}>{value}</Text>
                     </View>
-                    <Text style={{ color: "#15212E", fontFamily: "Helvetica-Bold", fontSize: 10 }}>{value}</Text>
-                  </View>
-                ))}
+                  ))}
+                </View>
               </View>
             </View>
           )}
 
           {revenueValue && (
-            <View style={pdfStyles.statBoxRow}>
-              <View style={pdfStyles.statBox}>
-                <View style={pdfStyles.statBoxLabelRow}>
-                  <IconGlyph name="dollar" color="#B28C46" size={11} />
-                  <Text style={pdfStyles.statBoxLabel}>Company Revenue</Text>
+            <View break wrap={false}>
+              <SectionHeading icon="dollar" title="Company Financials" />
+              <View style={pdfStyles.statBoxRow}>
+                <View style={pdfStyles.statBox}>
+                  <View style={pdfStyles.statBoxLabelRow}>
+                    <IconGlyph name="dollar" color="#B28C46" size={11} />
+                    <Text style={pdfStyles.statBoxLabel}>Company Revenue</Text>
+                  </View>
+                  <Text style={pdfStyles.statBoxValue}>{revenueValue}</Text>
                 </View>
-                <Text style={pdfStyles.statBoxValue}>{revenueValue}</Text>
               </View>
             </View>
           )}
 
+          {hasCompanyBackground && (
+            <View break wrap={false}>
+              <SectionHeading icon="building" title="Company Background" />
+            </View>
+          )}
           <FieldRow label="Company Heritage" value={data.companyHeritage} />
           <FieldRow label="Key Information" value={data.keyInformation} />
           <FieldRow label="Products and Operations" value={data.productsOperations} />
           <FieldRow label="Values" value={data.values} />
 
           {data.keyPeople?.length > 0 && (
-            <View>
+            <View break>
               <View wrap={false}>
-                <View style={[pdfStyles.sectionHeadingRow, pdfStyles.sectionHeading]}>
-                  <IconGlyph name="users" color="#15212E" size={12} />
-                  <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: "#15212E", marginLeft: 5 }}>Key People</Text>
-                </View>
+                <SectionHeading icon="users" title="Key People" />
                 <PersonPdfCard person={firstPerson} />
               </View>
               {restPeople.map((p: any, i: number) => (
@@ -103,12 +116,16 @@ function CorporateDocument({ data }: { data: any }) {
             </View>
           )}
 
-          <FieldRow label="Corporate Giving" value={data.corporateGiving} />
+          {data.corporateGiving && (
+            <View break wrap={false}>
+              <SectionHeading icon="gift" title="Corporate Giving" />
+              <FieldRow label="Corporate Giving" value={data.corporateGiving} />
+            </View>
+          )}
 
           {hasFoundation && (
-            <View wrap={false}>
-              <View style={pdfStyles.sectionAccent} />
-              <Text style={pdfStyles.sectionHeading}>Company Foundation</Text>
+            <View break wrap={false}>
+              <SectionHeading icon="star" title="Company Foundation" />
               <FieldRow label="Foundation Name" value={data.foundationName} />
               <FieldRow label="Address" value={data.foundationAddress} />
               <FieldRow label="Phone" value={data.foundationPhone} />
@@ -118,6 +135,11 @@ function CorporateDocument({ data }: { data: any }) {
             </View>
           )}
 
+          {hasAffiliationsFindings && (
+            <View break wrap={false}>
+              <SectionHeading icon="graduationCap" title="Company Affiliations & Findings" />
+            </View>
+          )}
           <FieldRow label="Company Affiliations" value={data.companyAffiliations} />
           <FieldRow label="Relevant Findings" value={data.relevantFindings} />
         </View>
