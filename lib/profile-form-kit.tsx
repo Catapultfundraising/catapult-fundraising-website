@@ -52,7 +52,11 @@ export function buildProfilePdfFileName(
   // fields stay visually intact instead of colliding into one run of words.
   const sanitize = (s?: string) =>
     (s || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
-  const parts = [sanitize(clientProfiler), sanitize(name), sanitize(dateCreated)].filter(Boolean);
+  // Only the Client Name portion (before the "/") is used in the filename --
+  // the Profiler Initials after the "/" are dropped here, though the field
+  // itself is untouched and still shows both on screen and in the PDF.
+  const clientNameOnly = (clientProfiler || "").split("/")[0];
+  const parts = [sanitize(clientNameOnly), sanitize(name), sanitize(dateCreated)].filter(Boolean);
   return parts.length > 0 ? `${parts.join(" ")}.pdf` : `${fallback}.pdf`;
 }
 
