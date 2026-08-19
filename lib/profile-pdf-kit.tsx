@@ -496,7 +496,7 @@ export function PersonPdfCard({ person }: { person: PersonEntry }) {
   // one-line bio across a page break.
   const isLong = (person.bio?.length || 0) > 400;
   return (
-    <View style={pdfStyles.personCard} wrap={!isLong}>
+    <View style={pdfStyles.personCard} wrap={isLong}>
       {person.photo ? (
         <Image src={person.photo} style={pdfStyles.personPhoto} />
       ) : (
