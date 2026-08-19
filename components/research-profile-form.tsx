@@ -277,6 +277,24 @@ function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function buildProfilePdfFileName(
+  clientProfiler: string | undefined,
+  name: string | undefined,
+  dateCreated: string | undefined,
+  fallback: string
+): string {
+  // File names are "{Client Name / Profiler Initials} {Prospect Name}
+  // {Date Created}.pdf" -- space separated, no underscores. Forbidden
+  // filesystem characters (e.g. a "/" typed into Client Name/Profiler
+  // Initials like "SCFTA/JG") are replaced with a hyphen rather than
+  // stripped or underscored, so the fields stay visually intact instead of
+  // colliding into one run of words.
+  const sanitize = (s?: string) =>
+    (s || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
+  const parts = [sanitize(clientProfiler), sanitize(name), sanitize(dateCreated)].filter(Boolean);
+  return parts.length > 0 ? `${parts.join(" ")}.pdf` : `${fallback}.pdf`;
+}
+
 // Converts a Blob (the generated PDF) to a bare base64 string, stripping the
 // "data:application/pdf;base64," prefix that FileReader includes -- Resend's
 // attachments API expects just the raw base64 payload.
@@ -1068,7 +1086,7 @@ function ResearchProfileFormInner() {
     }
   }
 
-  const fileName = `${(data.name || "Prospect Intelligence Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
+  const fileName = buildProfilePdfFileName(data.clientProfiler, data.name, data.dateCreated, "Prospect Intelligence Profile");
 
   const statusMeta: Record<ProfileStatus, string> = {
     draft: "bg-gray-100 text-gray-600",
