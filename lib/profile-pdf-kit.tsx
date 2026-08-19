@@ -14,6 +14,24 @@ import type { PersonEntry } from "@/lib/profile-form-kit";
 export const LOGO_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.png";
 
+export function buildProfilePdfFileName(
+  clientProfiler: string | undefined,
+  name: string | undefined,
+  dateCreated: string | undefined,
+  fallback: string
+): string {
+  // File names are "{Client Name / Profiler Initials} {Prospect/Corporate/
+  // Foundation Name} {Date Created}.pdf" -- space separated, no underscores.
+  // Forbidden filesystem characters (from any of these free-text fields,
+  // e.g. a "/" typed into Client Name/Profiler Initials like "SCFTA/JG")
+  // are replaced with a hyphen rather than stripped or underscored, so the
+  // fields stay visually intact instead of colliding into one run of words.
+  const sanitize = (s?: string) =>
+    (s || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
+  const parts = [sanitize(clientProfiler), sanitize(name), sanitize(dateCreated)].filter(Boolean);
+  return parts.length > 0 ? `${parts.join(" ")}.pdf` : `${fallback}.pdf`;
+}
+
 export function fmtMoney(value?: string): string {
   if (!value) return "";
   const trimmed = String(value).trim();

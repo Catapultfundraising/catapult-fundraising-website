@@ -9,6 +9,7 @@ import {
   IconGlyph,
   PersonPdfCard,
   fmtMoney,
+  buildProfilePdfFileName,
 } from "@/lib/profile-pdf-kit";
 
 export const runtime = "nodejs";
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     const { renderToBuffer } = await import("@react-pdf/renderer");
     const buffer = await renderToBuffer(<CorporateDocument data={data} />);
-    const fileName = `${(data?.name || "Corporate_Intelligence_Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
+    const fileName = buildProfilePdfFileName(data?.clientProfiler, data?.name, data?.dateCreated, "Corporate Intelligence Profile");
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
