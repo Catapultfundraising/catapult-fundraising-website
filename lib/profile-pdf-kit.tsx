@@ -481,8 +481,22 @@ export function MiniTable({
 // Estate section) is left to the caller since the caller also owns the
 // section heading text ("Key People" vs "Executive Leadership").
 export function PersonPdfCard({ person }: { person: PersonEntry }) {
+  // Same anti-overlap rule as FieldRow: a card is only forced into one
+  // atomic wrap={false} block when its bio is short enough that the whole
+  // card is virtually guaranteed to fit in the remaining space on a page.
+  // Executives/Key People commonly have long, multi-paragraph bios (e.g. a
+  // 130+ word bio plus photo/name/title/contact), and forcing THAT into a
+  // single indivisible block reproduces the exact overlap bug fixed
+  // earlier for FieldRow: when the card is taller than what's left on the
+  // page, react-pdf can't push the whole thing to the next page cleanly
+  // and instead lets it overflow into whatever renders after it (observed
+  // on a real Corporate profile as the "Phil Lesh" card visually colliding
+  // with the "Corporate Giving" heading and field below it). Short bios
+  // still get wrap={false} so a name/title isn't orphaned from its own
+  // one-line bio across a page break.
+  const isLong = (person.bio?.length || 0) > 400;
   return (
-    <View style={pdfStyles.personCard} wrap={false}>
+    <View style={pdfStyles.personCard} wrap={!isLong}>
       {person.photo ? (
         <Image src={person.photo} style={pdfStyles.personPhoto} />
       ) : (

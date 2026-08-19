@@ -110,10 +110,31 @@ function CorporateDocument({ data }: { data: any }) {
 
           {data.keyPeople?.length > 0 && (
             <View>
-              <View wrap={false}>
-                <SectionHeading icon="users" title="Key People" />
-                <PersonPdfCard person={firstPerson} />
-              </View>
+              {/* The heading is only grouped into one wrap={false} block
+                  with the first card when that card is short enough to be
+                  safely atomic (mirrors PersonPdfCard's own isLong rule).
+                  Grouping a heading with a LONG-bio card here reproduced
+                  the exact overlap bug already fixed for FieldRow/MiniTable:
+                  when the combined block didn't fit the remaining page
+                  space, wrap={false} let it overflow into whatever content
+                  followed (observed as "Phil Lesh" colliding with the
+                  Corporate Giving heading on a real profile). When the
+                  first card is long, the heading gets its own tiny (and
+                  therefore effectively always-fitting) wrap={false} block,
+                  and the card is left to paginate on its own. */}
+              {(firstPerson?.bio?.length || 0) > 400 ? (
+                <>
+                  <View wrap={false}>
+                    <SectionHeading icon="users" title="Key People" />
+                  </View>
+                  <PersonPdfCard person={firstPerson} />
+                </>
+              ) : (
+                <View wrap={false}>
+                  <SectionHeading icon="users" title="Key People" />
+                  <PersonPdfCard person={firstPerson} />
+                </View>
+              )}
               {restPeople.map((p: any, i: number) => (
                 <PersonPdfCard key={i} person={p} />
               ))}
@@ -121,22 +142,34 @@ function CorporateDocument({ data }: { data: any }) {
           )}
 
           {data.corporateGiving && (
-            <View wrap={false}>
-              <SectionHeading icon="gift" title="Corporate Giving" />
+            <>
+              {/* Heading is deliberately NOT grouped with the FieldRow here --
+                  Corporate Giving is a long free-text field (often several
+                  paragraphs), and wrapping a heading + long FieldRow in one
+                  wrap={false} container forces the whole thing into a single
+                  atomic block regardless of FieldRow's own long-value
+                  handling, reproducing the same overlap bug. The heading's
+                  own wrap={false} block is tiny and always fits; the
+                  FieldRow below flows and paginates normally on its own. */}
+              <View wrap={false}>
+                <SectionHeading icon="gift" title="Corporate Giving" />
+              </View>
               <FieldRow label="Corporate Giving" value={data.corporateGiving} />
-            </View>
+            </>
           )}
 
           {hasFoundation && (
-            <View wrap={false}>
-              <SectionHeading icon="star" title="Company Foundation" />
+            <>
+              <View wrap={false}>
+                <SectionHeading icon="star" title="Company Foundation" />
+              </View>
               <FieldRow label="Foundation Name" value={data.foundationName} />
               <FieldRow label="Address" value={data.foundationAddress} />
               <FieldRow label="Phone" value={data.foundationPhone} />
               <FieldRow label="Email" value={data.foundationEmail} />
               <FieldRow label="Website" value={data.foundationWebsite} />
               <FieldRow label="Net Assets" value={netAssetsValue} />
-            </View>
+            </>
           )}
 
           {hasAffiliationsFindings && (

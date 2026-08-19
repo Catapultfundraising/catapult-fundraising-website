@@ -57,10 +57,24 @@ function FoundationDocument({ data }: { data: any }) {
 
           {data.executives?.length > 0 && (
             <View>
-              <View wrap={false}>
-                <SectionHeading icon="users" title="Executives" />
-                <PersonPdfCard person={firstExec} />
-              </View>
+              {/* See app/api/research-pdf-corporate/route.tsx for why this is
+                  conditional: grouping the heading with a long-bio first card
+                  in one wrap={false} block reproduces the FieldRow/MiniTable
+                  overlap bug when the combined block doesn't fit the
+                  remaining page space. */}
+              {(firstExec?.bio?.length || 0) > 400 ? (
+                <>
+                  <View wrap={false}>
+                    <SectionHeading icon="users" title="Executives" />
+                  </View>
+                  <PersonPdfCard person={firstExec} />
+                </>
+              ) : (
+                <View wrap={false}>
+                  <SectionHeading icon="users" title="Executives" />
+                  <PersonPdfCard person={firstExec} />
+                </View>
+              )}
               {restExecs.map((p: any, i: number) => (
                 <PersonPdfCard key={i} person={p} />
               ))}
