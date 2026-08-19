@@ -38,6 +38,24 @@ export function todayISO() {
   return new Date().toISOString().slice(0, 10);
 }
 
+export function buildProfilePdfFileName(
+  clientProfiler: string | undefined,
+  name: string | undefined,
+  dateCreated: string | undefined,
+  fallback: string
+): string {
+  // File names are "{Client Name / Profiler Initials} {Prospect/Corporate/
+  // Foundation Name} {Date Created}.pdf" -- space separated, no underscores.
+  // Forbidden filesystem characters (from any of these free-text fields,
+  // e.g. a "/" typed into Client Name/Profiler Initials like "SCFTA/JG")
+  // are replaced with a hyphen rather than stripped or underscored, so the
+  // fields stay visually intact instead of colliding into one run of words.
+  const sanitize = (s?: string) =>
+    (s || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
+  const parts = [sanitize(clientProfiler), sanitize(name), sanitize(dateCreated)].filter(Boolean);
+  return parts.length > 0 ? `${parts.join(" ")}.pdf` : `${fallback}.pdf`;
+}
+
 export function parseCurrencyToNumber(value: string): number {
   if (!value) return 0;
   const cleaned = value.replace(/[^0-9.-]/g, "");
