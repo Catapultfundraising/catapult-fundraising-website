@@ -9,6 +9,24 @@ export const runtime = "nodejs";
 const LOGO_URL =
   "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.png";
 
+function buildProfilePdfFileName(
+  clientProfiler: string | undefined,
+  name: string | undefined,
+  dateCreated: string | undefined,
+  fallback: string
+): string {
+  // File names are "{Client Name / Profiler Initials} {Prospect Name}
+  // {Date Created}.pdf" -- space separated, no underscores. Forbidden
+  // filesystem characters (e.g. a "/" typed into Client Name/Profiler
+  // Initials like "SCFTA/JG") are replaced with a hyphen rather than
+  // stripped or underscored, so the fields stay visually intact instead of
+  // colliding into one run of words.
+  const sanitize = (s?: string) =>
+    (s || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
+  const parts = [sanitize(clientProfiler), sanitize(name), sanitize(dateCreated)].filter(Boolean);
+  return parts.length > 0 ? `${parts.join(" ")}.pdf` : `${fallback}.pdf`;
+}
+
 function fmtMoney(value?: string): string {
   if (!value) return "";
   const trimmed = String(value).trim();
@@ -1012,7 +1030,7 @@ export async function POST(req: NextRequest) {
     const data = await req.json();
     const { renderToBuffer } = await import("@react-pdf/renderer");
     const buffer = await renderToBuffer(<ProfileDocument data={data} />);
-    const fileName = `${(data?.name || "Prospect_Intelligence_Profile").replace(/[^a-z0-9]+/gi, "_")}.pdf`;
+    const fileName = buildProfilePdfFileName(data?.clientProfiler, data?.name, data?.dateCreated, "Prospect Intelligence Profile");
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
       headers: {
