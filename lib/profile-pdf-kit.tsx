@@ -317,10 +317,12 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
 // with plain wrap={false} it would always "fit" even with almost no room
 // left on the page, rendering the heading alone at the very bottom with
 // its content pushed entirely to the next page. minPresenceAhead reserves
-// space for roughly 10 lines of body text (~13pt/line) below the heading;
-// if that much room isn't left on the current page, react-pdf moves the
-// whole heading block to the top of the next page instead.
-const SECTION_HEADING_MIN_PRESENCE_AHEAD = 130;
+// space equal to roughly the bottom quarter of the page (letter page is
+// 792pt tall, so ~198pt); if a heading would start with less than that much
+// room left before the footer, react-pdf moves the whole heading block to
+// the top of the next page instead, so no section header is ever allowed to
+// begin in the bottom quarter of a page.
+const SECTION_HEADING_MIN_PRESENCE_AHEAD = 200;
 
 export function SectionHeading({ icon, title }: { icon?: IconName; title: string }) {
   if (icon) {
