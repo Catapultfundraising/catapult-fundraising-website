@@ -135,6 +135,8 @@ export const pdfStyles = StyleSheet.create({
   starRow: { flexDirection: "row", alignItems: "center", marginTop: 2 },
   ratingRawText: { fontSize: 7, color: MUTED, marginTop: 2 },
   personCard: { flexDirection: "row", alignItems: "flex-start", marginBottom: 8, backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 9 },
+  personCardHeader: { flexDirection: "row", alignItems: "flex-start", backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 9 },
+  personBioIndented: { marginLeft: 74, marginTop: 6, marginBottom: 8, fontSize: 8.6, color: INK, lineHeight: 1.35 },
   personPhoto: { width: 64, height: 64, borderRadius: 32, marginRight: 10, objectFit: "cover", borderWidth: 1.5, borderColor: BRASS },
   personPhotoPlaceholder: { width: 64, height: 64, borderRadius: 32, marginRight: 10, backgroundColor: ROW_TINT, borderWidth: 1.5, borderColor: LINE },
   personName: { fontSize: 10.5, fontFamily: "Helvetica-Bold", color: NAVY },
@@ -481,33 +483,54 @@ export function MiniTable({
 // Estate section) is left to the caller since the caller also owns the
 // section heading text ("Key People" vs "Executive Leadership").
 export function PersonPdfCard({ person }: { person: PersonEntry }) {
-  // Same anti-overlap rule as FieldRow: a card is only forced into one
-  // atomic wrap={false} block when its bio is short enough that the whole
-  // card is virtually guaranteed to fit in the remaining space on a page.
-  // Executives/Key People commonly have long, multi-paragraph bios (e.g. a
-  // 130+ word bio plus photo/name/title/contact), and forcing THAT into a
-  // single indivisible block reproduces the exact overlap bug fixed
-  // earlier for FieldRow: when the card is taller than what's left on the
-  // page, react-pdf can't push the whole thing to the next page cleanly
-  // and instead lets it overflow into whatever renders after it (observed
-  // on a real Corporate profile as the "Phil Lesh" card visually colliding
-  // with the "Corporate Giving" heading and field below it). Short bios
-  // still get wrap={false} so a name/title isn't orphaned from its own
-  // one-line bio across a page break.
+  // Short bios (or no bio) keep the original single bordered card --
+  // photo + name/title/contact/bio all inside one rounded box, wrap={false}
+  // since the whole thing is always short enough to fit as one atomic unit.
   const isLong = (person.bio?.length || 0) > 400;
-  return (
-    <View style={pdfStyles.personCard} wrap={isLong}>
-      {person.photo ? (
-        <Image src={person.photo} style={pdfStyles.personPhoto} />
-      ) : (
-        <View style={pdfStyles.personPhotoPlaceholder} />
-      )}
-      <View style={{ flex: 1 }}>
-        {person.name ? <Text style={pdfStyles.personName}>{person.name}</Text> : null}
-        {person.title ? <Text style={pdfStyles.personTitle}>{person.title}</Text> : null}
-        {person.contactInfo ? <Text style={pdfStyles.personContact}>{person.contactInfo}</Text> : null}
-        {person.bio ? <FormattedText value={person.bio} style={pdfStyles.personBio} /> : null}
+  if (!isLong) {
+    return (
+      <View style={pdfStyles.personCard} wrap={false}>
+        {person.photo ? (
+          <Image src={person.photo} style={pdfStyles.personPhoto} />
+        ) : (
+          <View style={pdfStyles.personPhotoPlaceholder} />
+        )}
+        <View style={{ flex: 1 }}>
+          {person.name ? <Text style={pdfStyles.personName}>{person.name}</Text> : null}
+          {person.title ? <Text style={pdfStyles.personTitle}>{person.title}</Text> : null}
+          {person.contactInfo ? <Text style={pdfStyles.personContact}>{person.contactInfo}</Text> : null}
+          {person.bio ? <FormattedText value={person.bio} style={pdfStyles.personBio} /> : null}
+        </View>
       </View>
+    );
+  }
+  // Long bios (e.g. a 130+ word bio) are split OUT of the bordered card
+  // entirely, mirroring the FieldRow "hanging indent" fix: the compact
+  // header (photo/name/title/contact) stays in its own small bordered box,
+  // which is always short and therefore always safely wrap={false} -- it
+  // never needs to split across a page. The bio itself renders as plain
+  // indented text below/outside that border, with no border of its own,
+  // so it can paginate freely. This is the fix for a real visual bug: when
+  // the ENTIRE card (border + bio) was one wrap={false} block, or even
+  // one wrap={true} block with a border wrapping both header and bio, a
+  // page break in the middle of the bio cut the rounded border off flush
+  // at the bottom of the page, right against the footer, making the card
+  // look like it was running into the footer band.
+  return (
+    <View style={{ marginBottom: 8 }}>
+      <View style={pdfStyles.personCardHeader} wrap={false}>
+        {person.photo ? (
+          <Image src={person.photo} style={pdfStyles.personPhoto} />
+        ) : (
+          <View style={pdfStyles.personPhotoPlaceholder} />
+        )}
+        <View style={{ flex: 1 }}>
+          {person.name ? <Text style={pdfStyles.personName}>{person.name}</Text> : null}
+          {person.title ? <Text style={pdfStyles.personTitle}>{person.title}</Text> : null}
+          {person.contactInfo ? <Text style={pdfStyles.personContact}>{person.contactInfo}</Text> : null}
+        </View>
+      </View>
+      <FormattedText value={person.bio} style={pdfStyles.personBioIndented} />
     </View>
   );
 }
