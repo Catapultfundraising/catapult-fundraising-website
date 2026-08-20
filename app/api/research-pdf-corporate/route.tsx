@@ -100,9 +100,7 @@ function CorporateDocument({ data }: { data: any }) {
           )}
 
           {hasCompanyBackground && (
-            <View wrap={false}>
-              <SectionHeading icon="building" title="Company Background" />
-            </View>
+            <SectionHeading icon="building" title="Company Background" />
           )}
           <FieldRow label="Company Heritage" value={data.companyHeritage} />
           <FieldRow label="Key Information" value={data.keyInformation} />
@@ -125,9 +123,7 @@ function CorporateDocument({ data }: { data: any }) {
                   and the card is left to paginate on its own. */}
               {(firstPerson?.bio?.length || 0) > 400 ? (
                 <>
-                  <View wrap={false}>
-                    <SectionHeading icon="users" title="Key People" />
-                  </View>
+                  <SectionHeading icon="users" title="Key People" />
                   <PersonPdfCard person={firstPerson} />
                 </>
               ) : (
@@ -152,18 +148,14 @@ function CorporateDocument({ data }: { data: any }) {
                   handling, reproducing the same overlap bug. The heading's
                   own wrap={false} block is tiny and always fits; the
                   FieldRow below flows and paginates normally on its own. */}
-              <View wrap={false}>
-                <SectionHeading icon="gift" title="Corporate Giving" />
-              </View>
+              <SectionHeading icon="gift" title="Corporate Giving" />
               <FieldRow label="Corporate Giving" value={data.corporateGiving} />
             </>
           )}
 
           {hasFoundation && (
             <>
-              <View wrap={false}>
-                <SectionHeading icon="star" title="Company Foundation" />
-              </View>
+              <SectionHeading icon="star" title="Company Foundation" />
               <FieldRow label="Foundation Name" value={data.foundationName} />
               <FieldRow label="Address" value={data.foundationAddress} />
               <FieldRow label="Phone" value={data.foundationPhone} />
@@ -174,9 +166,7 @@ function CorporateDocument({ data }: { data: any }) {
           )}
 
           {hasAffiliationsFindings && (
-            <View wrap={false}>
-              <SectionHeading icon="graduationCap" title="Company Affiliations & Findings" />
-            </View>
+            <SectionHeading icon="graduationCap" title="Company Affiliations & Findings" />
           )}
           <FieldRow label="Company Affiliations" value={data.companyAffiliations} />
           <FieldRow label="Relevant Findings" value={data.relevantFindings} />
