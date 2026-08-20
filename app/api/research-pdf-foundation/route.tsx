@@ -65,9 +65,7 @@ function FoundationDocument({ data }: { data: any }) {
                   remaining page space. */}
               {(firstExec?.bio?.length || 0) > 400 ? (
                 <>
-                  <View wrap={false}>
-                    <SectionHeading icon="users" title="Executives" />
-                  </View>
+                  <SectionHeading icon="users" title="Executives" />
                   <PersonPdfCard person={firstExec} />
                 </>
               ) : (
@@ -83,9 +81,7 @@ function FoundationDocument({ data }: { data: any }) {
           )}
 
           {hasMissionBackground && (
-            <View wrap={false}>
-              <SectionHeading icon="building" title="Mission & Background" />
-            </View>
+            <SectionHeading icon="building" title="Mission & Background" />
           )}
           <FieldRow label="Mission and Purpose" value={data.missionPurpose} />
           <FieldRow label="History" value={data.history} />
@@ -93,9 +89,7 @@ function FoundationDocument({ data }: { data: any }) {
           <FieldRow label="Financial Data" value={data.financialData} />
 
           {hasGrantmakingFocus && (
-            <View wrap={false}>
-              <SectionHeading icon="chart" title="Grantmaking Focus" />
-            </View>
+            <SectionHeading icon="chart" title="Grantmaking Focus" />
           )}
           <FieldRow label="Geographic Focus" value={data.geographicFocus} />
           <FieldRow label="Fields of Interest" value={data.fieldsOfInterest} />
@@ -105,9 +99,7 @@ function FoundationDocument({ data }: { data: any }) {
           <FieldRow label="Limitations" value={data.limitations} />
 
           {hasApplicationProcess && (
-            <View wrap={false}>
-              <SectionHeading icon="mail" title="Application Process" />
-            </View>
+            <SectionHeading icon="mail" title="Application Process" />
           )}
           <FieldRow label="Due Date" value={data.dueDate} />
           <FieldRow label="Application Information" value={data.applicationInformation} />
