@@ -515,40 +515,24 @@ export function MiniTable({
 // as one wrap={false} block, same pattern as the Individual PDF's Real
 // Estate section) is left to the caller since the caller also owns the
 // section heading text ("Key People" vs "Executive Leadership").
+//
+// The header (photo/name/title/contact) always stays in its own small
+// bordered box, and the bio ALWAYS renders as plain indented text below/
+// outside that border, regardless of bio length -- this used to branch on
+// bio length (short bios rendered fully inside one combined box), but that
+// produced visibly inconsistent formatting whenever a document mixed short
+// and long bios among its executives (e.g. one exec's bio sitting inside
+// the box while every other exec's bio sits outside it). Always using the
+// split layout keeps every card visually consistent no matter how short or
+// long an individual bio is. The header box is always short and therefore
+// always safely wrap={false} -- it never needs to split across a page. The
+// bio itself carries no border of its own, so it can paginate freely. This
+// also preserves the original fix for a real visual bug: when the ENTIRE
+// card (border + bio) was one wrap={false} block, a page break in the
+// middle of the bio cut the rounded border off flush at the bottom of the
+// page, right against the footer, making the card look like it was running
+// into the footer band.
 export function PersonPdfCard({ person }: { person: PersonEntry }) {
-  // Short bios (or no bio) keep the original single bordered card --
-  // photo + name/title/contact/bio all inside one rounded box, wrap={false}
-  // since the whole thing is always short enough to fit as one atomic unit.
-  const isLong = (person.bio?.length || 0) > 400;
-  if (!isLong) {
-    return (
-      <View style={pdfStyles.personCard} wrap={false}>
-        {person.photo ? (
-          <Image src={person.photo} style={pdfStyles.personPhoto} />
-        ) : (
-          <View style={pdfStyles.personPhotoPlaceholder} />
-        )}
-        <View style={{ flex: 1 }}>
-          {person.name ? <Text style={pdfStyles.personName}>{person.name}</Text> : null}
-          {person.title ? <Text style={pdfStyles.personTitle}>{person.title}</Text> : null}
-          {person.contactInfo ? <Text style={pdfStyles.personContact}>{person.contactInfo}</Text> : null}
-          {person.bio ? <FormattedText value={person.bio} style={pdfStyles.personBio} /> : null}
-        </View>
-      </View>
-    );
-  }
-  // Long bios (e.g. a 130+ word bio) are split OUT of the bordered card
-  // entirely, mirroring the FieldRow "hanging indent" fix: the compact
-  // header (photo/name/title/contact) stays in its own small bordered box,
-  // which is always short and therefore always safely wrap={false} -- it
-  // never needs to split across a page. The bio itself renders as plain
-  // indented text below/outside that border, with no border of its own,
-  // so it can paginate freely. This is the fix for a real visual bug: when
-  // the ENTIRE card (border + bio) was one wrap={false} block, or even
-  // one wrap={true} block with a border wrapping both header and bio, a
-  // page break in the middle of the bio cut the rounded border off flush
-  // at the bottom of the page, right against the footer, making the card
-  // look like it was running into the footer band.
   return (
     <View style={{ marginBottom: 8 }}>
       <View style={pdfStyles.personCardHeader} wrap={false}>
@@ -563,7 +547,7 @@ export function PersonPdfCard({ person }: { person: PersonEntry }) {
           {person.contactInfo ? <Text style={pdfStyles.personContact}>{person.contactInfo}</Text> : null}
         </View>
       </View>
-      <FormattedText value={person.bio} style={pdfStyles.personBioIndented} />
+      {person.bio ? <FormattedText value={person.bio} style={pdfStyles.personBioIndented} /> : null}
     </View>
   );
 }
