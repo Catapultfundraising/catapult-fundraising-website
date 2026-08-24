@@ -226,6 +226,9 @@ const styles = StyleSheet.create({
   fieldLabel: { width: 150, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldLabelSmall: { width: 108, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldValue: { flex: 1, fontSize: 9.6, color: INK, lineHeight: 1.4 },
+  fieldRowLong: { position: "relative", marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
+  fieldLabelAbs: { position: "absolute", top: 0, left: 0, width: 150, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
+  fieldValueIndented: { marginLeft: 150, fontSize: 9.6, color: INK, lineHeight: 1.4 },
   cardWhite: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 10, marginBottom: 12 },
   nameHeading: { fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 },
   tableHeaderRow: { flexDirection: "row", alignItems: "center", backgroundColor: CREAM, borderBottomWidth: 1.5, borderBottomColor: NAVY },
@@ -345,10 +348,37 @@ function FormattedText({ value, style }: { value?: string; style?: any }) {
 
 function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
+  // Short values (a single line, e.g. address/phone/EIN) keep the tight
+  // side-by-side row with wrap={false} -- the label is never orphaned from
+  // its value across a page break, and there's no overflow risk since the
+  // block is short.
+  //
+  // Long, multi-paragraph free-text values (e.g. Additional Information)
+  // MUST NOT use wrap={false}: a wrap={false} block that ends up taller
+  // than a single page cannot be placed by react-pdf at all, producing a
+  // fully blank page followed by silently dropped content (confirmed via
+  // react-pdf's own "Node of type VIEW can't wrap between pages and it's
+  // bigger than available page height" warning). Long values instead use a
+  // "hanging indent" layout: the label is absolutely positioned over the
+  // top-left corner, and the value's left indent is baked into its own
+  // style (marginLeft) rather than coming from a sibling column, so the
+  // value can wrap and split across as many pages as it needs while the
+  // indent stays consistent on every wrapped/continued line. This mirrors
+  // the identical fix already applied to the shared Corporate/Foundation
+  // PDF kit (lib/profile-pdf-kit.tsx).
+  const isLong = value.length > 200 || value.includes("\n");
+  if (!isLong) {
+    return (
+      <View style={styles.fieldRow} wrap={false}>
+        <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
+        <FormattedText value={value} style={styles.fieldValue} />
+      </View>
+    );
+  }
   return (
-    <View style={styles.fieldRow} wrap={false}>
-      <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
-      <FormattedText value={value} style={styles.fieldValue} />
+    <View style={styles.fieldRowLong}>
+      <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
+      <FormattedText value={value} style={styles.fieldValueIndented} />
     </View>
   );
 }
