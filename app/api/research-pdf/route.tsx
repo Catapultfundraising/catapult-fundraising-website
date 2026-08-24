@@ -153,7 +153,7 @@ const ROW_TINT = "#F3F4F6";
 const HEADER_GAP = 14;
 
 const styles = StyleSheet.create({
-  page: { paddingTop: 34, paddingBottom: 42, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
+  page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
   body: { paddingHorizontal: 40 },
   topBarFrame: {
     position: "absolute",
