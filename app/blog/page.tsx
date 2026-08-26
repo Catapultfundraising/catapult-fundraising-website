@@ -10,6 +10,7 @@ export const metadata = {
     "Practical guidance on capital campaigns, major gift asks, legacy giving, and donor engagement from Catapult Fundraising's consulting team.",
   keywords: [
     "nonprofit fundraising blog",
+    "capital campaign feasibility study",
     "capital campaign best practices",
     "mid-level donor engagement best practices",
     "legacy giving best practices",
@@ -32,6 +33,15 @@ const FEATHER = {
 } as const;
 
 const POSTS = [
+  {
+    slug: "why-a-feasibility-study-matters-before-a-capital-campaign",
+    title: "Why a Feasibility Study Matters Before a Capital Campaign",
+    description:
+      "Jeff Grandy on why campaigns rarely struggle because the mission is weak, and how a feasibility study tests the goal, the case, the leadership, and the prospect pipeline before you go public.",
+    readTime: "8 min read",
+    image: "/blog/why-a-feasibility-study-matters/hero-board-meeting.jpg",
+    alt: "Nonprofit leadership team in a planning conversation around a conference table before a capital campaign",
+  },
   {
     slug: "national-make-a-will-month-planned-giving-conversation",
     title: "National Make a Will Month: The Planned Giving Conversation You Keep Avoiding",
