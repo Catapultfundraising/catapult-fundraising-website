@@ -627,6 +627,9 @@ function ResearchProfileFormInner() {
   const [roster, setRoster] = useState<RosterProspect[]>([]);
   const [selectedRosterName, setSelectedRosterName] = useState("");
   const [lockedFromRoster, setLockedFromRoster] = useState(false);
+  const [importingPdf, setImportingPdf] = useState(false);
+  const [importPdfError, setImportPdfError] = useState<string | null>(null);
+  const pdfImportInputRef = useRef<HTMLInputElement>(null);
 
   // Load an existing saved profile from the server if ?id= is present;
   // otherwise fall back to the last local draft for a brand new profile.
@@ -732,6 +735,40 @@ function ResearchProfileFormInner() {
     // every other prefilled field, but not these three identifiers.
     setLockedFromRoster(true);
     setPdfUrl(null);
+  }
+
+  async function handleImportPdf(file: File) {
+    setImportingPdf(true);
+    setImportPdfError(null);
+    try {
+      const formData = new FormData();
+      formData.append("pdf", file);
+      const res = await fetch("/api/research-pdf-import", { method: "POST", body: formData });
+      if (!res.ok) {
+        const errBody = await res.json().catch(() => ({}));
+        throw new Error(errBody?.error || "Failed to import this PDF.");
+      }
+      const json = await res.json();
+      const extracted = json.data || {};
+      setData((d) => ({
+        ...d,
+        ...extracted,
+        childrenRows: extracted.childrenRows ?? d.childrenRows,
+        educationEntries: extracted.educationEntries ?? d.educationEntries,
+        realEstate: extracted.realEstate ?? d.realEstate,
+        otherGiving: extracted.otherGiving ?? d.otherGiving,
+        fecGiving: extracted.fecGiving ?? d.fecGiving,
+        phones: extracted.phones ?? d.phones,
+        emails: extracted.emails ?? d.emails,
+        givingHistoryRows: extracted.givingHistoryRows ?? d.givingHistoryRows,
+        photo: extracted.photo || d.photo,
+      }));
+      setPdfUrl(null);
+    } catch (err: any) {
+      setImportPdfError(err?.message || "Something went wrong importing this PDF.");
+    } finally {
+      setImportingPdf(false);
+    }
   }
 
   // Auto-save local draft as a browser-side safety net
@@ -1216,6 +1253,36 @@ function ResearchProfileFormInner() {
               </option>
             ))}
           </select>
+        </div>
+      )}
+
+      {!urlId && (
+        <div className="mt-6 rounded-2xl border border-[rgb(var(--brass))]/40 bg-[rgb(var(--brass))]/10 p-4">
+          <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+            <FileText className="h-3.5 w-3.5" />
+            Import From Wealth-Screening PDF
+          </label>
+          <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
+            Upload a DonorAtlas profile PDF to auto-fill this form&mdash;wealth, real estate, giving history,
+            boards, family, and photo. Review everything below before saving.
+          </p>
+          <input
+            ref={pdfImportInputRef}
+            type="file"
+            accept="application/pdf"
+            className="hidden"
+            onChange={(e) => e.target.files?.[0] && handleImportPdf(e.target.files[0])}
+          />
+          <button
+            type="button"
+            onClick={() => pdfImportInputRef.current?.click()}
+            disabled={importingPdf}
+            className="mt-3 inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--brass))] disabled:opacity-60"
+          >
+            {importingPdf ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+            {importingPdf ? "Importing..." : "Import from PDF"}
+          </button>
+          {importPdfError && <p className="mt-2 text-sm text-red-600">{importPdfError}</p>}
         </div>
       )}
 
