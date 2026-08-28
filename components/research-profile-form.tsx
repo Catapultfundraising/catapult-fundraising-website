@@ -737,26 +737,56 @@ function ResearchProfileFormInner() {
     setPdfUrl(null);
   }
 
+  async function safeJson(res: Response): Promise<any> {
+    const rawText = await res.text().catch(() => "");
+    if (!rawText) return {};
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return {};
+    }
+  }
+
   async function handleImportPdf(file: File) {
     setImportingPdf(true);
     setImportPdfError(null);
     try {
+      // Step 1: kick off the extraction job -- this call returns almost
+      // immediately (it does not wait for the model to finish), so it can't
+      // be truncated by a gateway/proxy idle timeout.
       const formData = new FormData();
       formData.append("pdf", file);
-      const res = await fetch("/api/research-pdf-import", { method: "POST", body: formData });
-      if (!res.ok) {
-        const rawText = await res.text().catch(() => "");
-        let errBody: any = {};
-        try {
-          errBody = rawText ? JSON.parse(rawText) : {};
-        } catch {
-          // Non-JSON response (e.g. a platform timeout page) -- surface the
-          // status code so it's diagnosable instead of a silent generic message.
-        }
-        throw new Error(errBody?.error || `Failed to import this PDF (server returned ${res.status}).`);
+      const startRes = await fetch("/api/research-pdf-import", { method: "POST", body: formData });
+      const startBody = await safeJson(startRes);
+      if (!startRes.ok || !startBody?.runId) {
+        throw new Error(startBody?.error || `Failed to start the PDF import (server returned ${startRes.status}).`);
       }
-      const json = await res.json();
-      const extracted = json.data || {};
+      const { runId, photo } = startBody;
+
+      // Step 2: poll a lightweight status endpoint every couple seconds
+      // until the model finishes. Each poll is fast, so nothing here can
+      // hang or get cut off mid-response.
+      const maxAttempts = 90; // ~3 minutes at 2s intervals
+      let extracted: any = null;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const pollRes = await fetch(`/api/research-pdf-import/status?runId=${encodeURIComponent(runId)}`);
+        const pollBody = await safeJson(pollRes);
+        if (!pollRes.ok) {
+          throw new Error(pollBody?.error || `The import failed while processing (server returned ${pollRes.status}).`);
+        }
+        if (pollBody?.status === "COMPLETED") {
+          extracted = pollBody.data || {};
+          break;
+        }
+        if (pollBody?.error) {
+          throw new Error(pollBody.error);
+        }
+      }
+      if (!extracted) {
+        throw new Error("The PDF import is taking longer than expected. Please try again in a moment.");
+      }
+
       setData((d) => ({
         ...d,
         ...extracted,
@@ -768,7 +798,7 @@ function ResearchProfileFormInner() {
         phones: extracted.phones ?? d.phones,
         emails: extracted.emails ?? d.emails,
         givingHistoryRows: extracted.givingHistoryRows ?? d.givingHistoryRows,
-        photo: extracted.photo || d.photo,
+        photo: photo || d.photo,
       }));
       setPdfUrl(null);
     } catch (err: any) {
