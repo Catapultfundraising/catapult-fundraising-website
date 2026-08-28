@@ -84,11 +84,10 @@ function dedupeBy<T>(arr: T[], key: (item: T) => string): T[] {
 // spouse/parents/children and verified phone/email live -- confirmed against
 // the live DASpreadsheetFieldName enum) onto the subset of ProfileData
 // fields we can reliably populate. Genuinely still unavailable through the
-// Partners API at all: parents'/children's specific names when DonorAtlas
-// hasn't resolved them, street-level real estate/deed history, itemized
-// per-candidate political donations, and the colleague/relationship network
-// -- those four are exclusive to DonorAtlas's own web app and PDF export,
-// not exposed by any Partners API endpoint we've found.
+// Partners API at all: itemized per-candidate political donations,
+// street-level real estate/deed history, and the colleague/relationship
+// network -- those are exclusive to DonorAtlas's own web app and PDF
+// export, not exposed by any Partners API endpoint we've found.
 function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> = {}) {
   const name = donor?.name || {};
   const fullName = [name.first, name.middle, name.last, name.suffix].filter(Boolean).join(" ");
@@ -193,6 +192,12 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   // committees, no per-donation rows anywhere in the schema), so this
   // synthesizes ONE clearly-labeled summary row from the per-year breakdown
   // rather than leaving the FEC table silently empty when a total exists.
+  // Note: political_stats aggregates federal, state, AND local donations
+  // together (amt_to_presidential/amt_to_congressional/amt_to_state_local)
+  // -- DonorAtlas's own UI actually presents the itemized rows under
+  // "State and Local Donations" specifically, since federal (FEC) records
+  // are the ones DonorAtlas can name individual committees for in its own
+  // product, which the Partners API doesn't expose at all.
   const politicalStats = donor?.political_stats;
   const politicalPerYear: Record<string, number> =
     politicalStats && typeof politicalStats.per_year === "object" ? politicalStats.per_year : {};
@@ -226,18 +231,23 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
         .join("\n\n");
 
   // Spouse/parents/children only come from the exports endpoint -- the
-  // donors/{id} endpoint has no equivalent fields at all. When present,
-  // note them at the top of Additional Information (there's no dedicated
-  // family-member field on this form) and infer Married when a spouse is
-  // on file (the profiler can correct this if it's actually widowed/
-  // separated -- DonorAtlas doesn't distinguish that itself).
+  // donors/{id} endpoint has no equivalent fields at all. Children now map
+  // to the actual Children table (name only -- DonorAtlas doesn't return
+  // ages or other details for them); spouse and parents still get noted at
+  // the top of Additional Information since there's no dedicated field for
+  // either on this form. Marital status is inferred as Married when a
+  // spouse is on file (the profiler can correct this if it's actually
+  // widowed/separated -- DonorAtlas doesn't distinguish that itself).
   const spouseName = (exportRow["Spouse"] || "").trim();
   const parentsText = (exportRow["Parents"] || "").trim();
-  const childrenText = (exportRow["Children"] || "").trim();
+  const childrenRows = splitDelimited(exportRow["Children"]).map((childName) => ({
+    name: childName,
+    age: "",
+    otherInfo: "",
+  }));
   const relationshipLines = [
     spouseName ? `Spouse: ${spouseName}` : "",
     parentsText ? `Parents: ${parentsText}` : "",
-    childrenText ? `Children: ${childrenText}` : "",
   ].filter(Boolean);
   const additionalInformation = relationshipLines.length
     ? [relationshipLines.join("\n"), bioText].filter(Boolean).join("\n\n")
@@ -265,6 +275,7 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
     homeAddress: formatAddress(donor?.mailing_address),
     born: donor?.age != null ? `Age: ${donor.age}` : "",
     maritalStatus: spouseName ? "Married" : "",
+    childrenRows,
     phones,
     emails,
     estimatedNetWorth: netWorthEstimate != null ? formatCompactMoney(netWorthEstimate) : "",
