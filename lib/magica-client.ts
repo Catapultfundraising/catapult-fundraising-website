@@ -1,10 +1,15 @@
 // Thin client for calling Magica's public REST API (https://magica.com/docs/)
-// from server-side code. Used by /api/research-pdf-import to run the
-// document-understanding model that extracts structured profile data from a
-// wealth-screening PDF (DonorAtlas). Requires MAGICA_API_KEY to be set as a
+// from server-side code. Used by the PDF import routes to start and poll a
+// document-understanding model run. Requires MAGICA_API_KEY to be set as a
 // Vercel environment variable -- generate one in the Magica app under
 // Settings -> API Keys -> Manage, then add it in Vercel Project Settings ->
 // Environment Variables (do not commit the key to the repo).
+//
+// Deliberately split into startMagicaRun()/getMagicaRunStatus() rather than
+// one blocking call: a single HTTP request/response that stays open for the
+// 1-3 minutes a large-document model call can take is fragile against
+// gateway/proxy idle timeouts. Starting the run and letting the caller poll
+// a lightweight status endpoint keeps every individual request fast.
 
 const MAGICA_BASE = "https://inference.magica.com/v1";
 
@@ -48,11 +53,8 @@ async function listModels(): Promise<MagicaModelSummary[]> {
 // Resolves a preferred model identifier to the {nodeType, subModelId} pair
 // needed for POST /v1/nodes/{nodeType}/run. Tries an exact match first
 // (against nodeType or any subModels[].subModelId), then falls back to a
-// fuzzy keyword match (all keywords must appear, case-insensitively, in
-// either the nodeType or the subModelId) -- this keeps the integration
-// working even if the exact model naming used by Magica's public API
-// catalog differs slightly from an internal reference name, without
-// needing a code change every time Magica renames or versions a model.
+// fuzzy keyword match so the integration keeps working even if Magica's
+// public catalog naming differs slightly from a hardcoded reference name.
 async function resolveModel(
   preferredId: string,
   fuzzyKeywords: string[]
@@ -92,11 +94,15 @@ async function resolveModel(
   throw new Error(`Could not resolve a Magica model for "${preferredId}". ${diagnostic}`);
 }
 
-export async function runMagicaModel(
+// Starts a Magica model run and returns immediately with the runId --
+// does NOT wait for completion. Fast (well under a second beyond the
+// one-time /models lookup), so this is safe to call from a normal
+// request/response cycle.
+export async function startMagicaRun(
   subModelId: string,
   input: Record<string, unknown>,
-  opts: { pollIntervalMs?: number; maxAttempts?: number; fuzzyKeywords?: string[] } = {}
-): Promise<any> {
+  opts: { fuzzyKeywords?: string[] } = {}
+): Promise<{ runId: string; nodeType: string }> {
   const fuzzyKeywords = opts.fuzzyKeywords || subModelId.split(/[\/\-.]/).filter(Boolean);
   const resolved = await resolveModel(subModelId, fuzzyKeywords);
 
@@ -112,27 +118,15 @@ export async function runMagicaModel(
   if (!runId) {
     throw new Error("Magica run did not return a runId.");
   }
+  return { runId, nodeType: resolved.nodeType };
+}
 
-  const terminal = new Set(["COMPLETED", "FAILED", "CANCELED"]);
-  const pollIntervalMs = opts.pollIntervalMs ?? 2000;
-  const maxAttempts = opts.maxAttempts ?? 125;
-
-  let run: any = null;
-  for (let attempt = 0; attempt < maxAttempts; attempt++) {
-    const pollRes = await magicaFetch(`/nodes/runs/${runId}`);
-    if (!pollRes.ok) {
-      throw new Error(`Magica run lookup failed (${pollRes.status}).`);
-    }
-    run = await pollRes.json();
-    if (terminal.has(run.status)) break;
-    await new Promise((resolve) => setTimeout(resolve, pollIntervalMs));
+// Checks the current status of a previously-started run. A single fast
+// call -- the caller is responsible for polling this on an interval.
+export async function getMagicaRunStatus(runId: string): Promise<any> {
+  const pollRes = await magicaFetch(`/nodes/runs/${runId}`);
+  if (!pollRes.ok) {
+    throw new Error(`Magica run lookup failed (${pollRes.status}).`);
   }
-
-  if (!run || !terminal.has(run.status)) {
-    throw new Error("The PDF import timed out before Magica finished processing it.");
-  }
-  if (run.status !== "COMPLETED") {
-    throw new Error(`Magica run ended with status ${run.status}: ${JSON.stringify(run.error ?? "")}`);
-  }
-  return run.output ?? run.response ?? run;
+  return pollRes.json();
 }
