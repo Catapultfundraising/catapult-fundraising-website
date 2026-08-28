@@ -787,9 +787,33 @@ function ResearchProfileFormInner() {
         throw new Error("The PDF import is taking longer than expected. Please try again in a moment.");
       }
 
+      // Merge extracted fields onto the existing profile WITHOUT blindly
+      // spreading `...extracted` over everything: if this import run
+      // failed to find a particular scalar field (e.g. the model missed
+      // "Estimated Income" on this pass -- extraction isn't perfectly
+      // deterministic), extracted.<field> comes back as an empty string,
+      // and a raw `...extracted` spread would silently blank out an
+      // already-good value from a prior import or manual entry. Every
+      // scalar field extraction can return is merged with `|| d.<field>`
+      // so a miss on one field never erases previously-entered data for
+      // that same field. Array fields already used `??` (not `||`) since
+      // an empty array can be a genuine finding (e.g. "no boards listed")
+      // rather than a miss -- that's intentionally left as-is.
       setData((d) => ({
         ...d,
-        ...extracted,
+        name: extracted.name || d.name,
+        homeAddress: extracted.homeAddress || d.homeAddress,
+        born: extracted.born || d.born,
+        maritalStatus: extracted.maritalStatus || d.maritalStatus,
+        estimatedNetWorth: extracted.estimatedNetWorth || d.estimatedNetWorth,
+        estimatedIncome: extracted.estimatedIncome || d.estimatedIncome,
+        givingCapacity: extracted.givingCapacity || d.givingCapacity,
+        wealthRating: extracted.wealthRating || d.wealthRating,
+        relationshipToOrg: extracted.relationshipToOrg || d.relationshipToOrg,
+        additionalInformation: extracted.additionalInformation || d.additionalInformation,
+        boards: extracted.boards || d.boards,
+        businessAddresses: extracted.businessAddresses || d.businessAddresses,
+        totalCharitableGiving: extracted.totalCharitableGiving || d.totalCharitableGiving,
         childrenRows: extracted.childrenRows ?? d.childrenRows,
         educationEntries: extracted.educationEntries ?? d.educationEntries,
         realEstate: extracted.realEstate ?? d.realEstate,
