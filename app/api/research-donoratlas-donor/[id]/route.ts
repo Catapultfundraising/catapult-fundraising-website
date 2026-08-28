@@ -178,9 +178,9 @@ function mapDonorToProfileFields(donor: any) {
 
 // Retrieves the full donor profile by DonorAtlas ID and maps it onto our
 // ProfileData shape -- 1 DonorAtlas credit per call.
-export async function GET(_req: Request, { params }: { params: { id: string } }) {
+export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
   try {
-    const id = params?.id;
+    const { id } = await context.params;
     if (!id) {
       return NextResponse.json({ error: "Missing donor id." }, { status: 400 });
     }
