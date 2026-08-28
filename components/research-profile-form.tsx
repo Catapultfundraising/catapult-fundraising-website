@@ -160,6 +160,33 @@ function formatPhoneNumber(value: string): string {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+// Splits a full display name ("Donald Snyder", "Mary Ann Jones") into a
+// best-guess first/last name pair for feeding the DonorAtlas name search --
+// the roster only stores one combined name field, but the search API wants
+// first/last separately. Everything before the final word is treated as
+// the first name (handles middle names reasonably); single-word names fall
+// back to using that word as the first name with no last name.
+function splitDisplayName(fullName: string): { first: string; last: string } {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return { first: "", last: "" };
+  if (parts.length === 1) return { first: parts[0], last: "" };
+  return { first: parts.slice(0, -1).join(" "), last: parts[parts.length - 1] };
+}
+
+// Best-effort city/state extraction from a free-text roster address like
+// "123 Main St, Las Vegas, NV 89135" -- used only to narrow the DonorAtlas
+// search, so a miss here just means a broader (still usable) search rather
+// than a hard failure.
+function parseCityStateFromAddress(address: string): { city: string; state: string } {
+  if (!address) return { city: "", state: "" };
+  const parts = address.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length < 2) return { city: "", state: "" };
+  const city = parts[parts.length - 2] || "";
+  const stateZip = parts[parts.length - 1] || "";
+  const stateMatch = stateZip.match(/^[A-Za-z]{2}\b/);
+  return { city, state: stateMatch ? stateMatch[0].toUpperCase() : "" };
+}
+
 interface RealEstateItem {
   photo: string; // base64 data URI
   address: string;
@@ -640,6 +667,7 @@ function ResearchProfileFormInner() {
   const [donorCandidates, setDonorCandidates] = useState<any[]>([]);
   const [fetchingDonorId, setFetchingDonorId] = useState<string | null>(null);
   const [donorFetchError, setDonorFetchError] = useState<string | null>(null);
+  const [autoSearchedFromRoster, setAutoSearchedFromRoster] = useState(false);
 
   // Load an existing saved profile from the server if ?id= is present;
   // otherwise fall back to the last local draft for a brand new profile.
@@ -717,6 +745,48 @@ function ResearchProfileFormInner() {
     };
   }, [urlId]);
 
+  async function safeJson(res: Response): Promise<any> {
+    const rawText = await res.text().catch(() => "");
+    if (!rawText) return {};
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      return {};
+    }
+  }
+
+  // Shared DonorAtlas search implementation used both by the manual "Search
+  // DonorAtlas" button and by the roster dropdown's auto-search -- takes
+  // explicit params rather than reading component state directly so the
+  // roster flow can fire the search in the same tick it computes the parsed
+  // name/city/state, without waiting on a state update to land first.
+  async function runDonorSearch(firstName: string, lastName: string, city: string, state: string) {
+    if (!firstName.trim() && !lastName.trim()) return;
+    setSearchingDonors(true);
+    setDonorSearchError(null);
+    setDonorCandidates([]);
+    try {
+      const res = await fetch("/api/research-donoratlas-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName, lastName, city, state }),
+      });
+      const body = await safeJson(res);
+      if (!res.ok) {
+        throw new Error(body?.error || `Search failed (server returned ${res.status}).`);
+      }
+      const results = Array.isArray(body?.results) ? body.results : [];
+      setDonorCandidates(results);
+      if (results.length === 0) {
+        setDonorSearchError("No matches found. Try a different name, or add a city/state to narrow it down.");
+      }
+    } catch (err: any) {
+      setDonorSearchError(err?.message || "Something went wrong searching DonorAtlas.");
+    } finally {
+      setSearchingDonors(false);
+    }
+  }
+
   function applyRosterProspect(name: string) {
     setSelectedRosterName(name);
     const prospect = roster.find((p) => p.name === name);
@@ -745,15 +815,23 @@ function ResearchProfileFormInner() {
     // every other prefilled field, but not these three identifiers.
     setLockedFromRoster(true);
     setPdfUrl(null);
-  }
 
-  async function safeJson(res: Response): Promise<any> {
-    const rawText = await res.text().catch(() => "");
-    if (!rawText) return {};
-    try {
-      return JSON.parse(rawText);
-    } catch {
-      return {};
+    // Auto-populate the DonorAtlas search fields from this prospect's name
+    // (and city/state parsed from their roster address, if present) and run
+    // the search immediately -- saves the researcher from retyping the name
+    // they just selected. This only fills the candidate list; nothing
+    // DonorAtlas-sourced is merged into the profile until the researcher
+    // confirms the correct match by clicking "Use This Profile" below, same
+    // safety gate as a fully manual search.
+    const { first, last } = splitDisplayName(prospect.name);
+    const { city, state } = parseCityStateFromAddress(prospect.address);
+    setDaFirstName(first);
+    setDaLastName(last);
+    setDaCity(city);
+    setDaState(state);
+    setAutoSearchedFromRoster(true);
+    if (first || last) {
+      runDonorSearch(first, last, city, state);
     }
   }
 
@@ -843,29 +921,7 @@ function ResearchProfileFormInner() {
   }
 
   async function handleSearchDonors() {
-    setSearchingDonors(true);
-    setDonorSearchError(null);
-    setDonorCandidates([]);
-    try {
-      const res = await fetch("/api/research-donoratlas-search", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName: daFirstName, lastName: daLastName, city: daCity, state: daState }),
-      });
-      const body = await safeJson(res);
-      if (!res.ok) {
-        throw new Error(body?.error || `Search failed (server returned ${res.status}).`);
-      }
-      const results = Array.isArray(body?.results) ? body.results : [];
-      setDonorCandidates(results);
-      if (results.length === 0) {
-        setDonorSearchError("No matches found. Try a different name, or add a city/state to narrow it down.");
-      }
-    } catch (err: any) {
-      setDonorSearchError(err?.message || "Something went wrong searching DonorAtlas.");
-    } finally {
-      setSearchingDonors(false);
-    }
+    await runDonorSearch(daFirstName, daLastName, daCity, daState);
   }
 
   async function handleSelectDonor(id: string) {
@@ -882,10 +938,14 @@ function ResearchProfileFormInner() {
 
       // Same safe-merge rule as the PDF import: a scalar field DonorAtlas
       // didn't return never blanks out an existing value, and array fields
-      // only replace the current (empty, on a new profile) rows.
+      // only replace the current (empty, on a new profile) rows. Name stays
+      // untouched when locked from the weekly roster -- that field must
+      // stay in sync with the master prospect list, not DonorAtlas's own
+      // name formatting (e.g. "Donald D Snyder" vs. the roster's "Donald
+      // Snyder").
       setData((d) => ({
         ...d,
-        name: fetched.name || d.name,
+        name: lockedFromRoster ? d.name : fetched.name || d.name,
         homeAddress: fetched.homeAddress || d.homeAddress,
         born: fetched.born || d.born,
         maritalStatus: fetched.maritalStatus || d.maritalStatus,
@@ -1384,7 +1444,9 @@ function ResearchProfileFormInner() {
           <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
             Select a name to auto-fill their name, giving history, wealth rating, giving capacity, address, phone(s),
             and email(s) from the uploaded spreadsheet. Everything is editable afterward except Name, Catapult ID,
-            and Client ID, which stay locked to the master list.
+            and Client ID, which stay locked to the master list. Selecting a name also runs a DonorAtlas search
+            below using that name (and city/state, if their address is on file), so you can immediately pick the
+            right match and pull in wealth, education, boards, and more without retyping anything.
           </p>
           <select
             value={selectedRosterName}
@@ -1445,7 +1507,14 @@ function ResearchProfileFormInner() {
             confirmed match for that person (often blank for less-documented prospects). Itemized political
             donations by candidate, street-level real estate/deed history, and colleague network are only
             available in DonorAtlas&rsquo;s own PDF export, not through this API-based lookup, so those still
-            need the PDF upload or manual entry. Review everything below before saving.
+            need the PDF upload or manual entry.
+            {autoSearchedFromRoster && (
+              <>
+                {" "}These fields were auto-filled from the prospect you selected above&mdash;just confirm the
+                right match below.
+              </>
+            )}
+            {" "}Review everything below before saving.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <input
