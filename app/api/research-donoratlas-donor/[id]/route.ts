@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getDonorById } from "@/lib/donoratlas-client";
+import { getDonorById, exportDonorFields } from "@/lib/donoratlas-client";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -58,22 +58,38 @@ async function fetchImageAsDataUri(url: string | null | undefined): Promise<stri
   }
 }
 
-// Maps a raw DonorAtlas APIDonor object onto the subset of ProfileData
-// fields we can reliably populate from it. Verified directly against a live
-// API response (not just the docs): DonorAtlas's donor object genuinely has
-// no marital status, spouse, children/family roster, phone, or email fields
-// anywhere in its schema -- those keys simply don't exist, so they're
-// omitted here and still need the PDF-upload import or manual entry.
-// Street-level real estate detail and itemized per-gift-year giving are
-// also not available in the shape our form expects (real estate DOES exist
-// as an asset type, but only as a value range/description, no address; and
-// donations are aggregated per-nonprofit lifetime totals, not per-gift-year
-// rows) -- both are mapped as best-effort below where DonorAtlas has data.
-// `political_stats` is likewise a pure aggregate (total, average, per-year,
-// party/chamber splits) with NO itemized recipient-committee list anywhere
-// in the schema, so a single labeled "aggregate" row is synthesized into
-// the FEC table below rather than leaving it silently empty.
-function mapDonorToProfileFields(donor: any) {
+// Splits a comma/semicolon-separated export cell into trimmed, non-empty
+// values -- the exports endpoint returns e.g. "Verified Personal Emails" as
+// one delimited string rather than a JSON array.
+function splitDelimited(value: string | undefined): string[] {
+  if (!value) return [];
+  return value
+    .split(/[;,]/)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
+
+function dedupeBy<T>(arr: T[], key: (item: T) => string): T[] {
+  const seen = new Set<string>();
+  return arr.filter((item) => {
+    const k = key(item).toLowerCase();
+    if (seen.has(k)) return false;
+    seen.add(k);
+    return true;
+  });
+}
+
+// Maps a raw DonorAtlas APIDonor object (from `/donors/{id}`) plus the
+// separate exports-endpoint row (from `/exports`, which is the ONLY place
+// spouse/parents/children and verified phone/email live -- confirmed against
+// the live DASpreadsheetFieldName enum) onto the subset of ProfileData
+// fields we can reliably populate. Genuinely still unavailable through the
+// Partners API at all: parents'/children's specific names when DonorAtlas
+// hasn't resolved them, street-level real estate/deed history, itemized
+// per-candidate political donations, and the colleague/relationship network
+// -- those four are exclusive to DonorAtlas's own web app and PDF export,
+// not exposed by any Partners API endpoint we've found.
+function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> = {}) {
   const name = donor?.name || {};
   const fullName = [name.first, name.middle, name.last, name.suffix].filter(Boolean).join(" ");
 
@@ -209,17 +225,55 @@ function mapDonorToProfileFields(donor: any) {
         .filter(Boolean)
         .join("\n\n");
 
+  // Spouse/parents/children only come from the exports endpoint -- the
+  // donors/{id} endpoint has no equivalent fields at all. When present,
+  // note them at the top of Additional Information (there's no dedicated
+  // family-member field on this form) and infer Married when a spouse is
+  // on file (the profiler can correct this if it's actually widowed/
+  // separated -- DonorAtlas doesn't distinguish that itself).
+  const spouseName = (exportRow["Spouse"] || "").trim();
+  const parentsText = (exportRow["Parents"] || "").trim();
+  const childrenText = (exportRow["Children"] || "").trim();
+  const relationshipLines = [
+    spouseName ? `Spouse: ${spouseName}` : "",
+    parentsText ? `Parents: ${parentsText}` : "",
+    childrenText ? `Children: ${childrenText}` : "",
+  ].filter(Boolean);
+  const additionalInformation = relationshipLines.length
+    ? [relationshipLines.join("\n"), bioText].filter(Boolean).join("\n\n")
+    : bioText;
+
+  const phones = dedupeBy(
+    [
+      ...splitDelimited(exportRow["Verified Mobile Phone"]).map((number) => ({ type: "Mobile", customType: "", number })),
+      ...splitDelimited(exportRow["Other Phones"]).map((number) => ({ type: "Other", customType: "", number })),
+    ],
+    (p) => p.number
+  );
+  const emails = dedupeBy(
+    [
+      ...splitDelimited(exportRow["Best Verified Email"]).map((address) => ({ type: "Personal", customType: "", address })),
+      ...splitDelimited(exportRow["Verified Personal Emails"]).map((address) => ({ type: "Personal", customType: "", address })),
+      ...splitDelimited(exportRow["Verified Work Emails"]).map((address) => ({ type: "Work", customType: "", address })),
+      ...splitDelimited(exportRow["Other Emails"]).map((address) => ({ type: "Other", customType: "", address })),
+    ],
+    (e) => e.address
+  );
+
   return {
     name: fullName,
     homeAddress: formatAddress(donor?.mailing_address),
     born: donor?.age != null ? `Age: ${donor.age}` : "",
+    maritalStatus: spouseName ? "Married" : "",
+    phones,
+    emails,
     estimatedNetWorth: netWorthEstimate != null ? formatCompactMoney(netWorthEstimate) : "",
     estimatedIncome: salaryText,
     givingCapacity,
     wealthRating,
-    religion: donor?.religion || "",
+    religion: donor?.religion || exportRow["Religion"] || "",
     familyFoundation,
-    additionalInformation: bioText,
+    additionalInformation,
     boards,
     businessAddresses,
     educationEntries,
@@ -235,15 +289,20 @@ function mapDonorToProfileFields(donor: any) {
 }
 
 // Retrieves the full donor profile by DonorAtlas ID and maps it onto our
-// ProfileData shape -- 1 DonorAtlas credit per call.
+// ProfileData shape. Fires the donor lookup and the exports-fields pull in
+// parallel -- 2 DonorAtlas credits per call total (1 for the profile, 1 for
+// the spouse/parents/children/verified-contact export). The export call
+// never throws (see exportDonorFields), so a hiccup there degrades
+// gracefully to just missing those specific fields rather than failing the
+// whole lookup.
 export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await context.params;
     if (!id) {
       return NextResponse.json({ error: "Missing donor id." }, { status: 400 });
     }
-    const donor = await getDonorById(id);
-    const mapped = mapDonorToProfileFields(donor);
+    const [donor, exportRow] = await Promise.all([getDonorById(id), exportDonorFields(id)]);
+    const mapped = mapDonorToProfileFields(donor, exportRow);
     const photo = await fetchImageAsDataUri(donor?.primary_photo_url);
     return NextResponse.json({ ok: true, data: mapped, photo });
   } catch (err: any) {
