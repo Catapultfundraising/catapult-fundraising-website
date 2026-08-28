@@ -52,6 +52,37 @@ function fmtMoney(value?: string): string {
 // cumulative total in the wealth panel. Non-numeric/shorthand entries (e.g. "$10M+")
 // are skipped from the sum since they can't be safely added, but never alter the
 // underlying row displays elsewhere.
+// Like fmtMoney, but ALWAYS expands "K"/"M"/"B" shorthand into the full
+// real number (e.g. "$1K" -> "$1,000", "$10K - $15K" -> "$10,000 - $15,000"),
+// instead of preserving shorthand verbatim. Used for itemized individual
+// gift-amount rows (Giving History, Other Giving History, FEC Recipient
+// Organization) where a specific dollar figure reads as more precise and
+// professional in full rather than abbreviated. NOT used for the wealth
+// panel or Real Estate values, which intentionally keep the compact "$90M"
+// / "$4.4M" style for those larger, order-of-magnitude figures. Any text
+// with no numeric token at all ("TBD", "N/A", "-", "—", blank) is
+// returned completely unchanged.
+function fmtMoneyExpanded(value?: string): string {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed) return "";
+  const tokenRe = /\$?\s*([\d,]*\.?\d+)\s*([KkMmBb])?/g;
+  let matchedAny = false;
+  const result = trimmed.replace(tokenRe, (match, numStr, suffix) => {
+    if (!numStr || !/\d/.test(numStr)) return match;
+    const mult = suffix ? (suffix.toUpperCase() === "K" ? 1e3 : suffix.toUpperCase() === "M" ? 1e6 : suffix.toUpperCase() === "B" ? 1e9 : 1) : 1;
+    const n = parseFloat(numStr.replace(/,/g, "")) * mult;
+    if (!Number.isFinite(n)) return match;
+    matchedAny = true;
+    const hasCents = !Number.isInteger(n);
+    return `$${n.toLocaleString("en-US", {
+      minimumFractionDigits: hasCents ? 2 : 0,
+      maximumFractionDigits: hasCents ? 2 : 0,
+    })}`;
+  });
+  return matchedAny ? result : trimmed;
+}
+
 function sumAmounts(rows: any[]): string {
   if (!rows || rows.length === 0) return "";
   let total = 0;
@@ -974,7 +1005,7 @@ function ProfileDocument({ data }: { data: any }) {
           headers={["YEAR", "AMOUNT", "COMMENTS"]}
           colWidths={["15%", "20%", "65%"]}
           rows={data.givingHistoryRows}
-          renderRow={(row: any) => [row.year || "", fmtMoney(row.amount), row.comments || ""]}
+          renderRow={(row: any) => [row.year || "", fmtMoneyExpanded(row.amount), row.comments || ""]}
         />
 
         {data.realEstate?.length > 0 && (
@@ -1018,17 +1049,31 @@ function ProfileDocument({ data }: { data: any }) {
         <FieldRow label="Business Address(es) & Phone(s)" value={data.businessAddresses} />
         <FieldRow label="Family Foundation" value={data.familyFoundation} />
         <FieldRow label="Additional Information" value={data.additionalInformation} />
-        </View>
-      </Page>
 
-      <Page size="LETTER" style={styles.page}>
-        <HeaderFooter data={data} />
-        <View style={styles.body}>
+        {/* Boards & Affiliations continues in this same flowing content
+            area -- no forced page break -- so it naturally packs onto
+            whatever room is left on the current page. General page-break
+            rule for every section in this document: only the section
+            HEADING is grouped into a wrap={false} block (the same
+            anti-orphan pattern already used for "Real Estate" and
+            "Biographical Information" above). That means if a new section
+            heading would start in roughly the bottom quarter of a page and
+            it (plus its next line or two of content) can't fit there,
+            react-pdf moves that whole wrap={false} heading block to the top
+            of the next page instead of leaving it dangling alone at the
+            bottom. The FieldRow VALUE itself is deliberately kept OUTSIDE
+            the wrap={false} block: "Boards" can be a long, many-line list,
+            and previously the heading + full value were wrapped together
+            as one indivisible block -- an oversized block that doesn't fit
+            on a single page can't be placed by react-pdf at all, so it
+            silently rendered a blank page and dropped content. Letting the
+            FieldRow value keep wrapping independently (as intended for all
+            long free-text fields) avoids that failure mode entirely. */}
         <View wrap={false}>
           <View style={styles.sectionAccent} />
           <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
-          <FieldRow label="Boards" value={data.boards} />
         </View>
+        <FieldRow label="Boards" value={data.boards} />
         <FieldRow label="Clubs & Affiliations" value={data.clubsAffiliations} />
         <FieldRow label="Business Colleagues" value={data.businessColleagues} />
 
@@ -1039,7 +1084,7 @@ function ProfileDocument({ data }: { data: any }) {
           headers={["RECIPIENT", "CATEGORY", "YEAR", "AMOUNT"]}
           colWidths={["40%", "30%", "12%", "18%"]}
           rows={data.otherGiving}
-          renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoney(row.amount)]}
+          renderRow={(row: any) => [row.recipient || "", row.giving || "", row.year || "", fmtMoneyExpanded(row.amount)]}
         />
 
         <GivingByCategoryChart rows={data.otherGiving} />
@@ -1050,7 +1095,7 @@ function ProfileDocument({ data }: { data: any }) {
             headers={["ORGANIZATION", "YEAR", "AMOUNT"]}
             colWidths={["55%", "20%", "25%"]}
             rows={data.fecGiving}
-            renderRow={(row: any) => [row.org || "", row.year || "", fmtMoney(row.amount)]}
+            renderRow={(row: any) => [row.org || "", row.year || "", fmtMoneyExpanded(row.amount)]}
           />
         )}
         </View>
