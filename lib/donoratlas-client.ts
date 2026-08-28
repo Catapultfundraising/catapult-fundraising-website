@@ -92,3 +92,92 @@ export async function getDonorById(id: string): Promise<any> {
   const body = await daFetch(`/donors/${encodeURIComponent(id)}`, { method: "GET" });
   return body?.donor ?? body;
 }
+
+// Parses a single-data-row CSV (as returned by the exports endpoint for a
+// one-donor export) into a { header: value } map. Handles quoted fields
+// containing commas (e.g. "$52,500") -- a naive split(",") would break on
+// those, so this is a small hand-rolled RFC-4180-ish parser rather than a
+// dependency, since we only ever need to parse our own single-row export.
+function parseCsvLine(line: string): string[] {
+  const result: string[] = [];
+  let cur = "";
+  let inQuotes = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (inQuotes) {
+      if (c === '"') {
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i++;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        cur += c;
+      }
+    } else if (c === '"') {
+      inQuotes = true;
+    } else if (c === ",") {
+      result.push(cur);
+      cur = "";
+    } else {
+      cur += c;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+function parseCsvSingleRow(csvText: string): Record<string, string> {
+  const lines = csvText.replace(/\r\n/g, "\n").trim().split("\n");
+  if (lines.length < 2) return {};
+  const headers = parseCsvLine(lines[0]);
+  const values = parseCsvLine(lines[1]);
+  const row: Record<string, string> = {};
+  headers.forEach((h, i) => {
+    row[h] = values[i] ?? "";
+  });
+  return row;
+}
+
+// Fields the `/donors/{id}` lookup does NOT return but the separate
+// `/exports` endpoint does -- confirmed against the live DASpreadsheetFieldName
+// enum: verified contact info (phone/email) and family relationships
+// (spouse, parents, children) are only available through this endpoint.
+const EXPORT_FIELDS = [
+  "Verified Mobile Phone",
+  "Best Verified Email",
+  "Verified Personal Emails",
+  "Verified Work Emails",
+  "Other Emails",
+  "Other Phones",
+  "Religion",
+  "Spouse",
+  "Parents",
+  "Children",
+] as const;
+
+// Pulls the fields above for a single donor via a 1-row CSV export -- 1
+// DonorAtlas credit per call (on top of the 1 credit for getDonorById).
+// Returns {} (rather than throwing) on any failure so a hiccup here never
+// blocks the rest of the donor profile from loading.
+export async function exportDonorFields(id: string): Promise<Record<string, string>> {
+  try {
+    const body = await daFetch("/exports", {
+      method: "POST",
+      body: JSON.stringify({
+        source: { type: "ids", donor_ids: [id] },
+        export_type: "csv",
+        fields: EXPORT_FIELDS,
+      }),
+    });
+    const url = body?.download_url;
+    if (!url) return {};
+    const res = await fetch(url);
+    if (!res.ok) return {};
+    const text = await res.text();
+    return parseCsvSingleRow(text);
+  } catch {
+    return {};
+  }
+}
