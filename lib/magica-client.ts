@@ -41,11 +41,18 @@ async function magicaFetch(path: string, init?: RequestInit) {
 async function listModels(): Promise<MagicaModelSummary[]> {
   if (modelsCache) return modelsCache;
   const res = await magicaFetch("/models");
+  const rawText = await res.text().catch(() => "");
   if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`Failed to list Magica models (${res.status}): ${body}`);
+    throw new Error(`Failed to list Magica models (${res.status}): ${rawText.slice(0, 500)}`);
   }
-  const models: MagicaModelSummary[] = await res.json();
+  let models: MagicaModelSummary[];
+  try {
+    models = rawText ? JSON.parse(rawText) : [];
+  } catch {
+    throw new Error(
+      `Magica model list returned a non-JSON response (status ${res.status}, content-type "${res.headers.get("content-type") || ""}"): ${rawText.slice(0, 500) || "(empty body)"}`
+    );
+  }
   modelsCache = models;
   return models;
 }
@@ -110,13 +117,21 @@ export async function startMagicaRun(
     method: "POST",
     body: JSON.stringify({ subModelId: resolved.subModelId ?? subModelId, input }),
   });
+  const startRawText = await startRes.text().catch(() => "");
   if (!startRes.ok) {
-    const body = await startRes.text().catch(() => "");
-    throw new Error(`Magica run failed to start (${startRes.status}): ${body}`);
+    throw new Error(`Magica run failed to start (${startRes.status}): ${startRawText.slice(0, 500)}`);
   }
-  const { runId } = await startRes.json();
+  let startJson: any;
+  try {
+    startJson = startRawText ? JSON.parse(startRawText) : {};
+  } catch {
+    throw new Error(
+      `Magica run start returned a non-JSON response (status ${startRes.status}, content-type "${startRes.headers.get("content-type") || ""}"): ${startRawText.slice(0, 500) || "(empty body)"}`
+    );
+  }
+  const { runId } = startJson;
   if (!runId) {
-    throw new Error("Magica run did not return a runId.");
+    throw new Error(`Magica run did not return a runId. Raw response: ${startRawText.slice(0, 500)}`);
   }
   return { runId, nodeType: resolved.nodeType };
 }
@@ -125,8 +140,15 @@ export async function startMagicaRun(
 // call -- the caller is responsible for polling this on an interval.
 export async function getMagicaRunStatus(runId: string): Promise<any> {
   const pollRes = await magicaFetch(`/nodes/runs/${runId}`);
+  const rawText = await pollRes.text().catch(() => "");
   if (!pollRes.ok) {
-    throw new Error(`Magica run lookup failed (${pollRes.status}).`);
+    throw new Error(`Magica run lookup failed (${pollRes.status}): ${rawText.slice(0, 500)}`);
   }
-  return pollRes.json();
+  try {
+    return rawText ? JSON.parse(rawText) : {};
+  } catch {
+    throw new Error(
+      `Magica run status returned a non-JSON response (status ${pollRes.status}, content-type "${pollRes.headers.get("content-type") || ""}"): ${rawText.slice(0, 500) || "(empty body)"}`
+    );
+  }
 }
