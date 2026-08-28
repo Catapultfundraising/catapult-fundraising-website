@@ -888,6 +888,7 @@ function ResearchProfileFormInner() {
         name: fetched.name || d.name,
         homeAddress: fetched.homeAddress || d.homeAddress,
         born: fetched.born || d.born,
+        maritalStatus: fetched.maritalStatus || d.maritalStatus,
         estimatedNetWorth: fetched.estimatedNetWorth || d.estimatedNetWorth,
         estimatedIncome: fetched.estimatedIncome || d.estimatedIncome,
         givingCapacity: fetched.givingCapacity || d.givingCapacity,
@@ -903,6 +904,8 @@ function ResearchProfileFormInner() {
         otherGiving: fetched.otherGiving?.length ? fetched.otherGiving : d.otherGiving,
         realEstate: fetched.realEstate?.length ? fetched.realEstate : d.realEstate,
         fecGiving: fetched.fecGiving?.length ? fetched.fecGiving : d.fecGiving,
+        phones: fetched.phones?.length ? fetched.phones : d.phones,
+        emails: fetched.emails?.length ? fetched.emails : d.emails,
         photo: photo || d.photo,
       }));
       setDonorCandidates([]);
@@ -1437,10 +1440,12 @@ function ResearchProfileFormInner() {
           </label>
           <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
             Look up a prospect by name to auto-fill wealth, income, giving capacity, education, employment,
-            boards, family foundation, religion, and photo directly from DonorAtlas&mdash;no PDF needed.
-            DonorAtlas doesn&rsquo;t track marital status, spouse, children, phone, or email, and it rarely has
-            street-level real estate detail, so those still need the PDF upload or manual entry. Review
-            everything below before saving.
+            boards, family foundation, religion, spouse/marital status, and photo directly from
+            DonorAtlas&mdash;no PDF needed. Verified phone and email populate only when DonorAtlas has a
+            confirmed match for that person (often blank for less-documented prospects). Itemized political
+            donations by candidate, street-level real estate/deed history, and colleague network are only
+            available in DonorAtlas&rsquo;s own PDF export, not through this API-based lookup, so those still
+            need the PDF upload or manual entry. Review everything below before saving.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
             <input
