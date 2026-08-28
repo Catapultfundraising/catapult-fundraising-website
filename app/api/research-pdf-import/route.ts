@@ -3,7 +3,7 @@ import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import { runMagicaModel } from "@/lib/magica-client";
 
 export const runtime = "nodejs";
-export const maxDuration = 120;
+export const maxDuration = 280;
 
 const EXTRACTION_SYSTEM_PROMPT =
   "You extract structured prospect research data from wealth-screening PDF reports (e.g. DonorAtlas) into a strict JSON object for a nonprofit fundraising CRM. Return ONLY valid JSON, no markdown fences, no commentary. Every array field must include EVERY occurrence found in the document, not just the first one -- for example every real estate property (owned AND sold), every child, and every individual year/gift row in giving-history tables, not a rolled-up summary. If a field is not present, use an empty string or empty array.";
