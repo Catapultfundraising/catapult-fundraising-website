@@ -258,6 +258,7 @@ const styles = StyleSheet.create({
   fieldLabelSmall: { width: 108, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldValue: { flex: 1, fontSize: 9.6, color: INK, lineHeight: 1.4 },
   fieldRowLong: { position: "relative", marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
+  fieldRowLongHead: { position: "relative" },
   fieldLabelAbs: { position: "absolute", top: 0, left: 0, width: 150, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldValueIndented: { marginLeft: 150, fontSize: 9.6, color: INK, lineHeight: 1.4 },
   cardWhite: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 10, marginBottom: 12 },
@@ -377,6 +378,17 @@ function FormattedText({ value, style }: { value?: string; style?: any }) {
   );
 }
 
+// Splits a long field value at the nearest word boundary at or after
+// minChars. Used by FieldRow's orphan/widow protection below -- see that
+// comment for why this manual split (rather than react-pdf's built-in
+// minPresenceAhead prop) is the fix here.
+function splitFirstChunk(value: string, minChars: number): [string, string] {
+  if (value.length <= minChars) return [value, ""];
+  const spaceIdx = value.indexOf(" ", minChars);
+  const cut = spaceIdx === -1 ? value.length : spaceIdx;
+  return [value.slice(0, cut), value.slice(cut + 1)];
+}
+
 function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
   // Short values (a single line, e.g. address/phone/EIN) keep the tight
@@ -384,19 +396,35 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   // its value across a page break, and there's no overflow risk since the
   // block is short.
   //
-  // Long, multi-paragraph free-text values (e.g. Additional Information)
-  // MUST NOT use wrap={false}: a wrap={false} block that ends up taller
-  // than a single page cannot be placed by react-pdf at all, producing a
-  // fully blank page followed by silently dropped content (confirmed via
-  // react-pdf's own "Node of type VIEW can't wrap between pages and it's
-  // bigger than available page height" warning). Long values instead use a
-  // "hanging indent" layout: the label is absolutely positioned over the
-  // top-left corner, and the value's left indent is baked into its own
-  // style (marginLeft) rather than coming from a sibling column, so the
-  // value can wrap and split across as many pages as it needs while the
-  // indent stays consistent on every wrapped/continued line. This mirrors
-  // the identical fix already applied to the shared Corporate/Foundation
-  // PDF kit (lib/profile-pdf-kit.tsx).
+  // Long, multi-paragraph free-text values (e.g. Additional Information,
+  // Relationship to Organization) use a "hanging indent" layout instead:
+  // the label is absolutely positioned over the top-left corner, and the
+  // value's left indent is baked into its own style (marginLeft) rather
+  // than coming from a sibling column, so the value can wrap and split
+  // across as many pages as it needs while the indent stays consistent on
+  // every wrapped/continued line. This mirrors the identical fix already
+  // applied to the shared Corporate/Foundation PDF kit
+  // (lib/profile-pdf-kit.tsx).
+  //
+  // Orphan/widow protection: react-pdf's built-in minPresenceAhead prop
+  // (designed for exactly this -- "don't let a heading start with too
+  // little of its content following it") does NOT take effect here,
+  // confirmed by direct testing -- it has no effect on this absolutely-
+  // positioned hanging-indent label, unlike a plain flowing Text node. The
+  // manual substitute: guarantee at least the first ~600 characters of a
+  // long value (about half a page of text -- covers the common case,
+  // e.g. "Relationship to Organization", entirely) render together with
+  // its label in ONE wrap={false} block, so the label never appears alone
+  // (or with just a dangling line or two) at the very bottom of a page --
+  // implementing the rule that a new section starting near the bottom of
+  // a page should move to the next page if it doesn't fit. The chunk size
+  // is capped, NOT the whole value, so a value much longer than 600
+  // characters (e.g. a very long "Additional Information") still safely
+  // continues wrapping across further pages afterward, instead of
+  // becoming one indivisible block that could be taller than any single
+  // page -- the same failure mode already fixed for "Boards" (a wrap={false}
+  // block taller than a page can't be placed by react-pdf at all,
+  // producing a blank page and silently dropped content).
   const isLong = value.length > 200 || value.includes("\n");
   if (!isLong) {
     return (
@@ -406,11 +434,29 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
       </View>
     );
   }
+  const [firstChunk, rest] = splitFirstChunk(value, 600);
+  if (!rest) {
+    return (
+      <View style={styles.fieldRowLong} wrap={false}>
+        <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
+        <FormattedText value={value} style={styles.fieldValueIndented} />
+      </View>
+    );
+  }
   return (
-    <View style={styles.fieldRowLong}>
-      <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
-      <FormattedText value={value} style={styles.fieldValueIndented} />
-    </View>
+    <>
+      <View style={styles.fieldRowLongHead} wrap={false}>
+        <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
+        <FormattedText value={firstChunk} style={styles.fieldValueIndented} />
+      </View>
+      <FormattedText
+        value={rest}
+        style={[
+          styles.fieldValueIndented,
+          { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
+        ]}
+      />
+    </>
   );
 }
 
