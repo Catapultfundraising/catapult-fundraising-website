@@ -745,8 +745,15 @@ function ResearchProfileFormInner() {
       formData.append("pdf", file);
       const res = await fetch("/api/research-pdf-import", { method: "POST", body: formData });
       if (!res.ok) {
-        const errBody = await res.json().catch(() => ({}));
-        throw new Error(errBody?.error || "Failed to import this PDF.");
+        const rawText = await res.text().catch(() => "");
+        let errBody: any = {};
+        try {
+          errBody = rawText ? JSON.parse(rawText) : {};
+        } catch {
+          // Non-JSON response (e.g. a platform timeout page) -- surface the
+          // status code so it's diagnosable instead of a silent generic message.
+        }
+        throw new Error(errBody?.error || `Failed to import this PDF (server returned ${res.status}).`);
       }
       const json = await res.json();
       const extracted = json.data || {};
