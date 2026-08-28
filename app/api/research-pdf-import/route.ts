@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
 import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
-import { runMagicaModel } from "@/lib/magica-client";
+import { startMagicaRun } from "@/lib/magica-client";
 
 export const runtime = "nodejs";
-export const maxDuration = 280;
+export const maxDuration = 60;
 
 const EXTRACTION_SYSTEM_PROMPT =
   "You extract structured prospect research data from wealth-screening PDF reports (e.g. DonorAtlas) into a strict JSON object for a nonprofit fundraising CRM. Return ONLY valid JSON, no markdown fences, no commentary. Every array field must include EVERY occurrence found in the document, not just the first one -- for example every real estate property (owned AND sold), every child, and every individual year/gift row in giving-history tables, not a rolled-up summary. If a field is not present, use an empty string or empty array.";
@@ -29,28 +29,6 @@ const EXTRACTION_PROMPT = `Extract this wealth-screening profile into this exact
   "fecGiving": [{"org": string, "year": string, "amount": string}],
   "totalCharitableGiving": string
 }`;
-
-const MARITAL_STATUS_OPTIONS = ["Single", "Married", "Divorced", "Implied Divorced", "Widowed", "Dating", "Unknown"];
-
-function normalizeMaritalStatus(raw: string): string {
-  const lower = (raw || "").toLowerCase();
-  if (MARITAL_STATUS_OPTIONS.some((opt) => lower === opt.toLowerCase())) {
-    const match = MARITAL_STATUS_OPTIONS.find((opt) => lower === opt.toLowerCase());
-    return match || "Unknown";
-  }
-  if (lower.includes("widow")) return "Widowed";
-  if (lower.includes("divorced")) return "Divorced";
-  if (lower.includes("spouse") || lower.includes("married")) return "Married";
-  if (lower.includes("single")) return "Single";
-  if (lower.includes("dating") || lower.includes("partner")) return "Dating";
-  return "Unknown";
-}
-
-function parseModelJson(text: string): Record<string, any> {
-  // Strip markdown code fences if the model wrapped its JSON in them anyway.
-  const cleaned = text.trim().replace(/^```(?:json)?/i, "").replace(/```$/, "").trim();
-  return JSON.parse(cleaned);
-}
 
 // Extracts the largest embedded JPEG image on the PDF's first page and
 // returns it as a base64 data URI. In DonorAtlas exports the prospect's
@@ -95,6 +73,11 @@ async function extractHeadshot(pdfBytes: Uint8Array): Promise<string> {
   }
 }
 
+// Starts the extraction job and returns immediately with a runId -- does
+// NOT wait for the model to finish. The client polls
+// /api/research-pdf-import/status to get the result. This avoids holding
+// one long HTTP connection open for the 1-3 minutes a large PDF can take,
+// which is fragile against gateway/proxy idle timeouts.
 export async function POST(req: Request) {
   try {
     const formData = await req.formData();
@@ -111,8 +94,8 @@ export async function POST(req: Request) {
     const base64Pdf = Buffer.from(pdfBytes).toString("base64");
     const dataUrl = `data:application/pdf;base64,${base64Pdf}`;
 
-    const [modelResult, photo] = await Promise.all([
-      runMagicaModel("gemini_3_1_pro_preview", {
+    const [{ runId }, photo] = await Promise.all([
+      startMagicaRun("gemini_3_1_pro_preview", {
         file_urls: [dataUrl],
         system_prompt: EXTRACTION_SYSTEM_PROMPT,
         prompt: EXTRACTION_PROMPT,
@@ -120,39 +103,11 @@ export async function POST(req: Request) {
       extractHeadshot(pdfBytes),
     ]);
 
-    const rawText: string = typeof modelResult === "string" ? modelResult : modelResult?.text ?? "";
-    const extracted = parseModelJson(rawText);
-
-    const maritalStatus = normalizeMaritalStatus(extracted.maritalStatusRaw || "");
-
-    return NextResponse.json({
-      ok: true,
-      data: {
-        name: extracted.name || "",
-        homeAddress: extracted.homeAddress || "",
-        born: extracted.born || "",
-        maritalStatus,
-        estimatedNetWorth: extracted.estimatedNetWorth || "",
-        estimatedIncome: extracted.estimatedIncome || "",
-        givingCapacity: extracted.givingCapacity || "",
-        wealthRating: extracted.wealthRating || "",
-        relationshipToOrg: extracted.relationshipToOrg || "",
-        additionalInformation: extracted.additionalInformation || "",
-        boards: extracted.boards || "",
-        businessAddresses: extracted.businessAddresses || "",
-        childrenRows: Array.isArray(extracted.childrenRows) ? extracted.childrenRows : [],
-        educationEntries: Array.isArray(extracted.educationEntries) ? extracted.educationEntries : [],
-        realEstate: Array.isArray(extracted.realEstate) ? extracted.realEstate : [],
-        otherGiving: Array.isArray(extracted.otherGiving) ? extracted.otherGiving : [],
-        fecGiving: Array.isArray(extracted.fecGiving) ? extracted.fecGiving : [],
-        totalCharitableGiving: extracted.totalCharitableGiving || "",
-        photo,
-      },
-    });
+    return NextResponse.json({ ok: true, runId, photo });
   } catch (err: any) {
-    console.error("research-pdf-import error", err);
+    console.error("research-pdf-import start error", err);
     return NextResponse.json(
-      { error: err?.message || "Failed to import this PDF. Please try again or fill the form in manually." },
+      { error: err?.message || "Failed to start the PDF import. Please try again." },
       { status: 500 }
     );
   }
