@@ -960,6 +960,7 @@ function ResearchProfileFormInner() {
         businessAddresses: fetched.businessAddresses || d.businessAddresses,
         totalCharitableGiving: fetched.totalCharitableGiving || d.totalCharitableGiving,
         nonPhilanthropicPoliticalGiving: fetched.nonPhilanthropicPoliticalGiving || d.nonPhilanthropicPoliticalGiving,
+        childrenRows: fetched.childrenRows?.length ? fetched.childrenRows : d.childrenRows,
         educationEntries: fetched.educationEntries?.length ? fetched.educationEntries : d.educationEntries,
         otherGiving: fetched.otherGiving?.length ? fetched.otherGiving : d.otherGiving,
         realEstate: fetched.realEstate?.length ? fetched.realEstate : d.realEstate,
@@ -1502,7 +1503,7 @@ function ResearchProfileFormInner() {
           </label>
           <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
             Look up a prospect by name to auto-fill wealth, income, giving capacity, education, employment,
-            boards, family foundation, religion, spouse/marital status, and photo directly from
+            boards, family foundation, religion, spouse/marital status, children, and photo directly from
             DonorAtlas&mdash;no PDF needed. Verified phone and email populate only when DonorAtlas has a
             confirmed match for that person (often blank for less-documented prospects). Itemized political
             donations by candidate, street-level real estate/deed history, and colleague network are only
