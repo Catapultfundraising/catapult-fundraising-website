@@ -58,12 +58,16 @@ export async function GET(req: Request) {
     // just a bare "Unexpected end of JSON input") so the real shape is
     // visible instead of having to guess blind.
     const candidateTexts: unknown[] = [
+      run.output?.output,
       run.output,
       run.output?.text,
+      run.response?.output,
       run.response,
       run.response?.text,
+      run.result?.output,
       run.result,
       run.result?.text,
+      run.data?.output,
       run.data,
       run.data?.text,
     ];
