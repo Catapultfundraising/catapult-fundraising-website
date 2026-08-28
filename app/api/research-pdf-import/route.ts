@@ -112,7 +112,7 @@ export async function POST(req: Request) {
     const dataUrl = `data:application/pdf;base64,${base64Pdf}`;
 
     const [modelResult, photo] = await Promise.all([
-      runMagicaModel("google/gemini-3.1-pro-preview", {
+      runMagicaModel("gemini_3_1_pro_preview", {
         file_urls: [dataUrl],
         system_prompt: EXTRACTION_SYSTEM_PROMPT,
         prompt: EXTRACTION_PROMPT,
