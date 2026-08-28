@@ -892,6 +892,8 @@ function ResearchProfileFormInner() {
         estimatedIncome: fetched.estimatedIncome || d.estimatedIncome,
         givingCapacity: fetched.givingCapacity || d.givingCapacity,
         wealthRating: fetched.wealthRating || d.wealthRating,
+        religion: fetched.religion || d.religion,
+        familyFoundation: fetched.familyFoundation || d.familyFoundation,
         additionalInformation: fetched.additionalInformation || d.additionalInformation,
         boards: fetched.boards || d.boards,
         businessAddresses: fetched.businessAddresses || d.businessAddresses,
@@ -1434,8 +1436,9 @@ function ResearchProfileFormInner() {
           </label>
           <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
             Look up a prospect by name to auto-fill wealth, income, giving capacity, education, employment,
-            boards, and photo directly from DonorAtlas&mdash;no PDF needed. DonorAtlas doesn&rsquo;t track marital
-            status, family, or itemized real estate, so those still need the PDF upload or manual entry. Review
+            boards, family foundation, religion, and photo directly from DonorAtlas&mdash;no PDF needed.
+            DonorAtlas doesn&rsquo;t track marital status, spouse, children, phone, or email, and it rarely has
+            street-level real estate detail, so those still need the PDF upload or manual entry. Review
             everything below before saving.
           </p>
           <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
