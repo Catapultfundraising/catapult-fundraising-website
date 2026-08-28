@@ -16,7 +16,7 @@ const EXTRACTION_PROMPT = `Extract this wealth-screening profile into this exact
   "born": string (age/DOB if present),
   "maritalStatusRaw": string (whatever the document says about marital status/spouse, verbatim),
   "estimatedNetWorth": string,
-  "estimatedIncome": string,
+  "estimatedIncome": string (the person's current/most representative estimated ANNUAL income or salary, e.g. "$600K-850K/yr". Wealth-screening documents often show this as one or more separate "Salary" entries, each tied to a specific employer/role (e.g. "Salary -- Boyd Gaming -- President -- $600K-850K/yr", "Salary -- University of Nevada, Las Vegas -- Acting President -- $250K/yr"), rather than one single labeled "Estimated Income" field. If there are multiple such salary/compensation entries for different employers or roles, use the one for their MOST RECENT or MOST SENIOR/primary role -- this is virtually always the FIRST salary entry listed in the document's Income or Wealth breakdown section. Report the range or figure exactly as shown for that one entry. Only leave this empty if the document truly contains no salary/income information anywhere),
   "estimatedAnnualGiving": string (the document's predicted/estimated ANNUAL giving figure, e.g. DonorAtlas' "Predicted Annual Giving" line, verbatim as shown -- do NOT confuse this with a multi-year giving capacity total if the document distinguishes the two),
   "givingCapacity": string (whatever the document itself directly states as a multi-year giving capacity, if present -- used only as a fallback; the app recomputes the real 5-year figure from estimatedAnnualGiving),
   "wealthRating": string,
