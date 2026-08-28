@@ -52,9 +52,49 @@ export async function GET(req: Request) {
       return NextResponse.json({ status: run.status || "PROCESSING" });
     }
 
-    const modelResult = run.output ?? run.response ?? run;
-    const rawText: string = typeof modelResult === "string" ? modelResult : modelResult?.text ?? "";
-    const extracted = parseModelJson(rawText);
+    // The completed run's payload shape isn't fully documented, so try a
+    // handful of plausible locations for the model's text output before
+    // giving up -- and if none work, surface the actual run object (not
+    // just a bare "Unexpected end of JSON input") so the real shape is
+    // visible instead of having to guess blind.
+    const candidateTexts: unknown[] = [
+      run.output,
+      run.output?.text,
+      run.response,
+      run.response?.text,
+      run.result,
+      run.result?.text,
+      run.data,
+      run.data?.text,
+    ];
+    let rawText = "";
+    for (const candidate of candidateTexts) {
+      if (typeof candidate === "string" && candidate.trim()) {
+        rawText = candidate;
+        break;
+      }
+    }
+
+    if (!rawText) {
+      return NextResponse.json(
+        {
+          error: `The completed run did not contain recognizable text output. Raw run object: ${JSON.stringify(run).slice(0, 1500)}`,
+        },
+        { status: 500 }
+      );
+    }
+
+    let extracted: Record<string, any>;
+    try {
+      extracted = parseModelJson(rawText);
+    } catch {
+      return NextResponse.json(
+        {
+          error: `The model's output could not be parsed as JSON. Raw output (first 1500 chars): ${rawText.slice(0, 1500)}`,
+        },
+        { status: 500 }
+      );
+    }
     const maritalStatus = normalizeMaritalStatus(extracted.maritalStatusRaw || "");
 
     return NextResponse.json({
