@@ -76,9 +76,14 @@ export async function GET(req: Request) {
     }
 
     if (!rawText) {
+      // Exclude the echoed "input" field before dumping the run object --
+      // it contains the entire base64-encoded PDF we sent, which would
+      // otherwise eat the whole diagnostic slice before reaching the
+      // actually useful output field.
+      const { input: _omittedInput, ...runWithoutInput } = run;
       return NextResponse.json(
         {
-          error: `The completed run did not contain recognizable text output. Raw run object: ${JSON.stringify(run).slice(0, 1500)}`,
+          error: `The completed run did not contain recognizable text output. Raw run object (input omitted): ${JSON.stringify(runWithoutInput).slice(0, 3000)}`,
         },
         { status: 500 }
       );
