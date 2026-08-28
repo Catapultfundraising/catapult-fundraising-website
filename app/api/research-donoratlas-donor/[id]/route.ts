@@ -59,11 +59,16 @@ async function fetchImageAsDataUri(url: string | null | undefined): Promise<stri
 }
 
 // Maps a raw DonorAtlas APIDonor object onto the subset of ProfileData
-// fields we can reliably populate from it. Fields DonorAtlas doesn't track
-// at all (marital status, spouse, children, phone/email contact info,
-// street-level real estate detail, itemized per-gift-year giving) are
-// simply omitted here -- the profiler fills those in manually or via the
-// existing PDF-upload import, same as before.
+// fields we can reliably populate from it. Verified directly against a live
+// API response (not just the docs): DonorAtlas's donor object genuinely has
+// no marital status, spouse, children/family roster, phone, or email fields
+// anywhere in its schema -- those keys simply don't exist, so they're
+// omitted here and still need the PDF-upload import or manual entry.
+// Street-level real estate detail and itemized per-gift-year giving are
+// also not available in the shape our form expects (real estate DOES exist
+// as an asset type, but only as a value range/description, no address; and
+// donations are aggregated per-nonprofit lifetime totals, not per-gift-year
+// rows) -- both are mapped as best-effort below where DonorAtlas has data.
 function mapDonorToProfileFields(donor: any) {
   const name = donor?.name || {};
   const fullName = [name.first, name.middle, name.last, name.suffix].filter(Boolean).join(" ");
@@ -143,6 +148,16 @@ function mapDonorToProfileFields(donor: any) {
       purchaseInfo: "",
     }));
 
+  // Private foundations the donor is connected to (trustee, founder, etc.) --
+  // maps onto the existing "Family Foundation" field, same as a PDF import
+  // would report from a wealth-screening document's foundation section.
+  const familyFoundation = (Array.isArray(donor?.private_foundations) ? donor.private_foundations : [])
+    .map((f: any) => {
+      const assetsText = f.assets != null ? ` (Assets: ${formatCompactMoney(f.assets)})` : "";
+      return `${f.name}${f.relationship ? `: ${f.relationship}` : ""}${assetsText}`;
+    })
+    .join("\n");
+
   const donationYears = (Array.isArray(donor?.donations) ? donor.donations : []).flatMap(
     (d: any) => (Array.isArray(d.year_range) ? d.year_range : []) as number[]
   );
@@ -162,6 +177,8 @@ function mapDonorToProfileFields(donor: any) {
     estimatedIncome: salaryText,
     givingCapacity,
     wealthRating,
+    religion: donor?.religion || "",
+    familyFoundation,
     additionalInformation: Array.isArray(donor?.bio) ? donor.bio.join("\n\n") : "",
     boards,
     businessAddresses,
