@@ -2,6 +2,20 @@
 const nextConfig = {
   reactStrictMode: true,
   serverExternalPackages: ["@react-pdf/renderer"],
+  // @react-pdf/renderer depends on pdfkit, which loads its built-in font
+  // files (Helvetica.cjs, etc.) dynamically at runtime rather than via a
+  // static import. Next.js's serverless build-tracing can miss these
+  // non-JS asset files, causing "Cannot find module
+  // .../pdfkit/js/standard-fonts/Helvetica.cjs" crashes in every PDF route
+  // even though the code itself is unchanged. Explicitly including them
+  // here guarantees they're bundled into every affected function.
+  outputFileTracingIncludes: {
+    "/api/research-pdf": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
+    "/api/research-pdf-corporate": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
+    "/api/research-pdf-foundation": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
+    "/api/jag-summary-pdf": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
+    "/api/business-card-pdf": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
+  },
   images: {
     remotePatterns: [
       {
