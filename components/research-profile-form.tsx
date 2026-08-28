@@ -40,6 +40,7 @@ import {
   Underline,
   ArrowUp,
   ArrowDown,
+  Search,
   type LucideIcon,
 } from "lucide-react";
 import { parseFormattedText } from "@/lib/rich-text";
@@ -630,6 +631,15 @@ function ResearchProfileFormInner() {
   const [importingPdf, setImportingPdf] = useState(false);
   const [importPdfError, setImportPdfError] = useState<string | null>(null);
   const pdfImportInputRef = useRef<HTMLInputElement>(null);
+  const [daFirstName, setDaFirstName] = useState("");
+  const [daLastName, setDaLastName] = useState("");
+  const [daCity, setDaCity] = useState("");
+  const [daState, setDaState] = useState("");
+  const [searchingDonors, setSearchingDonors] = useState(false);
+  const [donorSearchError, setDonorSearchError] = useState<string | null>(null);
+  const [donorCandidates, setDonorCandidates] = useState<any[]>([]);
+  const [fetchingDonorId, setFetchingDonorId] = useState<string | null>(null);
+  const [donorFetchError, setDonorFetchError] = useState<string | null>(null);
 
   // Load an existing saved profile from the server if ?id= is present;
   // otherwise fall back to the last local draft for a brand new profile.
@@ -829,6 +839,75 @@ function ResearchProfileFormInner() {
       setImportPdfError(err?.message || "Something went wrong importing this PDF.");
     } finally {
       setImportingPdf(false);
+    }
+  }
+
+  async function handleSearchDonors() {
+    setSearchingDonors(true);
+    setDonorSearchError(null);
+    setDonorCandidates([]);
+    try {
+      const res = await fetch("/api/research-donoratlas-search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ firstName: daFirstName, lastName: daLastName, city: daCity, state: daState }),
+      });
+      const body = await safeJson(res);
+      if (!res.ok) {
+        throw new Error(body?.error || `Search failed (server returned ${res.status}).`);
+      }
+      const results = Array.isArray(body?.results) ? body.results : [];
+      setDonorCandidates(results);
+      if (results.length === 0) {
+        setDonorSearchError("No matches found. Try a different name, or add a city/state to narrow it down.");
+      }
+    } catch (err: any) {
+      setDonorSearchError(err?.message || "Something went wrong searching DonorAtlas.");
+    } finally {
+      setSearchingDonors(false);
+    }
+  }
+
+  async function handleSelectDonor(id: string) {
+    setFetchingDonorId(id);
+    setDonorFetchError(null);
+    try {
+      const res = await fetch(`/api/research-donoratlas-donor/${encodeURIComponent(id)}`);
+      const body = await safeJson(res);
+      if (!res.ok) {
+        throw new Error(body?.error || `Could not retrieve this donor (server returned ${res.status}).`);
+      }
+      const fetched = body?.data || {};
+      const photo = body?.photo || "";
+
+      // Same safe-merge rule as the PDF import: a scalar field DonorAtlas
+      // didn't return never blanks out an existing value, and array fields
+      // only replace the current (empty, on a new profile) rows.
+      setData((d) => ({
+        ...d,
+        name: fetched.name || d.name,
+        homeAddress: fetched.homeAddress || d.homeAddress,
+        born: fetched.born || d.born,
+        estimatedNetWorth: fetched.estimatedNetWorth || d.estimatedNetWorth,
+        estimatedIncome: fetched.estimatedIncome || d.estimatedIncome,
+        givingCapacity: fetched.givingCapacity || d.givingCapacity,
+        wealthRating: fetched.wealthRating || d.wealthRating,
+        additionalInformation: fetched.additionalInformation || d.additionalInformation,
+        boards: fetched.boards || d.boards,
+        businessAddresses: fetched.businessAddresses || d.businessAddresses,
+        totalCharitableGiving: fetched.totalCharitableGiving || d.totalCharitableGiving,
+        nonPhilanthropicPoliticalGiving: fetched.nonPhilanthropicPoliticalGiving || d.nonPhilanthropicPoliticalGiving,
+        educationEntries: fetched.educationEntries?.length ? fetched.educationEntries : d.educationEntries,
+        otherGiving: fetched.otherGiving?.length ? fetched.otherGiving : d.otherGiving,
+        realEstate: fetched.realEstate?.length ? fetched.realEstate : d.realEstate,
+        photo: photo || d.photo,
+      }));
+      setDonorCandidates([]);
+      setPdfUrl(null);
+    } catch (err: any) {
+      setDonorFetchError(err?.message || "Something went wrong retrieving this donor from DonorAtlas.");
+    } finally {
+      setFetchingDonorId(null);
     }
   }
 
@@ -1344,6 +1423,104 @@ function ResearchProfileFormInner() {
             {importingPdf ? "Importing..." : "Import from PDF"}
           </button>
           {importPdfError && <p className="mt-2 text-sm text-red-600">{importPdfError}</p>}
+        </div>
+      )}
+
+      {!urlId && (
+        <div className="mt-6 rounded-2xl border border-[rgb(var(--brass))]/40 bg-[rgb(var(--brass))]/10 p-4">
+          <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+            <Search className="h-3.5 w-3.5" />
+            Search DonorAtlas Directly
+          </label>
+          <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
+            Look up a prospect by name to auto-fill wealth, income, giving capacity, education, employment,
+            boards, and photo directly from DonorAtlas&mdash;no PDF needed. DonorAtlas doesn&rsquo;t track marital
+            status, family, or itemized real estate, so those still need the PDF upload or manual entry. Review
+            everything below before saving.
+          </p>
+          <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <input
+              type="text"
+              value={daFirstName}
+              onChange={(e) => setDaFirstName(e.target.value)}
+              placeholder="First name"
+              className="rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm outline-none focus:border-[rgb(var(--brass))]"
+            />
+            <input
+              type="text"
+              value={daLastName}
+              onChange={(e) => setDaLastName(e.target.value)}
+              placeholder="Last name"
+              className="rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm outline-none focus:border-[rgb(var(--brass))]"
+            />
+            <input
+              type="text"
+              value={daCity}
+              onChange={(e) => setDaCity(e.target.value)}
+              placeholder="City (optional)"
+              className="rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm outline-none focus:border-[rgb(var(--brass))]"
+            />
+            <input
+              type="text"
+              value={daState}
+              onChange={(e) => setDaState(e.target.value)}
+              placeholder="State (optional)"
+              className="rounded-lg border border-[rgb(var(--line))] px-3 py-2 text-sm outline-none focus:border-[rgb(var(--brass))]"
+            />
+          </div>
+          <button
+            type="button"
+            onClick={handleSearchDonors}
+            disabled={searchingDonors || (!daFirstName.trim() && !daLastName.trim())}
+            className="mt-3 inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--brass))] disabled:opacity-60"
+          >
+            {searchingDonors ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+            {searchingDonors ? "Searching..." : "Search DonorAtlas"}
+          </button>
+          {donorSearchError && <p className="mt-2 text-sm text-red-600">{donorSearchError}</p>}
+          {donorFetchError && <p className="mt-2 text-sm text-red-600">{donorFetchError}</p>}
+
+          {donorCandidates.length > 0 && (
+            <div className="mt-4 space-y-2">
+              {donorCandidates.map((c) => (
+                <div
+                  key={c.id}
+                  className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[rgb(var(--line))] bg-white p-3"
+                >
+                  <div className="flex items-center gap-3">
+                    {c.primary_photo ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={c.primary_photo} alt={c.name} className="h-12 w-12 rounded-full object-cover" />
+                    ) : (
+                      <div className="flex h-12 w-12 items-center justify-center rounded-full bg-[rgb(var(--paper))] text-[10px] text-[rgb(var(--ink))]/40">
+                        No photo
+                      </div>
+                    )}
+                    <div>
+                      <p className="text-sm font-semibold text-[rgb(var(--navy))]">{c.name}</p>
+                      <p className="text-xs text-[rgb(var(--ink))]/60">
+                        {[c.city, c.state].filter(Boolean).join(", ") || "Location unknown"}
+                        {c.net_worth_min != null && c.net_worth_max != null
+                          ? ` • Net worth $${(c.net_worth_min / 1e6).toFixed(0)}M–$${(c.net_worth_max / 1e6).toFixed(0)}M`
+                          : ""}
+                        {c.giving_capacity ? ` • Capacity $${Math.round(c.giving_capacity / 1000)}K` : ""}
+                      </p>
+                      {c.bio && <p className="mt-0.5 max-w-md text-xs text-[rgb(var(--ink))]/50">{c.bio}</p>}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleSelectDonor(c.id)}
+                    disabled={fetchingDonorId === c.id}
+                    className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--navy))] px-4 py-2 text-xs font-semibold text-[rgb(var(--navy))] transition-colors hover:bg-[rgb(var(--navy))] hover:text-white disabled:opacity-60"
+                  >
+                    {fetchingDonorId === c.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                    {fetchingDonorId === c.id ? "Loading..." : "Use This Profile"}
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -1882,7 +2059,7 @@ function RealEstateCard({
               </button>
             </div>
           )}
-          <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 text-xs font-semibold text-red-600/80 hover:text-red-700">
+          <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 text-xs font-semibold text-red-600/70 hover:text-red-700">
             <Trash2 className="h-3.5 w-3.5" />
             Remove
           </button>
