@@ -84,7 +84,6 @@ function getDrawPositions(
     const pageHeight = page.getHeight();
     const context = pdfDoc.context;
 
-    // @ts-expect-error -- pdf-lib's page node typing doesn't expose Contents() cleanly
     const contentsRef = page.node.Contents();
     const list: unknown[] = Array.isArray((contentsRef as any)?.array)
       ? (contentsRef as any).array
