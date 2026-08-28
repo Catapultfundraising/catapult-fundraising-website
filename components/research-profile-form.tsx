@@ -902,6 +902,7 @@ function ResearchProfileFormInner() {
         educationEntries: fetched.educationEntries?.length ? fetched.educationEntries : d.educationEntries,
         otherGiving: fetched.otherGiving?.length ? fetched.otherGiving : d.otherGiving,
         realEstate: fetched.realEstate?.length ? fetched.realEstate : d.realEstate,
+        fecGiving: fetched.fecGiving?.length ? fetched.fecGiving : d.fecGiving,
         photo: photo || d.photo,
       }));
       setDonorCandidates([]);
