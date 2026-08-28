@@ -10,10 +10,12 @@ const MAGICA_BASE = "https://inference.magica.com/v1";
 
 type MagicaModelSummary = {
   nodeType: string;
+  category?: string;
+  name?: string;
   subModels?: { subModelId: string }[];
 };
 
-let nodeTypeCache: Map<string, string> | null = null;
+let modelsCache: MagicaModelSummary[] | null = null;
 
 async function magicaFetch(path: string, init?: RequestInit) {
   const apiKey = process.env.MAGICA_API_KEY;
@@ -31,45 +33,76 @@ async function magicaFetch(path: string, init?: RequestInit) {
   return res;
 }
 
-// Resolves a subModelId (e.g. "google/gemini-3.1-pro-preview") to the
-// nodeType its /run endpoint lives under, by listing all models once per
-// warm server instance and caching the mapping.
-async function resolveNodeType(subModelId: string): Promise<string> {
-  if (nodeTypeCache?.has(subModelId)) {
-    return nodeTypeCache.get(subModelId)!;
-  }
+async function listModels(): Promise<MagicaModelSummary[]> {
+  if (modelsCache) return modelsCache;
   const res = await magicaFetch("/models");
   if (!res.ok) {
-    throw new Error(`Failed to list Magica models (${res.status}).`);
+    const body = await res.text().catch(() => "");
+    throw new Error(`Failed to list Magica models (${res.status}): ${body}`);
   }
   const models: MagicaModelSummary[] = await res.json();
-  const map = new Map<string, string>();
+  modelsCache = models;
+  return models;
+}
+
+// Resolves a preferred model identifier to the {nodeType, subModelId} pair
+// needed for POST /v1/nodes/{nodeType}/run. Tries an exact match first
+// (against nodeType or any subModels[].subModelId), then falls back to a
+// fuzzy keyword match (all keywords must appear, case-insensitively, in
+// either the nodeType or the subModelId) -- this keeps the integration
+// working even if the exact model naming used by Magica's public API
+// catalog differs slightly from an internal reference name, without
+// needing a code change every time Magica renames or versions a model.
+async function resolveModel(
+  preferredId: string,
+  fuzzyKeywords: string[]
+): Promise<{ nodeType: string; subModelId?: string }> {
+  const models = await listModels();
+
   for (const model of models) {
-    // Some models are addressed directly by nodeType (single-mode models);
-    // others expose multiple subModels under one nodeType.
-    map.set(model.nodeType, model.nodeType);
+    if (model.nodeType === preferredId) return { nodeType: model.nodeType };
     for (const sub of model.subModels || []) {
-      map.set(sub.subModelId, model.nodeType);
+      if (sub.subModelId === preferredId) {
+        return { nodeType: model.nodeType, subModelId: sub.subModelId };
+      }
     }
   }
-  nodeTypeCache = map;
-  const nodeType = map.get(subModelId);
-  if (!nodeType) {
-    throw new Error(`Could not find a Magica model matching "${subModelId}".`);
+
+  const lowerKeywords = fuzzyKeywords.map((k) => k.toLowerCase());
+  const candidates: { nodeType: string; subModelId?: string; id: string }[] = [];
+  for (const model of models) {
+    const nodeMatches = lowerKeywords.every((k) => model.nodeType.toLowerCase().includes(k));
+    if (nodeMatches) candidates.push({ nodeType: model.nodeType, id: model.nodeType });
+    for (const sub of model.subModels || []) {
+      const subMatches = lowerKeywords.every((k) => sub.subModelId.toLowerCase().includes(k));
+      if (subMatches) candidates.push({ nodeType: model.nodeType, subModelId: sub.subModelId, id: sub.subModelId });
+    }
   }
-  return nodeType;
+
+  if (candidates.length === 1) {
+    return candidates[0];
+  }
+
+  const diagnostic = candidates.length > 1
+    ? `Multiple possible matches found: ${candidates.map((c) => c.id).join(", ")}.`
+    : `No model matched "${preferredId}" or keywords [${fuzzyKeywords.join(", ")}]. Available models with "gemini" or "media-understanding" in their name: ${models
+        .flatMap((m) => [m.nodeType, ...((m.subModels || []).map((s) => s.subModelId))])
+        .filter((id) => /gemini|media.?understanding/i.test(id))
+        .join(", ") || "(none found)"}`;
+  throw new Error(`Could not resolve a Magica model for "${preferredId}". ${diagnostic}`);
 }
 
 export async function runMagicaModel(
   subModelId: string,
   input: Record<string, unknown>,
-  opts: { pollIntervalMs?: number; maxAttempts?: number } = {}
+  opts: { pollIntervalMs?: number; maxAttempts?: number; fuzzyKeywords?: string[] } = {}
 ): Promise<any> {
-  const nodeType = await resolveNodeType(subModelId);
+  const fuzzyKeywords = opts.fuzzyKeywords || subModelId.split(/[\/\-.]/).filter(Boolean);
+  const resolved = await resolveModel(subModelId, fuzzyKeywords);
 
-  const startRes = await magicaFetch(`/nodes/${nodeType}/run`, {
+  const startRes = await magicaFetch(`/nodes/${resolved.nodeType}/run`, {
     method: "POST",
-    body: JSON.stringify({ subModelId, input }),
+    body: JSON.stringify({ subModelId: resolved.subModelId ?? subModelId, input }),
   });
   if (!startRes.ok) {
     const body = await startRes.text().catch(() => "");
@@ -99,7 +132,7 @@ export async function runMagicaModel(
     throw new Error("The PDF import timed out before Magica finished processing it.");
   }
   if (run.status !== "COMPLETED") {
-    throw new Error(`Magica run ended with status ${run.status}.`);
+    throw new Error(`Magica run ended with status ${run.status}: ${JSON.stringify(run.error ?? "")}`);
   }
   return run.output ?? run.response ?? run;
 }
