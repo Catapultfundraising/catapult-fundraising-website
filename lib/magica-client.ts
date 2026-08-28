@@ -115,7 +115,7 @@ export async function runMagicaModel(
 
   const terminal = new Set(["COMPLETED", "FAILED", "CANCELED"]);
   const pollIntervalMs = opts.pollIntervalMs ?? 2000;
-  const maxAttempts = opts.maxAttempts ?? 60;
+  const maxAttempts = opts.maxAttempts ?? 125;
 
   let run: any = null;
   for (let attempt = 0; attempt < maxAttempts; attempt++) {
