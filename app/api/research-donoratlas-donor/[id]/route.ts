@@ -69,6 +69,10 @@ async function fetchImageAsDataUri(url: string | null | undefined): Promise<stri
 // as an asset type, but only as a value range/description, no address; and
 // donations are aggregated per-nonprofit lifetime totals, not per-gift-year
 // rows) -- both are mapped as best-effort below where DonorAtlas has data.
+// `political_stats` is likewise a pure aggregate (total, average, per-year,
+// party/chamber splits) with NO itemized recipient-committee list anywhere
+// in the schema, so a single labeled "aggregate" row is synthesized into
+// the FEC table below rather than leaving it silently empty.
 function mapDonorToProfileFields(donor: any) {
   const name = donor?.name || {};
   const fullName = [name.first, name.middle, name.last, name.suffix].filter(Boolean).join(" ");
@@ -169,6 +173,42 @@ function mapDonorToProfileFields(donor: any) {
       }`
     : "";
 
+  // FEC / political giving: political_stats is a pure aggregate (no named
+  // committees, no per-donation rows anywhere in the schema), so this
+  // synthesizes ONE clearly-labeled summary row from the per-year breakdown
+  // rather than leaving the FEC table silently empty when a total exists.
+  const politicalStats = donor?.political_stats;
+  const politicalPerYear: Record<string, number> =
+    politicalStats && typeof politicalStats.per_year === "object" ? politicalStats.per_year : {};
+  const activePoliticalYears = Object.entries(politicalPerYear)
+    .filter(([, amt]) => Number(amt) > 0)
+    .map(([yr]) => Number(yr));
+  const politicalYearRange = activePoliticalYears.length
+    ? activePoliticalYears.length === 1
+      ? String(activePoliticalYears[0])
+      : `${Math.min(...activePoliticalYears)} - ${Math.max(...activePoliticalYears)}`
+    : "";
+  const fecGiving =
+    politicalStats && politicalStats.total_amt
+      ? [
+          {
+            org: "Federal/State/Local Political Committees (DonorAtlas aggregate total -- not itemized by recipient)",
+            year: politicalYearRange,
+            amount: formatPreciseMoney(politicalStats.total_amt),
+          },
+        ]
+      : [];
+
+  // Bio: falls back to the donor's top_issues explanations (which often
+  // contain rich biographical narrative tied to specific causes) whenever
+  // DonorAtlas hasn't generated a dedicated bio for this particular donor.
+  const bioText = Array.isArray(donor?.bio) && donor.bio.length
+    ? donor.bio.join("\n\n")
+    : (Array.isArray(donor?.top_issues) ? donor.top_issues : [])
+        .map((t: any) => t?.description)
+        .filter(Boolean)
+        .join("\n\n");
+
   return {
     name: fullName,
     homeAddress: formatAddress(donor?.mailing_address),
@@ -179,12 +219,13 @@ function mapDonorToProfileFields(donor: any) {
     wealthRating,
     religion: donor?.religion || "",
     familyFoundation,
-    additionalInformation: Array.isArray(donor?.bio) ? donor.bio.join("\n\n") : "",
+    additionalInformation: bioText,
     boards,
     businessAddresses,
     educationEntries,
     otherGiving,
     realEstate,
+    fecGiving,
     totalCharitableGiving,
     nonPhilanthropicPoliticalGiving:
       donor?.political_stats?.total_amt != null ? formatPreciseMoney(donor.political_stats.total_amt) : "",
