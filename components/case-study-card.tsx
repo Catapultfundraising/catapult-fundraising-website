@@ -12,7 +12,7 @@ export function CaseStudyCard({ caseStudy }: { caseStudy: CaseStudy }) {
       <div className="relative aspect-[16/9] overflow-hidden">
         <Image
           src={caseStudy.image}
-          alt=""
+          alt={`${caseStudy.title} -- ${caseStudy.sector} case study`}
           fill
           sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
           quality={60}

@@ -14,7 +14,7 @@ export function PageHero({ eyebrow, title, description, backgroundImage }: PageH
         <>
           <Image
             src={backgroundImage}
-            alt=""
+            alt={title}
             fill
             priority
             sizes="100vw"

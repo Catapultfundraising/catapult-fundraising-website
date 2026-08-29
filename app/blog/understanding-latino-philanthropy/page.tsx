@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "Understanding Latino Philanthropy: Lessons for Nonprofit Fundraisers",
+  datePublished: "2026-08-12",
+  dateModified: "2026-08-12",
   description:
     "Why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates.",
   author: {
@@ -245,7 +247,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Seven words to frame any case for support
         </h2>
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
               src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38fc26f7-1dd7-4f66-b411-2ea420fc5618.png"

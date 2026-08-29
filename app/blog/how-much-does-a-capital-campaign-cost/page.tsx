@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "How Much Does a Capital Campaign Cost?",
+  datePublished: "2026-08-07",
+  dateModified: "2026-08-07",
   description:
     "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
   author: {

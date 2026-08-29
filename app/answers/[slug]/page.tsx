@@ -5,6 +5,14 @@ import { CtaBand } from "@/components/cta-band";
 import { ANSWERS, getAnswerBySlug } from "@/lib/answers";
 
 const SITE_URL = "https://www.catapultfr.com";
+// Every /answers page renders from this one shared data file, so they all
+// share its own last-real-edit date rather than needing a per-question
+// publish calendar. Surfaced both in the FAQPage schema's dateModified and
+// as visible on-page text -- answer engines and human readers alike weigh
+// a dated source over an undated one when picking between two sources that
+// say the same thing.
+const ANSWERS_LAST_MODIFIED = "2026-08-29";
+const ANSWERS_LAST_MODIFIED_DISPLAY = "August 29, 2026";
 
 export function generateStaticParams() {
   return ANSWERS.map((a) => ({ slug: a.slug }));
@@ -19,8 +27,18 @@ export async function generateMetadata({
   const a = getAnswerBySlug(slug);
   if (!a) return {};
   return {
-    title: a.question,
-    description: a.answer[0],
+    // `title: { absolute: ... }` bypasses the root layout's
+    // `"%s | Catapult Fundraising"` template entirely, rather than letting
+    // it append the 23-character brand suffix on top of these titles. That
+    // suffix pushed several of these titles well past the ~60-character
+    // point where Google truncates a result mid-sentence (one hit 125
+    // characters). These are AEO-first answer pages already carrying
+    // "Catapult Fundraising" in their own on-page content, so the suffix
+    // was redundant, not identifying. `metaTitle` (a hand-shortened title
+    // for the handful of questions whose full phrasing runs long) falls
+    // back to the full on-page question when a page doesn't need one.
+    title: { absolute: a.metaTitle ?? a.question },
+    description: a.metaDescription ?? a.answer[0],
     alternates: { canonical: `/answers/${a.slug}` },
   };
 }
@@ -39,11 +57,16 @@ export default async function AnswerPage({
     "@graph": [
       {
         "@type": "FAQPage",
+        dateModified: ANSWERS_LAST_MODIFIED,
         mainEntity: [
           {
             "@type": "Question",
             name: a.question,
-            acceptedAnswer: { "@type": "Answer", text: a.answer.join(" ") },
+            acceptedAnswer: {
+              "@type": "Answer",
+              text: a.answer.join(" "),
+              dateModified: ANSWERS_LAST_MODIFIED,
+            },
           },
         ],
       },
@@ -83,6 +106,10 @@ export default async function AnswerPage({
           <ArrowLeft className="h-4 w-4" />
           More fundraising questions, answered
         </Link>
+
+        <p className="mt-4 text-xs uppercase tracking-wider text-[rgb(var(--ink))]/40">
+          Last updated {ANSWERS_LAST_MODIFIED_DISPLAY}
+        </p>
 
         <div className="mt-8 space-y-5">
           {a.answer.map((para, i) => (

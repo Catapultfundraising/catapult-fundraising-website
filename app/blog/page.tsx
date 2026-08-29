@@ -4,6 +4,8 @@ import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { ArrowRight } from "lucide-react";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 export const metadata = {
   title: "Fundraising Insights & Best Practices",
   description:
@@ -21,6 +23,25 @@ export const metadata = {
     "Latino philanthropy",
   ],
   alternates: { canonical: "/blog" },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "Blog",
+  name: "Fundraising Insights & Best Practices",
+  description:
+    "Practical guidance on capital campaigns, major gift asks, legacy giving, and donor engagement from Catapult Fundraising's consulting team.",
+  url: `${SITE_URL}/blog`,
+  publisher: { "@id": `${SITE_URL}/#organization` },
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+    { "@type": "ListItem", position: 2, name: "Blog", item: `${SITE_URL}/blog` },
+  ],
 };
 
 const FEATHER = {
@@ -165,6 +186,8 @@ const POSTS = [
 export default function BlogIndexPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <PageHero
         eyebrow="Insights"
         title="Practical guidance for nonprofit fundraising leaders."
@@ -196,7 +219,7 @@ export default function BlogIndexPage() {
                   <h2 className="mt-3 font-display text-2xl text-[rgb(var(--navy))] sm:text-3xl lg:text-[32px]">
                     {post.title}
                   </h2>
-                  <p className="mt-4 max-w-3xl text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+                  <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
                     {post.description}
                   </p>
                   <span className="mt-6 inline-flex items-center gap-2 font-semibold text-[rgb(var(--navy))]">

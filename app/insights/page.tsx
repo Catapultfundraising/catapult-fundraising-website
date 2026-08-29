@@ -5,11 +5,32 @@ import { CtaBand } from "@/components/cta-band";
 import { CaseStudyCard } from "@/components/case-study-card";
 import { CASE_STUDIES } from "@/lib/case-studies";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 export const metadata = {
   title: "Insights",
   description:
     "Articles and case studies on capital campaigns, telefundraising, and donor engagement from the Catapult Fundraising team.",
   alternates: { canonical: "/insights" },
+};
+
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: "Insights",
+  description:
+    "Articles and case studies on capital campaigns, telefundraising, and donor engagement from the Catapult Fundraising team.",
+  url: `${SITE_URL}/insights`,
+  isPartOf: { "@id": `${SITE_URL}/#organization` },
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+    { "@type": "ListItem", position: 2, name: "Insights", item: `${SITE_URL}/insights` },
+  ],
 };
 
 const ARTICLE_PREVIEWS = [
@@ -39,6 +60,8 @@ const ARTICLE_PREVIEWS = [
 export default function InsightsPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <PageHero
         eyebrow="Insights"
         title="Field notes from three decades of capital campaigns and donor calling programs."

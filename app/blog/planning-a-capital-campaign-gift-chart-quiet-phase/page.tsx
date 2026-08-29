@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "Planning a Capital Campaign: The Gift Chart and Quiet Phase",
+  datePublished: "2026-08-12",
+  dateModified: "2026-08-12",
   description:
     "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign.",
   author: {

@@ -3,6 +3,8 @@ import { CtaBand } from "@/components/cta-band";
 import { CaseStudyCard } from "@/components/case-study-card";
 import { CASE_STUDIES } from "@/lib/case-studies";
 
+const SITE_URL = "https://www.catapultfr.com";
+
 export const metadata = {
   title: "Case Studies | Insights | Catapult Fundraising",
   description:
@@ -10,9 +12,31 @@ export const metadata = {
   alternates: { canonical: "/insights/case-studies" },
 };
 
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  name: "Case Studies",
+  description:
+    "Documented results from Catapult Fundraising's capital campaign, calling program, and legacy giving engagements.",
+  url: `${SITE_URL}/insights/case-studies`,
+  isPartOf: { "@id": `${SITE_URL}/#organization` },
+};
+
+const breadcrumbJsonLd = {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  itemListElement: [
+    { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+    { "@type": "ListItem", position: 2, name: "Insights", item: `${SITE_URL}/insights` },
+    { "@type": "ListItem", position: 3, name: "Case Studies", item: `${SITE_URL}/insights/case-studies` },
+  ],
+};
+
 export default function CaseStudiesPage() {
   return (
     <>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <PageHero
         eyebrow="Insights / Case Studies"
         title="Documented results from our partnerships."

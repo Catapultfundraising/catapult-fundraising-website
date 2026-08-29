@@ -51,6 +51,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "Giving USA 2026: Record Giving, the Great Wealth Transfer, and the Ask We Keep Avoiding",
+  datePublished: "2026-08-12",
+  dateModified: "2026-08-12",
   description:
     "What Giving USA 2026's record $617.2 billion and a 19.7% jump in bequest giving mean for nonprofits, as the Baby Boomer generation ages into the largest wealth transfer in history.",
   author: {

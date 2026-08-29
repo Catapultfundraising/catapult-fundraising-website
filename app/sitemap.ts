@@ -29,21 +29,58 @@ function frequencyFor(route: string): "weekly" | "monthly" {
 // current build time. A sitemap where every page always says "modified
 // today" is a well-known freshness-signal red flag that search engines
 // increasingly discount -- accurate dates are a stronger, more trustworthy
-// signal. FALLBACK_DATE covers older pages that predate this dating system;
-// update an entry here whenever that page's content actually changes.
+// signal. Every date below was pulled from this route's own page file's
+// real git history (or the shared data file it renders from, for the
+// dynamic /answers and case-study routes), not guessed. FALLBACK_DATE
+// covers any future route added here without a matching entry -- update
+// this map whenever a route's content actually changes rather than relying
+// on the fallback.
 const ROUTE_LAST_MODIFIED: Record<string, string> = {
-  "": "2026-08-02",
-  "/about": "2026-08-02",
-  "/our-team": "2026-08-02",
-  "/contact": "2026-08-02",
-  "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices": "2026-07-22",
-  "/blog/giving-usa-2026-record-giving-wealth-transfer": "2026-07-25",
-  "/blog/why-a-feasibility-study-matters-before-a-capital-campaign": "2026-08-26",
+  "": "2026-08-17",
+  "/about": "2026-08-12",
+  "/our-team": "2026-08-12",
+  "/contact": "2026-08-03",
+  "/results": "2026-08-12",
+  "/services/capital-campaign": "2026-08-17",
+  "/services/legacy-giving": "2026-08-17",
+  "/services/donor-engagement": "2026-08-17",
+  "/services/annual-fund": "2026-08-17",
+  "/insights": "2026-08-29",
+  "/insights/case-studies": "2026-08-29",
+  "/insights/case-studies/legacy-call-northeast-university": "2026-08-29",
+  "/insights/case-studies/legacy-call-new-jersey-hospital": "2026-08-29",
+  "/insights/case-studies/legacy-calls-hill-school": "2026-08-29",
+  "/insights/case-studies/legacy-call-international-ministry": "2026-08-29",
+  "/insights/case-studies/legacy-call-presidential-library": "2026-08-29",
+  "/insights/case-studies/af-connect-special-olympics-indiana": "2026-08-29",
+  "/blog": "2026-08-29",
+  "/blog/why-a-feasibility-study-matters-before-a-capital-campaign": "2026-08-29",
+  "/blog/giving-usa-2026-record-giving-wealth-transfer": "2026-08-29",
+  "/blog/how-much-does-a-capital-campaign-cost": "2026-08-29",
+  "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices": "2026-08-12",
+  "/blog/understanding-latino-philanthropy": "2026-08-29",
+  "/blog/the-ask-ladder-structuring-a-major-gift-solicitation": "2026-08-29",
+  "/blog/planning-a-capital-campaign-gift-chart-quiet-phase": "2026-08-29",
+  "/blog/growing-your-legacy-society-why-arent-we-asking": "2026-08-29",
+  "/blog/seven-touchpoints-donor-loyalty-between-asks": "2026-08-29",
+  "/blog/key-steps-for-soliciting-major-donors": "2026-08-29",
+  "/blog/how-to-effectively-use-the-phone-today": "2026-08-29",
+  "/blog/multi-channel-fundraising-are-you-missing-the-mark": "2026-08-29",
+  "/blog/the-state-of-fundraising-in-nevada": "2026-08-29",
+  "/blog/catapult-vs-fundraising-consultants": "2026-08-12",
+  "/blog/national-make-a-will-month-planned-giving-conversation": "2026-08-29",
+  "/answers": "2026-08-29",
 };
 
-const FALLBACK_DATE = "2026-07-22";
+// Every /answers/[slug] page renders from the single shared lib/answers.ts
+// data file, so they all share that file's own last-real-edit date rather
+// than needing 31 separate entries above.
+const ANSWERS_LAST_MODIFIED = "2026-08-29";
+
+const FALLBACK_DATE = "2026-08-29";
 
 function lastModifiedFor(route: string): Date {
+  if (route.startsWith("/answers/")) return new Date(ANSWERS_LAST_MODIFIED);
   return new Date(ROUTE_LAST_MODIFIED[route] ?? FALLBACK_DATE);
 }
 

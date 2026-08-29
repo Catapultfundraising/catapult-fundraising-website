@@ -51,6 +51,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "National Make a Will Month: The Planned Giving Conversation You Keep Avoiding",
+  datePublished: "2026-08-13",
+  dateModified: "2026-08-13",
   description:
     "August is National Make a Will Month, and it just handed fundraisers a low-pressure reason to finally start the bequest conversation. Here's why the donors you're most nervous to ask are often the ones most ready to say yes.",
   author: {

@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "How to Effectively Use the Phone Today",
+  datePublished: "2026-08-07",
+  dateModified: "2026-08-07",
   description:
     "Anthony R. Alonso on why telefundraising is far from dead, and the two-step, personalized method that lifts gift sizes 25 to 30 percent.",
   author: {

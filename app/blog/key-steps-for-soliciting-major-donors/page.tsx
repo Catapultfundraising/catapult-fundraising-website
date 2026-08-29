@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "Key Steps for Soliciting Major Donors",
+  datePublished: "2026-08-12",
+  dateModified: "2026-08-12",
   description:
     "Catapult's four-right rule for turning long-time supporters into major gift donors: the right person asking the right prospect for the right amount at the right time.",
   author: {
