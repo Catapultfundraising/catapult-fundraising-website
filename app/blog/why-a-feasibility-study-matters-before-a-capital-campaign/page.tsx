@@ -53,6 +53,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "Why a Feasibility Study Matters Before a Capital Campaign",
+  datePublished: "2026-08-26",
+  dateModified: "2026-08-26",
   description:
     "Campaigns rarely struggle because the mission is weak. They struggle because nobody checked whether the goal, leadership, project, and donor base lined up before the campaign went public.",
   image: `${SITE_URL}${HERO_IMAGE}`,
