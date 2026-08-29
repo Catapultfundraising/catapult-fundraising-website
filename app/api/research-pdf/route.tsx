@@ -411,20 +411,26 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   // little of its content following it") does NOT take effect here,
   // confirmed by direct testing -- it has no effect on this absolutely-
   // positioned hanging-indent label, unlike a plain flowing Text node. The
-  // manual substitute: guarantee at least the first ~600 characters of a
-  // long value (about half a page of text -- covers the common case,
-  // e.g. "Relationship to Organization", entirely) render together with
-  // its label in ONE wrap={false} block, so the label never appears alone
-  // (or with just a dangling line or two) at the very bottom of a page --
-  // implementing the rule that a new section starting near the bottom of
-  // a page should move to the next page if it doesn't fit. The chunk size
-  // is capped, NOT the whole value, so a value much longer than 600
-  // characters (e.g. a very long "Additional Information") still safely
-  // continues wrapping across further pages afterward, instead of
-  // becoming one indivisible block that could be taller than any single
-  // page -- the same failure mode already fixed for "Boards" (a wrap={false}
-  // block taller than a page can't be placed by react-pdf at all,
-  // producing a blank page and silently dropped content).
+  // manual substitute: guarantee at least a short first chunk of a long
+  // value renders together with its label in ONE wrap={false} block, so
+  // the label never appears completely alone at the very bottom of a page.
+  //
+  // This chunk is deliberately kept SMALL (a sentence or two, not a big
+  // fraction of a page) -- an earlier version guaranteed ~600 characters
+  // (roughly half a page) together as one indivisible block. That was too
+  // large: whenever a long list-style field (e.g. "Boards") started
+  // partway down a page, react-pdf placed that whole 600-character block,
+  // then found too little room left for even the first line of the
+  // independently-wrapping "rest" of the value, and deferred the entire
+  // remainder to the next page -- wasting up to half the current page as
+  // blank space and making the section look like it "broke" across pages
+  // (confirmed by direct before/after rendering comparison: page fill
+  // dropped from ~48% used to ~93% used after shrinking this chunk, and
+  // the document dropped a full page as a result). A small guaranteed
+  // chunk still prevents the label from ever standing alone, while letting
+  // the bulk of a long value wrap and paginate naturally line-by-line, so
+  // it always fills whatever room remains on the current page before
+  // continuing on the next one.
   const isLong = value.length > 200 || value.includes("\n");
   if (!isLong) {
     return (
@@ -434,7 +440,7 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
       </View>
     );
   }
-  const [firstChunk, rest] = splitFirstChunk(value, 600);
+  const [firstChunk, rest] = splitFirstChunk(value, 120);
   if (!rest) {
     return (
       <View style={styles.fieldRowLong} wrap={false}>
