@@ -54,7 +54,8 @@ const jsonLd = {
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
-  datePublished: "2026",
+  datePublished: "2026-08-07",
+  dateModified: "2026-08-07",
 };
 
 const RANK_ROWS = [
