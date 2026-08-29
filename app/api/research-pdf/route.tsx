@@ -867,6 +867,10 @@ function ProfileDocument({ data }: { data: any }) {
       ["Cumulative Giving to Organization", sumAmounts(data.givingHistoryRows), "gift"],
       ["Non-Philanthropic Political Giving", fmtMoney(data.nonPhilanthropicPoliticalGiving), "dollar"],
     ],
+    [
+      ["Estimated Liquidity", fmtMoney(data.estimatedLiquidity), "dollar"],
+      ["", "", "dollar"],
+    ],
   ];
   const wealthRows: Array<Array<[string, string, IconName]>> = WEALTH_PAIRS.filter(
     ([left, right]) => left[1] || right[1]
@@ -922,7 +926,7 @@ function ProfileDocument({ data }: { data: any }) {
           <View style={styles.wealthPanel}>
             {wealthRows.map((row, ri) => (
               <View style={[styles.wealthRowMulti, { marginTop: ri > 0 ? 8 : 0 }]} key={ri}>
-                {row.map(([label, value, icon]) => (
+                {row.filter(([label]) => label).map(([label, value, icon]) => (
                   <View style={styles.wealthCell} key={label}>
                     <View style={styles.wealthCellLabelRow}>
                       <IconGlyph name={icon} color={BRASS} size={9} />
@@ -1009,6 +1013,8 @@ function ProfileDocument({ data }: { data: any }) {
         <FieldRow label="Home Address" value={data.homeAddress} />
         <FieldRow label="Born" value={data.born} />
         <FieldRow label="Marital Status" value={data.maritalStatus} />
+        <FieldRow label="Spouse" value={data.spouseName} />
+        <FieldRow label="Parents" value={data.parentsNames} />
         <MiniTable
           title="Children"
           icon="users"
@@ -1092,6 +1098,17 @@ function ProfileDocument({ data }: { data: any }) {
           </View>
         )}
 
+        {data.otherAssets?.length > 0 && (
+          <MiniTable
+            title="Other Assets"
+            icon="dollar"
+            headers={["ASSET", "TYPE", "VALUE"]}
+            colWidths={["40%", "30%", "30%"]}
+            rows={data.otherAssets}
+            renderRow={(row: any) => [row.name || "", row.type || "", fmtMoneyExpanded(row.value)]}
+          />
+        )}
+
         <FieldRow label="Business Address(es) & Phone(s)" value={data.businessAddresses} />
         <FieldRow label="Family Foundation" value={data.familyFoundation} />
         <FieldRow label="Additional Information" value={data.additionalInformation} />
@@ -1144,6 +1161,8 @@ function ProfileDocument({ data }: { data: any }) {
             renderRow={(row: any) => [row.org || "", row.year || "", fmtMoneyExpanded(row.amount)]}
           />
         )}
+
+        <FieldRow label="Liquidity Notes" value={data.liquidityExplanation} />
         </View>
       </Page>
     </Document>
