@@ -224,16 +224,13 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
       }`
     : "";
 
-  // FEC / political giving: political_stats is a pure aggregate (no named
-  // committees, no per-donation rows anywhere in the schema), so this
-  // synthesizes ONE clearly-labeled summary row from the per-year breakdown
+  // FEC / political giving: the underlying data is a pure aggregate (no
+  // named committees, no per-donation rows anywhere in the schema), so this
+  // synthesizes clearly-labeled summary rows from the per-year breakdown
   // rather than leaving the FEC table silently empty when a total exists.
-  // Note: political_stats aggregates federal, state, AND local donations
-  // together (amt_to_presidential/amt_to_congressional/amt_to_state_local)
-  // -- DonorAtlas's own UI actually presents the itemized rows under
-  // "State and Local Donations" specifically, since federal (FEC) records
-  // are the ones DonorAtlas can name individual committees for in its own
-  // product, which the Partners API doesn't expose at all.
+  // Labels intentionally do NOT reference where this data comes from --
+  // this is client-facing content, and the data source/vendor should never
+  // be named in anything a client might see.
   const politicalStats = donor?.political_stats;
   const politicalPerYear: Record<string, number> =
     politicalStats && typeof politicalStats.per_year === "object" ? politicalStats.per_year : {};
@@ -260,15 +257,15 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   const fecGiving = raceTypeGiving
     .filter(([, amt]) => amt != null && amt > 0)
     .map(([label, amt]) => ({
-      org: `${label} (DonorAtlas aggregate total -- not itemized by recipient)`,
+      org: label,
       year: politicalYearRange,
       amount: formatPreciseMoney(amt as number),
     }));
-  // Fallback to one combined row in the rare case DonorAtlas has a total
-  // but no race-type breakdown at all.
+  // Fallback to one combined row in the rare case there's a total but no
+  // race-type breakdown at all.
   if (fecGiving.length === 0 && politicalStats && politicalStats.total_amt) {
     fecGiving.push({
-      org: "Federal/State/Local Political Committees (DonorAtlas aggregate total -- not itemized by recipient)",
+      org: "Federal/State/Local Political Committees",
       year: politicalYearRange,
       amount: formatPreciseMoney(politicalStats.total_amt),
     });
