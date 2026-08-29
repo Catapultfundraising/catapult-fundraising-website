@@ -891,42 +891,42 @@ function ResearchProfileFormInner() {
         throw new Error("The PDF import is taking longer than expected. Please try again in a moment.");
       }
 
-      // Merge extracted fields onto the existing profile WITHOUT blindly
-      // spreading `...extracted` over everything: if this import run
-      // failed to find a particular scalar field (e.g. the model missed
-      // "Estimated Income" on this pass -- extraction isn't perfectly
-      // deterministic), extracted.<field> comes back as an empty string,
-      // and a raw `...extracted` spread would silently blank out an
-      // already-good value from a prior import or manual entry. Every
-      // scalar field extraction can return is merged with `|| d.<field>`
-      // so a miss on one field never erases previously-entered data for
-      // that same field. Array fields already used `??` (not `||`) since
-      // an empty array can be a genuine finding (e.g. "no boards listed")
-      // rather than a miss -- that's intentionally left as-is.
+      // Merge extracted fields onto the existing profile as FILL-IN-THE-
+      // BLANKS ONLY: whatever is already in the profile (typed manually or
+      // pulled in from DonorAtlas) always wins, and the PDF import only
+      // supplies a value when that field is still empty on this profile.
+      // This is deliberately the opposite priority from a plain field-by-
+      // field overwrite -- the PDF import's job is to backfill fields
+      // DonorAtlas doesn't cover at all (e.g. Real Estate), not to replace
+      // anything already populated. Every scalar field uses `d.<field> ||
+      // extracted.<field>` (existing value first); every array field uses
+      // `d.<field>.length ? d.<field> : (extracted.<field> ?? d.<field>)`
+      // (existing rows first, only falling back to extracted rows when the
+      // profile's own array is still empty).
       setData((d) => ({
         ...d,
-        name: extracted.name || d.name,
-        homeAddress: extracted.homeAddress || d.homeAddress,
-        born: extracted.born || d.born,
-        maritalStatus: extracted.maritalStatus || d.maritalStatus,
-        estimatedNetWorth: extracted.estimatedNetWorth || d.estimatedNetWorth,
-        estimatedIncome: extracted.estimatedIncome || d.estimatedIncome,
-        givingCapacity: extracted.givingCapacity || d.givingCapacity,
-        wealthRating: extracted.wealthRating || d.wealthRating,
-        relationshipToOrg: extracted.relationshipToOrg || d.relationshipToOrg,
-        additionalInformation: extracted.additionalInformation || d.additionalInformation,
-        boards: extracted.boards || d.boards,
-        businessAddresses: extracted.businessAddresses || d.businessAddresses,
-        totalCharitableGiving: extracted.totalCharitableGiving || d.totalCharitableGiving,
-        childrenRows: extracted.childrenRows ?? d.childrenRows,
-        educationEntries: extracted.educationEntries ?? d.educationEntries,
-        realEstate: extracted.realEstate ?? d.realEstate,
-        otherGiving: extracted.otherGiving ?? d.otherGiving,
-        fecGiving: extracted.fecGiving ?? d.fecGiving,
-        phones: extracted.phones ?? d.phones,
-        emails: extracted.emails ?? d.emails,
-        givingHistoryRows: extracted.givingHistoryRows ?? d.givingHistoryRows,
-        photo: photo || d.photo,
+        name: d.name || extracted.name,
+        homeAddress: d.homeAddress || extracted.homeAddress,
+        born: d.born || extracted.born,
+        maritalStatus: d.maritalStatus || extracted.maritalStatus,
+        estimatedNetWorth: d.estimatedNetWorth || extracted.estimatedNetWorth,
+        estimatedIncome: d.estimatedIncome || extracted.estimatedIncome,
+        givingCapacity: d.givingCapacity || extracted.givingCapacity,
+        wealthRating: d.wealthRating || extracted.wealthRating,
+        relationshipToOrg: d.relationshipToOrg || extracted.relationshipToOrg,
+        additionalInformation: d.additionalInformation || extracted.additionalInformation,
+        boards: d.boards || extracted.boards,
+        businessAddresses: d.businessAddresses || extracted.businessAddresses,
+        totalCharitableGiving: d.totalCharitableGiving || extracted.totalCharitableGiving,
+        childrenRows: d.childrenRows.length ? d.childrenRows : extracted.childrenRows ?? d.childrenRows,
+        educationEntries: d.educationEntries.length ? d.educationEntries : extracted.educationEntries ?? d.educationEntries,
+        realEstate: d.realEstate.length ? d.realEstate : extracted.realEstate ?? d.realEstate,
+        otherGiving: d.otherGiving.length ? d.otherGiving : extracted.otherGiving ?? d.otherGiving,
+        fecGiving: d.fecGiving.length ? d.fecGiving : extracted.fecGiving ?? d.fecGiving,
+        phones: d.phones.length ? d.phones : extracted.phones ?? d.phones,
+        emails: d.emails.length ? d.emails : extracted.emails ?? d.emails,
+        givingHistoryRows: d.givingHistoryRows.length ? d.givingHistoryRows : extracted.givingHistoryRows ?? d.givingHistoryRows,
+        photo: d.photo || photo,
       }));
       setPdfUrl(null);
     } catch (err: any) {
