@@ -9,7 +9,7 @@ export function SiteFooter() {
       <div className="mx-auto grid max-w-7xl gap-10 px-6 py-16 lg:grid-cols-5 lg:px-10">
         <div className="lg:col-span-2">
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png"
+            src="/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp"
             alt="Catapult Fundraising"
             // Source file is actually 1536x1024 (3:2); 880x760 (~1.16:1)
             // didn't match, which is what HubSpot's SEO scan flagged as an
