@@ -27,6 +27,12 @@ const EXTRACTION_PROMPT = `Extract this wealth-screening profile into this exact
   "childrenRows": [{"name": string, "age": string, "otherInfo": string}],
   "educationEntries": [{"institution": string, "degree": string, "year": string}],
   "realEstate": [{"address": string, "description": string, "value": string, "purchaseInfo": string}],
+  "otherAssets": [{"name": string, "type": string (e.g. "public equity", "private equity"), "value": string}] (non-real-estate holdings/investments -- do NOT include real estate here, that goes in realEstate above),
+  "estimatedLiquidity": string (a liquid/readily-available assets figure or range if the document states one, distinct from total net worth),
+  "liquidityExplanation": string (any narrative explaining what makes up the liquidity figure, if present),
+  "spouseName": string (spouse's name if stated -- do NOT put this in maritalStatusRaw, use this dedicated field),
+  "parentsNames": string (parent(s)' name(s) if stated),
+  "hobbiesInterests": string (hobbies, interests, or philanthropic interest areas/causes if stated),
   "otherGiving": [{"recipient": string, "giving": string (category), "year": string, "amount": string}],
   "fecGiving": [{"org": string, "year": string, "amount": string}],
   "totalCharitableGiving": string
