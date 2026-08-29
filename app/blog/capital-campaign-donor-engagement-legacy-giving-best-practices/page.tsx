@@ -29,7 +29,7 @@ export const metadata = {
     description:
       "Feasibility studies, gift charts, donor upgrade paths, and legacy call scripts, the practical playbook nonprofits use to raise more at every donor level.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a5f9279c-f719-4630-a417-9b3588a39175.png", width: 1536, height: 1024, alt: "A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together" }],
+    images: [{ url: "/images/generated/a5f9279c-f719-4630-a417-9b3588a39175.webp", width: 1536, height: 1024, alt: "A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together" }],
   },
 };
 
@@ -74,7 +74,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -108,7 +108,7 @@ export default function BestPracticesPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
         <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a5f9279c-f719-4630-a417-9b3588a39175.png"
+            src="/images/generated/a5f9279c-f719-4630-a417-9b3588a39175.webp"
             alt="A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together"
             fill
             className="object-cover"
@@ -143,7 +143,7 @@ export default function BestPracticesPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/28ad8777-c22b-4b31-987b-dd5a1d20e250.png"
+              src="/images/generated/28ad8777-c22b-4b31-987b-dd5a1d20e250.webp"
               alt="Infographic: Capital Campaign Best Practices five-step checklist"
               fill
               className="object-cover"
@@ -197,7 +197,7 @@ export default function BestPracticesPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/56e126d5-d08c-4595-b167-182bc38693df.png"
+              src="/images/generated/56e126d5-d08c-4595-b167-182bc38693df.webp"
               alt="Infographic: Mid-Level Donor Engagement Best Practices four-step checklist"
               fill
               className="object-cover"
@@ -243,7 +243,7 @@ export default function BestPracticesPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9db71df8-8c88-415d-9f42-a7f112c48a78.png"
+              src="/images/generated/9db71df8-8c88-415d-9f42-a7f112c48a78.webp"
               alt="Infographic: Legacy Giving Best Practices four-step checklist"
               fill
               className="object-cover"
