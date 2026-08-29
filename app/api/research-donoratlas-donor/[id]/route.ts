@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getDonorById, exportDonorFields } from "@/lib/donoratlas-client";
+import { formatPhoneNumber } from "@/lib/phone-format";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -162,8 +163,8 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
       value:
         a.value_min != null && a.value_max != null
           ? a.value_min === a.value_max
-            ? formatCompactMoney(a.value_min)
-            : `${formatCompactMoney(a.value_min)} - ${formatCompactMoney(a.value_max)}`
+            ? formatPreciseMoney(a.value_min)
+            : `${formatPreciseMoney(a.value_min)} - ${formatPreciseMoney(a.value_max)}`
           : "",
       purchaseInfo: "",
     }));
@@ -193,8 +194,8 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
       const hasValue = (a.value_min != null && a.value_min > 0) || (a.value_max != null && a.value_max > 0);
       const value = hasValue
         ? a.value_min === a.value_max
-          ? formatCompactMoney(a.value_min)
-          : `${formatCompactMoney(a.value_min)} - ${formatCompactMoney(a.value_max)}`
+          ? formatPreciseMoney(a.value_min)
+          : `${formatPreciseMoney(a.value_min)} - ${formatPreciseMoney(a.value_max)}`
         : "No current value";
       return {
         name: a.name || "",
@@ -208,7 +209,7 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   // would report from a wealth-screening document's foundation section.
   const familyFoundation = (Array.isArray(donor?.private_foundations) ? donor.private_foundations : [])
     .map((f: any) => {
-      const assetsText = f.assets != null ? ` (Assets: ${formatCompactMoney(f.assets)})` : "";
+      const assetsText = f.assets != null ? ` (Assets: ${formatPreciseMoney(f.assets)})` : "";
       return `${f.name}${f.relationship ? `: ${f.relationship}` : ""}${assetsText}`;
     })
     .join("\n");
@@ -310,8 +311,8 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
 
   const phones = dedupeBy(
     [
-      ...splitDelimited(exportRow["Verified Mobile Phone"]).map((number) => ({ type: "Mobile", customType: "", number })),
-      ...splitDelimited(exportRow["Other Phones"]).map((number) => ({ type: "Other", customType: "", number })),
+      ...splitDelimited(exportRow["Verified Mobile Phone"]).map((number) => ({ type: "Mobile", customType: "", number: formatPhoneNumber(number) })),
+      ...splitDelimited(exportRow["Other Phones"]).map((number) => ({ type: "Other", customType: "", number: formatPhoneNumber(number) })),
     ],
     (p) => p.number
   );
