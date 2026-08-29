@@ -954,44 +954,50 @@ function ResearchProfileFormInner() {
       const fetched = body?.data || {};
       const photo = body?.photo || "";
 
-      // Same safe-merge rule as the PDF import: a scalar field DonorAtlas
-      // didn't return never blanks out an existing value, and array fields
-      // only replace the current (empty, on a new profile) rows. Name stays
-      // untouched when locked from the weekly roster -- that field must
-      // stay in sync with the master prospect list, not DonorAtlas's own
-      // name formatting (e.g. "Donald D Snyder" vs. the roster's "Donald
-      // Snyder").
+      // REPLACE semantics, not fill-blanks: selecting a donor from search
+      // results loads a fresh prospect, so every DonorAtlas-sourced field is
+      // set directly from this donor's data (falling back to blank/empty,
+      // never to whatever a PREVIOUS search's selection left behind). This
+      // is the opposite of the PDF import's fill-blanks-only merge (that
+      // one supplements an existing profile with extra fields); here, if
+      // this donor has no family foundation on file, the field must go
+      // blank even if a previously-selected donor in this session did have
+      // one -- otherwise stale data from an earlier search lingers on the
+      // profile. Name stays untouched when locked from the weekly roster --
+      // that field must stay in sync with the master prospect list, not
+      // DonorAtlas's own name formatting (e.g. "Donald D Snyder" vs. the
+      // roster's "Donald Snyder").
       setData((d) => ({
         ...d,
         name: lockedFromRoster ? d.name : fetched.name || d.name,
-        homeAddress: fetched.homeAddress || d.homeAddress,
-        born: fetched.born || d.born,
-        maritalStatus: fetched.maritalStatus || d.maritalStatus,
-        spouseName: fetched.spouseName || d.spouseName,
-        parentsNames: fetched.parentsNames || d.parentsNames,
-        hobbiesInterests: fetched.hobbiesInterests || d.hobbiesInterests,
-        estimatedNetWorth: fetched.estimatedNetWorth || d.estimatedNetWorth,
-        estimatedIncome: fetched.estimatedIncome || d.estimatedIncome,
-        estimatedLiquidity: fetched.estimatedLiquidity || d.estimatedLiquidity,
-        liquidityExplanation: fetched.liquidityExplanation || d.liquidityExplanation,
-        givingCapacity: fetched.givingCapacity || d.givingCapacity,
-        wealthRating: fetched.wealthRating || d.wealthRating,
-        religion: fetched.religion || d.religion,
-        familyFoundation: fetched.familyFoundation || d.familyFoundation,
-        additionalInformation: fetched.additionalInformation || d.additionalInformation,
-        boards: fetched.boards || d.boards,
-        businessAddresses: fetched.businessAddresses || d.businessAddresses,
-        totalCharitableGiving: fetched.totalCharitableGiving || d.totalCharitableGiving,
-        nonPhilanthropicPoliticalGiving: fetched.nonPhilanthropicPoliticalGiving || d.nonPhilanthropicPoliticalGiving,
-        childrenRows: fetched.childrenRows?.length ? fetched.childrenRows : d.childrenRows,
-        educationEntries: fetched.educationEntries?.length ? fetched.educationEntries : d.educationEntries,
-        otherGiving: fetched.otherGiving?.length ? fetched.otherGiving : d.otherGiving,
-        realEstate: fetched.realEstate?.length ? fetched.realEstate : d.realEstate,
-        otherAssets: fetched.otherAssets?.length ? fetched.otherAssets : d.otherAssets,
-        fecGiving: fetched.fecGiving?.length ? fetched.fecGiving : d.fecGiving,
-        phones: fetched.phones?.length ? fetched.phones : d.phones,
-        emails: fetched.emails?.length ? fetched.emails : d.emails,
-        photo: photo || d.photo,
+        homeAddress: fetched.homeAddress || "",
+        born: fetched.born || "",
+        maritalStatus: fetched.maritalStatus || "",
+        spouseName: fetched.spouseName || "",
+        parentsNames: fetched.parentsNames || "",
+        hobbiesInterests: fetched.hobbiesInterests || "",
+        estimatedNetWorth: fetched.estimatedNetWorth || "",
+        estimatedIncome: fetched.estimatedIncome || "",
+        estimatedLiquidity: fetched.estimatedLiquidity || "",
+        liquidityExplanation: fetched.liquidityExplanation || "",
+        givingCapacity: fetched.givingCapacity || "",
+        wealthRating: fetched.wealthRating || "",
+        religion: fetched.religion || "",
+        familyFoundation: fetched.familyFoundation || "",
+        additionalInformation: fetched.additionalInformation || "",
+        boards: fetched.boards || "",
+        businessAddresses: fetched.businessAddresses || "",
+        totalCharitableGiving: fetched.totalCharitableGiving || "",
+        nonPhilanthropicPoliticalGiving: fetched.nonPhilanthropicPoliticalGiving || "",
+        childrenRows: fetched.childrenRows ?? [],
+        educationEntries: fetched.educationEntries ?? [],
+        otherGiving: fetched.otherGiving ?? [],
+        realEstate: fetched.realEstate ?? [],
+        otherAssets: fetched.otherAssets ?? [],
+        fecGiving: fetched.fecGiving ?? [],
+        phones: fetched.phones ?? [],
+        emails: fetched.emails ?? [],
+        photo: photo || "",
       }));
       setDonorCandidates([]);
       setPdfUrl(null);
