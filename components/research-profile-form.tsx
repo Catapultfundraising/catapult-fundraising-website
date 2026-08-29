@@ -954,51 +954,65 @@ function ResearchProfileFormInner() {
       const fetched = body?.data || {};
       const photo = body?.photo || "";
 
-      // REPLACE semantics, not fill-blanks: selecting a donor from search
-      // results loads a fresh prospect, so every DonorAtlas-sourced field is
-      // set directly from this donor's data (falling back to blank/empty,
-      // never to whatever a PREVIOUS search's selection left behind). This
-      // is the opposite of the PDF import's fill-blanks-only merge (that
-      // one supplements an existing profile with extra fields); here, if
-      // this donor has no family foundation on file, the field must go
-      // blank even if a previously-selected donor in this session did have
-      // one -- otherwise stale data from an earlier search lingers on the
-      // profile. Name stays untouched when locked from the weekly roster --
-      // that field must stay in sync with the master prospect list, not
-      // DonorAtlas's own name formatting (e.g. "Donald D Snyder" vs. the
-      // roster's "Donald Snyder").
-      setData((d) => ({
-        ...d,
-        name: lockedFromRoster ? d.name : fetched.name || d.name,
-        homeAddress: fetched.homeAddress || "",
-        born: fetched.born || "",
-        maritalStatus: fetched.maritalStatus || "",
-        spouseName: fetched.spouseName || "",
-        parentsNames: fetched.parentsNames || "",
-        hobbiesInterests: fetched.hobbiesInterests || "",
-        estimatedNetWorth: fetched.estimatedNetWorth || "",
-        estimatedIncome: fetched.estimatedIncome || "",
-        estimatedLiquidity: fetched.estimatedLiquidity || "",
-        liquidityExplanation: fetched.liquidityExplanation || "",
-        givingCapacity: fetched.givingCapacity || "",
-        wealthRating: fetched.wealthRating || "",
-        religion: fetched.religion || "",
-        familyFoundation: fetched.familyFoundation || "",
-        additionalInformation: fetched.additionalInformation || "",
-        boards: fetched.boards || "",
-        businessAddresses: fetched.businessAddresses || "",
-        totalCharitableGiving: fetched.totalCharitableGiving || "",
-        nonPhilanthropicPoliticalGiving: fetched.nonPhilanthropicPoliticalGiving || "",
-        childrenRows: fetched.childrenRows ?? [],
-        educationEntries: fetched.educationEntries ?? [],
-        otherGiving: fetched.otherGiving ?? [],
-        realEstate: fetched.realEstate ?? [],
-        otherAssets: fetched.otherAssets ?? [],
-        fecGiving: fetched.fecGiving ?? [],
-        phones: fetched.phones ?? [],
-        emails: fetched.emails ?? [],
-        photo: photo || "",
-      }));
+      // Selecting a donor from search results starts this prospect over
+      // from a completely blank profile, not just a field-by-field replace
+      // of the DonorAtlas-sourced fields. If it only replaced those, any
+      // data that came from a PREVIOUSLY imported wealth-screening PDF for
+      // a different donor -- real estate, other assets, military info,
+      // clubs, business colleagues, giving-history-to-org rows, and other
+      // fields DonorAtlas's API never supplies -- would silently survive
+      // the switch. A later PDF import only fills in blanks (by design, so
+      // it never clobbers good DonorAtlas data), so it would never
+      // overwrite that leftover data either, leaving a profile that's a
+      // mix of two different people. Wiping the whole form first and
+      // rebuilding it from this donor's data (plus this profile's own
+      // administrative fields) guarantees a clean slate every time a
+      // different donor is selected.
+      setData((d) => {
+        const fresh = emptyProfile();
+        return {
+          ...fresh,
+          dateCreated: d.dateCreated,
+          clientProfiler: d.clientProfiler,
+          projectLeadEmail: d.projectLeadEmail,
+          // Name, Catapult ID, and Client ID must stay in sync with the
+          // master prospect list when locked from the weekly roster -- those
+          // three identifiers are this profile's roster identity, not
+          // donor-specific data, so a donor switch must not touch them.
+          name: lockedFromRoster ? d.name : fetched.name || fresh.name,
+          catapultId: lockedFromRoster ? d.catapultId : fresh.catapultId,
+          clientId: lockedFromRoster ? d.clientId : fresh.clientId,
+          homeAddress: fetched.homeAddress || "",
+          born: fetched.born || "",
+          maritalStatus: fetched.maritalStatus || "",
+          spouseName: fetched.spouseName || "",
+          parentsNames: fetched.parentsNames || "",
+          hobbiesInterests: fetched.hobbiesInterests || "",
+          estimatedNetWorth: fetched.estimatedNetWorth || "",
+          estimatedIncome: fetched.estimatedIncome || "",
+          estimatedLiquidity: fetched.estimatedLiquidity || "",
+          liquidityExplanation: fetched.liquidityExplanation || "",
+          givingCapacity: fetched.givingCapacity || "",
+          wealthRating: fetched.wealthRating || "",
+          religion: fetched.religion || "",
+          familyFoundation: fetched.familyFoundation || "",
+          additionalInformation: fetched.additionalInformation || "",
+          boards: fetched.boards || "",
+          businessAddresses: fetched.businessAddresses || "",
+          totalCharitableGiving: fetched.totalCharitableGiving || "",
+          nonPhilanthropicPoliticalGiving: fetched.nonPhilanthropicPoliticalGiving || "",
+          childrenRows: fetched.childrenRows ?? [],
+          educationEntries: fetched.educationEntries ?? [],
+          otherGiving: fetched.otherGiving ?? [],
+          realEstate: fetched.realEstate ?? [],
+          otherAssets: fetched.otherAssets ?? [],
+          fecGiving: fetched.fecGiving ?? [],
+          phones: fetched.phones ?? [],
+          emails: fetched.emails ?? [],
+          photo: photo || "",
+        };
+      });
+      setShowPhoto2(false);
       setDonorCandidates([]);
       setPdfUrl(null);
     } catch (err: any) {
