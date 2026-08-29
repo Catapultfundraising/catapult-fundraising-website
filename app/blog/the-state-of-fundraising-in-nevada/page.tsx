@@ -28,7 +28,7 @@ export const metadata = {
     description:
       "Nevada ranks 49th out of 50 states in WalletHub's 2025 Most Charitable States study. Here's what the data actually means for capital campaign strategy.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5c32ad35-1e99-4b00-9b7f-38f3069c476e.png", width: 1536, height: 1024, alt: "A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth" }],
+    images: [{ url: "/images/generated/5c32ad35-1e99-4b00-9b7f-38f3069c476e.webp", width: 1536, height: 1024, alt: "A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth" }],
   },
 };
 
@@ -50,7 +50,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -83,7 +83,7 @@ export default function StateOfFundraisingInNevadaPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5c32ad35-1e99-4b00-9b7f-38f3069c476e.png"
+            src="/images/generated/5c32ad35-1e99-4b00-9b7f-38f3069c476e.webp"
             alt="A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth"
             fill
             className="object-cover"
@@ -147,7 +147,7 @@ export default function StateOfFundraisingInNevadaPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/144f9145-430a-4f62-897d-890f7aa8b24d.png"
+              src="/images/generated/144f9145-430a-4f62-897d-890f7aa8b24d.webp"
               alt="A minimalist map illustration of the state of Nevada"
               fill
               className="object-cover"
