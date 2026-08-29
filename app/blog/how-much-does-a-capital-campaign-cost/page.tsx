@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a71dcf44-5db6-48bb-9179-843db4b80626.png", width: 1536, height: 1024, alt: "A board member and fundraising consultant reviewing a capital campaign budget and financial charts" }],
+    images: [{ url: "/images/generated/a71dcf44-5db6-48bb-9179-843db4b80626.webp", width: 1536, height: 1024, alt: "A board member and fundraising consultant reviewing a capital campaign budget and financial charts" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -102,7 +102,7 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a71dcf44-5db6-48bb-9179-843db4b80626.png"
+            src="/images/generated/a71dcf44-5db6-48bb-9179-843db4b80626.webp"
             alt="A board member and fundraising consultant reviewing a capital campaign budget and financial charts"
             fill
             className="object-cover"
@@ -126,7 +126,7 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d8881733-fbfb-40a2-b628-a4691d2462e2.png"
+              src="/images/generated/d8881733-fbfb-40a2-b628-a4691d2462e2.webp"
               alt="Infographic: what drives the fee, campaign goal and complexity, timeline, scope of services, in-house capacity"
               fill
               className="object-cover"
