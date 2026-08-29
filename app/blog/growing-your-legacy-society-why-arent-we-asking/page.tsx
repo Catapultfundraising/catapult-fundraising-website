@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "Growing Your Legacy Society: Why Aren't We Asking?",
+  datePublished: "2026-08-12",
+  dateModified: "2026-08-12",
   description:
     "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
   author: {
