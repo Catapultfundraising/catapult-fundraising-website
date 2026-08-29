@@ -107,9 +107,10 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   const givingCapacity =
     predictedAnnualGiving != null ? formatCompactMoney(predictedAnnualGiving * 5) : "";
 
-  const capacityExplanations: any[] = donor?.nonprofit_stats?.capacity?.explanations || [];
-  const wealthRating =
-    capacityExplanations.find((e) => /capacity/i.test(e?.title || ""))?.title || "";
+  // Per direction: DonorAtlas's capacity explanations (e.g. "High capacity")
+  // are no longer auto-mapped to Wealth Rating -- left blank for the
+  // profiler to enter manually.
+  const wealthRating = "";
 
   const boards = (Array.isArray(donor?.board_affiliations) ? donor.board_affiliations : [])
     .filter((b: any) => (b?.probability ?? 1) >= 0.7)
@@ -167,6 +168,41 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
       purchaseInfo: "",
     }));
 
+  // Estimated liquidity range (min/max in dollars) and the plain-language
+  // explanation DonorAtlas provides for it -- shown in the wealth summary
+  // panel and at the bottom of the profile, respectively.
+  const estimatedLiquidity =
+    donor?.liquidity_min != null && donor?.liquidity_max != null
+      ? donor.liquidity_min === donor.liquidity_max
+        ? formatCompactMoney(donor.liquidity_min)
+        : `${formatCompactMoney(donor.liquidity_min)} - ${formatCompactMoney(donor.liquidity_max)}`
+      : donor?.liquidity_min != null
+      ? formatCompactMoney(donor.liquidity_min)
+      : donor?.liquidity_max != null
+      ? formatCompactMoney(donor.liquidity_max)
+      : "";
+  const liquidityExplanation = donor?.liquidity_explanation || "";
+
+  // Non-real-estate assets (public/private equity, investment vehicles,
+  // etc.) -- real estate itself is handled separately above. Positions with
+  // no current value (e.g. stale public-filing holdings DonorAtlas can't
+  // price reliably) show "No current value" instead of a blank/zero.
+  const otherAssets = (Array.isArray(donor?.assets) ? donor.assets : [])
+    .filter((a: any) => a?.type !== "real_estate")
+    .map((a: any) => {
+      const hasValue = (a.value_min != null && a.value_min > 0) || (a.value_max != null && a.value_max > 0);
+      const value = hasValue
+        ? a.value_min === a.value_max
+          ? formatCompactMoney(a.value_min)
+          : `${formatCompactMoney(a.value_min)} - ${formatCompactMoney(a.value_max)}`
+        : "No current value";
+      return {
+        name: a.name || "",
+        type: (a.type || "").replace(/_/g, " "),
+        value,
+      };
+    });
+
   // Private foundations the donor is connected to (trustee, founder, etc.) --
   // maps onto the existing "Family Foundation" field, same as a PDF import
   // would report from a wealth-screening document's foundation section.
@@ -209,16 +245,34 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
       ? String(activePoliticalYears[0])
       : `${Math.min(...activePoliticalYears)} - ${Math.max(...activePoliticalYears)}`
     : "";
-  const fecGiving =
-    politicalStats && politicalStats.total_amt
-      ? [
-          {
-            org: "Federal/State/Local Political Committees (DonorAtlas aggregate total -- not itemized by recipient)",
-            year: politicalYearRange,
-            amount: formatPreciseMoney(politicalStats.total_amt),
-          },
-        ]
-      : [];
+  // Broken out by race type (Presidential / Congressional / State & Local)
+  // rather than one combined row -- DonorAtlas's own political_stats tracks
+  // these separately, and the profiler asked for state & local giving to
+  // be its own line rather than folded into a single federal-sounding
+  // total. Still an aggregate per race type, not itemized by candidate/
+  // committee -- that level of detail isn't available anywhere in the
+  // Partners API.
+  const raceTypeGiving: Array<[string, number | undefined]> = [
+    ["Presidential Committees", politicalStats?.amt_to_presidential],
+    ["Congressional Committees", politicalStats?.amt_to_congressional],
+    ["State & Local Committees", politicalStats?.amt_to_state_local],
+  ];
+  const fecGiving = raceTypeGiving
+    .filter(([, amt]) => amt != null && amt > 0)
+    .map(([label, amt]) => ({
+      org: `${label} (DonorAtlas aggregate total -- not itemized by recipient)`,
+      year: politicalYearRange,
+      amount: formatPreciseMoney(amt as number),
+    }));
+  // Fallback to one combined row in the rare case DonorAtlas has a total
+  // but no race-type breakdown at all.
+  if (fecGiving.length === 0 && politicalStats && politicalStats.total_amt) {
+    fecGiving.push({
+      org: "Federal/State/Local Political Committees (DonorAtlas aggregate total -- not itemized by recipient)",
+      year: politicalYearRange,
+      amount: formatPreciseMoney(politicalStats.total_amt),
+    });
+  }
 
   // Bio: falls back to the donor's top_issues explanations (which often
   // contain rich biographical narrative tied to specific causes) whenever
@@ -239,19 +293,23 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   // spouse is on file (the profiler can correct this if it's actually
   // widowed/separated -- DonorAtlas doesn't distinguish that itself).
   const spouseName = (exportRow["Spouse"] || "").trim();
-  const parentsText = (exportRow["Parents"] || "").trim();
+  const parentsNames = (exportRow["Parents"] || "").trim();
   const childrenRows = splitDelimited(exportRow["Children"]).map((childName) => ({
     name: childName,
     age: "",
     otherInfo: "",
   }));
-  const relationshipLines = [
-    spouseName ? `Spouse: ${spouseName}` : "",
-    parentsText ? `Parents: ${parentsText}` : "",
-  ].filter(Boolean);
-  const additionalInformation = relationshipLines.length
-    ? [relationshipLines.join("\n"), bioText].filter(Boolean).join("\n\n")
+  // Spouse and parents now have their own dedicated fields on the form
+  // (added per direction) rather than being folded into Additional
+  // Information text.
+  const allEmployersText = (exportRow["All Employers"] || "").trim();
+  const additionalInformation = allEmployersText
+    ? [bioText, `Other Employers on File: ${allEmployersText}`].filter(Boolean).join("\n\n")
     : bioText;
+  // Top Issues (from the exports endpoint, comma-joined) maps to Hobbies &
+  // Interests -- DonorAtlas's inferred philanthropic interest areas are the
+  // closest equivalent this form has for that field.
+  const hobbiesInterests = (exportRow["Top Issues"] || "").trim();
 
   const phones = dedupeBy(
     [
@@ -273,9 +331,20 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   return {
     name: fullName,
     homeAddress: formatAddress(donor?.mailing_address),
-    born: donor?.age != null ? `Age: ${donor.age}` : "",
+    born:
+      donor?.age != null
+        ? `Age: ${donor.age}`
+        : exportRow["Age"]
+        ? `Age: ${exportRow["Age"]}`
+        : "",
     maritalStatus: spouseName ? "Married" : "",
+    spouseName,
+    parentsNames,
     childrenRows,
+    hobbiesInterests,
+    estimatedLiquidity,
+    liquidityExplanation,
+    otherAssets,
     phones,
     emails,
     estimatedNetWorth: netWorthEstimate != null ? formatCompactMoney(netWorthEstimate) : "",
