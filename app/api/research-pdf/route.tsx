@@ -1074,7 +1074,7 @@ function ProfileDocument({ data }: { data: any }) {
                   <View style={{ flex: 1 }}>
                     {re.address ? <FormattedText value={re.address} style={{ fontSize: 10, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 }} /> : null}
                     {re.description ? <FormattedText value={re.description} style={{ fontSize: 9, color: INK, marginBottom: 2 }} /> : null}
-                    {re.value ? <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginBottom: 2 }}>{fmtMoney(re.value)}</Text> : null}
+                    {re.value ? <Text style={{ fontSize: 9, fontFamily: "Helvetica-Bold", color: BRASS, marginBottom: 2 }}>{fmtMoneyExpanded(re.value)}</Text> : null}
                     {re.purchaseInfo ? <Text style={{ fontSize: 8.5, color: MUTED }}>{re.purchaseInfo}</Text> : null}
                   </View>
                 </View>
