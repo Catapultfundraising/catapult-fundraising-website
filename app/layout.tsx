@@ -7,7 +7,7 @@ import { CookieConsent } from "@/components/cookie-consent";
 import { FIRM_PHONE, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
-const OG_IMAGE = "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e656b128-f2e0-427e-a4c2-07e58fa6812e.png";
+const OG_IMAGE = "/images/generated/e656b128-f2e0-427e-a4c2-07e58fa6812e.webp";
 
 // Self-hosted via next/font/google instead of the external
 // fonts.googleapis.com/fonts.gstatic.com <link>/@import used previously.
@@ -391,7 +391,7 @@ const jsonLd = {
   name: "Catapult Fundraising",
   alternateName: "Catapult Fundraising Consulting",
   url: SITE_URL,
-  logo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/42ba78de-233b-4e8c-9f6c-bbdd4f9ab4ff.png",
+  logo: "/images/generated/42ba78de-233b-4e8c-9f6c-bbdd4f9ab4ff.webp",
   image: OG_IMAGE,
   description:
     "Catapult Fundraising is a full-service fundraising consulting firm guiding nonprofits from feasibility study through public-phase calling, specializing in capital campaigns, annual fund calling, mid-level donor engagement, and legacy and planned giving.",
