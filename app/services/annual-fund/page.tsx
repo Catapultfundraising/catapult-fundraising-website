@@ -136,10 +136,10 @@ export default function AnnualFundPage() {
         eyebrow="Annual Fund Calling"
         title="Every donor deserves a face-to-face-quality conversation — even on the phone."
         description="AF Connect combines trained Engagement Officers, donor segmentation, and digital stewardship into one program designed to upgrade donors, re-engage lapsed givers, and acquire new ones."
-        backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/513c85b8-7588-44b1-9dcb-41e3cf4f486e.jpeg"
+        backgroundImage="/images/generated/513c85b8-7588-44b1-9dcb-41e3cf4f486e.webp"
       />
       <ServiceDetail
-        heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0144f19e-bed4-4f42-a09b-211276c3f4a1.png"
+        heroImage="/images/generated/0144f19e-bed4-4f42-a09b-211276c3f4a1.webp"
         heroImageAlt="A Catapult Engagement Officer smiling while on an annual fund calling program"
         sections={SECTIONS}
         sidebarTitle="Program Includes"

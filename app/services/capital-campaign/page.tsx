@@ -166,10 +166,10 @@ export default function CapitalCampaignPage() {
         eyebrow="Capital Campaign Services"
         title="The full-service firm that carries your campaign from first feasibility call to final pledge."
         description="Catapult is the only national firm that plans your capital campaign from the earliest quiet-phase strategy through a professionally staffed public-phase calling program, wrapping every campaign in one accountable partner instead of three vendors."
-        backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/62ebe036-cc54-4a61-8952-61060ecd662c.jpeg"
+        backgroundImage="/images/generated/62ebe036-cc54-4a61-8952-61060ecd662c.webp"
       />
       <ServiceDetail
-        heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/33f18c92-43f1-43f8-b1a2-1a94aeb188e6.png"
+        heroImage="/images/generated/33f18c92-43f1-43f8-b1a2-1a94aeb188e6.webp"
         heroImageAlt="Illustration of the five stages of a capital campaign, from feasibility study through public phase calling"
         sections={SECTIONS}
         sidebarTitle="What You Get"
