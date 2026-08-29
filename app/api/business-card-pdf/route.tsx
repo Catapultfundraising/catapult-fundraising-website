@@ -6,7 +6,7 @@ export const runtime = "nodejs";
 // Full-color horizontal Catapult Fundraising lockup (icon + "Catapult" +
 // "FUNDRAISING"), pulled directly from the official logo package.
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
+  "/images/generated/ffe08cd7-6dee-47f3-b390-61aecad692c2.webp";
 const LOGO_ASPECT = 9225 / 2342;
 
 // The site's two brand typefaces (see app/globals.css): Fraunces for
@@ -56,7 +56,7 @@ const PAPER = "#FAF7F0";
 // manually with real Unicode thin-space characters instead of the renderer's
 // letterSpacing engine, so every glyph is just a normal character in a plain
 // text run with no special per-glyph positioning.
-const THIN_SPACE = " ";
+const THIN_SPACE = " ";
 function trackedWord(word: string): string {
   return word.toUpperCase().split("").join(THIN_SPACE);
 }
