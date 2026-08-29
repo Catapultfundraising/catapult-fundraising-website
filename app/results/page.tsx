@@ -157,7 +157,7 @@ export default function ResultsPage() {
           <div className="mt-14 grid gap-10 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-[rgb(var(--line))] shadow-sm">
               <Image
-                src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ba2651fa-5d0a-422f-bd44-e23dbe1ce0b8.png"
+                src="/images/generated/ba2651fa-5d0a-422f-bd44-e23dbe1ce0b8.webp"
                 alt="Four ways Catapult grows your donor base: Capital Campaign Counsel, Annual Fund Calling, Mid-Level Donor Engagement, and Legacy & Planned Giving"
                 width={1024}
                 height={1536}
@@ -168,7 +168,7 @@ export default function ResultsPage() {
             </div>
             <div className="overflow-hidden rounded-2xl border border-[rgb(var(--line))] shadow-sm">
               <Image
-                src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/bd7a2d2c-1aed-41b7-8020-2ffefe64aa42.png"
+                src="/images/generated/bd7a2d2c-1aed-41b7-8020-2ffefe64aa42.webp"
                 alt="The Legacy Call process: a seven-step journey to a confirmed planned gift"
                 width={1024}
                 height={1536}
@@ -182,7 +182,7 @@ export default function ResultsPage() {
           <div className="mt-10 grid gap-10 lg:grid-cols-2">
             <div className="overflow-hidden rounded-2xl border border-[rgb(var(--line))] shadow-sm lg:col-start-1">
               <Image
-                src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/95a7f165-7aa3-4ddc-b0fb-a4021fc35995.png"
+                src="/images/generated/95a7f165-7aa3-4ddc-b0fb-a4021fc35995.webp"
                 alt="The Mid-Level Donor Engagement Journey: an eight-stage pathway to a confirmed increased gift"
                 width={1024}
                 height={1536}
