@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "Why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0aacf9dc-33f6-420d-a5a3-b1b98483dd83.png", width: 1536, height: 1024, alt: "A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity" }],
+    images: [{ url: "/images/generated/0aacf9dc-33f6-420d-a5a3-b1b98483dd83.webp", width: 1536, height: 1024, alt: "A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -70,7 +70,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0aacf9dc-33f6-420d-a5a3-b1b98483dd83.png"
+            src="/images/generated/0aacf9dc-33f6-420d-a5a3-b1b98483dd83.webp"
             alt="A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity"
             fill
             className="object-cover"
@@ -89,7 +89,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a460c84-f2bc-47ef-b1f2-f2f0337717b9.png"
+              src="/images/generated/8a460c84-f2bc-47ef-b1f2-f2f0337717b9.webp"
               alt="Infographic: 80 percent of Hispanics and Latinos gave to their church last year, averaging $1,728 a year given weekly"
               fill
               className="object-cover"
@@ -111,7 +111,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/79a8caf4-14a7-432c-b020-6d623ab306a9.png"
+              src="/images/generated/79a8caf4-14a7-432c-b020-6d623ab306a9.webp"
               alt="Infographic: Four myths worth retiring about Latino philanthropy"
               fill
               className="object-cover"
@@ -172,7 +172,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0d76b7fa-2260-46da-af65-3cb524fbbef4.png"
+              src="/images/generated/0d76b7fa-2260-46da-af65-3cb524fbbef4.webp"
               alt="Infographic: channel data showing phone, text, and social media reach among Hispanic and Latino donors"
               fill
               className="object-cover"
@@ -250,7 +250,7 @@ export default function UnderstandingLatinoPhilanthropyPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38fc26f7-1dd7-4f66-b411-2ea420fc5618.png"
+              src="/images/generated/38fc26f7-1dd7-4f66-b411-2ea420fc5618.webp"
               alt="Infographic: seven Spanish words, familia, comunidad, solidaridad, oportunidad, resiliencia, impacto, and gratitud, to frame any case for support"
               fill
               className="object-cover"
