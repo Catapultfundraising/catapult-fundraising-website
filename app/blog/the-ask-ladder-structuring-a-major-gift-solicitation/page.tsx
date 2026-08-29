@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "The Ask Ladder: How to Structure a Major Gift Solicitation",
+  datePublished: "2026-08-12",
+  dateModified: "2026-08-12",
   description:
     "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
   author: {
