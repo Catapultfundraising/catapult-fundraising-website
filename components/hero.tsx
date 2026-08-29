@@ -7,7 +7,7 @@ export function Hero() {
     <section className="relative overflow-hidden bg-[rgb(var(--navy))] text-[rgb(var(--paper))]">
       <Image
         src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e656b128-f2e0-427e-a4c2-07e58fa6812e.png"
-        alt=""
+        alt="Catapult Fundraising -- capital campaign and donor engagement consulting"
         fill
         priority
         sizes="100vw"
