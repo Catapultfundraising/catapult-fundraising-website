@@ -12,7 +12,7 @@ import type { PersonEntry } from "@/lib/profile-form-kit";
 // regressing it. Mirror fixes both ways if something applies to both.
 
 export const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.png";
+  "/images/generated/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.webp";
 
 export function buildProfilePdfFileName(
   clientProfiler: string | undefined,
