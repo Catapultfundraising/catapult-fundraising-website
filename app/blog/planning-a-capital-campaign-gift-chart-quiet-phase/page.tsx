@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/93175c40-3d98-48bd-b885-9005127752be.png", width: 1536, height: 1024, alt: "A campaign steering committee meeting with an architectural rendering of a capital project" }],
+    images: [{ url: "/images/generated/93175c40-3d98-48bd-b885-9005127752be.webp", width: 1536, height: 1024, alt: "A campaign steering committee meeting with an architectural rendering of a capital project" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -70,7 +70,7 @@ export default function CapitalCampaignGiftChartPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/93175c40-3d98-48bd-b885-9005127752be.png"
+            src="/images/generated/93175c40-3d98-48bd-b885-9005127752be.webp"
             alt="A campaign steering committee meeting with an architectural rendering of a capital project"
             fill
             className="object-cover"
@@ -108,7 +108,7 @@ export default function CapitalCampaignGiftChartPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ecfe9f7c-16c9-4a67-8c85-aa6138354f83.png"
+              src="/images/generated/ecfe9f7c-16c9-4a67-8c85-aa6138354f83.webp"
               alt="Illustration of a fundraising gift chart pyramid, with a wide base of donors narrowing to a single lead gift at the top"
               fill
               className="object-cover"
