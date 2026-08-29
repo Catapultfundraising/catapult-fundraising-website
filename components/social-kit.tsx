@@ -13,14 +13,14 @@ const ITEMS: Item[] = [
     icon: Megaphone,
     title: "Rebrand Announcement (Public)",
     description: "A ready-to-post square graphic announcing our refreshed brand — for Instagram, LinkedIn, and Facebook.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/325ddb4a-5a7a-478a-8ec5-930dd890c674.png",
+    href: "/images/generated/325ddb4a-5a7a-478a-8ec5-930dd890c674.webp",
     label: "Download Image (.png)",
   },
   {
     icon: Users,
     title: "Rebrand Announcement (Employee)",
     description: "An internal version encouraging staff to share our new look on their own social channels.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0fb05184-9d2a-4595-b26c-d2735419c8cb.png",
+    href: "/images/generated/0fb05184-9d2a-4595-b26c-d2735419c8cb.webp",
     label: "Download Image (.png)",
   },
   {

@@ -4,32 +4,32 @@ const SECTORS = [
   {
     title: "Faith-Based Organizations",
     description: "Diocesan campaigns, parish legacy giving, and congregational annual funds.",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e6d5927c-17e7-4f71-93d5-86fdf9bbdae6.jpeg",
+    image: "/images/generated/e6d5927c-17e7-4f71-93d5-86fdf9bbdae6.webp",
   },
   {
     title: "Higher Education",
     description: "Campus capital campaigns, alumni annual giving, and planned gift outreach.",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/62ebe036-cc54-4a61-8952-61060ecd662c.jpeg",
+    image: "/images/generated/62ebe036-cc54-4a61-8952-61060ecd662c.webp",
   },
   {
     title: "Human Services",
     description: "Community-facing nonprofits building sustainable, donor-centered fundraising programs.",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f814dca4-4b83-4023-925a-9a7274bbf2d2.jpeg",
+    image: "/images/generated/f814dca4-4b83-4023-925a-9a7274bbf2d2.webp",
   },
   {
     title: "Arts & Culture",
     description: "Performing arts centers and cultural institutions growing their donor base.",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/513c85b8-7588-44b1-9dcb-41e3cf4f486e.jpeg",
+    image: "/images/generated/513c85b8-7588-44b1-9dcb-41e3cf4f486e.webp",
   },
   {
     title: "Healthcare Foundations",
     description: "Hospital and healthcare foundation campaigns and grateful-patient giving programs.",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/af5dde0b-e111-4e99-a958-ae6527c37e76.jpeg",
+    image: "/images/generated/af5dde0b-e111-4e99-a958-ae6527c37e76.webp",
   },
   {
     title: "Youth Development",
     description: "Scouting, mentorship, and character-building organizations engaging lifelong supporters.",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6d87d722-c1cc-47ac-82d6-2675e8c2162e.jpeg",
+    image: "/images/generated/6d87d722-c1cc-47ac-82d6-2675e8c2162e.webp",
   },
 ];
 

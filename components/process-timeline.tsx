@@ -40,7 +40,7 @@ export function ProcessTimeline() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-80 md:w-96">
           <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/b60d98ca-622e-4611-bcd6-1607f1d5ce1a.png"
+              src="/images/generated/b60d98ca-622e-4611-bcd6-1607f1d5ce1a.webp"
               alt="Illustration of the five connected phases of a Catapult Fundraising capital campaign"
               fill
               className="object-cover"
