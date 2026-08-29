@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "Multi-Channel Fundraising — Are You Missing the Mark?",
+  datePublished: "2026-08-12",
+  dateModified: "2026-08-12",
   description:
     "Anthony Alonso on why digital fundraising alone can't upgrade donors or build a major gift pipeline, and the segmentation, storytelling, and calling strategy that can.",
   author: {
