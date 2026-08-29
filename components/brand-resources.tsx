@@ -100,7 +100,7 @@ export function BrandResources() {
             },
             {
               label: "Download Transparent Logo (.png)",
-              href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8d3afdfe-f114-40a4-836f-5bdb7b44ecb0.png",
+              href: "/images/generated/8d3afdfe-f114-40a4-836f-5bdb7b44ecb0.webp",
             },
           ]}
         />
@@ -112,7 +112,7 @@ export function BrandResources() {
           links={[
             {
               label: "Download Cover Image (.png)",
-              href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/76f67c58-dc4b-4d29-acea-a6d45bca97fc.png",
+              href: "/images/generated/76f67c58-dc4b-4d29-acea-a6d45bca97fc.webp",
             },
           ]}
         />
