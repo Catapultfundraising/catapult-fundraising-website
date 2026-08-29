@@ -33,6 +33,8 @@ const jsonLd = {
   "@context": "https://schema.org",
   "@type": "BlogPosting",
   headline: "Seven Touchpoints: Building Donor Loyalty Between Asks",
+  datePublished: "2026-08-12",
+  dateModified: "2026-08-12",
   description:
     "The low-cost touchpoints, from the 'five by ten' calling habit to digital voicemail drops, that build donor loyalty and quietly upgrade mid-level gifts.",
   author: {
