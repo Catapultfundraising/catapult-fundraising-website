@@ -195,6 +195,12 @@ interface RealEstateItem {
   purchaseInfo: string;
 }
 
+interface OtherAssetRow {
+  name: string;
+  type: string;
+  value: string;
+}
+
 interface GivingRow {
   recipient: string;
   giving: string;
@@ -278,6 +284,8 @@ interface ProfileData {
   emails: EmailRow[];
   born: string;
   maritalStatus: string;
+  spouseName: string;
+  parentsNames: string;
   childrenRows: ChildRow[];
   educationEntries: EducationEntry[];
   militaryBranch: string;
@@ -287,6 +295,9 @@ interface ProfileData {
   relationshipToOrg: string;
   givingHistoryRows: GivingHistoryRow[];
   realEstate: RealEstateItem[];
+  otherAssets: OtherAssetRow[];
+  estimatedLiquidity: string;
+  liquidityExplanation: string;
   businessAddresses: string;
   familyFoundation: string;
   politicalAffiliation: string;
@@ -363,6 +374,8 @@ function emptyProfile(): ProfileData {
     emails: [],
     born: "",
     maritalStatus: "",
+    spouseName: "",
+    parentsNames: "",
     childrenRows: [],
     educationEntries: [],
     militaryBranch: "",
@@ -372,6 +385,9 @@ function emptyProfile(): ProfileData {
     relationshipToOrg: "",
     givingHistoryRows: [],
     realEstate: [],
+    otherAssets: [],
+    estimatedLiquidity: "",
+    liquidityExplanation: "",
     businessAddresses: "",
     familyFoundation: "",
     politicalAffiliation: "",
@@ -949,8 +965,13 @@ function ResearchProfileFormInner() {
         homeAddress: fetched.homeAddress || d.homeAddress,
         born: fetched.born || d.born,
         maritalStatus: fetched.maritalStatus || d.maritalStatus,
+        spouseName: fetched.spouseName || d.spouseName,
+        parentsNames: fetched.parentsNames || d.parentsNames,
+        hobbiesInterests: fetched.hobbiesInterests || d.hobbiesInterests,
         estimatedNetWorth: fetched.estimatedNetWorth || d.estimatedNetWorth,
         estimatedIncome: fetched.estimatedIncome || d.estimatedIncome,
+        estimatedLiquidity: fetched.estimatedLiquidity || d.estimatedLiquidity,
+        liquidityExplanation: fetched.liquidityExplanation || d.liquidityExplanation,
         givingCapacity: fetched.givingCapacity || d.givingCapacity,
         wealthRating: fetched.wealthRating || d.wealthRating,
         religion: fetched.religion || d.religion,
@@ -964,6 +985,7 @@ function ResearchProfileFormInner() {
         educationEntries: fetched.educationEntries?.length ? fetched.educationEntries : d.educationEntries,
         otherGiving: fetched.otherGiving?.length ? fetched.otherGiving : d.otherGiving,
         realEstate: fetched.realEstate?.length ? fetched.realEstate : d.realEstate,
+        otherAssets: fetched.otherAssets?.length ? fetched.otherAssets : d.otherAssets,
         fecGiving: fetched.fecGiving?.length ? fetched.fecGiving : d.fecGiving,
         phones: fetched.phones?.length ? fetched.phones : d.phones,
         emails: fetched.emails?.length ? fetched.emails : d.emails,
@@ -1107,6 +1129,25 @@ function ResearchProfileFormInner() {
     if (j < 0 || j >= next.length) return;
     [next[i], next[j]] = [next[j], next[i]];
     set("realEstate", next);
+  }
+
+  function addOtherAssetRow() {
+    set("otherAssets", [...data.otherAssets, { name: "", type: "", value: "" }]);
+  }
+  function updateOtherAssetRow(i: number, patch: Partial<OtherAssetRow>) {
+    const next = [...data.otherAssets];
+    next[i] = { ...next[i], ...patch };
+    set("otherAssets", next);
+  }
+  function removeOtherAssetRow(i: number) {
+    set("otherAssets", data.otherAssets.filter((_, idx) => idx !== i));
+  }
+  function moveOtherAssetRow(i: number, direction: -1 | 1) {
+    const next = [...data.otherAssets];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("otherAssets", next);
   }
 
   function addGivingRow() {
@@ -1642,6 +1683,7 @@ function ResearchProfileFormInner() {
       <div className="grid gap-4 sm:grid-cols-2">
         <Field label="Estimated Income" value={data.estimatedIncome} onChange={(v) => set("estimatedIncome", v)} placeholder="$" icon={DollarSign} money />
         <Field label="Estimated Net Worth" value={data.estimatedNetWorth} onChange={(v) => set("estimatedNetWorth", v)} placeholder="$" icon={DollarSign} money />
+        <Field label="Estimated Liquidity" value={data.estimatedLiquidity} onChange={(v) => set("estimatedLiquidity", v)} placeholder="$" icon={DollarSign} money />
         <Field label="Stock Value" value={data.stockValue} onChange={(v) => set("stockValue", v)} placeholder="$" icon={TrendingUp} money />
         <ComputedField label="Real Estate Value" value={data.realEstateValue} hint="auto-calculated from properties below" icon={Home} />
         <ComputedField label="# of Properties" value={data.realEstatePropertyCount} hint="auto-calculated from properties below" icon={Building2} />
@@ -1849,6 +1891,8 @@ function ResearchProfileFormInner() {
       </div>
       <Field label="Born" value={data.born} onChange={(v) => set("born", v)} placeholder="DOB, Age, aka" textarea rows={2} icon={CalendarDays} richText />
       <SelectField label="Marital Status" value={data.maritalStatus} onChange={(v) => set("maritalStatus", v)} options={MARITAL_STATUS_OPTIONS} icon={Users} />
+      <Field label="Spouse" value={data.spouseName} onChange={(v) => set("spouseName", v)} icon={Users} />
+      <Field label="Parents" value={data.parentsNames} onChange={(v) => set("parentsNames", v)} icon={Users} />
 
       <div className="mt-5">
         <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
@@ -1964,6 +2008,30 @@ function ResearchProfileFormInner() {
         Add Another Property
       </button>
 
+      {/* Other Assets (non-real-estate holdings) */}
+      <div className="mt-8">
+        <label className="flex items-center gap-1.5 text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <TrendingUp className="h-3.5 w-3.5" />
+          Other Assets
+        </label>
+        <RowTable
+          headers={["Asset", "Type", "Value"]}
+          rows={data.otherAssets}
+          onAdd={addOtherAssetRow}
+          addLabel="Add Asset"
+          renderRow={(row: OtherAssetRow, i) => (
+            <>
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.name} onChange={(e) => updateOtherAssetRow(i, { name: e.target.value })} placeholder="Company / Holding" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.type} onChange={(e) => updateOtherAssetRow(i, { type: e.target.value })} placeholder="e.g., public equity" />
+              <input className="w-full min-w-0 border-none bg-transparent text-sm outline-none" value={row.value} onChange={(e) => updateOtherAssetRow(i, { value: e.target.value })} onBlur={(e) => updateOtherAssetRow(i, { value: smartFormatCurrency(e.target.value) })} placeholder="$ or leave blank" />
+            </>
+          )}
+          onRemove={removeOtherAssetRow}
+          onMove={moveOtherAssetRow}
+          colWidths={["40%", "30%", "30%"]}
+        />
+      </div>
+
       {/* Business / Foundation / Political */}
       <SectionHeading icon={Briefcase}>Business, Foundation &amp; Affiliations</SectionHeading>
       <Field label="Business Address(es) & Phone(s)" value={data.businessAddresses} onChange={(v) => set("businessAddresses", v)} textarea rows={4} icon={Briefcase} richText />
@@ -2038,6 +2106,7 @@ function ResearchProfileFormInner() {
         <ComputedField label="Non-Philanthropic Political Giving" value={data.nonPhilanthropicPoliticalGiving} hint="auto-calculated from FEC amounts" icon={Vote} />
       </div>
       <Field label="Recommended Ask Amount" value={data.recommendedAskAmount} onChange={(v) => set("recommendedAskAmount", v)} icon={Target} money />
+      <Field label="Liquidity Notes" value={data.liquidityExplanation} onChange={(v) => set("liquidityExplanation", v)} textarea rows={3} icon={DollarSign} richText />
 
       {/* Generate */}
       <div className="mt-12 rounded-2xl border border-[rgb(var(--line))] bg-[rgb(var(--paper))] p-6">
