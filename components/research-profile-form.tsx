@@ -44,6 +44,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { parseFormattedText } from "@/lib/rich-text";
+import { formatPhoneNumber } from "@/lib/phone-format";
 
 const DRAFT_KEY_PREFIX = "catapult_research_profile_draft_v1";
 const draftKey = (id: string | null) => `${DRAFT_KEY_PREFIX}:${id || "unsaved"}`;
@@ -126,9 +127,13 @@ const GIVING_CATEGORY_OPTIONS = [
 
 function parseCurrencyToNumber(value: string): number {
   if (!value) return 0;
-  const cleaned = value.replace(/[^0-9.-]/g, "");
-  const n = parseFloat(cleaned);
-  return Number.isFinite(n) ? n : 0;
+  const match = value.trim().match(/(-?[\d,]*\.?\d+)\s*([KkMmBb])?/);
+  if (!match || !match[1]) return 0;
+  const n = parseFloat(match[1].replace(/,/g, ""));
+  if (!Number.isFinite(n)) return 0;
+  const suffix = match[2] ? match[2].toUpperCase() : null;
+  const multiplier = suffix === "K" ? 1e3 : suffix === "M" ? 1e6 : suffix === "B" ? 1e9 : 1;
+  return n * multiplier;
 }
 
 function formatCurrency(n: number): string {
@@ -149,15 +154,6 @@ function smartFormatCurrency(value: string): string {
   if (/[a-zA-Z]/.test(trimmed)) return trimmed;
   const formatted = formatCurrency(parseCurrencyToNumber(trimmed));
   return formatted || trimmed;
-}
-
-function formatPhoneNumber(value: string): string {
-  const digits = value.replace(/\D/g, "").slice(0, 10);
-  const len = digits.length;
-  if (len === 0) return "";
-  if (len < 4) return `(${digits}`;
-  if (len < 7) return `(${digits.slice(0, 3)}) ${digits.slice(3)}`;
-  return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
 // Splits a full display name ("Donald Snyder", "Mary Ann Jones") into a
@@ -817,7 +813,7 @@ function ResearchProfileFormInner() {
       givingCapacity: prospect.givingCapacity || d.givingCapacity,
       homeAddress: prospect.address || d.homeAddress,
       phones: prospect.phones.length
-        ? prospect.phones.map((number, i) => ({ type: i === 0 ? "Mobile" : "Other", customType: i === 0 ? "" : "Additional", number }))
+        ? prospect.phones.map((number, i) => ({ type: i === 0 ? "Mobile" : "Other", customType: i === 0 ? "" : "Additional", number: formatPhoneNumber(number) }))
         : d.phones,
       emails: prospect.emails.length
         ? prospect.emails.map((address, i) => ({ type: i === 0 ? "Personal" : "Other", customType: i === 0 ? "" : "Additional", address }))
