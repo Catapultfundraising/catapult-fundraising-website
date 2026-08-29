@@ -24,7 +24,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       "Catapult Fundraising's Legacy Call Program Secures Over $4.8 Million in Confirmed Planned Gifts for a Prestigious Northeast University",
     sector: "Higher Education · Legacy & Planned Giving",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/08323a7f-1d6b-4dea-b612-931fcfa1f79a.png",
+      "/images/generated/08323a7f-1d6b-4dea-b612-931fcfa1f79a.webp",
     summary:
       "A 500-donor Legacy Call telephone outreach program confirmed 50 planned gifts totaling $4,894,000, with an additional $328,500 in gift potential identified among the university's most loyal donors.",
     stats: [
@@ -106,7 +106,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       "Catapult Fundraising's Mid-Level Donor Engagement Program Builds a Major Gift Pipeline for a Faith-Based Organization",
     sector: "Faith-Based Organization · Mid-Level Donor Engagement",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/c59be935-f746-4cc7-9938-b32dcf520fe3.png",
+      "/images/generated/c59be935-f746-4cc7-9938-b32dcf520fe3.webp",
     summary:
       "A segmented Reactivate, Renewal, and Upgrade campaign for a faith-based organization drove a 32% higher response rate among lapsed donors, qualified 57% of participants for additional stewardship, and identified 9% as ready for a major gift appointment.",
     stats: [
@@ -173,7 +173,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       "Catapult Fundraising's Legacy Call Program Secures $1,023,000 in Planned Gifts for a New Jersey Hospital",
     sector: "Healthcare · Legacy & Planned Giving",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/cc4d5a8d-b615-4d77-9ca3-7a7a6c313973.png",
+      "/images/generated/cc4d5a8d-b615-4d77-9ca3-7a7a6c313973.webp",
     summary:
       "A 1,000-donor Legacy Call telephone outreach program for a southern New Jersey hospital confirmed 18 planned gifts totaling $1,023,000, with an additional $412,500 in gift potential identified among the hospital's most loyal donors.",
     stats: [
@@ -252,7 +252,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       "Catapult Fundraising Uncovers Hidden Major Gift Potential Within a Performing Arts Organization's Donor Base",
     sector: "Performing Arts Organization · Mid-Level Donor Engagement",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/9ed75050-079d-4df0-b73d-9fc4fe1efec2.png",
+      "/images/generated/9ed75050-079d-4df0-b73d-9fc4fe1efec2.webp",
     summary:
       "A targeted engagement campaign for a performing arts organization reached 1,026 donors with a lifetime giving history under $350, generating 467 new gifts, a 72% increase in overall giving, and an average first-time gift of $2,390.",
     stats: [
@@ -312,7 +312,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       "Catapult Fundraising's Legacy Calls Program Secures Over $7,500,000 in Planned Gifts for The Hill School",
     sector: "Independent School · Legacy & Planned Giving",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/30c6b2c2-5ea9-48a4-8ba1-944a67e0ce4b.png",
+      "/images/generated/30c6b2c2-5ea9-48a4-8ba1-944a67e0ce4b.webp",
     summary:
       "Two phases of Legacy Calls outreach for The Hill School, a private boarding school in Pennsylvania, secured 47 confirmed planned gifts totaling $7,666,000, with $1,212,500 in additional gift potential.",
     stats: [
@@ -403,7 +403,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       "Catapult Fundraising's AF Connect Calling Program Achieves an 85% Pledge Rate with Lapsed Donors for Special Olympics of Indiana",
     sector: "Annual Fund Calling · Donor Engagement",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/14f53258-e3a4-457b-8b2c-ddf692ac9535.png",
+      "/images/generated/14f53258-e3a4-457b-8b2c-ddf692ac9535.webp",
     summary:
       "Catapult's AF Connect calling program for Special Olympics of Indiana lifted average gift size by 39% and achieved an 85% pledge rate with lapsed donors, nearly double the 45% industry average.",
     stats: [
@@ -463,7 +463,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       "Catapult Fundraising's Legacy Call Program Secures Over $6.8 Million in Planned Gifts for an International Ministry",
     sector: "Faith-Based Organization · Legacy & Planned Giving",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5bdff259-a3ba-4ebc-9918-cc8f3424ee06.png",
+      "/images/generated/5bdff259-a3ba-4ebc-9918-cc8f3424ee06.webp",
     summary:
       "Two phases of Legacy Call outreach to 3,100 loyal donors for a northern California ministry secured 149 confirmed planned gifts totaling $6,867,161, with $4,960,063 in additional gift potential.",
     stats: [
@@ -564,7 +564,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       "Catapult Fundraising's Legacy Call Program Secures $2,825,000 in Planned Gifts for a U.S. Presidential Library",
     sector: "Museum & Cultural Institution · Legacy & Planned Giving",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/35a626c0-e150-4ceb-91eb-d23693c01819.png",
+      "/images/generated/35a626c0-e150-4ceb-91eb-d23693c01819.webp",
     summary:
       "A 2,000-donor Legacy Call telephone outreach program for a U.S. Presidential Library confirmed 26 planned gifts totaling $2,825,000, with an additional $1,510,000 in gift potential identified.",
     stats: [
