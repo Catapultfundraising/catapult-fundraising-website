@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/96ee0ee1-0dac-47d1-a6c6-f2044a67c885.png", width: 1536, height: 1024, alt: "A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table" }],
+    images: [{ url: "/images/generated/96ee0ee1-0dac-47d1-a6c6-f2044a67c885.webp", width: 1536, height: 1024, alt: "A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -67,10 +67,10 @@ export default function GrowingYourLegacySocietyPost() {
       />
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <ShareButtons url={`/blog/growing-your-legacy-society-why-arent-we-asking`} title="Growing Your Legacy Society: Why Aren't We Asking?" />
-      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+      <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/96ee0ee1-0dac-47d1-a6c6-f2044a67c885.png"
+            src="/images/generated/96ee0ee1-0dac-47d1-a6c6-f2044a67c885.webp"
             alt="A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table"
             fill
             className="object-cover"
@@ -98,10 +98,10 @@ export default function GrowingYourLegacySocietyPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Identify prospects by loyalty, not wealth
         </h2>
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2da69155-a62d-45d3-a189-b8f8df7e0cb9.png"
+              src="/images/generated/2da69155-a62d-45d3-a189-b8f8df7e0cb9.webp"
               alt="Infographic: only 1 in 5 donors have been asked for a legacy gift, 75% retention once named, 2x more likely to give again"
               fill
               className="object-cover"
@@ -125,10 +125,10 @@ export default function GrowingYourLegacySocietyPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           A two-step call process that doesn&rsquo;t require a planned giving expert on staff
         </h2>
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/fcffab2c-17b9-461c-a6bd-b51f69fc9977.png"
+              src="/images/generated/fcffab2c-17b9-461c-a6bd-b51f69fc9977.webp"
               alt="Infographic: the two-step legacy call process, pre-call letter then qualification call"
               fill
               className="object-cover"
@@ -172,10 +172,10 @@ export default function GrowingYourLegacySocietyPost() {
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           The return on investment is real
         </h2>
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4676da56-67df-4e93-9be4-eda2bf20da30.png"
+              src="/images/generated/4676da56-67df-4e93-9be4-eda2bf20da30.webp"
               alt="Infographic: one legacy giving program's results funnel from 2,279 donors contacted to $4.6 million committed"
               fill
               className="object-cover"

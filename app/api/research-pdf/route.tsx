@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 // Light/white Catapult Fundraising logo variant, matching the one used on the
 // live site's navy footer, so it blends cleanly into the navy header bar here.
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.png";
+  "/images/generated/6a4f10b3-3d43-4704-81c9-f36ad05b2c2f.webp";
 
 function buildProfilePdfFileName(
   clientProfiler: string | undefined,

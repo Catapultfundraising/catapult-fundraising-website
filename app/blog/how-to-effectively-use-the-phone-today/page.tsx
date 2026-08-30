@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "Why telefundraising is far from dead, and the two-step, personalized method that lifts gift sizes 25 to 30 percent.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/bf533301-7515-409e-ac31-57d9e2df3c30.png", width: 1536, height: 1024, alt: "A fundraising engagement officer smiling while making a personalized phone call" }],
+    images: [{ url: "/images/generated/bf533301-7515-409e-ac31-57d9e2df3c30.webp", width: 1536, height: 1024, alt: "A fundraising engagement officer smiling while making a personalized phone call" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -70,7 +70,7 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/bf533301-7515-409e-ac31-57d9e2df3c30.png"
+            src="/images/generated/bf533301-7515-409e-ac31-57d9e2df3c30.webp"
             alt="A fundraising engagement officer smiling while making a personalized phone call"
             fill
             className="object-cover"
@@ -107,7 +107,7 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8a6397c5-1d34-4edc-bfe5-8182ab871c38.png"
+              src="/images/generated/8a6397c5-1d34-4edc-bfe5-8182ab871c38.webp"
               alt="Infographic: the two-step method, letter or email then a personal call, delivering 25 to 30 percent higher gift sizes"
               fill
               className="object-cover"

@@ -130,7 +130,7 @@ export default function AboutPage() {
         eyebrow="About Catapult"
         title="30+ years of fundraising experience, built into the nation's full-service capital campaign firm."
         description="Catapult Fundraising was founded to close a gap in the industry: firms that plan campaigns rarely execute the public phase, and calling firms rarely understand campaign strategy. We do both, as one accountable, national team."
-        backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6d87d722-c1cc-47ac-82d6-2675e8c2162e.jpeg"
+        backgroundImage="/images/generated/6d87d722-c1cc-47ac-82d6-2675e8c2162e.webp"
       />
 
       <section className="mx-auto max-w-6xl px-6 py-14 lg:px-10 lg:py-16">
@@ -203,7 +203,7 @@ export default function AboutPage() {
 
           <div className="relative aspect-[4/5] w-full overflow-hidden rounded-2xl lg:col-span-2" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/8868a9d9-479a-4758-b8bc-144aebe3f2da.png"
+              src="/images/generated/8868a9d9-479a-4758-b8bc-144aebe3f2da.webp"
               alt="Catapult Fundraising's consulting team collaborating on campaign strategy"
               fill
               className="object-cover"

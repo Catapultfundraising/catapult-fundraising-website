@@ -51,7 +51,7 @@ export function SiteHeader() {
           onClick={() => setOpen(false)}
         >
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png"
+            src="/images/generated/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.webp"
             alt="Catapult Fundraising"
             // The source file is actually 1536x1024 (3:2). The previous
             // 680x415 attributes (~1.64:1) didn't match that real aspect

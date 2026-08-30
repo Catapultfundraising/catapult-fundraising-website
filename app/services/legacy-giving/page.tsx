@@ -136,10 +136,10 @@ export default function LegacyGivingPage() {
         eyebrow="Legacy & Planned Giving"
         title="Your most loyal donors are ready for a legacy conversation. Legacy Call finds them."
         description="A full-service, two-tier planned giving methodology, not a single survey, that uncovers bequests and deferred gifts most capital campaigns leave on the table."
-        backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a0d01eb-79d6-4dfe-b7ce-54b1b8418ee0.png"
+        backgroundImage="/images/generated/2a0d01eb-79d6-4dfe-b7ce-54b1b8418ee0.webp"
       />
       <ServiceDetail
-        heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3774d10f-a730-4365-a433-58fea8d6d1a6.png"
+        heroImage="/images/generated/3774d10f-a730-4365-a433-58fea8d6d1a6.webp"
         heroImageAlt="A donor's hands writing in a personal journal, symbolizing legacy and planned giving"
         sections={SECTIONS}
         sidebarTitle="What You Get"

@@ -31,7 +31,7 @@ export const metadata = {
     description:
       "See how Catapult's one-firm, every-phase model compares to campaign-only counsel, calling-only vendors, and major gift specialists.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0dc53179-1044-48ce-a6b8-9124e8c0281a.png", width: 1536, height: 1024, alt: "Two consultants shaking hands, symbolizing a trusted long-term fundraising consulting partnership" }],
+    images: [{ url: "/images/generated/0dc53179-1044-48ce-a6b8-9124e8c0281a.webp", width: 1536, height: 1024, alt: "Two consultants shaking hands, symbolizing a trusted long-term fundraising consulting partnership" }],
   },
 };
 
@@ -99,7 +99,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -133,7 +133,7 @@ export default function CatapultVsCompetitorsPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0dc53179-1044-48ce-a6b8-9124e8c0281a.png"
+            src="/images/generated/0dc53179-1044-48ce-a6b8-9124e8c0281a.webp"
             alt="Two consultants shaking hands, symbolizing a trusted long-term fundraising consulting partnership"
             fill
             className="object-cover"
@@ -230,7 +230,7 @@ export default function CatapultVsCompetitorsPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d15fda61-91d4-4bdc-ba6c-de3939969da9.png"
+              src="/images/generated/d15fda61-91d4-4bdc-ba6c-de3939969da9.webp"
               alt="Infographic: Where Catapult fits compared to campaign-only firms, calling-only firms, and major-gift specialists"
               fill
               className="object-cover"

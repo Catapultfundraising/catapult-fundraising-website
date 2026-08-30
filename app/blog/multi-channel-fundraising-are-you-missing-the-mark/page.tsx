@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "Why digital fundraising alone can't upgrade donors or build a major gift pipeline, and the segmentation, storytelling, and calling strategy that can.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e601e588-b9aa-4027-aa86-0a2a5ec61431.png", width: 1536, height: 1024, alt: "Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor" }],
+    images: [{ url: "/images/generated/e601e588-b9aa-4027-aa86-0a2a5ec61431.webp", width: 1536, height: 1024, alt: "Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -71,7 +71,7 @@ export default function MultiChannelFundraisingPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e601e588-b9aa-4027-aa86-0a2a5ec61431.png"
+              src="/images/generated/e601e588-b9aa-4027-aa86-0a2a5ec61431.webp"
               alt="Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor"
               fill
               className="object-cover"
@@ -231,7 +231,7 @@ export default function MultiChannelFundraisingPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/76d53e37-fb14-4a02-9a37-ff3c128748af.png"
+              src="/images/generated/76d53e37-fb14-4a02-9a37-ff3c128748af.webp"
               alt="Infographic: digital channels acquire donors while a personal upgrade path of wealth screening, letters, and calls moves them up"
               fill
               className="object-cover"

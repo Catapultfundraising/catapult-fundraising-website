@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "Catapult's “four-right rule” for turning long-time supporters into major gift donors.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/25847c17-f9f0-4a0a-958f-c0f9db77bde2.png", width: 1536, height: 1024, alt: "Two professionals shaking hands after a successful major gift solicitation meeting" }],
+    images: [{ url: "/images/generated/25847c17-f9f0-4a0a-958f-c0f9db77bde2.webp", width: 1536, height: 1024, alt: "Two professionals shaking hands after a successful major gift solicitation meeting" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -70,7 +70,7 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/25847c17-f9f0-4a0a-958f-c0f9db77bde2.png"
+            src="/images/generated/25847c17-f9f0-4a0a-958f-c0f9db77bde2.webp"
             alt="Two professionals shaking hands after a successful major gift solicitation meeting"
             fill
             className="object-cover"
@@ -90,7 +90,7 @@ export default function KeyStepsSolicitingMajorDonorsPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/1046665e-61b8-46c5-a389-6154f7b60814.png"
+              src="/images/generated/1046665e-61b8-46c5-a389-6154f7b60814.webp"
               alt="Infographic: the four-right rule, the right person, the right prospect, the right amount, the right time"
               fill
               className="object-cover"

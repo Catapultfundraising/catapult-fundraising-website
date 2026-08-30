@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "The low-cost touchpoints, from the 'five by ten' calling habit to digital voicemail drops, that build donor loyalty and quietly upgrade mid-level gifts.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38cfee64-edbb-4288-8e20-2687a1044863.png", width: 1536, height: 1024, alt: "A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship" }],
+    images: [{ url: "/images/generated/38cfee64-edbb-4288-8e20-2687a1044863.webp", width: 1536, height: 1024, alt: "A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -70,7 +70,7 @@ export default function SevenTouchpointsPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38cfee64-edbb-4288-8e20-2687a1044863.png"
+            src="/images/generated/38cfee64-edbb-4288-8e20-2687a1044863.webp"
             alt="A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship"
             fill
             className="object-cover"
@@ -113,7 +113,7 @@ export default function SevenTouchpointsPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/601905ab-0481-4667-9e26-47e40968ea54.png"
+              src="/images/generated/601905ab-0481-4667-9e26-47e40968ea54.webp"
               alt="Illustration of seven donor touchpoints arranged in a circular relationship diagram"
               fill
               className="object-cover"

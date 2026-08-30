@@ -1,7 +1,7 @@
 import { Download, MonitorPlay } from "lucide-react";
 
 const BACKGROUND_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/4e087e4d-24c2-4a99-9328-e3d5a388d3f2.png";
+  "/images/generated/4e087e4d-24c2-4a99-9328-e3d5a388d3f2.webp";
 
 export function VirtualBackgrounds() {
   return (
@@ -92,7 +92,7 @@ export function VirtualBackgrounds() {
                 <li>Select the downloaded Catapult background file.</li>
                 <li>
                   Click it to select it as your active virtual background. (A
-                  green screen isn&apos;t required, but good, even lighting
+                  green screen isn't required, but good, even lighting
                   gives the cleanest edge detection.)
                 </li>
               </ol>

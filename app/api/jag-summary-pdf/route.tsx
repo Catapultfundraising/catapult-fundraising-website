@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 // printable business card, so this PDF looks and feels identical to every
 // other Catapult-branded print piece — same lockup, same typefaces.
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ffe08cd7-6dee-47f3-b390-61aecad692c2.png";
+  "/images/generated/ffe08cd7-6dee-47f3-b390-61aecad692c2.webp";
 const LOGO_ASPECT = 9225 / 2342;
 
 Font.register({

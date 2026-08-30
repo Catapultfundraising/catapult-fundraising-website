@@ -10,7 +10,7 @@ const FIELD_CLASS =
   "border-[rgb(var(--line))] bg-white text-[rgb(var(--navy))] placeholder:text-[rgb(var(--ink))]/30 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
 
 const LOGO_URL =
-  "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png";
+  "/images/generated/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.webp";
 
 function toTelHref(phone: string) {
   const digits = phone.replace(/[^0-9]/g, "");

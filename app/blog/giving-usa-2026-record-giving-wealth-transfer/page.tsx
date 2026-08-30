@@ -38,7 +38,7 @@ export const metadata = {
     url: `${SITE_URL}/blog/${SLUG}`,
     images: [
       {
-        url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/37c1fee2-8ec9-4776-997f-51cd02b24659.png",
+        url: "/images/generated/37c1fee2-8ec9-4776-997f-51cd02b24659.webp",
         width: 1536,
         height: 1024,
         alt: "A multigenerational family looking through a photo album together, symbolizing the great wealth transfer in philanthropy",
@@ -67,7 +67,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -93,7 +93,7 @@ export default function GivingUsa2026Post() {
         <div className="mt-6 mb-6 w-full overflow-hidden rounded-2xl">
           <div className="relative aspect-[3/2] w-full">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/37c1fee2-8ec9-4776-997f-51cd02b24659.png"
+              src="/images/generated/37c1fee2-8ec9-4776-997f-51cd02b24659.webp"
               alt="A multigenerational family looking through a photo album together, symbolizing the great wealth transfer in philanthropy"
               fill
               className="object-cover"
@@ -113,7 +113,7 @@ export default function GivingUsa2026Post() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:mt-2 sm:w-72 md:w-80" style={FEATHER}>
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/7145f640-69cc-45a5-89fa-8e5a0925c337.png"
+              src="/images/generated/7145f640-69cc-45a5-89fa-8e5a0925c337.webp"
               alt="Infographic: $617.2 billion in total U.S. charitable giving in 2025, an all-time record, broken down by individuals at 64% ($394.2B), foundations at $117.15B, and corporations at $43.67B"
               fill
               className="object-cover"
@@ -165,10 +165,10 @@ export default function GivingUsa2026Post() {
           The wealth transfer is here. Are we ready?
         </h2>
 
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:mt-2 sm:w-72 md:w-80" style={FEATHER}>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:mt-2 sm:w-72 md:w-80" style={FEATHER}>
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6380aa10-9043-4b6a-9285-6faf66030db6.png"
+              src="/images/generated/6380aa10-9043-4b6a-9285-6faf66030db6.webp"
               alt="Infographic: By 2030, all Baby Boomers will be older than 65, about 20% of the U.S. population per the U.S. Census Bureau; bequest giving jumped 19.7% to $62.19 billion in 2025, the fastest-growing source of giving per Giving USA 2026"
               fill
               className="object-cover"
@@ -231,10 +231,10 @@ export default function GivingUsa2026Post() {
           What happens when we find the love again
         </h2>
 
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:mt-2 sm:w-72 md:w-80" style={FEATHER}>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:mt-2 sm:w-72 md:w-80" style={FEATHER}>
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/b328b263-ac67-4d40-9029-ab5536b52ced.png"
+              src="/images/generated/b328b263-ac67-4d40-9029-ab5536b52ced.webp"
               alt="Infographic: Phone outreach is the second most effective fundraising channel after face-to-face, outperforming email, direct mail, and digital for donor upgrades"
               fill
               className="object-cover"

@@ -38,7 +38,7 @@ export const metadata = {
     url: `${SITE_URL}/blog/${SLUG}`,
     images: [
       {
-        url: "https://galaxy-prod.tlcdn.com/gen/195e3163b35e43c2813bec32cf08e4f6.jpeg",
+        url: "/images/generated/195e3163b35e43c2813bec32cf08e4f6.webp",
         width: 1536,
         height: 1024,
         alt: "A shaggy, wide-eyed puppy resting its chin on the table next to Monopoly money, looking up at the camera",
@@ -67,7 +67,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -96,7 +96,7 @@ export default function NationalMakeAWillMonthPost() {
         <div className="mt-6 mb-6 w-full overflow-hidden rounded-2xl">
           <div className="relative aspect-[3/2] w-full">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/195e3163b35e43c2813bec32cf08e4f6.jpeg"
+              src="/images/generated/195e3163b35e43c2813bec32cf08e4f6.webp"
               alt="A shaggy, wide-eyed puppy resting its chin on the table next to Monopoly money, looking up at the camera"
               fill
               className="object-cover"
@@ -129,7 +129,7 @@ export default function NationalMakeAWillMonthPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:mt-2 sm:w-72 md:w-80" style={FEATHER}>
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/2072f4578d4e451d9096dde75649d2a1.png"
+              src="/images/generated/2072f4578d4e451d9096dde75649d2a1.webp"
               alt="Infographic: $617 billion in total U.S. charitable giving in 2025, an all-time record; bequests reached $62 billion, up 20%; bequests now represent 1 in 10 dollars given; individuals and bequests together made up 74% of total giving"
               fill
               className="object-cover"
@@ -266,7 +266,7 @@ export default function NationalMakeAWillMonthPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:mt-2 sm:w-72 md:w-80" style={FEATHER}>
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl">
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/47ee785723ac4711b4c9fc5657c8db2b.png"
+              src="/images/generated/47ee785723ac4711b4c9fc5657c8db2b.webp"
               alt="Infographic: 68% of Americans don't have a valid will, yet in Catapult's experience 20% to 25% of donor files already include the organization in their estate plan, and nobody knew"
               fill
               className="object-cover"

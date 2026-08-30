@@ -69,7 +69,7 @@ const POSTS = [
     description:
       "Anthony R. Alonso on why National Make a Will Month is the perfect low-pressure moment to start the bequest conversation, and the two-tier calling model that turns loyal donors into legacy donors.",
     readTime: "6 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/195e3163b35e43c2813bec32cf08e4f6.jpeg",
+    image: "/images/generated/195e3163b35e43c2813bec32cf08e4f6.webp",
     alt: "A shaggy, wide-eyed puppy resting its chin on the table next to Monopoly money, looking up at the camera",
   },
   {
@@ -78,7 +78,7 @@ const POSTS = [
     description:
       "Anthony R. Alonso on what Giving USA 2026's record $617.2 billion, a 19.7% jump in bequest giving, and the aging of the Baby Boomer generation mean for nonprofit fundraisers who've stopped asking.",
     readTime: "7 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/37c1fee2-8ec9-4776-997f-51cd02b24659.png",
+    image: "/images/generated/37c1fee2-8ec9-4776-997f-51cd02b24659.webp",
     alt: "A multigenerational family looking through a photo album together, symbolizing the great wealth transfer in philanthropy",
   },
   {
@@ -87,7 +87,7 @@ const POSTS = [
     description:
       "Nevada ranks 49th out of 50 states in WalletHub's 2025 Most Charitable States study. What the data actually means for capital campaign strategy.",
     readTime: "5 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5c32ad35-1e99-4b00-9b7f-38f3069c476e.png",
+    image: "/images/generated/5c32ad35-1e99-4b00-9b7f-38f3069c476e.webp",
     alt: "A desert landscape transitioning into a modern city skyline at golden hour, evoking Nevada's growth",
   },
   {
@@ -96,7 +96,7 @@ const POSTS = [
     description:
       "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
     readTime: "5 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a71dcf44-5db6-48bb-9179-843db4b80626.png",
+    image: "/images/generated/a71dcf44-5db6-48bb-9179-843db4b80626.webp",
     alt: "A board member and fundraising consultant reviewing a capital campaign budget and financial charts",
   },
   {
@@ -106,7 +106,7 @@ const POSTS = [
     description:
       "Feasibility studies, gift charts, donor upgrade paths, and legacy call scripts, the practical playbook nonprofits use to raise more at every donor level.",
     readTime: "14 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/a5f9279c-f719-4630-a417-9b3588a39175.png",
+    image: "/images/generated/a5f9279c-f719-4630-a417-9b3588a39175.webp",
     alt: "A nonprofit development team reviewing capital campaign, donor engagement, and legacy giving strategy together",
   },
   {
@@ -115,7 +115,7 @@ const POSTS = [
     description:
       "Anthony Alonso on why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates.",
     readTime: "7 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0aacf9dc-33f6-420d-a5a3-b1b98483dd83.png",
+    image: "/images/generated/0aacf9dc-33f6-420d-a5a3-b1b98483dd83.webp",
     alt: "A warm multigenerational Latino family gathered together, symbolizing family, community, and generosity",
   },
   {
@@ -124,7 +124,7 @@ const POSTS = [
     description:
       "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
     readTime: "6 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/cb138a99-442d-4779-9849-845501a69ef3.png",
+    image: "/images/generated/cb138a99-442d-4779-9849-845501a69ef3.webp",
     alt: "A fundraising professional presenting an ask ladder chart to a colleague",
   },
   {
@@ -133,7 +133,7 @@ const POSTS = [
     description:
       "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign.",
     readTime: "6 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/93175c40-3d98-48bd-b885-9005127752be.png",
+    image: "/images/generated/93175c40-3d98-48bd-b885-9005127752be.webp",
     alt: "A campaign steering committee meeting with an architectural rendering of a capital project",
   },
   {
@@ -142,7 +142,7 @@ const POSTS = [
     description:
       "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
     readTime: "6 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/96ee0ee1-0dac-47d1-a6c6-f2044a67c885.png",
+    image: "/images/generated/96ee0ee1-0dac-47d1-a6c6-f2044a67c885.webp",
     alt: "A donor and nonprofit staff member in warm conversation about legacy giving, with a handwritten letter on the table",
   },
   {
@@ -151,7 +151,7 @@ const POSTS = [
     description:
       "The low-cost touchpoints, from the 'five by ten' calling habit to digital voicemail drops, that build donor loyalty and quietly upgrade mid-level gifts.",
     readTime: "5 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/38cfee64-edbb-4288-8e20-2687a1044863.png",
+    image: "/images/generated/38cfee64-edbb-4288-8e20-2687a1044863.webp",
     alt: "A fundraising officer writing a handwritten thank-you note, symbolizing donor stewardship",
   },
   {
@@ -160,7 +160,7 @@ const POSTS = [
     description:
       "Catapult's “four-right rule” for turning long-time supporters into major gift donors: the right person asking the right prospect for the right amount at the right time.",
     readTime: "4 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/25847c17-f9f0-4a0a-958f-c0f9db77bde2.png",
+    image: "/images/generated/25847c17-f9f0-4a0a-958f-c0f9db77bde2.webp",
     alt: "Two professionals shaking hands after a successful major gift solicitation meeting",
   },
   {
@@ -169,7 +169,7 @@ const POSTS = [
     description:
       "Anthony R. Alonso on why telefundraising is far from dead, and the two-step, personalized method that lifts gift sizes 25 to 30 percent.",
     readTime: "3 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/bf533301-7515-409e-ac31-57d9e2df3c30.png",
+    image: "/images/generated/bf533301-7515-409e-ac31-57d9e2df3c30.webp",
     alt: "A fundraising engagement officer smiling while making a personalized phone call",
   },
   {
@@ -178,7 +178,7 @@ const POSTS = [
     description:
       "Anthony Alonso on why digital fundraising alone can't upgrade donors or build a major gift pipeline, and the segmentation, storytelling, and calling strategy that can.",
     readTime: "6 min read",
-    image: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e601e588-b9aa-4027-aa86-0a2a5ec61431.png",
+    image: "/images/generated/e601e588-b9aa-4027-aa86-0a2a5ec61431.webp",
     alt: "Illustration of multiple communication channels, phone, mail, and email, converging toward a single donor",
   },
 ];

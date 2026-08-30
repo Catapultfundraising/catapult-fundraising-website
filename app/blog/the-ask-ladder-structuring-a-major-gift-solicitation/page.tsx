@@ -25,7 +25,7 @@ export const metadata = {
     description:
       "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
     url: `${SITE_URL}/blog/${SLUG}`,
-    images: [{ url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/cb138a99-442d-4779-9849-845501a69ef3.png", width: 1536, height: 1024, alt: "A fundraising professional presenting an ask ladder chart to a colleague" }],
+    images: [{ url: "/images/generated/cb138a99-442d-4779-9849-845501a69ef3.webp", width: 1536, height: 1024, alt: "A fundraising professional presenting an ask ladder chart to a colleague" }],
   },
 };
 
@@ -49,7 +49,7 @@ const jsonLd = {
     name: "Catapult Fundraising",
     logo: {
       "@type": "ImageObject",
-      url: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3b507e74-308f-4ba5-aaac-554b31247f7e.png",
+      url: "/images/generated/3b507e74-308f-4ba5-aaac-554b31247f7e.webp",
     },
   },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
@@ -70,7 +70,7 @@ export default function AskLadderPost() {
       <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
         <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
           <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/cb138a99-442d-4779-9849-845501a69ef3.png"
+            src="/images/generated/cb138a99-442d-4779-9849-845501a69ef3.webp"
             alt="A fundraising professional presenting an ask ladder chart to a colleague"
             fill
             className="object-cover"
@@ -102,7 +102,7 @@ export default function AskLadderPost() {
         <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
           <div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl" style={{ WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)", WebkitMaskSize: "100% 100%", maskSize: "100% 100%", WebkitMaskRepeat: "no-repeat", maskRepeat: "no-repeat" }}>
             <Image
-              src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0889817a-edf3-4ce6-9c21-525f169bf9e9.png"
+              src="/images/generated/0889817a-edf3-4ce6-9c21-525f169bf9e9.webp"
               alt="Illustration of an ascending ask ladder with increasing gift amounts at each rung"
               fill
               className="object-cover"
