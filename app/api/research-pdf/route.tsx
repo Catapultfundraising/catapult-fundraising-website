@@ -631,7 +631,7 @@ function GivingByCategoryChart({ rows }: { rows: any[] }) {
   const r = size / 2;
   const cx = r;
   const cy = r;
-  let cursorID40000chunkB64 = 0;
+  let cursor = 0;
   const slices = data.map((d, i) => {
     const startAngle = cursor;
     const sweep = (d.pct / 100) * 360;
@@ -807,7 +807,16 @@ function MiniTable({
             const idx = i + 1;
             const cells = renderRow(row, idx);
             return (
-              <View style={[styles.tableRow, { backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM }]} key={idx} wrap={false}>
+              <View
+                style={[
+                  styles.tableRow,
+                  {
+                    backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM,
+                },
+                ]}
+                key={idx}
+                wrap={false}
+              >
                 {cells.map((c, ci) => (
                   <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
                     {c}
@@ -914,7 +923,7 @@ function ProfileDocument({ data }: { data: any }) {
         <HeaderFooter data={data} />
 
         <View style={styles.heroBand}>
-          <Image src={LOGO_URL} style={styles.heroLogO} />
+          <Image src={LOGO_URL} style={styles.heroLogo} />
           <View style={styles.heroMetaAbs}>
             <Text style={styles.topBarConfidential}>CONFIDENTIAL</Text>
             {rightText ? <Text style={styles.topBarText}>{rightText}</Text> : null}
@@ -1133,7 +1142,7 @@ function ProfileDocument({ data }: { data: any }) {
         <FieldRow label="Family Foundation" value={data.familyFoundation} />
         <FieldRow label="Additional Information" value={data.additionalInformation} />
 
-        {/* Boards & Affiliations continues in this same flowing content
+        {/* Boards &amp; Affiliations continues in this same flowing content
             area -- no forced page break -- so it naturally packs onto
             whatever room is left on the current page. General page-break
             rule for every section in this document: only the section
@@ -1151,7 +1160,7 @@ function ProfileDocument({ data }: { data: any }) {
             on a single page can't be placed by react-pdf at all, so it
             silently rendered a blank page and dropped content. Letting the
             FieldRow value keep wrapping independently (as intended for all
-            long free-text fields) avoids that failure mode entirely. */}
+            long free-text fields) avoids that failure mode entirely. *}
         <View wrap={false}>
           <View style={styles.sectionAccent} />
           <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
