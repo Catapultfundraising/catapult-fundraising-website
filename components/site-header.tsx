@@ -41,36 +41,55 @@ export function SiteHeader() {
   const isInsightsActive = pathname.startsWith("/insights") || pathname.startsWith("/blog");
   const homeLink = NAV_LINKS.find((link) => link.href === "/");
   const restLinks = NAV_LINKS.filter((link) => link.href !== "/");
+  // The /research portal is a password-gated internal tool, not a public
+  // marketing page (see app/research/layout.tsx) -- staff working a
+  // profile shouldn't be able to accidentally navigate away from it by
+  // clicking the logo, so the logo is non-interactive there. Every other
+  // page keeps the normal home link.
+  const isResearchPage = pathname.startsWith("/research");
+
+  const logoImage = (
+    <Image
+      src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png"
+      alt="Catapult Fundraising"
+      // The source file is actually 1536x1024 (3:2). The previous
+      // 680x415 attributes (~1.64:1) didn't match that real aspect
+      // ratio, which HubSpot's SEO crawl flagged as a distorted image
+      // (width/height attrs feed the browser's intrinsic aspect ratio
+      // even though the box size is set by `h-36 w-auto` below).
+      width={768}
+      height={512}
+      // Rendered height is 144/176/208px (h-36/sm:h-44/lg:h-52), i.e.
+      // ~216/264/312px wide on screen at the real 3:2 ratio. Declaring
+      // the real rendered width lets the image optimizer pick a
+      // properly small variant instead of the full 768px intrinsic
+      // width (this logo is in the sticky header, so it loads
+      // site-wide).
+      sizes="(min-width: 1024px) 312px, (min-width: 640px) 264px, 216px"
+      className="h-36 w-auto sm:h-44 lg:h-52"
+      priority
+    />
+  );
 
   return (
     <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">
       <div className="mx-auto flex max-w-7xl items-center gap-4 px-6 py-1.5 lg:justify-between lg:px-10">
-        <Link
-          href="/"
-          className="relative z-10 mr-auto -my-9 flex shrink-0 items-center py-1 sm:-my-11 lg:mr-0 lg:-my-12"
-          onClick={() => setOpen(false)}
-        >
-          <Image
-            src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png"
-            alt="Catapult Fundraising"
-            // The source file is actually 1536x1024 (3:2). The previous
-            // 680x415 attributes (~1.64:1) didn't match that real aspect
-            // ratio, which HubSpot's SEO crawl flagged as a distorted image
-            // (width/height attrs feed the browser's intrinsic aspect ratio
-            // even though the box size is set by `h-36 w-auto` below).
-            width={768}
-            height={512}
-            // Rendered height is 144/176/208px (h-36/sm:h-44/lg:h-52), i.e.
-            // ~216/264/312px wide on screen at the real 3:2 ratio. Declaring
-            // the real rendered width lets the image optimizer pick a
-            // properly small variant instead of the full 768px intrinsic
-            // width (this logo is in the sticky header, so it loads
-            // site-wide).
-            sizes="(min-width: 1024px) 312px, (min-width: 640px) 264px, 216px"
-            className="h-36 w-auto sm:h-44 lg:h-52"
-            priority
-          />
-        </Link>
+        {isResearchPage ? (
+          <span
+            aria-label="Catapult Fundraising"
+            className="relative z-10 mr-auto -my-9 flex shrink-0 items-center py-1 sm:-my-11 lg:mr-0 lg:-my-12 cursor-default"
+          >
+            {logoImage}
+          </span>
+        ) : (
+          <Link
+            href="/"
+            className="relative z-10 mr-auto -my-9 flex shrink-0 items-center py-1 sm:-my-11 lg:mr-0 lg:-my-12"
+            onClick={() => setOpen(false)}
+          >
+            {logoImage}
+          </Link>
+        )}
 
         <nav className="hidden min-w-0 items-center lg:flex">
           {homeLink && (
