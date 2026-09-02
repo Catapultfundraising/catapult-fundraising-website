@@ -1095,7 +1095,12 @@ function ResearchProfileFormInner() {
       skipReloadIdRef.current = json.profile.id;
       setProfileId(json.profile.id);
       setLastSavedAt(json.profile.updatedAt);
-      router.replace(`/research/new?id=${json.profile.id}`);
+      // { scroll: false } -- without this, Next.js's router.replace jumps
+      // the page back to the top on every call. persistProfile runs as
+      // part of every "Generate PDF" click (it auto-saves first), so
+      // without this flag a profiler would get yanked to the top of a
+      // long profile every single time they generated a PDF.
+      router.replace(`/research/new?id=${json.profile.id}`, { scroll: false });
       syncOneOffIntoWeeklyRoster();
       return json.profile.id as string;
     } catch (err: any) {
