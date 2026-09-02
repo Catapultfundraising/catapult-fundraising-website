@@ -1,8 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon, Font } from "@react-pdf/renderer";
 import { parseFormattedText } from "@/lib/rich-text";
 
 export const runtime = "nodejs";
+
+// react-pdf hyphenates any "word" (whitespace-delimited token) that's too
+// long to fit on one line by DEFAULT -- it inserts its own hyphen character
+// and splits the token wherever its built-in English hyphenation dictionary
+// says to, with zero regard for whether that token is an actual word. Free
+// text fields like Additional Information, Family Foundation, and Business
+// Colleagues are exactly the fields most likely to contain a long unbroken
+// run of characters (a pasted URL, a run-together phrase, a long ID), and
+// the default hyphenation makes those wrap with a jarring, wrong-looking
+// mid-token break ("dfgn-\nerhhy5") instead of just flowing normally. This
+// disables that default entirely -- a too-long token now simply isn't split
+// (it overflows rather than getting an inserted hyphen), which is far less
+// visually broken for the kind of content these fields actually contain.
+Font.registerHyphenationCallback((word) => [word]);
 
 // Light/white Catapult Fundraising logo variant, matching the one used on the
 // live site's navy footer, so it blends cleanly into the navy header bar here.
@@ -617,7 +631,7 @@ function GivingByCategoryChart({ rows }: { rows: any[] }) {
   const r = size / 2;
   const cx = r;
   const cy = r;
-  let cursor = 0;
+  let cursorID40000chunkB64 = 0;
   const slices = data.map((d, i) => {
     const startAngle = cursor;
     const sweep = (d.pct / 100) * 360;
@@ -900,7 +914,7 @@ function ProfileDocument({ data }: { data: any }) {
         <HeaderFooter data={data} />
 
         <View style={styles.heroBand}>
-          <Image src={LOGO_URL} style={styles.heroLogo} />
+          <Image src={LOGO_URL} style={styles.heroLogO} />
           <View style={styles.heroMetaAbs}>
             <Text style={styles.topBarConfidential}>CONFIDENTIAL</Text>
             {rightText ? <Text style={styles.topBarText}>{rightText}</Text> : null}
