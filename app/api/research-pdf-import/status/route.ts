@@ -26,6 +26,28 @@ function parseModelJson(text: string): Record<string, any> {
   return JSON.parse(cleaned);
 }
 
+// Free-text narrative fields (as opposed to Boards / Business Addresses,
+// which are deliberately newline-separated lists) are meant to read as a
+// single flowing paragraph in the PDF. The extraction model sometimes
+// echoes the source PDF's own visual line-wrap as a literal newline in the
+// middle of a sentence (wherever a line happened to wrap in the original
+// document) -- e.g. "...real estate and hospitality\ninvestor, and
+// philanthropist...". The on-screen /research form just wraps text
+// normally regardless of embedded newlines, so this is invisible there,
+// but the PDF's text renderer reproduces an embedded newline as a real
+// line break, which reads as an unexplained blank gap mid-paragraph and has
+// nothing to do with page-break/pagination handling. Collapse any run of
+// whitespace containing a line break down to a single space so a
+// narrative field can never carry an unintended forced break through to
+// the printed PDF.
+function collapseNarrativeWhitespace(raw: string | undefined | null): string {
+  if (!raw) return "";
+  return String(raw)
+    .replace(/[ \t]*\n+[ \t]*/g, " ")
+    .replace(/[ \t]{2,}/g, " ")
+    .trim();
+}
+
 // --- Money parsing / normalization ------------------------------------------
 //
 // Wealth-screening PDFs write dollar amounts as shorthand like "$590K" or
@@ -206,8 +228,8 @@ export async function GET(req: Request) {
         estimatedIncome: extracted.estimatedIncome || "",
         givingCapacity,
         wealthRating: extracted.wealthRating || "",
-        relationshipToOrg: extracted.relationshipToOrg || "",
-        additionalInformation: extracted.additionalInformation || "",
+        relationshipToOrg: collapseNarrativeWhitespace(extracted.relationshipToOrg),
+        additionalInformation: collapseNarrativeWhitespace(extracted.additionalInformation),
         boards: extracted.boards || "",
         businessAddresses: extracted.businessAddresses || "",
         childrenRows: Array.isArray(extracted.childrenRows) ? extracted.childrenRows : [],
@@ -215,10 +237,10 @@ export async function GET(req: Request) {
         realEstate: Array.isArray(extracted.realEstate) ? extracted.realEstate : [],
         otherAssets: Array.isArray(extracted.otherAssets) ? extracted.otherAssets : [],
         estimatedLiquidity: extracted.estimatedLiquidity || "",
-        liquidityExplanation: extracted.liquidityExplanation || "",
+        liquidityExplanation: collapseNarrativeWhitespace(extracted.liquidityExplanation),
         spouseName: extracted.spouseName || "",
         parentsNames: extracted.parentsNames || "",
-        hobbiesInterests: extracted.hobbiesInterests || "",
+        hobbiesInterests: collapseNarrativeWhitespace(extracted.hobbiesInterests),
         otherGiving: Array.isArray(extracted.otherGiving) ? extracted.otherGiving : [],
         fecGiving: Array.isArray(extracted.fecGiving) ? extracted.fecGiving : [],
         totalCharitableGiving: extracted.totalCharitableGiving || "",
