@@ -392,16 +392,6 @@ function FormattedText({ value, style }: { value?: string; style?: any }) {
   );
 }
 
-// Splits a long field value at the nearest word boundary at or after
-// minChars. Used by FieldRow's orphan/widow protection below -- see that
-// comment for why this manual split (rather than react-pdf's built-in
-// minPresenceAhead prop) is the fix here.
-function splitFirstChunk(value: string, minChars: number): [string, string] {
-  if (value.length <= minChars) return [value, ""];
-  const spaceIdx = value.indexOf(" ", minChars);
-  const cut = spaceIdx === -1 ? value.length : spaceIdx;
-  return [value.slice(0, cut), value.slice(cut + 1)];
-}
 
 function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
@@ -420,31 +410,22 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   // applied to the shared Corporate/Foundation PDF kit
   // (lib/profile-pdf-kit.tsx).
   //
-  // Orphan/widow protection: react-pdf's built-in minPresenceAhead prop
-  // (designed for exactly this -- "don't let a heading start with too
-  // little of its content following it") does NOT take effect here,
-  // confirmed by direct testing -- it has no effect on this absolutely-
-  // positioned hanging-indent label, unlike a plain flowing Text node. The
-  // manual substitute: guarantee at least a short first chunk of a long
-  // value renders together with its label in ONE wrap={false} block, so
-  // the label never appears completely alone at the very bottom of a page.
-  //
-  // This chunk is deliberately kept SMALL (a sentence or two, not a big
-  // fraction of a page) -- an earlier version guaranteed ~600 characters
-  // (roughly half a page) together as one indivisible block. That was too
-  // large: whenever a long list-style field (e.g. "Boards") started
-  // partway down a page, react-pdf placed that whole 600-character block,
-  // then found too little room left for even the first line of the
-  // independently-wrapping "rest" of the value, and deferred the entire
-  // remainder to the next page -- wasting up to half the current page as
-  // blank space and making the section look like it "broke" across pages
-  // (confirmed by direct before/after rendering comparison: page fill
-  // dropped from ~48% used to ~93% used after shrinking this chunk, and
-  // the document dropped a full page as a result). A small guaranteed
-  // chunk still prevents the label from ever standing alone, while letting
-  // the bulk of a long value wrap and paginate naturally line-by-line, so
-  // it always fills whatever room remains on the current page before
-  // continuing on the next one.
+  // IMPORTANT: the whole value renders as ONE continuous Text node here,
+  // with no wrap={false} anywhere in this block. An earlier version tried
+  // to protect the label from ever appearing alone at the bottom of a page
+  // by manually splitting the value into a small "firstChunk" (grouped
+  // with the label in a wrap={false} block) plus a separately-rendered
+  // "rest". That backfired: react-pdf renders sibling Text elements as
+  // separate block-level paragraphs, not as one continuous inline flow, so
+  // "rest" never picked up on the same line "firstChunk" left off on --
+  // every long field got an artificial mid-sentence line break at the
+  // chunk boundary (reported as text "cutting off" and wrapping to the
+  // next line for no reason, even mid-paragraph, far from any real page
+  // break). Rendering the full value as a single Text node instead lets it
+  // wrap and paginate exactly like normal body text, with zero artificial
+  // seams. The only trade-off is the label can rarely end up alone at the
+  // very bottom of a page with the paragraph continuing on the next one --
+  // a far smaller, much less jarring cosmetic issue than a broken sentence.
   const isLong = value.length > 200 || value.includes("\n");
   if (!isLong) {
     return (
@@ -454,31 +435,20 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
       </View>
     );
   }
-  const [firstChunk, rest] = splitFirstChunk(value, 120);
-  if (!rest) {
-    return (
-      <View style={styles.fieldRowLong} wrap={false}>
-        <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
-        <FormattedText value={value} style={styles.fieldValueIndented} />
-      </View>
-    );
-  }
   return (
-    <>
-      <View style={styles.fieldRowLongHead} wrap={false}>
-        <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
-        <FormattedText value={firstChunk} style={styles.fieldValueIndented} />
-      </View>
+    <View style={styles.fieldRowLong}>
+      <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText
-        value={rest}
+        value={value}
         style={[
           styles.fieldValueIndented,
           { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
         ]}
       />
-    </>
+    </View>
   );
 }
+
 
 function FieldRowPair({
   left,
@@ -585,7 +555,7 @@ function PoliticalGauge({ value }: { value?: string }) {
   }
   const position = POLITICAL_GAUGE_POSITIONS[value];
   if (position === undefined) {
-    // "Unknown" or any other free-text value -- no spectrum to plot, just show it.
+   // "Unknown" or any other free-text value -- no spectrum to plot, just show it.
     return <Text style={styles.wealthCellValue}>{value}</Text>;
   }
   return (
