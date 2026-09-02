@@ -1,6 +1,21 @@
-import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon } from "@react-pdf/renderer";
+import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon, Font } from "@react-pdf/renderer";
 import { parseFormattedText } from "@/lib/rich-text";
 import type { PersonEntry } from "@/lib/profile-form-kit";
+
+// react-pdf hyphenates any "word" (whitespace-delimited token) that's too
+// long to fit on one line by DEFAULT -- it inserts its own hyphen character
+// and splits the token via its built-in English hyphenation dictionary,
+// regardless of whether that token is a real word. Free-text fields like
+// Company Heritage, Corporate Giving, or Company Affiliations are exactly
+// the fields most likely to contain a long unbroken run of characters (a
+// pasted URL, a run-together phrase, a long ID), and the default
+// hyphenation makes those wrap with a jarring, wrong-looking mid-token
+// break instead of flowing normally. This disables that default entirely
+// for both the Corporate and Foundation PDFs (both import this kit) -- a
+// too-long token now simply isn't split (it overflows rather than getting
+// an inserted hyphen), which is far less visually broken for the kind of
+// content these fields actually contain.
+Font.registerHyphenationCallback((word) => [word]);
 
 // Shared react-pdf building blocks for the Corporate and Foundation profile
 // PDFs, factored out of the original Individual PDF renderer
