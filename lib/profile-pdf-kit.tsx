@@ -290,16 +290,30 @@ export function FormattedText({ value, style }: { value?: string; style?: any })
 
 export function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
+  // Normalize stray single line breaks before anything else -- see the
+  // identical comment in app/api/research-pdf/route.tsx's FieldRow for the
+  // full rationale. In short: a plain <textarea> in the entry form only
+  // soft-wraps visually, so a literal single "\n" character can persist in
+  // a free-text field even after it looks like one continuous paragraph on
+  // screen and even after a profiler edits around it. A genuine intentional
+  // paragraph break is always TWO OR MORE consecutive newlines; collapsing
+  // any lone newline into a space (while leaving real "\n\n" breaks alone)
+  // makes the PDF immune to this artifact regardless of how it got into the
+  // stored value.
+  const normalizedValue = value
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").replace(/[ \t]+/g, " ").trim())
+    .join("\n\n");
   // Short values (a single line, e.g. address/phone/EIN) keep the tight
   // side-by-side row with wrap={false} -- the label is never orphaned from
   // its value across a page break, and there's no overflow risk since the
   // block is short.
-  const isLong = value.length > 200 || value.includes("\n");
+  const isLong = normalizedValue.length > 200 || normalizedValue.includes("\n");
   if (!isLong) {
     return (
       <View style={pdfStyles.fieldRow} wrap={false}>
         <Text style={pdfStyles.fieldLabel}>{label.toUpperCase()}</Text>
-        <FormattedText value={value} style={pdfStyles.fieldValue} />
+        <FormattedText value={normalizedValue} style={pdfStyles.fieldValue} />
       </View>
     );
   }
@@ -318,10 +332,11 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
   return (
     <View style={pdfStyles.fieldRowLong}>
       <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
-      <FormattedText value={value} style={pdfStyles.fieldValueIndented} />
+      <FormattedText value={normalizedValue} style={pdfStyles.fieldValueIndented} />
     </View>
   );
 }
+
 
 // Section heading used to divide a Corporate/Foundation PDF into its
 // distinct content groups (mirroring the on-screen form's SectionHeading
