@@ -115,6 +115,13 @@ export const LINE = "#D6CDBA";
 export const ROW_TINT = "#F3F4F6";
 export const HEADER_GAP = 14;
 
+// Minimum vertical space (in points) that must remain on the page before a
+// long-value FieldRow (hanging-indent layout) is allowed to START -- see
+// the identical comment in app/api/research-pdf/route.tsx's FieldRow for
+// the full rationale. Prevents the label from being orphaned alone at the
+// bottom of a page with its entire value pushed to the next page.
+const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 140;
+
 export const pdfStyles = StyleSheet.create({
   page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
   body: { paddingHorizontal: 40 },
@@ -330,7 +337,7 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
   // means every wrapped line, including lines after a page break, keeps the
   // same left offset.
   return (
-    <View style={pdfStyles.fieldRowLong}>
+    <View style={pdfStyles.fieldRowLong} minPresenceAhead={FIELD_ROW_LONG_MIN_PRESENCE_AHEAD}>
       <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText value={normalizedValue} style={pdfStyles.fieldValueIndented} />
     </View>
