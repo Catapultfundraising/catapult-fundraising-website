@@ -395,6 +395,27 @@ function FormattedText({ value, style }: { value?: string; style?: any }) {
 
 function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
+  // Normalize stray single line breaks before anything else. Free-text
+  // fields (Additional Information, Family Foundation, Business Colleagues,
+  // Boards) sometimes carry a literal single "\n" character even after a
+  // profiler edits the text in the entry form and it visually looks like
+  // one continuous paragraph there (a plain <textarea> just soft-wraps for
+  // display -- it doesn't reveal whether a real newline character sits at
+  // that exact wrap point, and editing around it in the browser doesn't
+  // reliably remove it). A single embedded "\n" like that used to render
+  // as an unexplained mid-paragraph break with no visible cause in the
+  // source data. A genuine intentional paragraph break is always TWO OR
+  // MORE consecutive newlines ("\n\n"), confirmed by every real paragraph
+  // break elsewhere in these fields rendering with a visible blank line
+  // between paragraphs. So: collapse any run of exactly one newline (with
+  // optional surrounding whitespace) into a single space, and leave any
+  // run of two-or-more newlines alone as a real paragraph break. This
+  // makes the PDF immune to this artifact regardless of how it keeps
+  // getting into the stored value.
+  const normalizedValue = value
+    .split(/\n{2,}/)
+    .map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").replace(/[ \t]+/g, " ").trim())
+    .join("\n\n");
   // Short values (a single line, e.g. address/phone/EIN) keep the tight
   // side-by-side row with wrap={false} -- the label is never orphaned from
   // its value across a page break, and there's no overflow risk since the
@@ -426,12 +447,12 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   // seams. The only trade-off is the label can rarely end up alone at the
   // very bottom of a page with the paragraph continuing on the next one --
   // a far smaller, much less jarring cosmetic issue than a broken sentence.
-  const isLong = value.length > 200 || value.includes("\n");
+  const isLong = normalizedValue.length > 200 || normalizedValue.includes("\n");
   if (!isLong) {
     return (
       <View style={styles.fieldRow} wrap={false}>
         <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
-        <FormattedText value={value} style={styles.fieldValue} />
+        <FormattedText value={normalizedValue} style={styles.fieldValue} />
       </View>
     );
   }
@@ -439,7 +460,7 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
     <View style={styles.fieldRowLong}>
       <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText
-        value={value}
+        value={normalizedValue}
         style={[
           styles.fieldValueIndented,
           { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
@@ -448,6 +469,7 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
     </View>
   );
 }
+
 
 
 function FieldRowPair({
@@ -824,7 +846,7 @@ function HeaderFooter({ data }: { data: any }) {
         <Text style={styles.footerText}>
           This document may contain information that is privileged, confidential, or otherwise
           protected from disclosure. Any review, dissemination, or use of this transmission or any
-          of its contents by persons other than the addressee is strictly prohibited.
+          of its contents by persons other than the addressee.
         </Text>
       </View>
     </>
@@ -1080,9 +1102,9 @@ function ProfileDocument({ data }: { data: any }) {
                       <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 5 }}>Real Estate</Text>
                     </View>
                     {renderCard(firstProperty, 0)}
-                  </View>
-                  {restProperties.map((re: any, i: number) => renderCard(re, i + 1))}
-                </>
+                </View>
+                {restProperties.map((re: any, i: number) => renderCard(re, i + 1))}
+              </>
               );
             })()}
           </View>
