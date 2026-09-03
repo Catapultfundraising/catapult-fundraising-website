@@ -197,6 +197,18 @@ const ROW_TINT = "#F3F4F6";
 // content that follows it.
 const HEADER_GAP = 14;
 
+// Minimum vertical space (in points) that must remain on the page before a
+// long-value FieldRow (hanging-indent layout, e.g. Business Colleagues,
+// Additional Information) is allowed to START. Without this, the label
+// (which is absolutely positioned and NOT grouped with its value in a
+// wrap={false} block -- see the comment in FieldRow below) could render
+// alone at the very bottom of a page with its entire value pushed to the
+// next page, exactly like a section heading orphaned from its content.
+// ~140pt is roughly 10 lines of body text, matching the same "move to the
+// next page if a new section would start within the last ~10 lines"
+// pagination rule already applied to section headings.
+const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 140;
+
 const styles = StyleSheet.create({
   page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
   body: { paddingHorizontal: 40 },
@@ -457,7 +469,7 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
     );
   }
   return (
-    <View style={styles.fieldRowLong}>
+    <View style={styles.fieldRowLong} minPresenceAhead={FIELD_ROW_LONG_MIN_PRESENCE_AHEAD}>
       <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText
         value={normalizedValue}
