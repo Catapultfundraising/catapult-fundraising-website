@@ -193,9 +193,9 @@ export const pdfStyles = StyleSheet.create({
   personTitle: { fontSize: 8.6, color: BRASS, fontFamily: "Helvetica-Bold", marginTop: 1 },
   personContact: { fontSize: 8, color: MUTED, marginTop: 2 },
   personBio: { fontSize: 8.6, color: INK, marginTop: 3, lineHeight: 1.35 },
-  fieldRowLong: { position: "relative", marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
-  fieldLabelAbs: { position: "absolute", top: 0, left: 0, width: 150, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
-  fieldValueIndented: { marginLeft: 150, fontSize: 9.6, color: INK, lineHeight: 1.4 },
+  fieldRowLong: { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
+  fieldLabelAbs: { fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase", marginBottom: 3 },
+  fieldValueIndented: { fontSize: 9.6, color: INK, lineHeight: 1.4 },
   bigSectionHeadingRow: { flexDirection: "row", alignItems: "center", marginTop: 16, marginBottom: 7 },
 });
 
@@ -328,17 +328,18 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
     );
   }
   // Long, multi-line free-text values (Types of Support, Limitations,
-  // Application Information, History, etc.) use a "hanging indent" layout
-  // instead of a flexDirection:row pair: the label is absolutely positioned
-  // over the top-left corner, and the value's left indent is baked into its
-  // OWN style (marginLeft) rather than coming from a sibling column. This is
-  // what makes the indent survive a page break -- with the old row-based
-  // layout, once the label's column "finishes" on the first page, the value
-  // cell would collapse back to the full page width on the continuation
-  // page, causing the value to visually jump from the right-hand column back
-  // to the left margin. Baking the indent into the value's own text style
-  // means every wrapped line, including lines after a page break, keeps the
-  // same left offset.
+  // Application Information, History, etc.) stack the label ABOVE the
+  // value instead of beside it, both in normal document flow --
+  // deliberately NOT using position: "absolute" for the label. An earlier
+  // version absolutely positioned the label over the top-left corner (to
+  // fix an even older bug where a side-by-side label/value row collapsed
+  // the value back to full page width on a page-break continuation). That
+  // introduced a new, worse bug found via direct testing against the live
+  // app: when several of these long fields appear back-to-back, react-pdf
+  // would occasionally render a later field's label/value literally on
+  // top of an earlier field's tail end -- overlapping, jumbled text on the
+  // same line. Removing position: "absolute" entirely avoids both
+  // historical bugs at once.
   //
   // NOTE: minPresenceAhead is never used here -- see the NOTE ON
   // PAGE-BREAK HINTS comment above (proven unreliable, with or without

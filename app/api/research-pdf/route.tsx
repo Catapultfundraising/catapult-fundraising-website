@@ -285,10 +285,10 @@ const styles = StyleSheet.create({
   fieldLabel: { width: 150, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldLabelSmall: { width: 108, flexShrink: 0, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
   fieldValue: { flex: 1, fontSize: 9.6, color: INK, lineHeight: 1.4 },
-  fieldRowLong: { position: "relative", marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
+  fieldRowLong: { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
   fieldRowLongHead: { position: "relative" },
-  fieldLabelAbs: { position: "absolute", top: 0, left: 0, width: 150, fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase" },
-  fieldValueIndented: { marginLeft: 150, fontSize: 9.6, color: INK, lineHeight: 1.4 },
+  fieldLabelAbs: { fontSize: 8.2, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, lineHeight: 1.3, textTransform: "uppercase", marginBottom: 3 },
+  fieldValueIndented: { fontSize: 9.6, color: INK, lineHeight: 1.4 },
   cardWhite: { backgroundColor: CREAM, borderWidth: 1, borderColor: LINE, borderRadius: 10, padding: 10, marginBottom: 12 },
   nameHeading: { fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginBottom: 2 },
   tableHeaderRow: { flexDirection: "row", alignItems: "center", backgroundColor: CREAM, borderBottomWidth: 1.5, borderBottomColor: NAVY },
@@ -425,13 +425,23 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   // block is short.
   //
   // Long, multi-paragraph free-text values (e.g. Additional Information,
-  // Relationship to Organization) use a "hanging indent" layout instead:
-  // the label is absolutely positioned over the top-left corner, and the
-  // value's left indent is baked into its own style (marginLeft) rather
-  // than coming from a sibling column, so the value can wrap and split
-  // across as many pages as it needs while the indent stays consistent on
-  // every wrapped/continued line. This mirrors the identical fix already
-  // applied to the shared Corporate/Foundation PDF kit
+  // Relationship to Organization) stack the label ABOVE the value instead
+  // of beside it, both in normal document flow -- deliberately NOT using
+  // position: "absolute" for the label. An earlier version absolutely
+  // positioned the label over the top-left corner (to fix an even older
+  // bug where a side-by-side label/value row collapsed the value back to
+  // full page width on a page-break continuation). That introduced a new,
+  // worse bug found via direct testing against the live app: when several
+  // of these long fields appear back-to-back (e.g. Boards, Clubs and
+  // Affiliations, Business Colleagues in a row), react-pdf would
+  // occasionally render a later field's label/value literally on top of
+  // an earlier field's tail end -- overlapping, jumbled text on the same
+  // line. Removing position: "absolute" entirely (label and value both
+  // normal-flow, stacked) avoids both historical bugs at once: there's no
+  // side-by-side column to collapse on a page break, and no absolutely
+  // positioned sibling for react-pdf's page-break bookkeeping to
+  // mis-measure against neighboring fields. This mirrors the identical
+  // fix applied to the shared Corporate/Foundation PDF kit
   // (lib/profile-pdf-kit.tsx).
   //
   // IMPORTANT: the whole value renders as ONE continuous Text node here,
