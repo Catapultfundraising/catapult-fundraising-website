@@ -718,8 +718,6 @@ function MiniTable({
   keepTogether?: boolean;
 }) {
   if (!rows || rows.length === 0) return null;
-  const [firstRow, ...restRows] = rows;
-  const firstCells = renderRow(firstRow, 0);
 
   const titleBlock = title ? (
     bigTitle ? (
@@ -767,15 +765,20 @@ function MiniTable({
     );
   }
 
-  // The title, header row, and first data row are grouped into ONE
-  // wrap={false} block. This is the key anti-orphan fix: without it, the
-  // title+header can render alone at the very bottom of a page (with zero
-  // rows visible under it) while every row gets pushed to the next page —
-  // exactly the "Education" bug reported. Grouping a SMALL block (title +
-  // header + one row) rather than the WHOLE table avoids reintroducing the
-  // earlier overlap bug, which was caused by forcing an entire multi-row
-  // table into one indivisible block. Remaining rows flow normally after,
-  // each still individually wrap={false} so no single row is ever cut mid-row.
+  // Only the title + header row are grouped into a wrap={false} block —
+  // deliberately NOT the first data row. An earlier version bundled title +
+  // header + first row together, which guaranteed a header was never
+  // separated from its column labels, but caused a worse problem: when that
+  // combined block was even slightly taller than the room left on a page
+  // (e.g. needed ~90pt, only ~80pt remained), the WHOLE block — including
+  // the header — got pushed to the next page, wasting almost all of the
+  // remaining space on the previous page for no reason. Grouping just the
+  // title + header row (much shorter, ~2 lines) lets it reliably fit in
+  // whatever small gap remains at the bottom of a page, so real content
+  // keeps flowing onto the previous page whenever it actually fits. Data
+  // rows (including the first) are rendered afterward, each still
+  // individually wrap={false}, so only a row that truly doesn't fit moves to
+  // the next page — never the header, and never more than necessary.
   return (
     <View style={{ marginBottom: 8 }}>
       <View wrap={false}>
@@ -789,32 +792,22 @@ function MiniTable({
               </Text>
             ))}
           </View>
-          <View style={[styles.tableRow, { backgroundColor: CREAM }]}>
-            {firstCells.map((c, ci) => (
-              <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
-                {c}
-              </Text>
-            ))}
-          </View>
         </View>
       </View>
-      {restRows.length > 0 && (
-        <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: LINE, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: "hidden" }}>
-          {restRows.map((row, i) => {
-            const idx = i + 1;
-            const cells = renderRow(row, idx);
-            return (
-              <View style={[styles.tableRow, { backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM }]} key={idx} wrap={false}>
-                {cells.map((c, ci) => (
-                  <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
-                    {c}
-                  </Text>
-                ))}
-              </View>
-            );
-          })}
-        </View>
-      )}
+      <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: LINE, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: "hidden" }}>
+        {rows.map((row, i) => {
+          const cells = renderRow(row, i);
+          return (
+            <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM }]} key={i} wrap={false}>
+              {cells.map((c, ci) => (
+                <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
+                  {c}
+                </Text>
+              ))}
+            </View>
+          );
+        })}
+      </View>
     </View>
   );
 }

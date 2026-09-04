@@ -436,8 +436,6 @@ export function MiniTable({
   keepTogether?: boolean;
 }) {
   if (!rows || rows.length === 0) return null;
-  const [firstRow, ...restRows] = rows;
-  const firstCells = renderRow(firstRow, 0);
 
   const titleBlock = title ? (
     bigTitle ? (
@@ -485,6 +483,26 @@ export function MiniTable({
     );
   }
 
+  // Only the title + header row are grouped into a wrap={false} block —
+  // deliberately NOT the first data row (see the identical reasoning in
+  // app/api/research-pdf/route.tsx's MiniTable). Bundling title+header+first
+  // row together guaranteed a header was never separated from its column
+  // labels, but caused a worse problem: when that combined block was even
+  // slightly taller than the room left on a page, the WHOLE block got pushed
+  // to the next page, wasting almost all of the remaining space on the
+  // previous page. Grouping just the title + header row (much shorter) lets
+  // it reliably fit in whatever small gap remains, so real content keeps
+  // flowing onto the previous page whenever it actually fits.
+  //
+  // Every data row (including the first) carries its OWN left/right border
+  // instead of being wrapped in one shared bordered container. A shared
+  // container border here caused a real bug: when this row group spans a
+  // page break, react-pdf renders the container's left/right border lines
+  // down to the bottom of the page on the page where the split happens,
+  // well past the last visible row, overlapping the fixed footer. Per-row
+  // borders avoid this entirely since every row is its own independent
+  // wrap={false} block with no taller shared ancestor for react-pdf to
+  // mis-measure across the break.
   return (
     <View style={{ marginBottom: 8 }}>
       <View wrap={false}>
@@ -498,34 +516,17 @@ export function MiniTable({
               </Text>
             ))}
           </View>
-          <View style={[pdfStyles.tableRow, { backgroundColor: CREAM }]}>
-            {firstCells.map((c, ci) => (
-              <Text key={ci} style={[pdfStyles.tableCell, { width: colWidths[ci] }]}>
-                {c}
-              </Text>
-            ))}
-          </View>
         </View>
       </View>
-      {/* Each remaining row carries its OWN left/right border instead of
-          being wrapped in one shared bordered container. A shared container
-          border here caused a real bug: when this row group spans a page
-          break, react-pdf renders the container's left/right border lines
-          down to the bottom of the page on the page where the split
-          happens, well past the last visible row, overlapping the fixed
-          footer. Per-row borders avoid this entirely since every row is its
-          own independent wrap={false} block with no taller shared ancestor
-          for react-pdf to mis-measure across the break. */}
-      {restRows.map((row, i) => {
-        const idx = i + 1;
-        const isLast = idx === rows.length - 1;
-        const cells = renderRow(row, idx);
+      {rows.map((row, i) => {
+        const isLast = i === rows.length - 1;
+        const cells = renderRow(row, i);
         return (
           <View
             style={[
               pdfStyles.tableRow,
               {
-                backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM,
+                backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM,
                 borderLeftWidth: 1,
                 borderRightWidth: 1,
                 borderColor: LINE,
@@ -534,7 +535,7 @@ export function MiniTable({
                 overflow: "hidden",
               },
             ]}
-            key={idx}
+            key={i}
             wrap={false}
           >
             {cells.map((c, ci) => (
