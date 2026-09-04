@@ -297,30 +297,27 @@ export function FormattedText({ value, style }: { value?: string; style?: any })
 
 export function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
-  // Normalize stray single line breaks before anything else -- see the
-  // identical comment in app/api/research-pdf/route.tsx's FieldRow for the
-  // full rationale. In short: a plain <textarea> in the entry form only
-  // soft-wraps visually, so a literal single "\n" character can persist in
-  // a free-text field even after it looks like one continuous paragraph on
-  // screen and even after a profiler edits around it. A genuine intentional
-  // paragraph break is always TWO OR MORE consecutive newlines; collapsing
-  // any lone newline into a space (while leaving real "\n\n" breaks alone)
-  // makes the PDF immune to this artifact regardless of how it got into the
-  // stored value.
-  const normalizedValue = value
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").replace(/[ \t]+/g, " ").trim())
-    .join("\n\n");
+  // IMPORTANT: hard returns in these free-text fields are meaningful, not
+  // accidental -- see the identical comment in app/api/research-pdf/route.tsx's
+  // FieldRow for the full rationale. Fields like Business Colleagues, Boards,
+  // and Family Foundation are entered as one person/entry per line via single
+  // "\n" characters, with a blank line ("\n\n") separating groups (e.g. one
+  // company's colleagues from the next). An earlier version of this function
+  // collapsed every lone "\n" into a space on the theory that it was always
+  // an unintentional artifact -- that broke exactly this legitimate
+  // one-entry-per-line formatting, merging every person onto a single
+  // crammed line. So: render the value's literal newlines as-is and let
+  // FormattedText/react-pdf turn each "\n" into its own line.
   // Short values (a single line, e.g. address/phone/EIN) keep the tight
   // side-by-side row with wrap={false} -- the label is never orphaned from
   // its value across a page break, and there's no overflow risk since the
   // block is short.
-  const isLong = normalizedValue.length > 200 || normalizedValue.includes("\n");
+  const isLong = value.length > 200 || value.includes("\n");
   if (!isLong) {
     return (
       <View style={pdfStyles.fieldRow} wrap={false}>
         <Text style={pdfStyles.fieldLabel}>{label.toUpperCase()}</Text>
-        <FormattedText value={normalizedValue} style={pdfStyles.fieldValue} />
+        <FormattedText value={value} style={pdfStyles.fieldValue} />
       </View>
     );
   }
@@ -339,7 +336,7 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
   return (
     <View style={pdfStyles.fieldRowLong} minPresenceAhead={FIELD_ROW_LONG_MIN_PRESENCE_AHEAD}>
       <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
-      <FormattedText value={normalizedValue} style={pdfStyles.fieldValueIndented} />
+      <FormattedText value={value} style={pdfStyles.fieldValueIndented} />
     </View>
   );
 }
