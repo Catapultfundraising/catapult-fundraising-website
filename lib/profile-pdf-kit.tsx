@@ -119,12 +119,12 @@ export const HEADER_GAP = 14;
 // long-value FieldRow (hanging-indent layout) is allowed to START -- see
 // the identical comment in app/api/research-pdf/route.tsx's FieldRow for
 // the full rationale. Prevents the label from being orphaned alone at the
-// bottom of a page with its entire value pushed to the next page. Kept
-// small (just enough for the label plus the first line of value) --  an
-// earlier, much larger value (140) was overcorrecting and deferring
-// entire fields to the next page even when most of the current page was
-// still empty.
-const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 40;
+// bottom of a page with its entire value pushed to the next page. A
+// smaller value (40pt) was tried to reduce white space, but it wasn't
+// enough room to guarantee even the label plus one visible line of the
+// value, so long-value labels still rendered alone at the bottom of a
+// page with their entire value pushed to the next page.
+const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 140;
 
 export const pdfStyles = StyleSheet.create({
   page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
@@ -355,13 +355,14 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
 // with plain wrap={false} it would always "fit" even with almost no room
 // left on the page, rendering the heading alone at the very bottom with
 // its content pushed entirely to the next page. minPresenceAhead reserves
-// a small buffer -- just enough for the heading itself plus the start of
-// its first line of content -- before allowing it to begin. An earlier
-// version of this reserved a much larger buffer (~200pt, roughly a
-// quarter of a letter page), which was overcorrecting: entire sections
-// were being deferred to the next page even when there was plenty of
-// room left, producing large blocks of unused white space above them.
-const SECTION_HEADING_MIN_PRESENCE_AHEAD = 50;
+// space equal to roughly the bottom quarter of the page (letter page is
+// 792pt tall, so ~198pt); if a heading would start with less than that much
+// room left before the footer, react-pdf moves the whole heading block to
+// the top of the next page instead, so no section header is ever allowed to
+// begin in the bottom quarter of a page. A smaller value (50pt) was tried
+// to reduce white space, but it wasn't enough to reliably keep a heading
+// and its first line of content together.
+const SECTION_HEADING_MIN_PRESENCE_AHEAD = 200;
 
 export function SectionHeading({ icon, title }: { icon?: IconName; title: string }) {
   if (icon) {

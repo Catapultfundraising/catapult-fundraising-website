@@ -1476,20 +1476,6 @@ function ResearchProfileFormInner() {
           </select>
         </div>
         <div className="flex items-center gap-3">
-          {lastSavedAt && (
-            <span className="text-xs text-[rgb(var(--ink))]/45">
-              Saved {new Date(lastSavedAt).toLocaleTimeString()}
-            </span>
-          )}
-          <button
-            type="button"
-            onClick={saveProfile}
-            disabled={saving}
-            className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--navy))] px-4 py-2 text-xs font-semibold text-[rgb(var(--navy))] transition-colors hover:bg-[rgb(var(--navy))] hover:text-white disabled:opacity-60"
-          >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
-            {saving ? "Saving..." : "Save Profile"}
-          </button>
           {profileId && (
             <button
               type="button"
@@ -1502,7 +1488,6 @@ function ResearchProfileFormInner() {
           )}
         </div>
       </div>
-      {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
 
       {!urlId && roster.length > 0 && (
         <div className="mt-6 rounded-2xl border border-[rgb(var(--brass))]/40 bg-[rgb(var(--brass))]/10 p-4">
@@ -2146,17 +2131,34 @@ function ResearchProfileFormInner() {
               regenerate&mdash;nothing is lost.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={generatePdf}
-            disabled={generating}
-            className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--brass))] disabled:opacity-60"
-          >
-            {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
-            {generating ? "Generating..." : "Generate PDF"}
-          </button>
+          <div className="flex items-center gap-3">
+            {lastSavedAt && (
+              <span className="text-xs text-[rgb(var(--ink))]/45">
+                Saved {new Date(lastSavedAt).toLocaleTimeString()}
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={saveProfile}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--navy))] px-4 py-3 text-sm font-semibold text-[rgb(var(--navy))] transition-colors hover:bg-[rgb(var(--navy))] hover:text-white disabled:opacity-60"
+            >
+              {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+              {saving ? "Saving..." : "Save Profile"}
+            </button>
+            <button
+              type="button"
+              onClick={generatePdf}
+              disabled={generating}
+              className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--brass))] disabled:opacity-60"
+            >
+              {generating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              {generating ? "Generating..." : "Generate PDF"}
+            </button>
+          </div>
         </div>
 
+        {saveError && <p className="mt-2 text-sm text-red-600">{saveError}</p>}
         {genError && <p className="mt-4 text-sm text-red-600">{genError}</p>}
         {emailStatus && (
           <p className={`mt-4 text-sm ${emailStatus.ok ? "text-emerald-700" : "text-red-600"}`}>
