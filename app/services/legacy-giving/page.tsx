@@ -1,6 +1,7 @@
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
+import { RelatedReading } from "@/components/related-reading";
 import { Landmark } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
 
@@ -179,6 +180,12 @@ export default function LegacyGivingPage() {
           </div>
         </div>
       </section>
+
+      <RelatedReading
+        heading="Legacy and planned giving guidance."
+        service="legacy-giving"
+        pillars={["Planned Giving"]}
+      />
 
       <CtaBand />
     </>

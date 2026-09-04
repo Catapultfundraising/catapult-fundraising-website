@@ -1,6 +1,7 @@
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
+import { RelatedReading } from "@/components/related-reading";
 import { ClipboardList } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
 
@@ -209,6 +210,12 @@ export default function CapitalCampaignPage() {
           </div>
         </div>
       </section>
+
+      <RelatedReading
+        heading="Capital campaign reading before you commit to a goal."
+        service="capital-campaign"
+        pillars={["Capital Campaigns", "Feasibility Studies"]}
+      />
 
       <CtaBand />
     </>
