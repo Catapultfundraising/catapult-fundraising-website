@@ -197,26 +197,27 @@ const ROW_TINT = "#F3F4F6";
 // content that follows it.
 const HEADER_GAP = 14;
 
-// Minimum vertical space (in points) that must remain on the page before a
-// long-value FieldRow (hanging-indent layout, e.g. Business Colleagues,
-// Additional Information) is allowed to START.
-//
-// IMPORTANT CAVEAT (found via direct empirical testing with @react-pdf/renderer,
-// not just visual inspection): this buffer does NOT reliably stop a label
-// from appearing with zero/near-zero visible value on the current page --
-// react-pdf's minPresenceAhead only meaningfully guards a block when it is
-// the LAST thing being placed on a page with nothing after it; as soon as
-// another field/row follows in the document (the normal case here), raising
-// or lowering this number made no measurable difference to where the label
-// vs. value actually split in repeated test renders. So this value is tuned
-// primarily to avoid reserving large, mostly-wasted gaps at the bottom of
-// pages (which IS clearly visible and was the main complaint), not as a
-// guaranteed orphan-proof mechanism. Genuinely eliminating the rare
-// label-with-almost-no-value case would require a larger rewrite (measuring
-// real text height ourselves and choosing break points manually, or forcing
-// wrap={false} on the whole field -- which was tried previously and is
-// unsafe here since a long field that doesn't fit on any single page causes
-// react-pdf to silently drop content instead of splitting it).
+// General pagination rule for this whole document: if a new section/field
+// would START within the bottom ~15% of a page, move the ENTIRE thing (not
+// just its label) to the top of the next page instead. This is
+// PAGE_BOTTOM_RESERVE -- 15% of the LETTER page's 792pt height, ~119pt --
+// used as minPresenceAhead wherever we bundle a label/heading together with
+// its content in a wrap={false} block. It replaces the earlier approach of
+// tuning a single "FieldRow" buffer in isolation: that buffer alone doesn't
+// prevent a label from appearing with its value pushed away, because
+// minPresenceAhead only blocks *starting* a block, it doesn't stop a
+// wrap={true} block from splitting once started. Pairing minPresenceAhead
+// with wrap={false} (see FieldRow and MiniTable below) fixes that: the pair
+// forces an all-or-nothing decision at the 15% mark, so a section either
+// shows its label AND content together, or moves wholesale to the next page.
+const PAGE_BOTTOM_RESERVE = Math.round(792 * 0.15);
+
+// Fallback-only threshold for the rare long-value FieldRow that's too long
+// to safely bundle into one wrap={false} block (see the >2500-character
+// check in FieldRow below) -- wrap={false} silently drops content that
+// can't fit on any single page, so those exceptional values keep the old
+// continuous, splittable rendering instead, gated by this much smaller
+// buffer just to avoid reserving a large, usually-wasted gap for them.
 const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 50;
 
 const styles = StyleSheet.create({
@@ -464,6 +465,30 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
       <View style={styles.fieldRow} wrap={false}>
         <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
         <FormattedText value={value} style={styles.fieldValue} />
+      </View>
+    );
+  }
+  // Extraordinarily long values (rare -- a multi-paragraph bio well beyond
+  // what any of these fields normally hold) fall back to the old
+  // continuous, splittable flow below instead of wrap={false}, since
+  // react-pdf silently drops content that can't fit on any single page.
+  // Everything else (the normal case for every field this document
+  // actually uses) is now bundled with its label into ONE wrap={false}
+  // block, gated by PAGE_BOTTOM_RESERVE: if starting the block would land
+  // in the bottom ~15% of the page, the WHOLE label+value moves to the
+  // next page together instead of splitting -- never a label alone with
+  // its value pushed away.
+  if (value.length <= 2500) {
+    return (
+      <View style={styles.fieldRowLong} wrap={false} minPresenceAhead={PAGE_BOTTOM_RESERVE}>
+        <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
+        <FormattedText
+          value={value}
+          style={[
+            styles.fieldValueIndented,
+            { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
+          ]}
+        />
       </View>
     );
   }
@@ -771,23 +796,23 @@ function MiniTable({
     );
   }
 
-  // Only the title + header row are grouped into a wrap={false} block —
-  // deliberately NOT the first data row. An earlier version bundled title +
-  // header + first row together, which guaranteed a header was never
-  // separated from its column labels, but caused a worse problem: when that
-  // combined block was even slightly taller than the room left on a page
-  // (e.g. needed ~90pt, only ~80pt remained), the WHOLE block — including
-  // the header — got pushed to the next page, wasting almost all of the
-  // remaining space on the previous page for no reason. Grouping just the
-  // title + header row (much shorter, ~2 lines) lets it reliably fit in
-  // whatever small gap remains at the bottom of a page, so real content
-  // keeps flowing onto the previous page whenever it actually fits. Data
-  // rows (including the first) are rendered afterward, each still
-  // individually wrap={false}, so only a row that truly doesn't fit moves to
-  // the next page — never the header, and never more than necessary.
+  // Title + header row + the FIRST data row are grouped into ONE
+  // wrap={false} block, gated by PAGE_BOTTOM_RESERVE (see the constant's
+  // comment above): if starting this small block would land in the bottom
+  // ~15% of the page, the whole thing -- title, column headers, AND that
+  // first row -- moves to the next page together. This guarantees a table
+  // is never split with its header stranded on one page and its data on
+  // another. It's safe to bundle here (unlike bundling an entire long
+  // table) because we only ever include ONE row no matter how many rows
+  // the table actually has, so this block's height is always small and
+  // bounded regardless of table length. Remaining rows still flow and
+  // wrap normally afterward, each individually wrap={false} so no single
+  // row is ever cut mid-row.
+  const [firstRow, ...restRows] = rows;
+  const firstCells = renderRow(firstRow, 0);
   return (
     <View style={{ marginBottom: 8 }}>
-      <View wrap={false}>
+      <View wrap={false} minPresenceAhead={PAGE_BOTTOM_RESERVE}>
         {titleBlock}
         {note ? <Text style={styles.italicNote}>{note}</Text> : null}
         <View style={{ borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: LINE, borderTopLeftRadius: 8, borderTopRightRadius: 8, overflow: "hidden" }}>
@@ -798,22 +823,32 @@ function MiniTable({
               </Text>
             ))}
           </View>
+          <View style={[styles.tableRow, { backgroundColor: CREAM }]}>
+            {firstCells.map((c, ci) => (
+              <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
+                {c}
+              </Text>
+            ))}
+          </View>
         </View>
       </View>
-      <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: LINE, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: "hidden" }}>
-        {rows.map((row, i) => {
-          const cells = renderRow(row, i);
-          return (
-            <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM }]} key={i} wrap={false}>
-              {cells.map((c, ci) => (
-                <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
-                  {c}
-                </Text>
-              ))}
-            </View>
-          );
-        })}
-      </View>
+      {restRows.length > 0 && (
+        <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: LINE, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: "hidden" }}>
+          {restRows.map((row, i) => {
+            const idx = i + 1;
+            const cells = renderRow(row, idx);
+            return (
+              <View style={[styles.tableRow, { backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM }]} key={idx} wrap={false}>
+                {cells.map((c, ci) => (
+                  <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
+                    {c}
+                  </Text>
+                ))}
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }

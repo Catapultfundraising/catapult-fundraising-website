@@ -115,27 +115,19 @@ export const LINE = "#D6CDBA";
 export const ROW_TINT = "#F3F4F6";
 export const HEADER_GAP = 14;
 
-// Minimum vertical space (in points) that must remain on the page before a
-// long-value FieldRow (hanging-indent layout) is allowed to START -- see
-// the identical comment in app/api/research-pdf/route.tsx's FieldRow for
-// the full rationale.
-//
-// IMPORTANT CAVEAT (found via direct empirical testing with @react-pdf/renderer,
-// not just visual inspection): this buffer does NOT reliably stop a label
-// from appearing with zero/near-zero visible value on the current page --
-// react-pdf's minPresenceAhead only meaningfully guards a block when it is
-// the LAST thing being placed on a page with nothing after it; as soon as
-// another field/row follows in the document (the normal case here), raising
-// or lowering this number made no measurable difference to where the label
-// vs. value actually split in repeated test renders. So this value is tuned
-// primarily to avoid reserving large, mostly-wasted gaps at the bottom of
-// pages (which IS clearly visible and was the main complaint), not as a
-// guaranteed orphan-proof mechanism. Genuinely eliminating the rare
-// label-with-almost-no-value case would require a larger rewrite (measuring
-// real text height ourselves and choosing break points manually, or forcing
-// wrap={false} on the whole field -- which was tried previously and is
-// unsafe here since a long field that doesn't fit on any single page causes
-// react-pdf to silently drop content instead of splitting it).
+// General pagination rule for this whole document -- see the identical
+// constant/comment in app/api/research-pdf/route.tsx for the full
+// rationale: if a new section/field would START within the bottom ~15% of
+// a page (792 * 0.15 =~ 119pt), move the ENTIRE thing to the next page
+// instead of splitting it. Used as minPresenceAhead paired with
+// wrap={false} wherever a label/heading is bundled with its content below.
+const PAGE_BOTTOM_RESERVE = Math.round(792 * 0.15);
+
+// Fallback-only threshold for the rare long-value FieldRow too long to
+// safely bundle into one wrap={false} block (see the >2500-character check
+// in FieldRow below) -- wrap={false} silently drops content that can't fit
+// on any single page, so those exceptional values keep the old
+// continuous, splittable rendering instead, gated by this smaller buffer.
 const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 50;
 
 export const pdfStyles = StyleSheet.create({
@@ -349,6 +341,21 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
   // to the left margin. Baking the indent into the value's own text style
   // means every wrapped line, including lines after a page break, keeps the
   // same left offset.
+  //
+  // Extraordinarily long values (rare) fall back to the old continuous,
+  // splittable flow instead of wrap={false}, since react-pdf silently
+  // drops content that can't fit on any single page. Everything else is
+  // bundled with its label into ONE wrap={false} block, gated by
+  // PAGE_BOTTOM_RESERVE -- see the identical rationale in
+  // app/api/research-pdf/route.tsx's FieldRow.
+  if (value.length <= 2500) {
+    return (
+      <View style={pdfStyles.fieldRowLong} wrap={false} minPresenceAhead={PAGE_BOTTOM_RESERVE}>
+        <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
+        <FormattedText value={value} style={pdfStyles.fieldValueIndented} />
+      </View>
+    );
+  }
   return (
     <View style={pdfStyles.fieldRowLong} minPresenceAhead={FIELD_ROW_LONG_MIN_PRESENCE_AHEAD}>
       <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
@@ -367,14 +374,10 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
 // with plain wrap={false} it would always "fit" even with almost no room
 // left on the page, rendering the heading alone at the very bottom with
 // its content pushed entirely to the next page. minPresenceAhead reserves
-// space equal to roughly the bottom quarter of the page (letter page is
-// 792pt tall, so ~198pt); if a heading would start with less than that much
-// room left before the footer, react-pdf moves the whole heading block to
-// the top of the next page instead, so no section header is ever allowed to
-// begin in the bottom quarter of a page. A smaller value (50pt) was tried
-// to reduce white space, but it wasn't enough to reliably keep a heading
-// and its first line of content together.
-const SECTION_HEADING_MIN_PRESENCE_AHEAD = 200;
+// space equal to PAGE_BOTTOM_RESERVE (~15% of the page), matching the same
+// rule applied everywhere else in this document -- see PAGE_BOTTOM_RESERVE
+// above.
+const SECTION_HEADING_MIN_PRESENCE_AHEAD = PAGE_BOTTOM_RESERVE;
 
 export function SectionHeading({ icon, title }: { icon?: IconName; title: string }) {
   if (icon) {
@@ -495,29 +498,32 @@ export function MiniTable({
     );
   }
 
-  // Only the title + header row are grouped into a wrap={false} block —
-  // deliberately NOT the first data row (see the identical reasoning in
-  // app/api/research-pdf/route.tsx's MiniTable). Bundling title+header+first
-  // row together guaranteed a header was never separated from its column
-  // labels, but caused a worse problem: when that combined block was even
-  // slightly taller than the room left on a page, the WHOLE block got pushed
-  // to the next page, wasting almost all of the remaining space on the
-  // previous page. Grouping just the title + header row (much shorter) lets
-  // it reliably fit in whatever small gap remains, so real content keeps
-  // flowing onto the previous page whenever it actually fits.
+  // Title + header row + the FIRST data row are grouped into ONE
+  // wrap={false} block, gated by PAGE_BOTTOM_RESERVE (~15% of the page --
+  // see the constant's comment above and the identical rationale in
+  // app/api/research-pdf/route.tsx's MiniTable): if starting this small
+  // block would land in the bottom ~15% of the page, the whole thing --
+  // title, column headers, AND that first row -- moves to the next page
+  // together, so a table is never split with its header stranded on one
+  // page and its data on another. Safe to bundle here (unlike an entire
+  // long table) since we only ever include ONE row no matter how many
+  // rows the table actually has, so this block stays small and bounded
+  // regardless of table length.
   //
-  // Every data row (including the first) carries its OWN left/right border
-  // instead of being wrapped in one shared bordered container. A shared
-  // container border here caused a real bug: when this row group spans a
-  // page break, react-pdf renders the container's left/right border lines
+  // Every OTHER data row carries its OWN left/right border instead of
+  // being wrapped in one shared bordered container. A shared container
+  // border here caused a real bug: when this row group spans a page
+  // break, react-pdf renders the container's left/right border lines
   // down to the bottom of the page on the page where the split happens,
   // well past the last visible row, overlapping the fixed footer. Per-row
   // borders avoid this entirely since every row is its own independent
   // wrap={false} block with no taller shared ancestor for react-pdf to
   // mis-measure across the break.
+  const [firstRow, ...restRows] = rows;
+  const firstCells = renderRow(firstRow, 0);
   return (
     <View style={{ marginBottom: 8 }}>
-      <View wrap={false}>
+      <View wrap={false} minPresenceAhead={PAGE_BOTTOM_RESERVE}>
         {titleBlock}
         {note ? <Text style={pdfStyles.italicNote}>{note}</Text> : null}
         <View style={{ borderTopWidth: 1, borderLeftWidth: 1, borderRightWidth: 1, borderColor: LINE, borderTopLeftRadius: 8, borderTopRightRadius: 8, overflow: "hidden" }}>
@@ -528,17 +534,38 @@ export function MiniTable({
               </Text>
             ))}
           </View>
+          <View
+            style={[
+              pdfStyles.tableRow,
+              {
+                backgroundColor: CREAM,
+                borderLeftWidth: 1,
+                borderRightWidth: 1,
+                borderColor: LINE,
+                borderBottomLeftRadius: restRows.length === 0 ? 8 : 0,
+                borderBottomRightRadius: restRows.length === 0 ? 8 : 0,
+                overflow: "hidden",
+              },
+            ]}
+          >
+            {firstCells.map((c, ci) => (
+              <Text key={ci} style={[pdfStyles.tableCell, { width: colWidths[ci] }]}>
+                {c}
+              </Text>
+            ))}
+          </View>
         </View>
       </View>
-      {rows.map((row, i) => {
-        const isLast = i === rows.length - 1;
-        const cells = renderRow(row, i);
+      {restRows.map((row, i) => {
+        const idx = i + 1;
+        const isLast = idx === rows.length - 1;
+        const cells = renderRow(row, idx);
         return (
           <View
             style={[
               pdfStyles.tableRow,
               {
-                backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM,
+                backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM,
                 borderLeftWidth: 1,
                 borderRightWidth: 1,
                 borderColor: LINE,
@@ -547,7 +574,7 @@ export function MiniTable({
                 overflow: "hidden",
               },
             ]}
-            key={i}
+            key={idx}
             wrap={false}
           >
             {cells.map((c, ci) => (
