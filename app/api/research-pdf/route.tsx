@@ -407,27 +407,16 @@ function FormattedText({ value, style }: { value?: string; style?: any }) {
 
 function FieldRow({ label, value }: { label: string; value?: string }) {
   if (!value) return null;
-  // Normalize stray single line breaks before anything else. Free-text
-  // fields (Additional Information, Family Foundation, Business Colleagues,
-  // Boards) sometimes carry a literal single "\n" character even after a
-  // profiler edits the text in the entry form and it visually looks like
-  // one continuous paragraph there (a plain <textarea> just soft-wraps for
-  // display -- it doesn't reveal whether a real newline character sits at
-  // that exact wrap point, and editing around it in the browser doesn't
-  // reliably remove it). A single embedded "\n" like that used to render
-  // as an unexplained mid-paragraph break with no visible cause in the
-  // source data. A genuine intentional paragraph break is always TWO OR
-  // MORE consecutive newlines ("\n\n"), confirmed by every real paragraph
-  // break elsewhere in these fields rendering with a visible blank line
-  // between paragraphs. So: collapse any run of exactly one newline (with
-  // optional surrounding whitespace) into a single space, and leave any
-  // run of two-or-more newlines alone as a real paragraph break. This
-  // makes the PDF immune to this artifact regardless of how it keeps
-  // getting into the stored value.
-  const normalizedValue = value
-    .split(/\n{2,}/)
-    .map((paragraph) => paragraph.replace(/\s*\n\s*/g, " ").replace(/[ \t]+/g, " ").trim())
-    .join("\n\n");
+  // IMPORTANT: hard returns in these free-text fields are meaningful, not
+  // accidental. Fields like Business Colleagues, Boards, and Family
+  // Foundation are entered as one person/entry per line via single "\n"
+  // characters, with a blank line ("\n\n") separating groups (e.g. one
+  // company's colleagues from the next). An earlier version of this
+  // function collapsed every lone "\n" into a space on the theory that it
+  // was always an unintentional artifact -- that broke exactly this
+  // legitimate one-entry-per-line formatting, merging every person onto a
+  // single crammed line. So: render the value's literal newlines as-is and
+  // let FormattedText/react-pdf turn each "\n" into its own line.
   // Short values (a single line, e.g. address/phone/EIN) keep the tight
   // side-by-side row with wrap={false} -- the label is never orphaned from
   // its value across a page break, and there's no overflow risk since the
@@ -459,12 +448,12 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   // seams. The only trade-off is the label can rarely end up alone at the
   // very bottom of a page with the paragraph continuing on the next one --
   // a far smaller, much less jarring cosmetic issue than a broken sentence.
-  const isLong = normalizedValue.length > 200 || normalizedValue.includes("\n");
+  const isLong = value.length > 200 || value.includes("\n");
   if (!isLong) {
     return (
       <View style={styles.fieldRow} wrap={false}>
         <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
-        <FormattedText value={normalizedValue} style={styles.fieldValue} />
+        <FormattedText value={value} style={styles.fieldValue} />
       </View>
     );
   }
@@ -472,7 +461,7 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
     <View style={styles.fieldRowLong} minPresenceAhead={FIELD_ROW_LONG_MIN_PRESENCE_AHEAD}>
       <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText
-        value={normalizedValue}
+        value={value}
         style={[
           styles.fieldValueIndented,
           { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
