@@ -341,15 +341,19 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
   // same line. Removing position: "absolute" entirely avoids both
   // historical bugs at once.
   //
-  // NOTE: neither minPresenceAhead nor wrap={false} is used here anymore
-  // -- see the identical, more detailed comment in
-  // app/api/research-pdf/route.tsx's FieldRow. Both were tried and both
-  // turned out unreliable once several long fields stack back-to-back;
-  // wrap={false} was confirmed (via a real generated PDF) to occasionally
-  // render a later field's label/value literally on top of an earlier
-  // field's tail end. Plain continuous flow cannot produce that overlap,
-  // at the cost of the label rarely ending up alone at the very bottom of
-  // a page with the value continuing on the next one.
+  // NOTE: neither wrap={false} nor minPresenceAhead is used here --
+  // see the identical, more detailed comment in
+  // app/api/research-pdf/route.tsx's FieldRow. Both were tried; wrap={false}
+  // was confirmed (via a real generated PDF) to occasionally render a
+  // later field's label/value literally on top of an earlier field's tail
+  // end, and minPresenceAhead alone was found to unpredictably block a
+  // field from starting even when ample room remains, once other fields
+  // follow it (which is always true in these profiles) -- sometimes
+  // fixing one field's orphan while silently reintroducing it on a
+  // different, previously-fine field. Plain continuous flow is the only
+  // option confirmed not to have either failure mode, at the cost of the
+  // label rarely ending up alone at the very bottom of a page with the
+  // value continuing on the next one.
   return (
     <View style={pdfStyles.fieldRowLong}>
       <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
@@ -488,13 +492,16 @@ export function MiniTable({
     );
   }
 
-  // Only the title + header row are grouped into a wrap={false} block --
-  // deliberately NOT the first data row, and deliberately with NO
-  // minPresenceAhead (see the NOTE ON PAGE-BREAK HINTS comment above).
-  // Plain wrap={false} alone (title + header only) reliably keeps a
-  // header attached to its column labels without the false "doesn't fit"
-  // page breaks minPresenceAhead was causing here. Every data row
-  // (including the first) carries its OWN left/right border instead of
+  // Title + header row + the FIRST data row are grouped into ONE
+  // wrap={false} block (deliberately with NO minPresenceAhead -- see the
+  // NOTE ON PAGE-BREAK HINTS comment above). This guarantees a table's
+  // title and header are never shown with zero rows visible under them.
+  // Safe from the "wrap={false} occasionally overlaps a neighboring
+  // block" failure mode found in FieldRow's long free-text fields, because
+  // this block is always small and bounded (title + header + exactly ONE
+  // row, regardless of table length) rather than potentially very tall.
+  //
+  // Every OTHER data row carries its OWN left/right border instead of
   // being wrapped in one shared bordered container -- a shared container
   // border here caused a real bug: when this row group spans a page
   // break, react-pdf renders the container's left/right border lines down
@@ -503,6 +510,8 @@ export function MiniTable({
   // borders avoid this entirely since every row is its own independent
   // wrap={false} block with no taller shared ancestor for react-pdf to
   // mis-measure across the break.
+  const [firstRow, ...restRows] = rows;
+  const firstCells = renderRow(firstRow, 0);
   return (
     <View style={{ marginBottom: 8 }}>
       <View wrap={false}>
@@ -516,17 +525,38 @@ export function MiniTable({
               </Text>
             ))}
           </View>
+          <View
+            style={[
+              pdfStyles.tableRow,
+              {
+                backgroundColor: CREAM,
+                borderLeftWidth: 1,
+                borderRightWidth: 1,
+                borderColor: LINE,
+                borderBottomLeftRadius: restRows.length === 0 ? 8 : 0,
+                borderBottomRightRadius: restRows.length === 0 ? 8 : 0,
+                overflow: "hidden",
+              },
+            ]}
+          >
+            {firstCells.map((c, ci) => (
+              <Text key={ci} style={[pdfStyles.tableCell, { width: colWidths[ci] }]}>
+                {c}
+              </Text>
+            ))}
+          </View>
         </View>
       </View>
-      {rows.map((row, i) => {
-        const isLast = i === rows.length - 1;
-        const cells = renderRow(row, i);
+      {restRows.map((row, i) => {
+        const idx = i + 1;
+        const isLast = idx === rows.length - 1;
+        const cells = renderRow(row, idx);
         return (
           <View
             style={[
               pdfStyles.tableRow,
               {
-                backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM,
+                backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM,
                 borderLeftWidth: 1,
                 borderRightWidth: 1,
                 borderColor: LINE,
@@ -535,7 +565,7 @@ export function MiniTable({
                 overflow: "hidden",
               },
             ]}
-            key={i}
+            key={idx}
             wrap={false}
           >
             {cells.map((c, ci) => (

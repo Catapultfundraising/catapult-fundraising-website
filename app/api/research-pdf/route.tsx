@@ -795,20 +795,23 @@ function MiniTable({
     );
   }
 
-  // Only the title + header row are grouped into a wrap={false} block --
-  // deliberately NOT the first data row, and deliberately with NO
-  // minPresenceAhead. Direct testing against the live app (rendering this
-  // exact component locally with the exact same data, outside of Vercel)
-  // showed that adding minPresenceAhead here -- with or without
-  // wrap={false} -- makes react-pdf incorrectly decide this block "doesn't
-  // fit" once it follows the side-by-side Phone Numbers / Email Addresses
-  // tables earlier on the page, pushing it to the next page even with
-  // 100+pt of genuinely empty room still available. Plain wrap={false}
-  // alone (title + header only, no minPresenceAhead) does NOT have this
-  // problem and still guarantees a header is never shown without its
-  // column labels. Data rows (including the first) flow independently
-  // afterward, each still individually wrap={false} so no single row is
-  // ever cut mid-row.
+  // Title + header row + the FIRST data row are grouped into ONE
+  // wrap={false} block (deliberately with NO minPresenceAhead -- it was
+  // confirmed via direct testing against the live app to make react-pdf
+  // incorrectly decide this block "doesn't fit" once it follows the
+  // side-by-side Phone Numbers / Email Addresses tables earlier on the
+  // page, even with 100+pt of genuinely empty room still available). This
+  // guarantees a table's title and header are never shown with zero rows
+  // visible under them: the whole small block moves to the next page
+  // together if it genuinely doesn't fit. Safe from the "wrap={false}
+  // occasionally overlaps a neighboring block" failure mode found in
+  // FieldRow's long free-text fields, because this block is always small
+  // and bounded (title + header + exactly ONE row, regardless of how many
+  // rows the table actually has) rather than potentially very tall.
+  // Remaining rows (if any) flow independently afterward, each still
+  // individually wrap={false} so no single row is ever cut mid-row.
+  const [firstRow, ...restRows] = rows;
+  const firstCells = renderRow(firstRow, 0);
   return (
     <View style={{ marginBottom: 8 }}>
       <View wrap={false}>
@@ -822,22 +825,32 @@ function MiniTable({
               </Text>
             ))}
           </View>
+          <View style={[styles.tableRow, { backgroundColor: CREAM }]}>
+            {firstCells.map((c, ci) => (
+              <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
+                {c}
+              </Text>
+            ))}
+          </View>
         </View>
       </View>
-      <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: LINE, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: "hidden" }}>
-        {rows.map((row, i) => {
-          const cells = renderRow(row, i);
-          return (
-            <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM }]} key={i} wrap={false}>
-              {cells.map((c, ci) => (
-                <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
-                  {c}
-                </Text>
-              ))}
-            </View>
-          );
-        })}
-      </View>
+      {restRows.length > 0 && (
+        <View style={{ borderLeftWidth: 1, borderRightWidth: 1, borderBottomWidth: 1, borderColor: LINE, borderBottomLeftRadius: 8, borderBottomRightRadius: 8, overflow: "hidden" }}>
+          {restRows.map((row, i) => {
+            const idx = i + 1;
+            const cells = renderRow(row, idx);
+            return (
+              <View style={[styles.tableRow, { backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM }]} key={idx} wrap={false}>
+                {cells.map((c, ci) => (
+                  <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
+                    {c}
+                  </Text>
+                ))}
+              </View>
+            );
+          })}
+        </View>
+      )}
     </View>
   );
 }
