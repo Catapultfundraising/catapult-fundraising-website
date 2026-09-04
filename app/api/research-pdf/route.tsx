@@ -204,10 +204,12 @@ const HEADER_GAP = 14;
 // wrap={false} block -- see the comment in FieldRow below) could render
 // alone at the very bottom of a page with its entire value pushed to the
 // next page, exactly like a section heading orphaned from its content.
-// ~140pt is roughly 10 lines of body text, matching the same "move to the
-// next page if a new section would start within the last ~10 lines"
-// pagination rule already applied to section headings.
-const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 140;
+// Kept small (just enough for the label plus the first line of value) --
+// an earlier, much larger value (140pt, roughly 10 lines of body text)
+// was overcorrecting: entire fields were being deferred to the next page
+// even when most of the current page was still empty, producing large
+// blocks of unused white space above them.
+const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 40;
 
 const styles = StyleSheet.create({
   page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
