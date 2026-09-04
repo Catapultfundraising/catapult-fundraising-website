@@ -123,9 +123,10 @@ export const HEADER_GAP = 14;
 // and pushes it to the next page even with plenty of genuinely empty room
 // available, regardless of the minPresenceAhead value used. Because of
 // this, minPresenceAhead is deliberately NOT used anywhere in this file
-// anymore. The only anti-orphan mechanism left is plain wrap={false} on
-// small, bounded blocks -- see FieldRow, SectionHeading, and MiniTable
-// below for exactly what is/isn't wrapped and why.
+// anymore. Plain wrap={false} (with NO minPresenceAhead) does not have
+// this problem and is used throughout instead -- see FieldRow,
+// SectionHeading, and MiniTable below for exactly what is/isn't wrapped
+// and why.
 
 export const pdfStyles = StyleSheet.create({
   page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
@@ -339,14 +340,23 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
   // means every wrapped line, including lines after a page break, keeps the
   // same left offset.
   //
-  // NOTE: deliberately no wrap={false} and no minPresenceAhead here -- see
-  // the NOTE ON PAGE-BREAK HINTS comment above. Plain continuous flow, so
-  // the label can rarely end up alone at the very bottom of a page with
-  // the value continuing on the next one -- a far smaller, much less
-  // jarring issue than the alternative (a large chunk of visibly empty
-  // space while content that would fit stays pushed to the next page).
+  // NOTE: minPresenceAhead is never used here -- see the NOTE ON
+  // PAGE-BREAK HINTS comment above (proven unreliable, with or without
+  // wrap={false}). Plain wrap={false} ALONE does not have that problem and
+  // reliably keeps the label and its value together as one all-or-nothing
+  // block. Extraordinarily long values (rare) fall back to the old
+  // continuous, splittable flow instead, since react-pdf silently drops
+  // content that can't fit on any single page.
+  if (value.length > 2500) {
+    return (
+      <View style={pdfStyles.fieldRowLong}>
+        <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
+        <FormattedText value={value} style={pdfStyles.fieldValueIndented} />
+      </View>
+    );
+  }
   return (
-    <View style={pdfStyles.fieldRowLong}>
+    <View style={pdfStyles.fieldRowLong} wrap={false}>
       <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText value={value} style={pdfStyles.fieldValueIndented} />
     </View>

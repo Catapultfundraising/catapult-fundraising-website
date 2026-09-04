@@ -202,15 +202,14 @@ const HEADER_GAP = 14;
 // data, outside of Vercel -- proved that minPresenceAhead is NOT reliable
 // in this document once a field/table follows the side-by-side Phone
 // Numbers / Email Addresses tables earlier on the page: react-pdf
-// incorrectly decides a later wrap={false}-or-not block "doesn't fit" and
-// pushes it to the next page even with 100+pt of genuinely empty room
-// available, regardless of what minPresenceAhead value is used (0 through
-// 350+ all reproduced the exact same wrong result). Because of this,
-// minPresenceAhead is deliberately NOT used anywhere in this file anymore.
-// The only anti-orphan mechanism left is plain wrap={false} on small,
-// bounded blocks (a section title + its header row, or a section heading)
-// -- see FieldRow and MiniTable below for exactly what is/isn't wrapped
-// and why.
+// incorrectly decides a later block "doesn't fit" and pushes it to the next
+// page even with 100+pt of genuinely empty room available, regardless of
+// what minPresenceAhead value is used (0 through 350+ all reproduced the
+// exact same wrong result). Because of this, minPresenceAhead is
+// deliberately NOT used anywhere in this file anymore. Plain wrap={false}
+// (with NO minPresenceAhead) does not have this problem and is used
+// throughout instead -- see FieldRow and MiniTable below for exactly what
+// is/isn't wrapped and why.
 
 const styles = StyleSheet.create({
   page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
@@ -460,23 +459,39 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
       </View>
     );
   }
-  // IMPORTANT, found via direct testing against the live app (not just
-  // sandbox mocks): pairing wrap={false} and/or minPresenceAhead on this
-  // block produces WRONG results once it follows the side-by-side Phone
-  // Numbers / Email Addresses tables earlier on the same page -- react-pdf
-  // incorrectly decides the block "doesn't fit" and pushes it to the next
-  // page even when 100+pt of genuinely empty room remains right above it.
-  // Confirmed by rendering the exact same component locally with the exact
-  // same data outside of Vercel: removing wrap={false} and
-  // minPresenceAhead entirely fixes it, while every combination that
-  // includes either one reproduces the bug. So this reverts to plain
-  // continuous flow with no page-break hint at all. The trade-off is the
-  // original, smaller cosmetic issue described above (the label can rarely
-  // end up alone at the very bottom of a page) instead of the much worse
-  // "large chunk of visibly empty space, content that would fit stays
-  // pushed to the next page" bug those props were causing here.
+  // IMPORTANT, found via direct testing against the live app (bundling
+  // this exact component locally and running it against the exact same
+  // data outside of Vercel, so every variant could be checked in seconds):
+  // minPresenceAhead is unreliable here -- with or without wrap={false}, it
+  // makes react-pdf incorrectly decide a later block "doesn't fit" once it
+  // follows the side-by-side Phone Numbers / Email Addresses tables
+  // earlier on the page, even with 100+pt of genuinely empty room still
+  // available. minPresenceAhead is therefore never used in this file.
+  // wrap={false} ALONE (no minPresenceAhead) does NOT have that problem --
+  // confirmed with the same direct test -- and reliably keeps the label
+  // and its value together as one all-or-nothing block, moving the whole
+  // thing to the next page only when it genuinely doesn't fit.
+  //
+  // Extraordinarily long values (rare -- a multi-paragraph bio well beyond
+  // what any of these fields normally hold) fall back to the old
+  // continuous, splittable flow instead of wrap={false}, since react-pdf
+  // silently drops content that can't fit on any single page.
+  if (value.length > 2500) {
+    return (
+      <View style={styles.fieldRowLong}>
+        <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
+        <FormattedText
+          value={value}
+          style={[
+            styles.fieldValueIndented,
+            { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
+          ]}
+        />
+      </View>
+    );
+  }
   return (
-    <View style={styles.fieldRowLong}>
+    <View style={styles.fieldRowLong} wrap={false}>
       <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText
         value={value}
