@@ -127,6 +127,17 @@ export const TESTIMONIALS: Testimonial[] = [
     services: ["annual-fund"],
   },
   {
+    id: "debra-kathman",
+    quote: [
+      "Catapult has been a tremendous partner in helping us qualify gift planning leads generated through our marketing efforts. By identifying prospects who are genuinely interested in our mission and considering a legacy gift, they have lightened the load for our gift planning officers and enabled them to focus their time on the donors with the greatest potential. It's made our fundraising efforts more focused, efficient, and productive.",
+    ],
+    excerpt:
+      "By identifying prospects who are genuinely interested in our mission and considering a legacy gift, they have lightened the load for our gift planning officers.",
+    name: "Debra G. Kathman, JD",
+    org: "Senior Director of Gift Planning | Development, World Wildlife Fund",
+    services: ["legacy-giving"],
+  },
+  {
     id: "kyle-smith",
     quote: [
       "Anthony Alonso and the Catapult Fundraising team were brought in at a critical time to help us address a capital campaign that was not meeting its potential. Through their professionalism, strategic insight, tireless work ethic, and exceptional fundraising expertise, they helped turn the campaign around and position it for success. Their partnership has made a meaningful difference in our ability to advance the mission of The Salvation Army. I am deeply grateful for their commitment, leadership, and the outstanding results they delivered.",
