@@ -472,36 +472,27 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   // IMPORTANT, found via direct testing against the live app (bundling
   // this exact component locally and running it against the exact same
   // data outside of Vercel, so every variant could be checked in seconds):
-  // minPresenceAhead is unreliable here -- with or without wrap={false}, it
-  // makes react-pdf incorrectly decide a later block "doesn't fit" once it
-  // follows the side-by-side Phone Numbers / Email Addresses tables
-  // earlier on the page, even with 100+pt of genuinely empty room still
-  // available. minPresenceAhead is therefore never used in this file.
-  // wrap={false} ALONE (no minPresenceAhead) does NOT have that problem --
-  // confirmed with the same direct test -- and reliably keeps the label
-  // and its value together as one all-or-nothing block, moving the whole
-  // thing to the next page only when it genuinely doesn't fit.
-  //
-  // Extraordinarily long values (rare -- a multi-paragraph bio well beyond
-  // what any of these fields normally hold) fall back to the old
-  // continuous, splittable flow instead of wrap={false}, since react-pdf
-  // silently drops content that can't fit on any single page.
-  if (value.length > 2500) {
-    return (
-      <View style={styles.fieldRowLong}>
-        <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
-        <FormattedText
-          value={value}
-          style={[
-            styles.fieldValueIndented,
-            { marginBottom: 8, borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 6 },
-          ]}
-        />
-      </View>
-    );
-  }
+  // BOTH minPresenceAhead and wrap={false} were tried on this block and
+  // BOTH turned out to be unreliable in this document once several long
+  // fields stack back-to-back (e.g. Boards, Clubs & Affiliations, Business
+  // Colleagues in a row on a data-heavy profile). wrap={false} usually
+  // works, but was confirmed (via a real generated PDF, not just test
+  // data) to occasionally let react-pdf render a later field's label/value
+  // literally on top of an earlier field's tail end -- overlapping,
+  // jumbled text -- in a rare, hard-to-reproduce edge case that isn't
+  // simply about remaining page space (identical inputs sometimes
+  // resolved correctly and sometimes didn't across separate real
+  // generations). An overlapping, corrupted-looking page is a far worse
+  // outcome than the alternative below, so this deliberately does NOT use
+  // wrap={false} or minPresenceAhead at all: the label and value both
+  // render as plain continuous flow, exactly like normal body text, which
+  // cannot produce this overlap since there's no atomic
+  // does-the-whole-block-fit decision for react-pdf to get wrong. The
+  // trade-off is the original, smaller cosmetic issue: the label can
+  // rarely end up alone at the very bottom of a page with the value
+  // continuing on the next one -- annoying, but never corrupted/unreadable.
   return (
-    <View style={styles.fieldRowLong} wrap={false}>
+    <View style={styles.fieldRowLong}>
       <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText
         value={value}

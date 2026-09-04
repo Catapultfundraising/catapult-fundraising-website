@@ -341,23 +341,17 @@ export function FieldRow({ label, value }: { label: string; value?: string }) {
   // same line. Removing position: "absolute" entirely avoids both
   // historical bugs at once.
   //
-  // NOTE: minPresenceAhead is never used here -- see the NOTE ON
-  // PAGE-BREAK HINTS comment above (proven unreliable, with or without
-  // wrap={false}). Plain wrap={false} ALONE does not have that problem and
-  // reliably keeps the label and its value together as one all-or-nothing
-  // block. Extraordinarily long values (rare) fall back to the old
-  // continuous, splittable flow instead, since react-pdf silently drops
-  // content that can't fit on any single page.
-  if (value.length > 2500) {
-    return (
-      <View style={pdfStyles.fieldRowLong}>
-        <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
-        <FormattedText value={value} style={pdfStyles.fieldValueIndented} />
-      </View>
-    );
-  }
+  // NOTE: neither minPresenceAhead nor wrap={false} is used here anymore
+  // -- see the identical, more detailed comment in
+  // app/api/research-pdf/route.tsx's FieldRow. Both were tried and both
+  // turned out unreliable once several long fields stack back-to-back;
+  // wrap={false} was confirmed (via a real generated PDF) to occasionally
+  // render a later field's label/value literally on top of an earlier
+  // field's tail end. Plain continuous flow cannot produce that overlap,
+  // at the cost of the label rarely ending up alone at the very bottom of
+  // a page with the value continuing on the next one.
   return (
-    <View style={pdfStyles.fieldRowLong} wrap={false}>
+    <View style={pdfStyles.fieldRowLong}>
       <Text style={pdfStyles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText value={value} style={pdfStyles.fieldValueIndented} />
     </View>
