@@ -118,13 +118,25 @@ export const HEADER_GAP = 14;
 // Minimum vertical space (in points) that must remain on the page before a
 // long-value FieldRow (hanging-indent layout) is allowed to START -- see
 // the identical comment in app/api/research-pdf/route.tsx's FieldRow for
-// the full rationale. Prevents the label from being orphaned alone at the
-// bottom of a page with its entire value pushed to the next page. A
-// smaller value (40pt) was tried to reduce white space, but it wasn't
-// enough room to guarantee even the label plus one visible line of the
-// value, so long-value labels still rendered alone at the bottom of a
-// page with their entire value pushed to the next page.
-const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 140;
+// the full rationale.
+//
+// IMPORTANT CAVEAT (found via direct empirical testing with @react-pdf/renderer,
+// not just visual inspection): this buffer does NOT reliably stop a label
+// from appearing with zero/near-zero visible value on the current page --
+// react-pdf's minPresenceAhead only meaningfully guards a block when it is
+// the LAST thing being placed on a page with nothing after it; as soon as
+// another field/row follows in the document (the normal case here), raising
+// or lowering this number made no measurable difference to where the label
+// vs. value actually split in repeated test renders. So this value is tuned
+// primarily to avoid reserving large, mostly-wasted gaps at the bottom of
+// pages (which IS clearly visible and was the main complaint), not as a
+// guaranteed orphan-proof mechanism. Genuinely eliminating the rare
+// label-with-almost-no-value case would require a larger rewrite (measuring
+// real text height ourselves and choosing break points manually, or forcing
+// wrap={false} on the whole field -- which was tried previously and is
+// unsafe here since a long field that doesn't fit on any single page causes
+// react-pdf to silently drop content instead of splitting it).
+const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 50;
 
 export const pdfStyles = StyleSheet.create({
   page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },

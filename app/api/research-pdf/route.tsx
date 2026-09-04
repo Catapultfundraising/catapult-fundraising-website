@@ -199,19 +199,25 @@ const HEADER_GAP = 14;
 
 // Minimum vertical space (in points) that must remain on the page before a
 // long-value FieldRow (hanging-indent layout, e.g. Business Colleagues,
-// Additional Information) is allowed to START. Without this, the label
-// (which is absolutely positioned and NOT grouped with its value in a
-// wrap={false} block -- see the comment in FieldRow below) could render
-// alone at the very bottom of a page with its entire value pushed to the
-// next page, exactly like a section heading orphaned from its content.
-// ~140pt is roughly 10 lines of body text, matching the same "move to the
-// next page if a new section would start within the last ~10 lines"
-// pagination rule already applied to section headings. A smaller value
-// (40pt) was tried to reduce white space, but it wasn't enough room to
-// guarantee even the label plus one visible line of the value, so labels
-// like "Business Address(es) & Phone(s)" still rendered alone at the
-// bottom of a page with 100% of their value pushed to the next page.
-const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 140;
+// Additional Information) is allowed to START.
+//
+// IMPORTANT CAVEAT (found via direct empirical testing with @react-pdf/renderer,
+// not just visual inspection): this buffer does NOT reliably stop a label
+// from appearing with zero/near-zero visible value on the current page --
+// react-pdf's minPresenceAhead only meaningfully guards a block when it is
+// the LAST thing being placed on a page with nothing after it; as soon as
+// another field/row follows in the document (the normal case here), raising
+// or lowering this number made no measurable difference to where the label
+// vs. value actually split in repeated test renders. So this value is tuned
+// primarily to avoid reserving large, mostly-wasted gaps at the bottom of
+// pages (which IS clearly visible and was the main complaint), not as a
+// guaranteed orphan-proof mechanism. Genuinely eliminating the rare
+// label-with-almost-no-value case would require a larger rewrite (measuring
+// real text height ourselves and choosing break points manually, or forcing
+// wrap={false} on the whole field -- which was tried previously and is
+// unsafe here since a long field that doesn't fit on any single page causes
+// react-pdf to silently drop content instead of splitting it).
+const FIELD_ROW_LONG_MIN_PRESENCE_AHEAD = 50;
 
 const styles = StyleSheet.create({
   page: { paddingTop: 34, paddingBottom: 70, paddingHorizontal: 0, fontSize: 9.3, color: INK, fontFamily: "Helvetica", backgroundColor: CREAM },
