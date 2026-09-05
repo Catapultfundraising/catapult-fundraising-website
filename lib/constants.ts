@@ -6,6 +6,13 @@ export const SERVICE_LINKS = [
   { href: "/services/annual-fund", label: "Annual Fund Calling" },
 ];
 
+export const CAMPAIGN_SECTOR_LINKS = [
+  { href: "/services/capital-campaign/education", label: "Schools and Universities" },
+  { href: "/services/capital-campaign/churches", label: "Churches and Faith Communities" },
+  { href: "/services/capital-campaign/social-service", label: "Social Service Organizations" },
+  { href: "/services/capital-campaign/healthcare", label: "Healthcare Organizations" },
+];
+
 export const INSIGHTS_LINKS = [
   { href: "/blog", label: "Articles" },
   { href: "/insights/case-studies", label: "Case Studies" },
