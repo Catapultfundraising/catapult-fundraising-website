@@ -203,8 +203,8 @@ export default function SocialServiceDonorBehaviorPage() {
         description="One of the realities of social service fundraising is that the people who benefit most from the organization's work are often not the people who can make the largest gifts. That changes the campaign strategy from the beginning. You have to build relationships with people who may know very little about the organization or the people it serves."
       />
       <ServiceDetail
-        heroImage="/blog/why-a-feasibility-study-matters/donor-conversation.jpg"
-        heroImageAlt="Social service organization board and staff planning a capital campaign"
+        heroImage="/services/capital-campaign/social-service.jpg"
+        heroImageAlt="Food and clothing donations sorted at a community service center"
         sections={SECTIONS}
         sidebarTitle="What Changes in This Sector"
         sidebarIcon={Users}

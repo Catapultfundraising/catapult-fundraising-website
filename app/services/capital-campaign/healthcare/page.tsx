@@ -180,8 +180,8 @@ export default function HealthcareDonorBehaviorPage() {
         description="Healthcare donors can agree completely that a project is needed and still question whether the campaign can raise the proposed amount. That distinction is important. In a feasibility study, we want to know both what donors think about the need and what they honestly believe can be raised."
       />
       <ServiceDetail
-        heroImage="/blog/why-a-feasibility-study-matters/hero-board-meeting.jpg"
-        heroImageAlt="Healthcare foundation board reviewing capital campaign feasibility findings"
+        heroImage="/services/capital-campaign/healthcare.jpg"
+        heroImageAlt="Physician and nurse with a patient in a community hospital room"
         sections={SECTIONS}
         sidebarTitle="What Changes in This Sector"
         sidebarIcon={Users}
