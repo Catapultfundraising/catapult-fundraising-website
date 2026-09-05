@@ -639,6 +639,102 @@ export const CASE_STUDIES: CaseStudy[] = [
       },
     ],
   },
+  {
+    slug: "salvation-army-southern-nevada-capital-campaign",
+    metaTitle: "Stalled Campaign Finishes at $10 Million",
+    metaDescription:
+      "Catapult took over a stalled Salvation Army of Southern Nevada capital campaign, ran the study that had never been done, and helped finish at $10 million.",
+    title:
+      "Catapult Fundraising Restarts a Stalled Capital Campaign and Helps The Salvation Army of Southern Nevada Finish at $10 Million",
+    sector: "Social Service · Capital Campaign & Endowment",
+    image: "/case-studies/salvation-army-southern-nevada.jpg",
+    summary:
+      "The Salvation Army of Southern Nevada had a half-finished capital campaign for a new Family Services Center, no study to guide it, and construction approval on hold. Catapult ran the study that had never been done, rebuilt the gift chart and prospect strategy, and the campaign went on to raise $10 million including a $1.25 million endowment.",
+    stats: [
+      { value: "$10M", label: "Total campaign commitments" },
+      { value: "$1.25M", label: "Endowment secured by irrevocable trust" },
+      { value: "100%", label: "Study interviewees calling the organization worthy of support" },
+      { value: "63", label: "Gifts mapped in the rebuilt gift chart" },
+    ],
+    content: [
+      {
+        type: "lede",
+        text: "A capital campaign that had run out of momentum halfway to its goal finished fully funded, with an endowment attached and a building under construction.",
+      },
+      { type: "heading", text: "The Situation" },
+      {
+        type: "paragraph",
+        text: "For seventy-five years The Salvation Army of Southern Nevada has served the most vulnerable people in Las Vegas. To meet growing demand, the corps set out to build a new Family Services Center in North Las Vegas, with case management, emergency assistance for families in crisis, and a client-choice food pantry.",
+      },
+      {
+        type: "paragraph",
+        text: "By the spring of 2023 the campaign had stalled. It had raised roughly $4 to $4.5 million toward a $6 million goal, and about $800,000 was needed quickly so that construction approval could move forward under divisional policy. No study had ever been conducted to test the campaign, so there was no independent read on community support, no validated gift chart, and no prospect plan for the balance. Catapult was brought in at that point to complete the campaign.",
+      },
+      { type: "heading", text: "The Solution" },
+      {
+        type: "paragraph",
+        text: "Catapult started with the step that had been skipped. In the fall of 2023 Catapult designed and conducted a major gifts study, drafting the interview questions and FAQs, building the interview list with the corps, and conducting confidential telephone interviews with community leaders, donors, and prospective donors. Findings and recommendations were presented in December 2023.",
+      },
+      {
+        type: "paragraph",
+        text: "The study answered the questions the campaign had never asked: how the organization is regarded locally, whether gifts of $100,000 and above were realistic, and which corporations and foundations would engage. From there Catapult rebuilt the campaign plan.",
+      },
+      {
+        type: "list",
+        items: [
+          "A gift chart for the remaining balance, with the top ten gifts carrying at least 60 percent of it",
+          "Major donor identification, wealth screening, and research profiles down to the $10,000 level",
+          "Ask amounts, naming opportunities, and a donor recognition plan tied to each remaining giving opportunity",
+          "Weekly portfolio work and pre-visit coaching with corps and divisional leadership",
+          "Solicitation training for local and divisional staff so mid-level gifts were closed, not left on the table",
+          "A monthly gift chart to actuals report so progress was measured against the plan every month",
+        ],
+      },
+      { type: "heading", text: "What the Study Found" },
+      {
+        type: "list",
+        items: [
+          "100 percent of interviewees said the organization was worthy of donations",
+          "93.1 percent called its work very important, and no one called it unimportant",
+          "89.7 percent could name specific programs that mattered to them, most often food assistance, addiction rehabilitation, and mental health services",
+          "65.5 percent believed local corporations and foundations would give",
+          "The clearest barriers were visibility and donor education, not doubt about the mission",
+        ],
+      },
+      {
+        type: "paragraph",
+        text: "Those findings became the talking points for solicitation, and the gaps they exposed became the marketing and cultivation plan for the rest of the campaign.",
+      },
+      { type: "heading", text: "The Result" },
+      {
+        type: "paragraph",
+        text: "The campaign restarted and kept going past its original target. Rather than stopping at the building, the effort was extended to raise additional support and add an endowment, and total commitments reached $10 million, including $1.25 million in endowment secured through an irrevocable trust. Construction of the new Family Services Center moved into mobilization in 2026.",
+      },
+      {
+        type: "quote",
+        text: "Anthony Alonso and the Catapult Consulting team were brought in at a critical time to help us address a capital campaign that was not meeting its potential. Through their professionalism, strategic insight, tireless work ethic, and exceptional fundraising expertise, they helped turn the campaign around and position it for success. Their partnership has made a meaningful difference in our ability to advance the mission of The Salvation Army. I am deeply grateful for their commitment, leadership, and the outstanding results they delivered.",
+      },
+      {
+        type: "paragraph",
+        text: "Major Kyle Smith, Corps Officer and Southern Nevada Coordinator, Las Vegas Citadel Corps, The Salvation Army",
+      },
+      { type: "heading", text: "Why It Worked" },
+      {
+        type: "list",
+        items: [
+          "The study was done, even though it was late. Testing the case with the community gave the campaign a defensible goal and a real prospect pool instead of hope.",
+          "The gift chart drove the work. Every remaining gift level had named prospects, an ask amount, and an owner.",
+          "Leadership was coached before visits, not briefed after them.",
+          "The campaign was not allowed to coast to the finish line. Once the building was funded, the plan moved to endowment and long-term sustainability.",
+        ],
+      },
+      { type: "heading", text: "Conclusion" },
+      {
+        type: "paragraph",
+        text: "A stalled campaign is rarely a fundraising failure. It is usually a planning gap. When the study, the gift chart, and the prospect strategy were put in place, The Salvation Army of Southern Nevada finished the campaign, built the endowment, and put a new Family Services Center into construction for the families who need it.",
+      },
+    ],
+  },
 ];
 
 export function getCaseStudyBySlug(slug: string): CaseStudy | undefined {
