@@ -6,6 +6,7 @@ import { ProcessTimeline } from "@/components/process-timeline";
 import { SectorsServed } from "@/components/sectors-served";
 import { ScrollingQuoteBanner } from "@/components/scrolling-quote-banner";
 import { QaLinksSection } from "@/components/qa-links-section";
+import { RelatedReading } from "@/components/related-reading";
 import { CtaBand } from "@/components/cta-band";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -141,6 +142,24 @@ export default function HomePage() {
         heading="Frequently asked questions about working with Catapult."
         intro="Straightforward answers about who we are and how we work, with links to the pages that go deeper on each topic."
         items={HOME_FAQS}
+      />
+
+      <RelatedReading
+        heading="Guidance from the team that runs the campaigns."
+        intro="Practical articles and direct answers to the questions nonprofit boards ask before they commit to a campaign."
+        postSlugs={[
+          "why-a-feasibility-study-matters-before-a-capital-campaign",
+          "how-much-does-a-capital-campaign-cost",
+          "planning-a-capital-campaign-gift-chart-quiet-phase",
+        ]}
+        answerSlugs={[
+          "what-is-a-capital-campaign",
+          "what-is-a-capital-campaign-feasibility-study",
+          "is-my-nonprofit-ready-for-a-capital-campaign",
+          "how-much-does-a-feasibility-study-cost",
+          "how-do-you-ask-for-a-major-gift",
+          "how-do-you-start-a-planned-giving-program",
+        ]}
       />
 
       <CtaBand />

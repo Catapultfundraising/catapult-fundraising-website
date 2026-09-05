@@ -1,6 +1,7 @@
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
+import { RelatedReading } from "@/components/related-reading";
 import { PhoneCall } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
 
@@ -178,6 +179,12 @@ export default function AnnualFundPage() {
           </div>
         </div>
       </section>
+
+      <RelatedReading
+        heading="Annual fund calling guidance."
+        service="annual-fund"
+        pillars={["Annual Fund", "Fundraising Strategy"]}
+      />
 
       <CtaBand />
     </>

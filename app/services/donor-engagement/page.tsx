@@ -1,6 +1,7 @@
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
+import { RelatedReading } from "@/components/related-reading";
 import { Users2 } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
 
@@ -188,6 +189,12 @@ export default function DonorEngagementPage() {
           </div>
         </div>
       </section>
+
+      <RelatedReading
+        heading="Mid-level donor engagement guidance."
+        service="donor-engagement"
+        pillars={["Donor Acquisition & Retention", "Major Gifts"]}
+      />
 
       <CtaBand />
     </>

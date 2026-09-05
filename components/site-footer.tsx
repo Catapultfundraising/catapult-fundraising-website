@@ -53,6 +53,7 @@ export function SiteFooter() {
           <ul className="mt-4 space-y-3 text-sm text-[rgb(var(--paper))]/70">
             <li><Link href="/insights" className="hover:text-[rgb(var(--paper))]">All Insights</Link></li>
             <li><Link href="/blog" className="hover:text-[rgb(var(--paper))]">Articles</Link></li>
+            <li><Link href="/answers" className="hover:text-[rgb(var(--paper))]">Fundraising Questions, Answered</Link></li>
             <li><Link href="/insights/case-studies" className="hover:text-[rgb(var(--paper))]">Case Studies</Link></li>
             <li><Link href="/results" className="hover:text-[rgb(var(--paper))]">Results Overview</Link></li>
           </ul>
