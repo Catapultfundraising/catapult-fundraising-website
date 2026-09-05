@@ -61,6 +61,7 @@ export const ANSWERS: Answer[] = [
       "Unlike an annual fund, which repeats every year for unrestricted operating support, a capital campaign has a defined start, a defined dollar goal, and a defined end.",
     ],
     related: [
+      { label: "Feasibility Studies", href: "/services/feasibility-study" },
       { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
       { label: "How Much Does a Capital Campaign Cost?", href: "/blog/how-much-does-a-capital-campaign-cost" },
     ],
@@ -163,12 +164,14 @@ export const ANSWERS: Answer[] = [
     slug: "how-much-does-a-feasibility-study-cost",
     pillar: "Feasibility Studies",
     question: "How much does a fundraising feasibility study cost?",
-    metaDescription: "Feasibility study cost depends on the number of prospect and stakeholder interviews conducted, the geographic spread of those interviews, and whether the",
+    metaDescription: "Feasibility study cost varies with scope, but a well-run study generally ranges between $50,000 and $75,000, driven by interview volume, travel, and",
     answer: [
-      "Feasibility study cost depends on the number of prospect and stakeholder interviews conducted, the geographic spread of those interviews, and whether the study is standalone or bundled with the full campaign engagement.",
-      "Catapult prices feasibility studies individually after an initial conversation, since a 30-interview study for a single-site nonprofit is a very different scope than a national organization needing interviews across multiple regions or chapters. Many clients choose to bundle the feasibility study into a broader Capital Campaign Counsel engagement, since the findings flow directly into Campaign Planning.",
+      "Feasibility study cost varies with scope, but a well-run study generally ranges between $50,000 and $75,000. The drivers are the number of prospect and stakeholder interviews conducted, how much of that interviewing happens in person, the geographic spread of those interviews, and whether the study is standalone or bundled with the full campaign engagement.",
+      "A study priced well under that range usually buys fewer interviews, a thinner report, or a more junior team, which is exactly how organizations end up with a goal their donor base cannot reach. A 30-interview study for a single-site nonprofit is also a very different scope than a national organization needing interviews across multiple regions or chapters, so Catapult prices each study after an initial conversation.",
+      "Many clients bundle the feasibility study into a broader Capital Campaign Counsel engagement, which prices more favorably than buying the phases one at a time, since the findings flow directly into Campaign Planning.",
     ],
     related: [
+      { label: "Feasibility Studies", href: "/services/feasibility-study" },
       { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
     ],
   },

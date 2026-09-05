@@ -5,6 +5,7 @@ const SITE_URL = "https://www.catapultfr.com";
 
 const HIGH_PRIORITY_WEEKLY = new Set([
   "/services/capital-campaign",
+  "/services/feasibility-study",
   "/services/legacy-giving",
   "/services/donor-engagement",
   "/services/annual-fund",
@@ -41,7 +42,8 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/our-team": "2026-08-12",
   "/contact": "2026-08-03",
   "/results": "2026-08-12",
-  "/services/capital-campaign": "2026-08-17",
+  "/services/capital-campaign": "2026-09-04",
+  "/services/feasibility-study": "2026-09-04",
   "/services/legacy-giving": "2026-08-17",
   "/services/donor-engagement": "2026-08-17",
   "/services/annual-fund": "2026-08-17",
@@ -92,6 +94,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/contact",
     "/results",
     "/services/capital-campaign",
+    "/services/feasibility-study",
     "/services/legacy-giving",
     "/services/donor-engagement",
     "/services/annual-fund",

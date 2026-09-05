@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
@@ -121,7 +122,7 @@ const FAQS = [
   {
     question: "How much does it cost to hire a capital campaign consultant?",
     answer:
-      "Capital campaign consulting fees vary based on campaign goal, timeline, and scope of services, from feasibility study alone through full quiet-phase and public-phase management. Catapult provides a customized proposal after an initial conversation about your organization's goals and readiness.",
+      "Capital campaign consulting fees vary based on campaign goal, timeline, and scope of services, from feasibility study alone through full quiet-phase and public-phase management. A well-run feasibility study on its own generally ranges from $50,000 to $75,000. Catapult provides a customized proposal after an initial conversation about your organization's goals and readiness.",
   },
 ];
 
@@ -182,6 +183,21 @@ export default function CapitalCampaignPage() {
           "Weekly progress reporting against the gift table",
         ]}
       />
+
+      <section className="bg-[rgb(var(--paper))] py-10">
+        <div className="mx-auto max-w-4xl px-6 lg:px-10">
+          <p className="text-xl leading-relaxed text-[rgb(var(--ink))]/70">
+            Starting at the beginning? The study is phase one, and it has a page of its own:{" "}
+            <Link
+              href="/services/feasibility-study"
+              className="font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))] decoration-2 underline-offset-4"
+            >
+              how our feasibility study works, what it delivers, and what it costs
+            </Link>
+            .
+          </p>
+        </div>
+      </section>
 
       <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
         <div className="mx-auto max-w-4xl px-6 lg:px-10">

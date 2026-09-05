@@ -39,6 +39,7 @@ export function SiteFooter() {
           </h3>
           <ul className="mt-4 space-y-3 text-sm text-[rgb(var(--paper))]/70">
             <li><Link href="/services/capital-campaign" className="hover:text-[rgb(var(--paper))]">Capital Campaign Counsel</Link></li>
+            <li><Link href="/services/feasibility-study" className="hover:text-[rgb(var(--paper))]">Feasibility Studies</Link></li>
             <li><Link href="/services/legacy-giving" className="hover:text-[rgb(var(--paper))]">Legacy &amp; Planned Giving</Link></li>
             <li><Link href="/services/donor-engagement" className="hover:text-[rgb(var(--paper))]">Mid-Level Donor Engagement</Link></li>
             <li><Link href="/services/annual-fund" className="hover:text-[rgb(var(--paper))]">Annual Fund Calling</Link></li>
