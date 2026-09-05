@@ -5,6 +5,7 @@ import { CtaBand } from "@/components/cta-band";
 import { RelatedReading } from "@/components/related-reading";
 import { ClipboardList } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
+import { CAMPAIGN_SECTOR_LINKS } from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -224,6 +225,35 @@ export default function CapitalCampaignPage() {
               </div>
             ))}
           </div>
+        </div>
+      </section>
+
+      <section className="border-y border-[rgb(var(--line))] bg-[rgb(var(--surface))] py-14 lg:py-16">
+        <div className="mx-auto max-w-4xl px-6 lg:px-10">
+          <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
+            Donor Behavior by Sector
+          </p>
+          <h2 className="mt-4 font-display text-4xl leading-tight text-[rgb(var(--navy))] sm:text-5xl">
+            The phases are the same. The donors are not.
+          </h2>
+          <p className="mt-5 text-xl leading-relaxed text-[rgb(var(--ink))]/70">
+            Alumni, congregants, patients, and community donors behave differently in a
+            capital campaign, and the differences are large enough to change the goal, the
+            gift chart, and the timetable. These pages set out what Catapult has seen in
+            each sector, drawn from our own feasibility studies and calling programs.
+          </p>
+          <ul className="mt-8 space-y-5">
+            {CAMPAIGN_SECTOR_LINKS.map((s) => (
+              <li key={s.href}>
+                <Link
+                  href={s.href}
+                  className="font-display text-2xl text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))] decoration-2 underline-offset-4 sm:text-[28px]"
+                >
+                  {s.label}
+                </Link>
+              </li>
+            ))}
+          </ul>
         </div>
       </section>
 
