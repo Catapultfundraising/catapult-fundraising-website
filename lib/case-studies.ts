@@ -558,15 +558,15 @@ export const CASE_STUDIES: CaseStudy[] = [
   },
   {
     slug: "legacy-call-presidential-library",
-    metaTitle: "Legacy Call Secures $2.8M for a Library",
-    metaDescription: "A 2,000-donor Legacy Call telephone outreach program confirmed 26 planned gifts totaling $2,825,000 for a U.S. Presidential Library.",
+    metaTitle: "Legacy Call Secures $2.8M for the Reagan Library",
+    metaDescription: "A 2,000-donor Legacy Call telephone outreach program confirmed 26 planned gifts totaling $2,825,000 for the Ronald Reagan Presidential Library.",
     title:
-      "Catapult Fundraising's Legacy Call Program Secures $2,825,000 in Planned Gifts for a U.S. Presidential Library",
+      "Catapult Fundraising's Legacy Call Program Secures $2,825,000 in Planned Gifts for the Ronald Reagan Presidential Library",
     sector: "Museum & Cultural Institution · Legacy & Planned Giving",
     image:
-      "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/35a626c0-e150-4ceb-91eb-d23693c01819.png",
+      "/case-studies/legacy-call-presidential-library.jpg",
     summary:
-      "A 2,000-donor Legacy Call telephone outreach program for a U.S. Presidential Library confirmed 26 planned gifts totaling $2,825,000, with an additional $1,510,000 in gift potential identified.",
+      "A 2,000-donor Legacy Call telephone outreach program for the Ronald Reagan Presidential Library confirmed 26 planned gifts totaling $2,825,000, with an additional $1,510,000 in gift potential identified.",
     stats: [
       { value: "2,000", label: "Loyal donors contacted" },
       { value: "22%", label: "Expressed planned-giving interest" },
@@ -577,7 +577,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       { type: "heading", text: "The Situation" },
       {
         type: "paragraph",
-        text: "Catapult Fundraising partnered with a U.S. Presidential Library to provide a planned giving telephone outreach program to 2,000 of the organization's most loyal donors. Due to their large number of loyal donors, Catapult partnered with the Library to help identify gift planning interest, cultivate these prospects, and educate donors on planned giving options.",
+        text: "Catapult Fundraising partnered with the Ronald Reagan Presidential Library to provide a planned giving telephone outreach program to 2,000 of the organization's most loyal donors. Due to their large number of loyal donors, Catapult partnered with the Library to help identify gift planning interest, cultivate these prospects, and educate donors on planned giving options.",
       },
       { type: "heading", text: "The Solution" },
       {
@@ -636,6 +636,10 @@ export const CASE_STUDIES: CaseStudy[] = [
       {
         type: "paragraph",
         text: "Lastly, a pipeline for major gifts and future planned gifts was created for the Library. The effects of the Legacy Call program will impact the Library's development efforts for years to come.",
+      },
+      {
+        type: "paragraph",
+        text: "Photo of the Air Force One Pavilion courtesy of the Ronald Reagan Presidential Library.",
       },
     ],
   },
