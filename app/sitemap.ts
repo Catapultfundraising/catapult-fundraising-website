@@ -61,7 +61,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/insights/case-studies/legacy-call-new-jersey-hospital": "2026-08-29",
   "/insights/case-studies/legacy-calls-hill-school": "2026-08-29",
   "/insights/case-studies/legacy-call-international-ministry": "2026-08-29",
-  "/insights/case-studies/legacy-call-presidential-library": "2026-08-29",
+  "/insights/case-studies/legacy-call-presidential-library": "2026-09-05",
   "/insights/case-studies/af-connect-special-olympics-indiana": "2026-08-29",
   "/insights/case-studies/salvation-army-southern-nevada-capital-campaign": "2026-09-05",
   "/blog": "2026-08-29",
