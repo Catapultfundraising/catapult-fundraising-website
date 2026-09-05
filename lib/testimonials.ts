@@ -148,6 +148,19 @@ export const TESTIMONIALS: Testimonial[] = [
     org: "Salvation Army",
     services: ["capital-campaign"],
   },
+  {
+    id: "natalie-krauser",
+    quote: [
+      "Our ongoing chapter partnership with Catapult has yielded retained members, conference registrations, and even gifts to the AFP Foundation's Be the Cause campaign.",
+      "Their calling team serves as true ambassadors, well-versed in who AFP NJ members are and always ready to answer questions and provide assistance.",
+      "As a pro bono partner, they have consistently demonstrated the highest level of professionalism and have been exceptional partners throughout our relationship.",
+    ],
+    excerpt:
+      "Their calling team serves as true ambassadors, well-versed in who AFP NJ members are and always ready to answer questions and provide assistance.",
+    name: "Natalie R. Krauser",
+    org: "President, Association of Fundraising Professionals NJ Chapter",
+    services: ["donor-engagement", "annual-fund"],
+  },
 ];
 
 export function testimonialsFor(service: Testimonial["services"][number]): Testimonial[] {
