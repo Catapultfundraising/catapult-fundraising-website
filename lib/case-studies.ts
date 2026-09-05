@@ -649,7 +649,7 @@ export const CASE_STUDIES: CaseStudy[] = [
     sector: "Social Service · Capital Campaign & Endowment",
     image: "/case-studies/salvation-army-southern-nevada.jpg",
     summary:
-      "The Salvation Army of Southern Nevada had a half-finished capital campaign for a new Family Services Center, no study to guide it, and construction approval on hold. Catapult ran the study that had never been done, rebuilt the gift chart and prospect strategy, and the campaign went on to raise $10 million including a $1.25 million endowment.",
+      "The Salvation Army of Southern Nevada had a half-finished capital campaign for a new Family Services Center, no study to guide it, and construction approval on hold. Costs kept climbing during the stall, moving the goal from $6 million to $8.5 million to $10 million. Catapult ran the study that had never been done, rebuilt the gift chart and prospect strategy at each new target, and the campaign finished at $10 million including a $1.25 million endowment.",
     stats: [
       { value: "$10M", label: "Total campaign commitments" },
       { value: "$1.25M", label: "Endowment secured by irrevocable trust" },
@@ -659,7 +659,7 @@ export const CASE_STUDIES: CaseStudy[] = [
     content: [
       {
         type: "lede",
-        text: "A capital campaign that had run out of momentum halfway to its goal finished fully funded, with an endowment attached and a building under construction.",
+        text: "A capital campaign that had run out of momentum, against a goal that kept rising with construction costs, finished fully funded at $10 million with an endowment attached and a building under construction.",
       },
       { type: "heading", text: "The Situation" },
       {
@@ -668,7 +668,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       },
       {
         type: "paragraph",
-        text: "By the spring of 2023 the campaign had stalled. It had raised roughly $4 to $4.5 million toward a $6 million goal, and about $800,000 was needed quickly so that construction approval could move forward under divisional policy. No study had ever been conducted to test the campaign, so there was no independent read on community support, no validated gift chart, and no prospect plan for the balance. Catapult was brought in at that point to complete the campaign.",
+        text: "By the spring of 2023 the campaign had stalled. It had raised roughly $4 to $4.5 million toward a $6 million goal, and about $800,000 was needed quickly so that construction approval could move forward under divisional policy. No study had ever been conducted to test the campaign, so there was no independent read on community support, no validated gift chart, and no prospect plan for the balance. Catapult was brought in at that point to complete the campaign, and the delay itself kept raising the price of the building.",
       },
       { type: "heading", text: "The Solution" },
       {
@@ -708,7 +708,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       { type: "heading", text: "The Result" },
       {
         type: "paragraph",
-        text: "The campaign restarted and kept going past its original target. Rather than stopping at the building, the effort was extended to raise additional support and add an endowment, and total commitments reached $10 million, including $1.25 million in endowment secured through an irrevocable trust. Construction of the new Family Services Center moved into mobilization in 2026.",
+        text: "The campaign restarted, and the goal kept moving with it. As the stall dragged on and construction costs climbed, the target went from $6 million to $8.5 million and finally to $10 million. Each time the number moved, the gift chart and the prospect plan were rebuilt to match it rather than left to chase an outdated target. Total commitments reached $10 million, including $1.25 million in endowment secured through an irrevocable trust, and construction of the new Family Services Center moved into mobilization in 2026.",
       },
       {
         type: "quote",
@@ -726,6 +726,7 @@ export const CASE_STUDIES: CaseStudy[] = [
           "The gift chart drove the work. Every remaining gift level had named prospects, an ask amount, and an owner.",
           "Leadership was coached before visits, not briefed after them.",
           "The campaign was not allowed to coast to the finish line. Once the building was funded, the plan moved to endowment and long-term sustainability.",
+          "The plan was rebuilt every time the goal moved, from $6 million to $8.5 million to $10 million, so the ask amounts always matched the real cost of the project.",
         ],
       },
       { type: "heading", text: "Conclusion" },
