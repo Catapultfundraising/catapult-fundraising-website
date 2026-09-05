@@ -179,8 +179,8 @@ export default function EducationDonorBehaviorPage() {
         description="Alumni are not simply giving to an institution. They are often giving to a part of their own story. That connection matters. It affects what they care about, how they respond to a campaign, and sometimes how quickly they are willing to make a gift."
       />
       <ServiceDetail
-        heroImage="/blog/why-a-feasibility-study-matters/hero-board-meeting.jpg"
-        heroImageAlt="University advancement team reviewing capital campaign plans"
+        heroImage="/services/capital-campaign/education.jpg"
+        heroImageAlt="Students walking a tree-lined university campus avenue"
         sections={SECTIONS}
         sidebarTitle="What Changes in This Sector"
         sidebarIcon={Users}

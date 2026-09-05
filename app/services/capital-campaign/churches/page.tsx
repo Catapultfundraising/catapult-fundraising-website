@@ -179,8 +179,8 @@ export default function ChurchDonorBehaviorPage() {
         description="Church donors tend to be unusually willing to participate in a feasibility study. That matters because the more people you hear from, the better picture you get of what the congregation really thinks about the project and the goal."
       />
       <ServiceDetail
-        heroImage="/blog/why-a-feasibility-study-matters/donor-conversation.jpg"
-        heroImageAlt="Church leadership meeting to plan a capital campaign"
+        heroImage="/services/capital-campaign/churches.jpg"
+        heroImageAlt="Congregation gathered in a church sanctuary during a service"
         sections={SECTIONS}
         sidebarTitle="What Changes in This Sector"
         sidebarIcon={Users}
