@@ -10,7 +10,7 @@ const SITE_URL = "https://www.catapultfr.com";
 // addition on top of the noindex tags in app/research/layout.tsx,
 // app/assets/layout.tsx, and app/jag-dashboard/layout.tsx, not a substitute
 // for them.
-const DISALLOWED_INTERNAL_TOOLS = ["/research", "/assets", "/jag-dashboard", "/jag-admin"];
+const DISALLOWED_INTERNAL_TOOLS = ["/research", "/assets", "/decks", "/jag-dashboard", "/jag-admin"];
 
 export default function robots(): MetadataRoute.Robots {
   return {

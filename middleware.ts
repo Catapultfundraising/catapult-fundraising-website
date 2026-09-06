@@ -42,6 +42,16 @@ const GATES = [
     secretEnv: "JAG_ADMIN_AUTH_SECRET",
   },
   {
+    // Sales deck portal: the four service decks with pricing/process detail.
+    // Shared password, given out to the team and to prospects on the road.
+    matchPrefix: "/decks",
+    loginPath: "/decks/login",
+    apiPath: "/api/decks-login",
+    cookieName: "catapult_decks_auth",
+    passwordEnv: "DECKS_PASSWORD",
+    secretEnv: "DECKS_AUTH_SECRET",
+  },
+  {
     matchPrefix: "/research",
     loginPath: "/research/login",
     apiPath: "/api/research-login",
