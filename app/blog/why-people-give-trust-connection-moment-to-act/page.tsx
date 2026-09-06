@@ -10,15 +10,6 @@ const HERO = "/blog/why-people-give/hero-donor-yes.jpg";
 const HERO_ALT =
   "A man on a couch celebrating with a raised fist after hearing good news";
 
-const FEATHER = {
-  WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)",
-  maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)",
-  WebkitMaskSize: "100% 100%",
-  maskSize: "100% 100%",
-  WebkitMaskRepeat: "no-repeat",
-  maskRepeat: "no-repeat",
-} as const;
-
 export const metadata = {
   title: "Why People Give: Trust, Connection, and the Moment to Act",
   description:
@@ -166,17 +157,6 @@ export default function WhyPeopleGivePost() {
           Trust comes before the ask
         </h2>
 
-        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:mt-2 sm:w-72 md:w-80" style={FEATHER}>
-          <div className="relative aspect-[12/7] w-full overflow-hidden rounded-2xl">
-            <Image
-              src="/blog/why-people-give/graphic-donor-trust-questions.png"
-              alt="Graphic: the questions running through a donor's mind before they think about the amount. Do I trust this organization? Do I trust the person talking to me? Do they understand what matters to me? Will this money be used well? And if I am not ready to give, will they respect that?"
-              fill
-              className="object-cover"
-            />
-          </div>
-        </div>
-
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Before a donor thinks about the amount of the gift, there are usually other questions
           running through their mind. Do I trust this organization? Do I trust the person talking to
@@ -187,6 +167,17 @@ export default function WhyPeopleGivePost() {
           Those questions may never be said out loud, but they are part of almost every important
           donor conversation.
         </p>
+
+        <div className="mt-8 w-full overflow-hidden rounded-2xl border border-[rgb(var(--line))]">
+          <div className="relative aspect-[12/7] w-full">
+            <Image
+              src="/blog/why-people-give/graphic-donor-trust-questions.png"
+              alt="Graphic: the questions running through a donor's mind before they think about the amount. Do I trust this organization? Do I trust the person talking to me? Do they understand what matters to me? Will this money be used well? And if I am not ready to give, will they respect that?"
+              fill
+              className="object-cover"
+            />
+          </div>
+        </div>
         <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Trust is built by doing the basics well. Be prepared. Know the donor. Listen. Follow up. Do
           what you say you are going to do. Respect the process.
@@ -196,8 +187,6 @@ export default function WhyPeopleGivePost() {
           expect. We went in thinking we knew what interested the donor, only to discover that their
           real connection to the organization was something completely different.
         </p>
-
-        <div className="clear-both" />
 
         <blockquote className="mt-6 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">
           That is why I believe the best fundraisers listen more than they talk.
