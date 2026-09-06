@@ -18,6 +18,17 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "why-people-give-trust-connection-moment-to-act",
+    title: "Why People Give: Trust, Connection, and the Moment to Act",
+    description:
+      "Amy C. Wiles on why donors rarely give because an organization has a need, and what actually makes someone ready to act on something they already care about.",
+    readTime: "8 min read",
+    image: "/blog/why-people-give/hero-donor-yes.jpg",
+    alt: "A man on a couch celebrating with a raised fist after hearing good news",
+    pillars: ["Capital Campaigns", "Fundraising Strategy"],
+    services: ["capital-campaign", "donor-engagement"],
+  },
+  {
     slug: "why-a-feasibility-study-matters-before-a-capital-campaign",
     title: "Why a Feasibility Study Matters Before a Capital Campaign",
     description:
