@@ -63,6 +63,44 @@ export default async function DeckPage({ params }: { params: Promise<{ slug: str
         </div>
       </section>
 
+      {deck.samples && deck.samples.length > 0 && (
+        <section className="border-t border-[rgb(var(--line))]">
+          <div className="mx-auto max-w-5xl px-6 py-14 lg:px-10 lg:py-16">
+            <p className="font-display text-sm uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+              Sample Deliverables
+            </p>
+            <h2 className="mt-3 font-display text-3xl tracking-tight text-[rgb(var(--navy))] sm:text-4xl">
+              Prospect intelligence profiles
+            </h2>
+            <p className="mt-4 max-w-3xl leading-relaxed text-[rgb(var(--ink))]/70">
+              These are the research profiles we build during a campaign so your team knows who to
+              ask, for how much, and why. Names and figures below are fictional samples.
+            </p>
+
+            <div className="mt-10 grid gap-6 sm:grid-cols-3">
+              {deck.samples.map((sample) => (
+                <a
+                  key={sample.href}
+                  href={sample.href}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="group flex flex-col rounded-2xl border border-[rgb(var(--line))] bg-white p-6 shadow-sm transition-colors hover:border-[rgb(var(--brass))]"
+                >
+                  <h3 className="font-display text-xl text-[rgb(var(--navy))]">{sample.name}</h3>
+                  <p className="mt-3 flex-1 text-sm leading-relaxed text-[rgb(var(--ink))]/70">
+                    {sample.description}
+                  </p>
+                  <span className="mt-5 inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--navy))] underline-offset-4 group-hover:underline">
+                    <Download className="h-4 w-4" />
+                    View sample PDF
+                  </span>
+                </a>
+              ))}
+            </div>
+          </div>
+        </section>
+      )}
+
       {quotes.length > 0 && (
         <section className="border-t border-[rgb(var(--line))] bg-[rgb(var(--paper))]">
           <div className="mx-auto max-w-5xl px-6 py-14 lg:px-10 lg:py-16">
