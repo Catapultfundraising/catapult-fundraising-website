@@ -22,6 +22,14 @@ export interface Deck {
   quoteService: Testimonial["services"][number];
   /** Matching public service page for prospects who want more detail. */
   serviceHref: string;
+  /** Optional sample deliverables shown under the deck. */
+  samples?: DeckSample[];
+}
+
+export interface DeckSample {
+  name: string;
+  description: string;
+  href: string;
 }
 
 export const DECKS: Deck[] = [
@@ -44,6 +52,26 @@ export const DECKS: Deck[] = [
     slideCount: 5,
     quoteService: "capital-campaign",
     serviceHref: "/services/capital-campaign",
+    samples: [
+      {
+        name: "Individual Prospect",
+        description:
+          "Wealth and giving capacity, real estate and stock holdings, giving history, biographical detail, and contact information for a single donor.",
+        href: "/decks/capital-campaign/samples/individual-prospect-profile.pdf",
+      },
+      {
+        name: "Corporate Prospect",
+        description:
+          "Company overview, revenue, giving history to the client, leadership, and the sponsorship or partnership angle to work.",
+        href: "/decks/capital-campaign/samples/corporate-prospect-profile.pdf",
+      },
+      {
+        name: "Foundation Prospect",
+        description:
+          "Foundation overview, EIN, grantmaking priorities, trustees and executives, and how the client fits the funding focus.",
+        href: "/decks/capital-campaign/samples/foundation-prospect-profile.pdf",
+      },
+    ],
   },
   {
     slug: "annual-fund",
