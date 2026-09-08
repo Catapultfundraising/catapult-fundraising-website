@@ -24,6 +24,8 @@ export interface Deck {
   serviceHref: string;
   /** Optional sample deliverables shown under the deck. */
   samples?: DeckSample[];
+  /** Optional link to a live sample dashboard elsewhere under /decks. */
+  sampleDashboard?: { href: string; name: string; description: string };
 }
 
 export interface DeckSample {
@@ -52,6 +54,12 @@ export const DECKS: Deck[] = [
     slideCount: 5,
     quoteService: "capital-campaign",
     serviceHref: "/services/capital-campaign",
+    sampleDashboard: {
+      href: "/decks/sample-dashboard",
+      name: "Live feasibility study dashboard",
+      description:
+        "Every study client gets a private dashboard updated weekly: prospect tiers, dials and emails, completed and scheduled interviews, decline reasons, donor sentiment, and named contact status. This is an anonymized sample of a real study in progress.",
+    },
     samples: [
       {
         name: "Individual Prospect",

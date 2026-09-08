@@ -63,6 +63,29 @@ export default async function DeckPage({ params }: { params: Promise<{ slug: str
         </div>
       </section>
 
+      {deck.sampleDashboard && (
+        <section className="border-t border-[rgb(var(--line))] bg-[rgb(var(--paper))]">
+          <div className="mx-auto max-w-5xl px-6 py-14 lg:px-10 lg:py-16">
+            <p className="font-display text-sm uppercase tracking-[0.25em] text-[rgb(var(--brass))]">
+              See It Working
+            </p>
+            <h2 className="mt-3 font-display text-3xl tracking-tight text-[rgb(var(--navy))] sm:text-4xl">
+              {deck.sampleDashboard.name}
+            </h2>
+            <p className="mt-4 max-w-3xl leading-relaxed text-[rgb(var(--ink))]/70">
+              {deck.sampleDashboard.description}
+            </p>
+            <Link
+              href={deck.sampleDashboard.href}
+              className="mt-7 inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-6 py-3 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--navy-deep))]"
+            >
+              Open the sample dashboard
+              <ArrowRight className="h-4 w-4" />
+            </Link>
+          </div>
+        </section>
+      )}
+
       {deck.samples && deck.samples.length > 0 && (
         <section className="border-t border-[rgb(var(--line))]">
           <div className="mx-auto max-w-5xl px-6 py-14 lg:px-10 lg:py-16">
