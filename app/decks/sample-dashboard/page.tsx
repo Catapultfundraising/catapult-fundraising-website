@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Download } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { JagContactList } from "@/components/jag-contact-list";
 import { SAMPLE_ORG_NAME, SAMPLE_STUDY_DATA } from "@/lib/sample-study-data";
@@ -13,7 +13,7 @@ import {
 export const metadata = {
   title: "Sample Feasibility Study Dashboard | Catapult Fundraising",
   description:
-    "Anonymized sample of the live feasibility study dashboard Catapult builds for capital campaign clients.",
+    "Anonymized sample of the live feasibility study dashboard Catapult builds for capital campaign clients while the study is underway.",
   robots: { index: false, follow: false },
 };
 
@@ -59,15 +59,15 @@ export default function SampleStudyDashboardPage() {
       <PageHero
         eyebrow={`${SAMPLE_ORG_NAME} · Feasibility Study`}
         title="Weekly Interview &amp; Calling Status"
-        description={`Sample of the live dashboard every Catapult feasibility study client gets: prospect outreach, completed interviews, and donor signals, updated weekly. Report date ${data.reportDate}.`}
+        description={`Sample of the live dashboard every Catapult feasibility study client gets while their study is underway: prospect outreach, interviews, and donor signals, updated weekly. Report date ${data.reportDate}.`}
       />
 
       <section className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
         <div className="rounded-2xl border border-[rgb(var(--brass))]/40 bg-[rgb(var(--paper))] px-6 py-4 text-sm leading-relaxed text-[rgb(var(--ink))]/75">
-          <span className="font-semibold text-[rgb(var(--navy))]">Sample dashboard.</span> The counts,
-          dates, and interview feedback shown here come from a real completed study. The organization
-          name, contact names, and employers are fictional, so nothing identifies the client or the
-          people interviewed.
+          <span className="font-semibold text-[rgb(var(--navy))]">Sample dashboard.</span> This is a
+          study in progress, captured mid-stream, with 210 prospects still in the calling process.
+          The organization name, contact names, and employers are fictional, so nothing identifies a
+          client or the people interviewed.
         </div>
 
         {/* Updated-info strip */}
@@ -94,13 +94,13 @@ export default function SampleStudyDashboardPage() {
               <p className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">In Calling Process</p>
             </div>
           </div>
-          <Link
-            href="/decks/capital-campaign"
-            className="inline-flex shrink-0 items-center gap-2 text-sm font-semibold text-[rgb(var(--navy))] underline-offset-4 hover:underline"
+          <a
+            href="/decks/sample-dashboard/summary-pdf"
+            className="inline-flex shrink-0 items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-6 py-3 text-sm font-semibold text-[rgb(var(--paper))] transition-colors hover:bg-[rgb(var(--navy-deep))]"
           >
-            <ArrowLeft className="h-4 w-4" />
-            Capital Campaign deck
-          </Link>
+            <Download className="h-4 w-4" />
+            Download PDF Summary
+          </a>
         </div>
 
         {/* Quotes */}
@@ -204,7 +204,7 @@ export default function SampleStudyDashboardPage() {
 
           {data.feasibilitySignals.length > 0 && (
             <div>
-              <SectionTitle subtitle={`From the ${stats.completed} completed interview surveys to date`}>
+              <SectionTitle subtitle={`From the ${stats.completed} interview surveys completed so far`}>
                 Feedback Trends
               </SectionTitle>
               <div className="mt-4 divide-y divide-[rgb(var(--line))] border-t border-[rgb(var(--line))]">
