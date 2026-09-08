@@ -58,7 +58,7 @@ export const DECKS: Deck[] = [
       href: "/decks/sample-dashboard",
       name: "Live feasibility study dashboard",
       description:
-        "Every study client gets a private dashboard updated weekly: prospect tiers, dials and emails, completed and scheduled interviews, decline reasons, donor sentiment, and named contact status. This is an anonymized sample of a real study in progress.",
+        "Every study client gets a private dashboard updated weekly while the study is underway: prospect tiers, dials and emails, interviews completed and scheduled, decline reasons, donor sentiment, and named contact status, plus the weekly PDF summary. This is an anonymized sample of a study in progress.",
     },
     samples: [
       {
