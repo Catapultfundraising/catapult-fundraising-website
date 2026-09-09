@@ -20,6 +20,12 @@ export interface Deck {
   slideCount: number;
   /** Which testimonial service bucket this deck's proof comes from. */
   quoteService: Testimonial["services"][number];
+  /**
+   * Testimonial ids to push to the bottom of this deck's quote section,
+   * without touching the shared order in lib/testimonials.ts (which other
+   * pages rely on). Listed ids run last, in the order given here.
+   */
+  quotesLast?: string[];
   /** Matching public service page for prospects who want more detail. */
   serviceHref: string;
   /** Optional sample deliverables shown under the deck. */
@@ -53,6 +59,7 @@ export const DECKS: Deck[] = [
       "Feasibility study, campaign counsel, and the calling muscle to finish. A senior executive, creative writer, account manager, and prospect researchers on your campaign, across four phases and a 24 to 36 month arc.",
     slideCount: 5,
     quoteService: "capital-campaign",
+    quotesLast: ["capital-campaign-client"],
     serviceHref: "/services/capital-campaign",
     sampleDashboard: {
       href: "/decks/sample-dashboard",
@@ -115,5 +122,11 @@ export function deckSlides(deck: Deck): string[] {
 }
 
 export function deckQuotes(deck: Deck): Testimonial[] {
-  return testimonialsFor(deck.quoteService);
+  const quotes = testimonialsFor(deck.quoteService);
+  const last = deck.quotesLast;
+  if (!last?.length) return quotes;
+  const held = last
+    .map((id) => quotes.find((q) => q.id === id))
+    .filter((q): q is Testimonial => Boolean(q));
+  return [...quotes.filter((q) => !last.includes(q.id)), ...held];
 }
