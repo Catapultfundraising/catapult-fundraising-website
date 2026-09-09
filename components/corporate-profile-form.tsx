@@ -27,6 +27,9 @@ import {
   MapPin,
   Globe,
   Phone as PhoneIcon,
+  Plus,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import {
   Field,
@@ -63,15 +66,53 @@ interface CorporateProfileData {
   values: string;
   keyPeople: PersonEntry[];
   corporateGiving: string;
-  foundationName: string;
-  foundationAddress: string;
-  foundationPhone: string;
-  foundationEmail: string;
-  foundationWebsite: string;
-  foundationNetAssetsYear: string;
-  foundationNetAssetsAmount: string;
+  foundations: FoundationItem[];
   companyAffiliations: string;
   relevantFindings: string;
+}
+
+// A company can have more than one foundation (e.g. separate family and
+// corporate foundations) -- this mirrors the Individual profile's
+// repeatable Real Estate pattern (add/remove/reorder cards) instead of a
+// single flat set of fields. Profiles saved before this feature existed
+// stored these as flat `foundationName`/`foundationAddress`/etc. fields on
+// the top-level data object; `migrateFoundations` below converts that
+// legacy shape into a one-item `foundations` array the first time an old
+// profile is loaded, so no data is lost and no separate DB migration is
+// needed.
+interface FoundationItem {
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+  netAssetsYear: string;
+  netAssetsAmount: string;
+}
+
+function emptyFoundation(): FoundationItem {
+  return { name: "", address: "", phone: "", email: "", website: "", netAssetsYear: "", netAssetsAmount: "" };
+}
+
+// Converts old single-foundation profile data (flat `foundationName` etc.
+// fields) into the new `foundations` array shape. A no-op for
+// already-migrated or brand-new profiles. Applied right after loading raw
+// data from either the saved-profiles API or the localStorage draft, so
+// the rest of the component only ever has to deal with the array shape.
+function migrateFoundations(raw: any): any {
+  if (!raw || typeof raw !== "object") return raw;
+  if (Array.isArray(raw.foundations) && raw.foundations.length > 0) return raw;
+  const legacy: FoundationItem = {
+    name: raw.foundationName || "",
+    address: raw.foundationAddress || "",
+    phone: raw.foundationPhone || "",
+    email: raw.foundationEmail || "",
+    website: raw.foundationWebsite || "",
+    netAssetsYear: raw.foundationNetAssetsYear || "",
+    netAssetsAmount: raw.foundationNetAssetsAmount || "",
+  };
+  const hasLegacyData = Object.values(legacy).some(Boolean);
+  return hasLegacyData ? { ...raw, foundations: [legacy] } : raw;
 }
 
 function emptyProfile(): CorporateProfileData {
@@ -98,13 +139,7 @@ function emptyProfile(): CorporateProfileData {
     values: "",
     keyPeople: [],
     corporateGiving: "",
-    foundationName: "",
-    foundationAddress: "",
-    foundationPhone: "",
-    foundationEmail: "",
-    foundationWebsite: "",
-    foundationNetAssetsYear: "",
-    foundationNetAssetsAmount: "",
+    foundations: [],
     companyAffiliations: "",
     relevantFindings: "",
   };
@@ -180,7 +215,7 @@ function CorporateProfileFormInner() {
           const json = await res.json();
           const envelope = json.data || {};
           if (!cancelled) {
-            setData({ ...emptyProfile(), ...(envelope.data ?? {}) });
+            setData({ ...emptyProfile(), ...migrateFoundations(envelope.data ?? {}) });
             setStatus((envelope.status as ProfileStatus) || "draft");
             setProfileId(urlId);
           }
@@ -193,7 +228,7 @@ function CorporateProfileFormInner() {
         try {
           const raw = localStorage.getItem(draftKey(null));
           if (raw) {
-            setData({ ...emptyProfile(), ...JSON.parse(raw) });
+            setData({ ...emptyProfile(), ...migrateFoundations(JSON.parse(raw)) });
             setRestoredNotice(true);
           }
         } catch {
@@ -298,6 +333,25 @@ function CorporateProfileFormInner() {
     if (j < 0 || j >= next.length) return;
     [next[i], next[j]] = [next[j], next[i]];
     set("keyPeople", next);
+  }
+
+  function addFoundation() {
+    set("foundations", [...data.foundations, emptyFoundation()]);
+  }
+  function updateFoundation(i: number, patch: Partial<FoundationItem>) {
+    const next = [...data.foundations];
+    next[i] = { ...next[i], ...patch };
+    set("foundations", next);
+  }
+  function removeFoundation(i: number) {
+    set("foundations", data.foundations.filter((_, idx) => idx !== i));
+  }
+  function moveFoundation(i: number, direction: -1 | 1) {
+    const next = [...data.foundations];
+    const j = i + direction;
+    if (j < 0 || j >= next.length) return;
+    [next[i], next[j]] = [next[j], next[i]];
+    set("foundations", next);
   }
 
   async function generatePdf() {
@@ -576,18 +630,30 @@ function CorporateProfileFormInner() {
       <SectionHeading icon={Handshake}>Corporate Giving</SectionHeading>
       <Field label="Corporate Giving" value={data.corporateGiving} onChange={(v) => set("corporateGiving", v)} textarea rows={3} richText />
 
-      <SectionHeading icon={Landmark}>Company Foundation</SectionHeading>
-      <Field label="Foundation Name" value={data.foundationName} onChange={(v) => set("foundationName", v)} />
-      <Field label="Address" value={data.foundationAddress} onChange={(v) => set("foundationAddress", v)} icon={MapPin} />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Phone" value={data.foundationPhone} onChange={(v) => set("foundationPhone", v)} icon={PhoneIcon} />
-        <Field label="Email" value={data.foundationEmail} onChange={(v) => set("foundationEmail", v)} />
+      <SectionHeading icon={Landmark}>Company Foundation{data.foundations.length > 1 ? "s" : ""}</SectionHeading>
+      <div className="space-y-6">
+        {data.foundations.map((f, i) => (
+          <FoundationCard
+            key={i}
+            item={f}
+            index={i}
+            showNumber={data.foundations.length > 1}
+            onChange={(patch) => updateFoundation(i, patch)}
+            onRemove={() => removeFoundation(i)}
+            onMove={(direction) => moveFoundation(i, direction)}
+            canMoveUp={i > 0}
+            canMoveDown={i < data.foundations.length - 1}
+          />
+        ))}
       </div>
-      <Field label="Website" value={data.foundationWebsite} onChange={(v) => set("foundationWebsite", v)} icon={Globe} />
-      <div className="grid gap-4 sm:grid-cols-2">
-        <Field label="Net Assets Year" value={data.foundationNetAssetsYear} onChange={(v) => set("foundationNetAssetsYear", v)} placeholder="e.g., 2025" />
-        <Field label="Net Assets Amount" value={data.foundationNetAssetsAmount} onChange={(v) => set("foundationNetAssetsAmount", v)} money />
-      </div>
+      <button
+        type="button"
+        onClick={addFoundation}
+        className="mt-4 inline-flex items-center gap-2 rounded-full border border-dashed border-[rgb(var(--brass))] px-4 py-2 text-sm font-semibold text-[rgb(var(--navy))] hover:bg-[rgb(var(--paper))]"
+      >
+        <Plus className="h-4 w-4" />
+        Add Another Foundation
+      </button>
 
       <SectionHeading icon={Target}>Company Affiliations &amp; Findings</SectionHeading>
       <Field label="Company Affiliations" value={data.companyAffiliations} onChange={(v) => set("companyAffiliations", v)} textarea rows={3} richText />
@@ -635,6 +701,78 @@ function CorporateProfileFormInner() {
             </a>
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function FoundationCard({
+  item,
+  index,
+  showNumber,
+  onChange,
+  onRemove,
+  onMove,
+  canMoveUp,
+  canMoveDown,
+}: {
+  item: FoundationItem;
+  index: number;
+  showNumber: boolean;
+  onChange: (patch: Partial<FoundationItem>) => void;
+  onRemove: () => void;
+  onMove?: (direction: -1 | 1) => void;
+  canMoveUp?: boolean;
+  canMoveDown?: boolean;
+}) {
+  return (
+    <div className="rounded-2xl border border-[rgb(var(--line))] p-5">
+      <div className="flex items-center justify-between">
+        <p className="text-sm font-semibold text-[rgb(var(--navy))]">
+          {showNumber ? `Foundation ${index + 1}` : "Foundation"}
+        </p>
+        <div className="flex items-center gap-3">
+          {onMove && (
+            <div className="flex flex-col">
+              <button
+                type="button"
+                onClick={() => onMove(-1)}
+                disabled={!canMoveUp}
+                title="Move up"
+                className="text-[rgb(var(--ink))]/40 hover:text-[rgb(var(--navy))] disabled:opacity-20"
+              >
+                <ArrowUp className="h-3.5 w-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => onMove(1)}
+                disabled={!canMoveDown}
+                title="Move down"
+                className="text-[rgb(var(--ink))]/40 hover:text-[rgb(var(--navy))] disabled:opacity-20"
+              >
+                <ArrowDown className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          )}
+          <button type="button" onClick={onRemove} className="inline-flex items-center gap-1 text-xs font-semibold text-red-600/70 hover:text-red-700">
+            <Trash2 className="h-3.5 w-3.5" />
+            Remove
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-4 grid gap-4">
+        <Field label="Foundation Name" value={item.name} onChange={(v) => onChange({ name: v })} />
+        <Field label="Address" value={item.address} onChange={(v) => onChange({ address: v })} icon={MapPin} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Phone" value={item.phone} onChange={(v) => onChange({ phone: v })} icon={PhoneIcon} />
+          <Field label="Email" value={item.email} onChange={(v) => onChange({ email: v })} />
+        </div>
+        <Field label="Website" value={item.website} onChange={(v) => onChange({ website: v })} icon={Globe} />
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Net Assets Year" value={item.netAssetsYear} onChange={(v) => onChange({ netAssetsYear: v })} placeholder="e.g., 2025" />
+          <Field label="Net Assets Amount" value={item.netAssetsAmount} onChange={(v) => onChange({ netAssetsAmount: v })} money />
+        </div>
       </div>
     </div>
   );

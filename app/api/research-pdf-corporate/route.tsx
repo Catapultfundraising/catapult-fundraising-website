@@ -21,6 +21,25 @@ export const runtime = "nodejs";
 // the bottom of a page. Everything else flows naturally, so content that
 // fits (e.g. the first Key Person) stays on the same page as the section
 // above it instead of always jumping to a fresh, mostly-empty page.
+function FoundationFields({ foundation, index, showLabel }: { foundation: any; index: number; showLabel: boolean }) {
+  const netAssetsValue = foundation?.netAssetsAmount
+    ? `${fmtMoney(foundation.netAssetsAmount)}${foundation.netAssetsYear ? ` (${foundation.netAssetsYear})` : ""}`
+    : "";
+  return (
+    <View style={index > 0 ? { marginTop: 10 } : undefined}>
+      {showLabel ? (
+        <Text style={pdfStyles.personName}>{foundation?.name || `Foundation ${index + 1}`}</Text>
+      ) : null}
+      <FieldRow label="Foundation Name" value={foundation?.name} />
+      <FieldRow label="Address" value={foundation?.address} />
+      <FieldRow label="Phone" value={foundation?.phone} />
+      <FieldRow label="Email" value={foundation?.email} />
+      <FieldRow label="Website" value={foundation?.website} />
+      <FieldRow label="Net Assets" value={netAssetsValue} />
+    </View>
+  );
+}
+
 function CorporateDocument({ data }: { data: any }) {
   const givingRows: Array<[string, string]> = ([
     ["First Gift Amount", fmtMoney(data.firstGiftAmount)],
@@ -31,13 +50,38 @@ function CorporateDocument({ data }: { data: any }) {
   const revenueValue = data.revenueAmount
     ? `${fmtMoney(data.revenueAmount)}${data.revenueYear ? ` (${data.revenueYear})` : ""}`
     : "";
-  const netAssetsValue = data.foundationNetAssetsAmount
-    ? `${fmtMoney(data.foundationNetAssetsAmount)}${data.foundationNetAssetsYear ? ` (${data.foundationNetAssetsYear})` : ""}`
-    : "";
 
-  const hasFoundation = Boolean(
-    data.foundationName || data.foundationAddress || data.foundationPhone || data.foundationEmail || data.foundationWebsite || netAssetsValue
-  );
+  // A company can have more than one foundation (e.g. separate family and
+  // corporate foundations). Profiles saved before this feature existed
+  // stored a single foundation as flat `foundationName`/`foundationAddress`/
+  // etc. fields directly on `data` -- normalizeFoundations reads either
+  // shape so old, never-reopened profiles still render correctly without
+  // needing a data migration.
+  const foundations: Array<{
+    name?: string;
+    address?: string;
+    phone?: string;
+    email?: string;
+    website?: string;
+    netAssetsYear?: string;
+    netAssetsAmount?: string;
+  }> = Array.isArray(data.foundations) && data.foundations.length > 0
+    ? data.foundations
+    : (() => {
+        const legacy = {
+          name: data.foundationName,
+          address: data.foundationAddress,
+          phone: data.foundationPhone,
+          email: data.foundationEmail,
+          website: data.foundationWebsite,
+          netAssetsYear: data.foundationNetAssetsYear,
+          netAssetsAmount: data.foundationNetAssetsAmount,
+        };
+        return Object.values(legacy).some(Boolean) ? [legacy] : [];
+      })();
+
+  const hasFoundation = foundations.length > 0;
+  const [firstFoundation, ...restFoundations] = foundations;
 
   const [firstPerson, ...restPeople] = data.keyPeople || [];
 
@@ -154,15 +198,21 @@ function CorporateDocument({ data }: { data: any }) {
           )}
 
           {hasFoundation && (
-            <>
-              <SectionHeading icon="star" title="Company Foundation" />
-              <FieldRow label="Foundation Name" value={data.foundationName} />
-              <FieldRow label="Address" value={data.foundationAddress} />
-              <FieldRow label="Phone" value={data.foundationPhone} />
-              <FieldRow label="Email" value={data.foundationEmail} />
-              <FieldRow label="Website" value={data.foundationWebsite} />
-              <FieldRow label="Net Assets" value={netAssetsValue} />
-            </>
+            <View>
+              {/* Same anti-orphan pattern as Key People above: heading +
+                  the FIRST foundation's fields are grouped into one small,
+                  bounded wrap={false} block (these fields are always short
+                  -- name/address/phone/email/website/net-assets -- so this
+                  is safe, unlike a long free-text FieldRow). Additional
+                  foundations flow independently afterward. */}
+              <View wrap={false}>
+                <SectionHeading icon="star" title={foundations.length > 1 ? "Company Foundations" : "Company Foundation"} />
+                <FoundationFields foundation={firstFoundation} index={0} showLabel={foundations.length > 1} />
+              </View>
+              {restFoundations.map((f, i) => (
+                <FoundationFields key={i + 1} foundation={f} index={i + 1} showLabel />
+              ))}
+            </View>
           )}
 
           {hasAffiliationsFindings && (
