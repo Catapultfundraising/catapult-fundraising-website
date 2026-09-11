@@ -25,6 +25,7 @@ import {
   Globe,
   Phone as PhoneIcon,
   Gift,
+  FileUp,
 } from "lucide-react";
 import {
   Field,
@@ -107,6 +108,137 @@ function emptyProfile(): FoundationProfileData {
   };
 }
 
+// The two PDF upload lanes. "grants" is the foundation's IRS 990 / 990-PF
+// (grants paid list, financials, trustees); "profile" is any other write-up
+// carrying mission, focus areas, limitations and application process.
+type ImportKind = "grants" | "profile";
+
+async function safeJson(res: Response): Promise<any> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Two 990s for different years must not produce the same grant twice, and
+// re-uploading the same return must be a no-op rather than doubling the
+// table. Match on year + grantee + amount, case- and whitespace-insensitive.
+// Vercel serverless functions reject request bodies over ~4.5 MB, and a real
+// IRS return is often a 40 MB scan of 60+ pages (Moody Foundation's 990-PF is
+// exactly that). So the browser splits an oversized PDF into page ranges that
+// each fit comfortably under the limit, and each range is imported in turn.
+// Grant rows from every range are appended to the same profile, so a grants
+// table that spans page boundaries still comes through whole.
+const MAX_IMPORT_CHUNK_BYTES = 3 * 1024 * 1024;
+
+// "10-41", "3", "1-4, 10-41" -> zero-based page indexes. Returns null when the
+// text is empty or unparseable, meaning "use the whole document".
+function parsePageRange(input: string, pageCount: number): number[] | null {
+  const text = input.trim();
+  if (!text) return null;
+  const picked = new Set<number>();
+  for (const part of text.split(",")) {
+    const m = part.trim().match(/^(\d+)(?:\s*[-\u2013]\s*(\d+))?$/);
+    if (!m) continue;
+    const from = parseInt(m[1], 10);
+    const to = m[2] ? parseInt(m[2], 10) : from;
+    for (let n = Math.min(from, to); n <= Math.max(from, to); n++) {
+      if (n >= 1 && n <= pageCount) picked.add(n - 1);
+    }
+  }
+  return picked.size ? Array.from(picked).sort((a, b) => a - b) : null;
+}
+
+async function splitPdfIntoChunks(file: File, pageRangeText = ""): Promise<File[]> {
+  if (file.size <= MAX_IMPORT_CHUNK_BYTES && !pageRangeText.trim()) return [file];
+
+  const { PDFDocument } = await import("pdf-lib");
+  const source = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const pageCount = source.getPageCount();
+  const selected = parsePageRange(pageRangeText, pageCount) ?? Array.from({ length: pageCount }, (_, i) => i);
+  if (selected.length <= 1 && file.size <= MAX_IMPORT_CHUNK_BYTES) return [file];
+
+  // Estimate from the average page weight, then verify each saved chunk and
+  // halve the page count if a run of image-heavy pages came out too big.
+  const avgPageBytes = Math.max(1, Math.floor(file.size / pageCount));
+  let pagesPerChunk = Math.max(1, Math.floor(MAX_IMPORT_CHUNK_BYTES / avgPageBytes));
+
+  const chunks: File[] = [];
+  let start = 0;
+  while (start < selected.length) {
+    let take = Math.min(pagesPerChunk, selected.length - start);
+    let bytes: Uint8Array | null = null;
+    while (take >= 1) {
+      const out = await PDFDocument.create();
+      const copied = await out.copyPages(source, selected.slice(start, start + take));
+      copied.forEach((page) => out.addPage(page));
+      bytes = await out.save();
+      if (bytes.byteLength <= MAX_IMPORT_CHUNK_BYTES || take === 1) break;
+      take = Math.floor(take / 2);
+      pagesPerChunk = take;
+    }
+    if (!bytes) break;
+    // Re-aim from what this chunk actually weighed. The file-size average is
+    // pessimistic (a PDF's bulk is not spread evenly across its pages), and
+    // fewer, fuller chunks means fewer model calls.
+    const perPage = Math.max(1, Math.floor(bytes.byteLength / take));
+    pagesPerChunk = Math.max(1, Math.floor((MAX_IMPORT_CHUNK_BYTES * 0.9) / perPage));
+    const first = selected[start] + 1;
+    const last = selected[start + take - 1] + 1;
+    const name = file.name.replace(/\.pdf$/i, "") + `-pages-${first}-${last}.pdf`;
+    chunks.push(new File([new Uint8Array(bytes)], name, { type: "application/pdf" }));
+    start += take;
+  }
+  return chunks.length ? chunks : [file];
+}
+
+const STATE_CODES: Record<string, string> = {
+  alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA",
+  colorado: "CO", connecticut: "CT", delaware: "DE", "district of columbia": "DC",
+  florida: "FL", georgia: "GA", hawaii: "HI", idaho: "ID", illinois: "IL",
+  indiana: "IN", iowa: "IA", kansas: "KS", kentucky: "KY", louisiana: "LA",
+  maine: "ME", maryland: "MD", massachusetts: "MA", michigan: "MI", minnesota: "MN",
+  mississippi: "MS", missouri: "MO", montana: "MT", nebraska: "NE", nevada: "NV",
+  "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+  "north carolina": "NC", "north dakota": "ND", ohio: "OH", oklahoma: "OK",
+  oregon: "OR", pennsylvania: "PA", "rhode island": "RI", "south carolina": "SC",
+  "south dakota": "SD", tennessee: "TN", texas: "TX", utah: "UT", vermont: "VT",
+  virginia: "VA", washington: "WA", "west virginia": "WV", wisconsin: "WI",
+  wyoming: "WY", "puerto rico": "PR",
+};
+
+// "TX, Nevada; nj" -> ["TX", "NV", "NJ"]. Accepts codes or full names in any
+// separator or case, so a profiler can type it however they think of it.
+function parseStates(input: string): string[] {
+  const out = new Set<string>();
+  for (const raw of (input || "").split(/[,;/|]+|\band\b/i)) {
+    const part = raw.trim().toLowerCase();
+    if (!part) continue;
+    if (STATE_CODES[part]) out.add(STATE_CODES[part]);
+    else if (/^[a-z]{2}$/.test(part)) out.add(part.toUpperCase());
+  }
+  return Array.from(out);
+}
+
+// Parses "$25,000", "25000", "25k" into a number for the client-side safety
+// net on the minimum-amount filter. Returns null when there is nothing usable.
+function parseMoney(input: string): number | null {
+  const text = (input || "").toLowerCase().replace(/[$,\s]/g, "");
+  if (!text) return null;
+  const m = text.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  if (!isFinite(n)) return null;
+  return m[2] === "k" ? n * 1000 : m[2] === "m" ? n * 1000000 : n;
+}
+
+function grantKey(row: GrantRow): string {
+  return [row.year, row.grantee, row.amount]
+    .map((v) => (v || "").toLowerCase().replace(/\s+/g, " ").trim())
+    .join("|");
+}
+
 const DRAFT_KEY_PREFIX = "catapult-foundation-profile-draft";
 const draftKey = (id: string | null) => `${DRAFT_KEY_PREFIX}:${id || "unsaved"}`;
 
@@ -151,6 +283,18 @@ function FoundationProfileFormInner() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const [importingKind, setImportingKind] = useState<ImportKind | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  // Optional narrowing for the 990 lane. A large family foundation's return
+  // runs 60+ scanned pages with several hundred alphabetical grant rows, most
+  // of them irrelevant to one client, so profilers can restrict what comes in.
+  const [grantsPageRange, setGrantsPageRange] = useState("");
+  const [grantsMinAmount, setGrantsMinAmount] = useState("");
+  const [grantsKeyword, setGrantsKeyword] = useState("");
+  const [grantsStates, setGrantsStates] = useState("");
+  const [importNotice, setImportNotice] = useState<string | null>(null);
+  const grantsInputRef = useRef<HTMLInputElement>(null);
+  const profileInputRef = useRef<HTMLInputElement>(null);
   const loadedRef = useRef(false);
   const skipReloadIdRef = useRef<string | null>(null);
 
@@ -276,6 +420,192 @@ function FoundationProfileFormInner() {
   async function handleLogoUpload(file: File) {
     const uri = await compositeLogoOnWhiteSquare(file);
     set("photo", uri);
+  }
+
+  // Uploads one PDF, waits for the extraction, and merges the result into
+  // the profile as FILL-IN-THE-BLANKS ONLY: anything already typed here
+  // always wins, and an extracted value is used only where the field is
+  // still empty. Same priority rule as the individual builder, for the same
+  // reason -- an import's job is to backfill, never to overwrite a
+  // profiler's own work. The two repeating tables (grants, executives) are
+  // the exception: those APPEND de-duplicated rows, so several years of
+  // 990s can be stacked onto one profile.
+  // Imports one PDF (or one page range of a big one) and merges the result.
+  // Returns how many grant rows and executives it actually added.
+  async function importOneChunk(
+    file: File,
+    kind: ImportKind,
+    progressLabel: string
+  ): Promise<{ addedGrants: number; addedExecs: number }> {
+    {
+      // Step 1: start the extraction. Returns almost immediately, so this
+      // request can't be truncated by a gateway/proxy idle timeout.
+      const formData = new FormData();
+      formData.append("pdf", file);
+      formData.append("kind", kind);
+      if (kind === "grants") {
+        if (grantsMinAmount.trim()) formData.append("minAmount", grantsMinAmount.trim());
+        if (grantsKeyword.trim()) formData.append("keyword", grantsKeyword.trim());
+        const stateCodes = parseStates(grantsStates);
+        if (stateCodes.length) formData.append("states", stateCodes.join(", "));
+      }
+      const startRes = await fetch("/api/foundation-pdf-import", { method: "POST", body: formData });
+      const startBody = await safeJson(startRes);
+      if (!startRes.ok || !startBody?.runId) {
+        throw new Error(startBody?.error || `Failed to start the PDF import (server returned ${startRes.status}).`);
+      }
+      const { runId, logo } = startBody;
+
+      // Step 2: poll a lightweight status endpoint until the model finishes.
+      setImportNotice(progressLabel);
+      const maxAttempts = 90; // ~3 minutes at 2s intervals
+      let payload: any = null;
+      for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 2000));
+        const pollRes = await fetch(
+          `/api/foundation-pdf-import/status?runId=${encodeURIComponent(runId)}&kind=${kind}`
+        );
+        const pollBody = await safeJson(pollRes);
+        if (!pollRes.ok) {
+          throw new Error(pollBody?.error || `The import failed while processing (server returned ${pollRes.status}).`);
+        }
+        if (pollBody?.status === "COMPLETED") {
+          payload = pollBody;
+          break;
+        }
+        if (pollBody?.error) throw new Error(pollBody.error);
+      }
+      if (!payload) {
+        throw new Error("The PDF import is taking longer than expected. Please try again in a moment.");
+      }
+
+      const x = payload.data || {};
+      let addedGrants = 0;
+      let addedExecs = 0;
+
+      setData((d) => {
+        const merged: FoundationProfileData = {
+          ...d,
+          name: d.name || x.name || "",
+          ein: d.ein || x.ein || "",
+          address: d.address || x.address || "",
+          phone: d.phone || x.phone || "",
+          website: d.website || x.website || "",
+          relationshipToOrg: d.relationshipToOrg || x.relationshipToOrg || "",
+          givingHistoryToClient: d.givingHistoryToClient || x.givingHistoryToClient || "",
+          missionPurpose: d.missionPurpose || x.missionPurpose || "",
+          history: d.history || x.history || "",
+          officersDirectors: d.officersDirectors || x.officersDirectors || "",
+          financialData: d.financialData || x.financialData || "",
+          geographicFocus: d.geographicFocus || x.geographicFocus || "",
+          fieldsOfInterest: d.fieldsOfInterest || x.fieldsOfInterest || "",
+          programAreas: d.programAreas || x.programAreas || "",
+          typesOfSupport: d.typesOfSupport || x.typesOfSupport || "",
+          potentialGrantRange: d.potentialGrantRange || x.potentialGrantRange || "",
+          limitations: d.limitations || x.limitations || "",
+          dueDate: d.dueDate || x.dueDate || "",
+          applicationInformation: d.applicationInformation || x.applicationInformation || "",
+          photo: d.photo || logo || "",
+        };
+
+        if (Array.isArray(x.selectedGrants) && x.selectedGrants.length) {
+          const seen = new Set(d.selectedGrants.map(grantKey));
+          // The prompt already asks the model to apply these filters, but
+          // re-apply them here so a model that ignores one cannot flood the
+          // table with hundreds of irrelevant rows.
+          const floor = parseMoney(grantsMinAmount);
+          const needle = grantsKeyword.trim().toLowerCase();
+          const stateCodes = parseStates(grantsStates);
+          const additions = (x.selectedGrants as GrantRow[]).filter((row) => {
+            if (floor !== null) {
+              const amount = parseMoney(row.amount || "");
+              if (amount === null || amount < floor) return false;
+            }
+            if (needle && !(row.grantee || "").toLowerCase().includes(needle)) return false;
+            // The recipient's state, when the return printed one, arrives inside
+            // the grantee text as "(City, ST)".
+            if (stateCodes.length) {
+              const found = (row.grantee || "").match(/,\s*([A-Z]{2})\b/g) || [];
+              const codes = found.map((m) => m.replace(/[^A-Z]/g, ""));
+              if (!codes.some((c) => stateCodes.includes(c))) return false;
+            }
+            const key = grantKey(row);
+            if (seen.has(key)) return false;
+            seen.add(key);
+            return true;
+          });
+          addedGrants = additions.length;
+          merged.selectedGrants = [...d.selectedGrants, ...additions];
+        }
+
+        if (Array.isArray(x.executives) && x.executives.length) {
+          const seenNames = new Set(
+            d.executives.map((p) => (p.name || "").toLowerCase().replace(/\s+/g, " ").trim())
+          );
+          const additions = (x.executives as PersonEntry[]).filter((p) => {
+            const key = (p.name || "").toLowerCase().replace(/\s+/g, " ").trim();
+            if (!key || seenNames.has(key)) return false;
+            seenNames.add(key);
+            return true;
+          });
+          addedExecs = additions.length;
+          merged.executives = [...d.executives, ...additions];
+        }
+
+        return merged;
+      });
+
+      setPdfUrl(null);
+      return { addedGrants, addedExecs };
+    }
+  }
+
+  async function handleImportPdf(file: File, kind: ImportKind) {
+    setImportingKind(kind);
+    setImportError(null);
+    setImportNotice(null);
+    let addedGrants = 0;
+    let addedExecs = 0;
+    let chunksDone = 0;
+    let chunkCount = 1;
+    try {
+      setImportNotice("Reading the PDF...");
+      const chunks = await splitPdfIntoChunks(file, kind === "grants" ? grantsPageRange : "");
+      chunkCount = chunks.length;
+      for (let i = 0; i < chunks.length; i++) {
+        const label =
+          chunkCount === 1
+            ? "Extracting. A long return can take a couple of minutes."
+            : `Extracting part ${i + 1} of ${chunkCount}. A 60-page scanned return takes several minutes.`;
+        const result = await importOneChunk(chunks[i], kind, label);
+        addedGrants += result.addedGrants;
+        addedExecs += result.addedExecs;
+        chunksDone++;
+      }
+    } catch (err: any) {
+      // Keep whatever earlier parts already merged rather than throwing it away.
+      const partial =
+        chunkCount > 1 && chunksDone > 0
+          ? ` Parts 1-${chunksDone} of ${chunkCount} were imported, so what is on the form below is incomplete.`
+          : "";
+      setImportError((err?.message || "Something went wrong importing this PDF.") + partial);
+      setImportingKind(null);
+      return;
+    }
+    const parts: string[] = [];
+    if (chunkCount > 1) parts.push(`Read all ${chunkCount} parts of this PDF.`);
+    if (kind === "grants") {
+      parts.push(
+        addedGrants > 0
+          ? `Added ${addedGrants} grant row${addedGrants === 1 ? "" : "s"} from the 990.`
+          : "No new grant rows were found in that 990 (any grants it lists are already on this profile)."
+      );
+    } else if (addedExecs > 0) {
+      parts.push(`Added ${addedExecs} executive${addedExecs === 1 ? "" : "s"}.`);
+    }
+    parts.push("Only empty fields were filled, so nothing you already entered was changed. Review everything below before saving.");
+    setImportNotice(parts.join(" "));
+    setImportingKind(null);
   }
 
   function addPerson() {
@@ -435,6 +765,125 @@ function FoundationProfileFormInner() {
         you&rsquo;re ready, click &ldquo;Generate PDF&rdquo; to produce a fully formatted,
         ready-to-download profile.
       </p>
+
+      <div className="mt-6 rounded-2xl border border-[rgb(var(--brass))]/40 bg-[rgb(var(--brass))]/10 p-4">
+        <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <FileUp className="h-3.5 w-3.5" />
+          Import From PDF
+        </label>
+        <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
+          Upload either document, or both, in any order. Imports only fill fields that are still
+          empty, so anything you have already typed is never overwritten. Grant rows and executives
+          are added to the lists below without duplicating rows you already have, so you can stack
+          several years of 990s onto one profile.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl bg-white p-4">
+            <p className="text-sm font-semibold text-[rgb(var(--navy))]">Form 990 / 990-PF</p>
+            <p className="mt-1 text-xs leading-relaxed text-[rgb(var(--ink))]/60">
+              Pulls the grants paid list into Selected Grants, plus EIN, financial data, and
+              officers and directors from the return.
+            </p>
+            <p className="mt-2 text-xs leading-relaxed text-[rgb(var(--ink))]/60">
+              A big family foundation&apos;s return can run 60+ pages with several hundred grant
+              rows. Narrow it with any of these before uploading, or leave them blank to take
+              everything. State filtering uses the recipient address printed on the return, so a
+              row with no printed address is left out when you filter by state.
+            </p>
+            <div className="mt-3 grid gap-2">
+              <input
+                type="text"
+                value={grantsPageRange}
+                onChange={(e) => setGrantsPageRange(e.target.value)}
+                placeholder="Pages with the grants list, e.g. 10-41"
+                className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={grantsMinAmount}
+                onChange={(e) => setGrantsMinAmount(e.target.value)}
+                placeholder="Only grants of at least, e.g. $50,000"
+                className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={grantsStates}
+                onChange={(e) => setGrantsStates(e.target.value)}
+                placeholder="Only states the grant went to, e.g. TX, NV"
+                className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={grantsKeyword}
+                onChange={(e) => setGrantsKeyword(e.target.value)}
+                placeholder="Only grantees matching, e.g. children's hospital"
+                className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
+              />
+            </div>
+            <input
+              ref={grantsInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleImportPdf(e.target.files[0], "grants");
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => grantsInputRef.current?.click()}
+              disabled={importingKind !== null}
+              className="mt-3 inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--brass))] disabled:opacity-60"
+            >
+              {importingKind === "grants" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Gift className="h-4 w-4" />
+              )}
+              {importingKind === "grants" ? "Importing..." : "Upload 990"}
+            </button>
+          </div>
+          <div className="rounded-xl bg-white p-4">
+            <p className="text-sm font-semibold text-[rgb(var(--navy))]">Foundation Information</p>
+            <p className="mt-1 text-xs leading-relaxed text-[rgb(var(--ink))]/60">
+              A Candid or foundation directory profile, annual report, or published guidelines.
+              Pulls mission, history, focus areas, grant range, limitations, application process,
+              executives, and a logo.
+            </p>
+            <input
+              ref={profileInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleImportPdf(e.target.files[0], "profile");
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => profileInputRef.current?.click()}
+              disabled={importingKind !== null}
+              className="mt-3 inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--brass))] disabled:opacity-60"
+            >
+              {importingKind === "profile" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="h-4 w-4" />
+              )}
+              {importingKind === "profile" ? "Importing..." : "Upload Information PDF"}
+            </button>
+          </div>
+        </div>
+        {importingKind && (
+          <p className="mt-3 text-xs text-[rgb(var(--ink))]/60">
+            Reading the document. A long 990 can take a couple of minutes, keep this tab open.
+          </p>
+        )}
+        {importError && <p className="mt-3 text-sm text-red-600">{importError}</p>}
+        {importNotice && <p className="mt-3 text-sm text-emerald-700">{importNotice}</p>}
+      </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[rgb(var(--line))] bg-[rgb(var(--paper))] p-4">
         <div className="flex items-center gap-3">
