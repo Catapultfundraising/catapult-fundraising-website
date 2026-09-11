@@ -17,7 +17,13 @@ export interface Testimonial {
   name: string;
   org: string;
   /** Which services/pages this testimonial is most relevant to. */
-  services: ("capital-campaign" | "legacy-giving" | "donor-engagement" | "annual-fund")[];
+  services: (
+    | "capital-campaign"
+    | "feasibility-study"
+    | "legacy-giving"
+    | "donor-engagement"
+    | "annual-fund"
+  )[];
 }
 
 export const TESTIMONIALS: Testimonial[] = [
@@ -174,6 +180,17 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Kelly Ries",
     org: "Senior Director of Donor Engagement, Special Olympics Indiana",
     services: ["annual-fund", "donor-engagement"],
+  },
+  {
+    id: "rene-cantu",
+    quote: [
+      "Thank you for the outstanding presentation you delivered to our board today! It certainly raised the level of awareness and engagement from these wonderful folks. You guys are an all star team!",
+    ],
+    excerpt:
+      "It certainly raised the level of awareness and engagement from these wonderful folks. You guys are an all star team!",
+    name: "Rene Cantu, Ph.D.",
+    org: "Executive Director, Jobs for Nevada Grads",
+    services: ["capital-campaign", "feasibility-study"],
   },
 ];
 
