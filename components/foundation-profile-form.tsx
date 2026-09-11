@@ -124,6 +124,87 @@ async function safeJson(res: Response): Promise<any> {
 // Two 990s for different years must not produce the same grant twice, and
 // re-uploading the same return must be a no-op rather than doubling the
 // table. Match on year + grantee + amount, case- and whitespace-insensitive.
+// Vercel serverless functions reject request bodies over ~4.5 MB, and a real
+// IRS return is often a 40 MB scan of 60+ pages (Moody Foundation's 990-PF is
+// exactly that). So the browser splits an oversized PDF into page ranges that
+// each fit comfortably under the limit, and each range is imported in turn.
+// Grant rows from every range are appended to the same profile, so a grants
+// table that spans page boundaries still comes through whole.
+const MAX_IMPORT_CHUNK_BYTES = 3 * 1024 * 1024;
+
+// "10-41", "3", "1-4, 10-41" -> zero-based page indexes. Returns null when the
+// text is empty or unparseable, meaning "use the whole document".
+function parsePageRange(input: string, pageCount: number): number[] | null {
+  const text = input.trim();
+  if (!text) return null;
+  const picked = new Set<number>();
+  for (const part of text.split(",")) {
+    const m = part.trim().match(/^(\d+)(?:\s*[-\u2013]\s*(\d+))?$/);
+    if (!m) continue;
+    const from = parseInt(m[1], 10);
+    const to = m[2] ? parseInt(m[2], 10) : from;
+    for (let n = Math.min(from, to); n <= Math.max(from, to); n++) {
+      if (n >= 1 && n <= pageCount) picked.add(n - 1);
+    }
+  }
+  return picked.size ? Array.from(picked).sort((a, b) => a - b) : null;
+}
+
+async function splitPdfIntoChunks(file: File, pageRangeText = ""): Promise<File[]> {
+  if (file.size <= MAX_IMPORT_CHUNK_BYTES && !pageRangeText.trim()) return [file];
+
+  const { PDFDocument } = await import("pdf-lib");
+  const source = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const pageCount = source.getPageCount();
+  const selected = parsePageRange(pageRangeText, pageCount) ?? Array.from({ length: pageCount }, (_, i) => i);
+  if (selected.length <= 1 && file.size <= MAX_IMPORT_CHUNK_BYTES) return [file];
+
+  // Estimate from the average page weight, then verify each saved chunk and
+  // halve the page count if a run of image-heavy pages came out too big.
+  const avgPageBytes = Math.max(1, Math.floor(file.size / pageCount));
+  let pagesPerChunk = Math.max(1, Math.floor(MAX_IMPORT_CHUNK_BYTES / avgPageBytes));
+
+  const chunks: File[] = [];
+  let start = 0;
+  while (start < selected.length) {
+    let take = Math.min(pagesPerChunk, selected.length - start);
+    let bytes: Uint8Array | null = null;
+    while (take >= 1) {
+      const out = await PDFDocument.create();
+      const copied = await out.copyPages(source, selected.slice(start, start + take));
+      copied.forEach((page) => out.addPage(page));
+      bytes = await out.save();
+      if (bytes.byteLength <= MAX_IMPORT_CHUNK_BYTES || take === 1) break;
+      take = Math.floor(take / 2);
+      pagesPerChunk = take;
+    }
+    if (!bytes) break;
+    // Re-aim from what this chunk actually weighed. The file-size average is
+    // pessimistic (a PDF's bulk is not spread evenly across its pages), and
+    // fewer, fuller chunks means fewer model calls.
+    const perPage = Math.max(1, Math.floor(bytes.byteLength / take));
+    pagesPerChunk = Math.max(1, Math.floor((MAX_IMPORT_CHUNK_BYTES * 0.9) / perPage));
+    const first = selected[start] + 1;
+    const last = selected[start + take - 1] + 1;
+    const name = file.name.replace(/\.pdf$/i, "") + `-pages-${first}-${last}.pdf`;
+    chunks.push(new File([new Uint8Array(bytes)], name, { type: "application/pdf" }));
+    start += take;
+  }
+  return chunks.length ? chunks : [file];
+}
+
+// Parses "$25,000", "25000", "25k" into a number for the client-side safety
+// net on the minimum-amount filter. Returns null when there is nothing usable.
+function parseMoney(input: string): number | null {
+  const text = (input || "").toLowerCase().replace(/[$,\s]/g, "");
+  if (!text) return null;
+  const m = text.match(/^(\d+(?:\.\d+)?)(k|m)?$/);
+  if (!m) return null;
+  const n = parseFloat(m[1]);
+  if (!isFinite(n)) return null;
+  return m[2] === "k" ? n * 1000 : m[2] === "m" ? n * 1000000 : n;
+}
+
 function grantKey(row: GrantRow): string {
   return [row.year, row.grantee, row.amount]
     .map((v) => (v || "").toLowerCase().replace(/\s+/g, " ").trim())
@@ -176,6 +257,12 @@ function FoundationProfileFormInner() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const [importingKind, setImportingKind] = useState<ImportKind | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  // Optional narrowing for the 990 lane. A large family foundation's return
+  // runs 60+ scanned pages with several hundred alphabetical grant rows, most
+  // of them irrelevant to one client, so profilers can restrict what comes in.
+  const [grantsPageRange, setGrantsPageRange] = useState("");
+  const [grantsMinAmount, setGrantsMinAmount] = useState("");
+  const [grantsKeyword, setGrantsKeyword] = useState("");
   const [importNotice, setImportNotice] = useState<string | null>(null);
   const grantsInputRef = useRef<HTMLInputElement>(null);
   const profileInputRef = useRef<HTMLInputElement>(null);
@@ -314,16 +401,23 @@ function FoundationProfileFormInner() {
   // profiler's own work. The two repeating tables (grants, executives) are
   // the exception: those APPEND de-duplicated rows, so several years of
   // 990s can be stacked onto one profile.
-  async function handleImportPdf(file: File, kind: ImportKind) {
-    setImportingKind(kind);
-    setImportError(null);
-    setImportNotice(null);
-    try {
+  // Imports one PDF (or one page range of a big one) and merges the result.
+  // Returns how many grant rows and executives it actually added.
+  async function importOneChunk(
+    file: File,
+    kind: ImportKind,
+    progressLabel: string
+  ): Promise<{ addedGrants: number; addedExecs: number }> {
+    {
       // Step 1: start the extraction. Returns almost immediately, so this
       // request can't be truncated by a gateway/proxy idle timeout.
       const formData = new FormData();
       formData.append("pdf", file);
       formData.append("kind", kind);
+      if (kind === "grants") {
+        if (grantsMinAmount.trim()) formData.append("minAmount", grantsMinAmount.trim());
+        if (grantsKeyword.trim()) formData.append("keyword", grantsKeyword.trim());
+      }
       const startRes = await fetch("/api/foundation-pdf-import", { method: "POST", body: formData });
       const startBody = await safeJson(startRes);
       if (!startRes.ok || !startBody?.runId) {
@@ -332,6 +426,7 @@ function FoundationProfileFormInner() {
       const { runId, logo } = startBody;
 
       // Step 2: poll a lightweight status endpoint until the model finishes.
+      setImportNotice(progressLabel);
       const maxAttempts = 90; // ~3 minutes at 2s intervals
       let payload: any = null;
       for (let attempt = 0; attempt < maxAttempts; attempt++) {
@@ -384,7 +479,17 @@ function FoundationProfileFormInner() {
 
         if (Array.isArray(x.selectedGrants) && x.selectedGrants.length) {
           const seen = new Set(d.selectedGrants.map(grantKey));
+          // The prompt already asks the model to apply these filters, but
+          // re-apply them here so a model that ignores one cannot flood the
+          // table with hundreds of irrelevant rows.
+          const floor = parseMoney(grantsMinAmount);
+          const needle = grantsKeyword.trim().toLowerCase();
           const additions = (x.selectedGrants as GrantRow[]).filter((row) => {
+            if (floor !== null) {
+              const amount = parseMoney(row.amount || "");
+              if (amount === null || amount < floor) return false;
+            }
+            if (needle && !(row.grantee || "").toLowerCase().includes(needle)) return false;
             const key = grantKey(row);
             if (seen.has(key)) return false;
             seen.add(key);
@@ -412,23 +517,56 @@ function FoundationProfileFormInner() {
       });
 
       setPdfUrl(null);
-      const parts: string[] = [];
-      if (kind === "grants") {
-        parts.push(
-          addedGrants > 0
-            ? `Added ${addedGrants} grant row${addedGrants === 1 ? "" : "s"} from the 990.`
-            : "No new grant rows were found in that 990 (any grants it lists are already on this profile)."
-        );
-      } else if (addedExecs > 0) {
-        parts.push(`Added ${addedExecs} executive${addedExecs === 1 ? "" : "s"}.`);
-      }
-      parts.push("Only empty fields were filled, so nothing you already entered was changed. Review everything below before saving.");
-      setImportNotice(parts.join(" "));
-    } catch (err: any) {
-      setImportError(err?.message || "Something went wrong importing this PDF.");
-    } finally {
-      setImportingKind(null);
+      return { addedGrants, addedExecs };
     }
+  }
+
+  async function handleImportPdf(file: File, kind: ImportKind) {
+    setImportingKind(kind);
+    setImportError(null);
+    setImportNotice(null);
+    let addedGrants = 0;
+    let addedExecs = 0;
+    let chunksDone = 0;
+    let chunkCount = 1;
+    try {
+      setImportNotice("Reading the PDF...");
+      const chunks = await splitPdfIntoChunks(file, kind === "grants" ? grantsPageRange : "");
+      chunkCount = chunks.length;
+      for (let i = 0; i < chunks.length; i++) {
+        const label =
+          chunkCount === 1
+            ? "Extracting. A long return can take a couple of minutes."
+            : `Extracting part ${i + 1} of ${chunkCount}. A 60-page scanned return takes several minutes.`;
+        const result = await importOneChunk(chunks[i], kind, label);
+        addedGrants += result.addedGrants;
+        addedExecs += result.addedExecs;
+        chunksDone++;
+      }
+    } catch (err: any) {
+      // Keep whatever earlier parts already merged rather than throwing it away.
+      const partial =
+        chunkCount > 1 && chunksDone > 0
+          ? ` Parts 1-${chunksDone} of ${chunkCount} were imported, so what is on the form below is incomplete.`
+          : "";
+      setImportError((err?.message || "Something went wrong importing this PDF.") + partial);
+      setImportingKind(null);
+      return;
+    }
+    const parts: string[] = [];
+    if (chunkCount > 1) parts.push(`Read all ${chunkCount} parts of this PDF.`);
+    if (kind === "grants") {
+      parts.push(
+        addedGrants > 0
+          ? `Added ${addedGrants} grant row${addedGrants === 1 ? "" : "s"} from the 990.`
+          : "No new grant rows were found in that 990 (any grants it lists are already on this profile)."
+      );
+    } else if (addedExecs > 0) {
+      parts.push(`Added ${addedExecs} executive${addedExecs === 1 ? "" : "s"}.`);
+    }
+    parts.push("Only empty fields were filled, so nothing you already entered was changed. Review everything below before saving.");
+    setImportNotice(parts.join(" "));
+    setImportingKind(null);
   }
 
   function addPerson() {
@@ -607,6 +745,34 @@ function FoundationProfileFormInner() {
               Pulls the grants paid list into Selected Grants, plus EIN, financial data, and
               officers and directors from the return.
             </p>
+            <p className="mt-2 text-xs leading-relaxed text-[rgb(var(--ink))]/60">
+              A big family foundation&apos;s return can run 60+ pages with several hundred grant
+              rows. Narrow it with any of these before uploading, or leave them blank to take
+              everything.
+            </p>
+            <div className="mt-3 grid gap-2">
+              <input
+                type="text"
+                value={grantsPageRange}
+                onChange={(e) => setGrantsPageRange(e.target.value)}
+                placeholder="Pages with the grants list, e.g. 10-41"
+                className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={grantsMinAmount}
+                onChange={(e) => setGrantsMinAmount(e.target.value)}
+                placeholder="Only grants of at least, e.g. $50,000"
+                className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
+                value={grantsKeyword}
+                onChange={(e) => setGrantsKeyword(e.target.value)}
+                placeholder="Only grantees matching, e.g. Galveston"
+                className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
+              />
+            </div>
             <input
               ref={grantsInputRef}
               type="file"

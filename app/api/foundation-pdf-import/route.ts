@@ -24,7 +24,7 @@ export const maxDuration = 60;
 type FoundationImportKind = "grants" | "profile";
 
 const GRANTS_SYSTEM_PROMPT =
-  "You extract structured grantmaking data from an IRS Form 990 or 990-PF filed by a private foundation, for a nonprofit fundraising CRM. Return ONLY valid JSON, no markdown fences, no commentary. Include EVERY grant row you can find in the return, not a sample and not a rolled-up total: on a 990-PF that is Part XV line 3 'Grants and Contributions Paid During the Year' (and line 3b approved for future payment, if present), and on a 990 that is Schedule I Parts II and III. If a field is not present, use an empty string or an empty array. Never invent, estimate or round a figure that is not printed in the return.";
+  "You extract structured grantmaking data from an IRS Form 990 or 990-PF filed by a private foundation, for a nonprofit fundraising CRM. Return ONLY valid JSON, no markdown fences, no commentary. Include EVERY grant row you can find in the return, not a sample and not a rolled-up total: on a 990-PF that is Part XV line 3 'Grants and Contributions Paid During the Year' (and line 3b approved for future payment, if present), and on a 990 that is Schedule I Parts II and III. If a field is not present, use an empty string or an empty array. Never invent, estimate or round a figure that is not printed in the return. The PDF you are given may be one page range of a longer return that is being read in parts, and it may be a scan rather than digital text: read the scanned pages, extract only what is actually visible on these pages, and return empty strings and empty arrays for anything not shown on them rather than inferring it.";
 
 const GRANTS_PROMPT = `Extract this IRS return into this exact JSON shape:
 {
@@ -70,9 +70,28 @@ const PROFILE_PROMPT = `Extract this foundation document into this exact JSON sh
   "executives": [{"name": string, "title": string, "contactInfo": string (email/phone if given), "bio": string (their background as described, single flowing paragraph)}]
 }`;
 
-function promptsFor(kind: FoundationImportKind) {
+// Optional narrowing for the grants lane. Returns are alphabetical, so a
+// profiler working one client usually wants a size floor or a place/name
+// match rather than all several hundred rows.
+function grantFilterClause(minAmount: string, keyword: string): string {
+  const clauses: string[] = [];
+  if (minAmount) {
+    clauses.push(
+      `Include ONLY grants whose printed amount is at least ${minAmount}. Skip every smaller grant. Do not adjust or round any amount you do include.`
+    );
+  }
+  if (keyword) {
+    clauses.push(
+      `Include ONLY grants where the recipient name, its city or state, or the stated purpose mentions "${keyword}". Skip every other grant.`
+    );
+  }
+  if (!clauses.length) return "";
+  return `\n\nFilters for selectedGrants (these do not affect any other field):\n${clauses.join("\n")}`;
+}
+
+function promptsFor(kind: FoundationImportKind, minAmount = "", keyword = "") {
   return kind === "grants"
-    ? { system: GRANTS_SYSTEM_PROMPT, prompt: GRANTS_PROMPT }
+    ? { system: GRANTS_SYSTEM_PROMPT, prompt: GRANTS_PROMPT + grantFilterClause(minAmount, keyword) }
     : { system: PROFILE_SYSTEM_PROMPT, prompt: PROFILE_PROMPT };
 }
 
@@ -141,13 +160,21 @@ export async function POST(req: NextRequest) {
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "No PDF file was uploaded." }, { status: 400 });
     }
-    if (file.size > 25 * 1024 * 1024) {
-      return NextResponse.json({ error: "PDF is too large (25MB limit)." }, { status: 400 });
+    // The browser splits anything bigger than 3MB into page ranges before
+    // uploading, because Vercel rejects request bodies over ~4.5MB. If a
+    // request this big still arrives, that split did not happen.
+    if (file.size > 4 * 1024 * 1024) {
+      return NextResponse.json(
+        { error: "This PDF is too large to send in one piece. Reload the page and try the upload again." },
+        { status: 413 }
+      );
     }
 
     const pdfBytes = new Uint8Array(await file.arrayBuffer());
     const dataUrl = `data:application/pdf;base64,${Buffer.from(pdfBytes).toString("base64")}`;
-    const { system, prompt } = promptsFor(kind);
+    const minAmount = String(formData.get("minAmount") || "").slice(0, 40).trim();
+    const keyword = String(formData.get("keyword") || "").slice(0, 80).trim();
+    const { system, prompt } = promptsFor(kind, minAmount, keyword);
 
     const [{ runId }, logo] = await Promise.all([
       startMagicaRun("gemini_3_1_pro_preview", {
