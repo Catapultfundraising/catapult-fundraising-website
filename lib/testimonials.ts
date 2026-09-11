@@ -161,6 +161,20 @@ export const TESTIMONIALS: Testimonial[] = [
     org: "President, Association of Fundraising Professionals NJ Chapter",
     services: ["donor-engagement", "annual-fund"],
   },
+  {
+    id: "kelly-ries",
+    quote: [
+      "Catapult Fundraising Services was recommended to us by a nonprofit consultant who had conducted an audit of our development department, and it's been one of the best referrals we've received. From the start, Catapult was timely and thorough in putting together a proposal to implement fundraising campaigns for our program.",
+      "What sets them apart is how collaborative they are. They involved me directly in training their team, taking the time to understand Special Olympics Indiana's vision and our events. I was consistently impressed by their thoughtful questions and professionalism, and it meant a lot that two of their fundraisers had firsthand experience attending one of our largest sports competitions. That kind of genuine familiarity with our work is rare.",
+      "Catapult also conducts interviews that result in powerful story letters conveying the impact our organization has on the lives of the athletes, coaches, and families in the Special Olympics Indiana community. Every time, it's clear they consider it an honor to be part of telling those stories.",
+      "Having worked with two other vendors offering similar services, I can say without hesitation that Catapult is by far the best telefunding partner we've had.",
+    ],
+    excerpt:
+      "Having worked with two other vendors offering similar services, I can say without hesitation that Catapult is by far the best telefunding partner we've had.",
+    name: "Kelly Ries",
+    org: "Senior Director of Donor Engagement, Special Olympics Indiana",
+    services: ["annual-fund", "donor-engagement"],
+  },
 ];
 
 export function testimonialsFor(service: Testimonial["services"][number]): Testimonial[] {
