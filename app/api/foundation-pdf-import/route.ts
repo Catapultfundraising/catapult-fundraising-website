@@ -40,7 +40,7 @@ const GRANTS_PROMPT = `Extract this IRS return into this exact JSON shape:
   "applicationInformation": string (the return's own description of the form in which applications should be submitted, submission deadlines, and required materials -- 990-PF Part XV line 2; otherwise empty),
   "dueDate": string (an application deadline if the return states one; otherwise empty),
   "potentialGrantRange": string (the range from the smallest to the largest grant actually paid in the grants list, e.g. "$5,000 - $250,000", computed only from amounts printed in the return),
-  "selectedGrants": [{"year": string (the tax year of the return, or the specific year printed on the row if the return shows one), "grantee": string (recipient name; append the stated purpose of the grant in parentheses when the return gives one, e.g. "Boys & Girls Club of Henderson (general operating support)"), "amount": string (exactly as printed, e.g. "$25,000")}]
+  "selectedGrants": [{"year": string (the tax year of the return, or the specific year printed on the row if the return shows one), "grantee": string (recipient name, followed by the recipient's city and state in parentheses when the return prints an address, then the stated purpose of the grant in parentheses when the return gives one, e.g. "Boys & Girls Club of Henderson (Henderson, NV) (general operating support)"; never guess a location that is not printed), "amount": string (exactly as printed, e.g. "$25,000")}]
 }`;
 
 const PROFILE_SYSTEM_PROMPT =
@@ -73,8 +73,13 @@ const PROFILE_PROMPT = `Extract this foundation document into this exact JSON sh
 // Optional narrowing for the grants lane. Returns are alphabetical, so a
 // profiler working one client usually wants a size floor or a place/name
 // match rather than all several hundred rows.
-function grantFilterClause(minAmount: string, keyword: string): string {
+function grantFilterClause(minAmount: string, keyword: string, states: string): string {
   const clauses: string[] = [];
+  if (states) {
+    clauses.push(
+      `Include ONLY grants whose recipient address, as printed on the return, is in one of these states: ${states}. Skip a grant if the return prints no address for that recipient. Never guess a recipient's state.`
+    );
+  }
   if (minAmount) {
     clauses.push(
       `Include ONLY grants whose printed amount is at least ${minAmount}. Skip every smaller grant. Do not adjust or round any amount you do include.`
@@ -89,9 +94,9 @@ function grantFilterClause(minAmount: string, keyword: string): string {
   return `\n\nFilters for selectedGrants (these do not affect any other field):\n${clauses.join("\n")}`;
 }
 
-function promptsFor(kind: FoundationImportKind, minAmount = "", keyword = "") {
+function promptsFor(kind: FoundationImportKind, minAmount = "", keyword = "", states = "") {
   return kind === "grants"
-    ? { system: GRANTS_SYSTEM_PROMPT, prompt: GRANTS_PROMPT + grantFilterClause(minAmount, keyword) }
+    ? { system: GRANTS_SYSTEM_PROMPT, prompt: GRANTS_PROMPT + grantFilterClause(minAmount, keyword, states) }
     : { system: PROFILE_SYSTEM_PROMPT, prompt: PROFILE_PROMPT };
 }
 
@@ -174,7 +179,8 @@ export async function POST(req: NextRequest) {
     const dataUrl = `data:application/pdf;base64,${Buffer.from(pdfBytes).toString("base64")}`;
     const minAmount = String(formData.get("minAmount") || "").slice(0, 40).trim();
     const keyword = String(formData.get("keyword") || "").slice(0, 80).trim();
-    const { system, prompt } = promptsFor(kind, minAmount, keyword);
+    const states = String(formData.get("states") || "").slice(0, 120).trim();
+    const { system, prompt } = promptsFor(kind, minAmount, keyword, states);
 
     const [{ runId }, logo] = await Promise.all([
       startMagicaRun("gemini_3_1_pro_preview", {

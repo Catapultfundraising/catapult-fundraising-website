@@ -193,6 +193,34 @@ async function splitPdfIntoChunks(file: File, pageRangeText = ""): Promise<File[
   return chunks.length ? chunks : [file];
 }
 
+const STATE_CODES: Record<string, string> = {
+  alabama: "AL", alaska: "AK", arizona: "AZ", arkansas: "AR", california: "CA",
+  colorado: "CO", connecticut: "CT", delaware: "DE", "district of columbia": "DC",
+  florida: "FL", georgia: "GA", hawaii: "HI", idaho: "ID", illinois: "IL",
+  indiana: "IN", iowa: "IA", kansas: "KS", kentucky: "KY", louisiana: "LA",
+  maine: "ME", maryland: "MD", massachusetts: "MA", michigan: "MI", minnesota: "MN",
+  mississippi: "MS", missouri: "MO", montana: "MT", nebraska: "NE", nevada: "NV",
+  "new hampshire": "NH", "new jersey": "NJ", "new mexico": "NM", "new york": "NY",
+  "north carolina": "NC", "north dakota": "ND", ohio: "OH", oklahoma: "OK",
+  oregon: "OR", pennsylvania: "PA", "rhode island": "RI", "south carolina": "SC",
+  "south dakota": "SD", tennessee: "TN", texas: "TX", utah: "UT", vermont: "VT",
+  virginia: "VA", washington: "WA", "west virginia": "WV", wisconsin: "WI",
+  wyoming: "WY", "puerto rico": "PR",
+};
+
+// "TX, Nevada; nj" -> ["TX", "NV", "NJ"]. Accepts codes or full names in any
+// separator or case, so a profiler can type it however they think of it.
+function parseStates(input: string): string[] {
+  const out = new Set<string>();
+  for (const raw of (input || "").split(/[,;/|]+|\band\b/i)) {
+    const part = raw.trim().toLowerCase();
+    if (!part) continue;
+    if (STATE_CODES[part]) out.add(STATE_CODES[part]);
+    else if (/^[a-z]{2}$/.test(part)) out.add(part.toUpperCase());
+  }
+  return Array.from(out);
+}
+
 // Parses "$25,000", "25000", "25k" into a number for the client-side safety
 // net on the minimum-amount filter. Returns null when there is nothing usable.
 function parseMoney(input: string): number | null {
@@ -263,6 +291,7 @@ function FoundationProfileFormInner() {
   const [grantsPageRange, setGrantsPageRange] = useState("");
   const [grantsMinAmount, setGrantsMinAmount] = useState("");
   const [grantsKeyword, setGrantsKeyword] = useState("");
+  const [grantsStates, setGrantsStates] = useState("");
   const [importNotice, setImportNotice] = useState<string | null>(null);
   const grantsInputRef = useRef<HTMLInputElement>(null);
   const profileInputRef = useRef<HTMLInputElement>(null);
@@ -417,6 +446,8 @@ function FoundationProfileFormInner() {
       if (kind === "grants") {
         if (grantsMinAmount.trim()) formData.append("minAmount", grantsMinAmount.trim());
         if (grantsKeyword.trim()) formData.append("keyword", grantsKeyword.trim());
+        const stateCodes = parseStates(grantsStates);
+        if (stateCodes.length) formData.append("states", stateCodes.join(", "));
       }
       const startRes = await fetch("/api/foundation-pdf-import", { method: "POST", body: formData });
       const startBody = await safeJson(startRes);
@@ -484,12 +515,20 @@ function FoundationProfileFormInner() {
           // table with hundreds of irrelevant rows.
           const floor = parseMoney(grantsMinAmount);
           const needle = grantsKeyword.trim().toLowerCase();
+          const stateCodes = parseStates(grantsStates);
           const additions = (x.selectedGrants as GrantRow[]).filter((row) => {
             if (floor !== null) {
               const amount = parseMoney(row.amount || "");
               if (amount === null || amount < floor) return false;
             }
             if (needle && !(row.grantee || "").toLowerCase().includes(needle)) return false;
+            // The recipient's state, when the return printed one, arrives inside
+            // the grantee text as "(City, ST)".
+            if (stateCodes.length) {
+              const found = (row.grantee || "").match(/,\s*([A-Z]{2})\b/g) || [];
+              const codes = found.map((m) => m.replace(/[^A-Z]/g, ""));
+              if (!codes.some((c) => stateCodes.includes(c))) return false;
+            }
             const key = grantKey(row);
             if (seen.has(key)) return false;
             seen.add(key);
@@ -748,7 +787,8 @@ function FoundationProfileFormInner() {
             <p className="mt-2 text-xs leading-relaxed text-[rgb(var(--ink))]/60">
               A big family foundation&apos;s return can run 60+ pages with several hundred grant
               rows. Narrow it with any of these before uploading, or leave them blank to take
-              everything.
+              everything. State filtering uses the recipient address printed on the return, so a
+              row with no printed address is left out when you filter by state.
             </p>
             <div className="mt-3 grid gap-2">
               <input
@@ -767,9 +807,16 @@ function FoundationProfileFormInner() {
               />
               <input
                 type="text"
+                value={grantsStates}
+                onChange={(e) => setGrantsStates(e.target.value)}
+                placeholder="Only states the grant went to, e.g. TX, NV"
+                className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
+              />
+              <input
+                type="text"
                 value={grantsKeyword}
                 onChange={(e) => setGrantsKeyword(e.target.value)}
-                placeholder="Only grantees matching, e.g. Galveston"
+                placeholder="Only grantees matching, e.g. children's hospital"
                 className="w-full rounded-lg border border-[rgb(var(--ink))]/15 px-3 py-2 text-sm"
               />
             </div>
