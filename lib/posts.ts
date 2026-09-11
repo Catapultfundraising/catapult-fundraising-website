@@ -20,12 +20,12 @@ export const POSTS: Post[] = [
   {
     slug: "lapsed-donor-reactivation-win-back-your-database",
     title:
-      "Only 4 Percent of Your Database Gave This Year. Here Is How to Win the Rest Back.",
+      "Only 4% of Your Donor Database Gave This Year. Here’s How to Win the Rest Back.",
     description:
-      "Anthony R. Alonso on how to calculate your active donor rate, read the lapsed bands inside your own file, and run a win-back effort that actually reaches people.",
-    readTime: "8 min read",
+      "Anthony R. Alonso on calculating your active donor rate, segmenting a lapsed donor file, cleaning the data, and running a letter-plus-call reactivation program that reaches people.",
+    readTime: "11 min read",
     image: "/blog/lapsed-donor-reactivation/hero-donor-calls.jpg",
-    alt: "Two development staff members working at their desks with phone headsets on",
+    alt: "Experienced development staff speaking with donors on the phone from an office",
     pillars: ["Annual Fund", "Donor Acquisition & Retention"],
     services: ["annual-fund", "donor-engagement"],
   },
