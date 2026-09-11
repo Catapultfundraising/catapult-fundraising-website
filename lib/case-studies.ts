@@ -448,6 +448,14 @@ export const CASE_STUDIES: CaseStudy[] = [
         type: "paragraph",
         text: "Catapult's results are a clear indication that this type of solicitation is successful in stewarding, soliciting, and upgrading Special Olympics of Indiana's prospects. Catapult's callers increased the average gift size by 39%. Strong results were achieved across all donor groups: Catapult's pledge rate of 85% for lapsed donors far exceeds the industry average of 45%.",
       },
+      {
+        type: "quote",
+        text: "What sets them apart is how collaborative they are. They involved me directly in training their team, taking the time to understand Special Olympics Indiana's vision and our events. Having worked with two other vendors offering similar services, I can say without hesitation that Catapult is by far the best telefunding partner we've had.",
+      },
+      {
+        type: "paragraph",
+        text: "Kelly Ries, Senior Director of Donor Engagement, Special Olympics Indiana",
+      },
       { type: "heading", text: "Conclusion" },
       {
         type: "paragraph",
