@@ -18,6 +18,18 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "lapsed-donor-reactivation-win-back-your-database",
+    title:
+      "Only 4 Percent of Your Database Gave This Year. Here Is How to Win the Rest Back.",
+    description:
+      "Anthony R. Alonso on how to calculate your active donor rate, read the lapsed bands inside your own file, and run a win-back effort that actually reaches people.",
+    readTime: "8 min read",
+    image: "/blog/lapsed-donor-reactivation/hero-donor-calls.jpg",
+    alt: "Two development staff members working at their desks with phone headsets on",
+    pillars: ["Annual Fund", "Donor Acquisition & Retention"],
+    services: ["annual-fund", "donor-engagement"],
+  },
+  {
     slug: "why-people-give-trust-connection-moment-to-act",
     title: "Why People Give: Trust, Connection, and the Moment to Act",
     description:
