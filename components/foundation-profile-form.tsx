@@ -171,7 +171,13 @@ async function splitPdfIntoChunks(file: File, pageRangeText = ""): Promise<File[
     let bytes: Uint8Array | null = null;
     while (take >= 1) {
       const out = await PDFDocument.create();
-      const copied = await out.copyPages(source, selected.slice(start, start + take));
+      // Always lead with page 1 of the return. A mid-file slice of a 990 shows
+      // grant rows but not the header that prints the tax year, EIN, and legal
+      // name, so without the cover page the model has no year to stamp on
+      // these rows.
+      const pageIndexes = selected.slice(start, start + take);
+      const withCover = pageIndexes.includes(0) ? pageIndexes : [0, ...pageIndexes];
+      const copied = await out.copyPages(source, withCover);
       copied.forEach((page) => out.addPage(page));
       bytes = await out.save();
       if (bytes.byteLength <= MAX_IMPORT_CHUNK_BYTES || take === 1) break;
@@ -435,7 +441,8 @@ function FoundationProfileFormInner() {
   async function importOneChunk(
     file: File,
     kind: ImportKind,
-    progressLabel: string
+    progressLabel: string,
+    yearCarry: { value: string }
   ): Promise<{ addedGrants: number; addedExecs: number }> {
     {
       // Step 1: start the extraction. Returns almost immediately, so this
@@ -480,6 +487,11 @@ function FoundationProfileFormInner() {
       }
 
       const x = payload.data || {};
+      // The return's own tax year, remembered across parts of the same file so
+      // that a later slice can still stamp a year on its rows.
+      const returnYear = String(x.taxYear || "").match(/(19|20)\d{2}/)?.[0] || "";
+      if (returnYear && !yearCarry.value) yearCarry.value = returnYear;
+      const fallbackYear = returnYear || yearCarry.value;
       let addedGrants = 0;
       let addedExecs = 0;
 
@@ -516,7 +528,13 @@ function FoundationProfileFormInner() {
           const floor = parseMoney(grantsMinAmount);
           const needle = grantsKeyword.trim().toLowerCase();
           const stateCodes = parseStates(grantsStates);
-          const additions = (x.selectedGrants as GrantRow[]).filter((row) => {
+          const rows = (x.selectedGrants as GrantRow[]).map((row) => ({
+            ...row,
+            // A grants table rarely repeats the year on each line, so default
+            // to the tax year the return covers.
+            year: (row.year || "").trim() || fallbackYear,
+          }));
+          const additions = rows.filter((row) => {
             if (floor !== null) {
               const amount = parseMoney(row.amount || "");
               if (amount === null || amount < floor) return false;
@@ -568,6 +586,7 @@ function FoundationProfileFormInner() {
     let addedExecs = 0;
     let chunksDone = 0;
     let chunkCount = 1;
+    const yearCarry = { value: "" };
     try {
       setImportNotice("Reading the PDF...");
       const chunks = await splitPdfIntoChunks(file, kind === "grants" ? grantsPageRange : "");
@@ -577,7 +596,7 @@ function FoundationProfileFormInner() {
           chunkCount === 1
             ? "Extracting. A long return can take a couple of minutes."
             : `Extracting part ${i + 1} of ${chunkCount}. A 60-page scanned return takes several minutes.`;
-        const result = await importOneChunk(chunks[i], kind, label);
+        const result = await importOneChunk(chunks[i], kind, label, yearCarry);
         addedGrants += result.addedGrants;
         addedExecs += result.addedExecs;
         chunksDone++;
