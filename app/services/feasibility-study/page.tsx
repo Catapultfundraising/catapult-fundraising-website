@@ -3,6 +3,7 @@ import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
 import { RelatedReading } from "@/components/related-reading";
 import { ClipboardCheck } from "lucide-react";
+import { testimonialsFor } from "@/lib/testimonials";
 import Link from "next/link";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -243,6 +244,34 @@ export default function FeasibilityStudyPage() {
             </Link>
             .
           </p>
+        </div>
+      </section>
+
+      <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
+        <div className="mx-auto max-w-4xl px-6 lg:px-10">
+          <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
+            What Clients Say
+          </p>
+          <div className="mt-8 space-y-12">
+            {testimonialsFor("feasibility-study").map((t) => (
+              <div key={t.id}>
+                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]">
+                  {t.quote.map((para, i) => (
+                    <p key={i}>
+                      {i === 0 && "\u201C"}
+                      {para}
+                      {i === t.quote.length - 1 && "\u201D"}
+                    </p>
+                  ))}
+                </blockquote>
+                <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
+                  <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
+                  <br />
+                  {t.org}
+                </p>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
