@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ArrowRight, Calculator } from "lucide-react";
+import { ArrowRight, Calculator, ClipboardCheck } from "lucide-react";
 
 /**
  * Inline pointer to the gift chart calculator, for the service pages and
@@ -24,6 +24,35 @@ export function GiftChartCalloutCard({ note }: { note?: string }) {
         className="group mt-5 inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-6 py-3 text-sm font-semibold text-[rgb(var(--paper))] transition-transform hover:scale-[1.02]"
       >
         Open the gift chart calculator
+        <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+      </Link>
+    </div>
+  );
+}
+
+/**
+ * Inline pointer to the campaign readiness report card, for the pages where a
+ * reader is asking whether they are ready rather than how big the chart is.
+ */
+export function ReadinessCalloutCard({ note }: { note?: string }) {
+  return (
+    <div className="my-10 rounded-2xl border border-[rgb(var(--brass))]/40 bg-[rgb(var(--paper))] p-6 sm:p-8">
+      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+        <ClipboardCheck className="h-4 w-4" />
+        Free tool
+      </p>
+      <h3 className="mt-3 font-display text-2xl text-[rgb(var(--navy))]">
+        Grade your campaign readiness
+      </h3>
+      <p className="mt-3 text-lg leading-relaxed text-[rgb(var(--ink))]/75">
+        {note ??
+          "Sixteen questions, about three minutes. Our report card grades seven areas, names the single biggest risk to your campaign, and gives you three next steps you can take this quarter."}
+      </p>
+      <Link
+        href="/resources/campaign-readiness-assessment"
+        className="group mt-5 inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-6 py-3 text-sm font-semibold text-[rgb(var(--paper))] transition-transform hover:scale-[1.02]"
+      >
+        Open the readiness report card
         <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
       </Link>
     </div>
