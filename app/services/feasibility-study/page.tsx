@@ -1,6 +1,7 @@
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
+import { GiftChartCalloutCard } from "@/components/tool-callout";
 import { RelatedReading } from "@/components/related-reading";
 import { ClipboardCheck } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
@@ -284,6 +285,14 @@ export default function FeasibilityStudyPage() {
         ]}
         pillars={["Feasibility Studies"]}
       />
+
+      <section className="bg-[rgb(var(--surface))] pb-6">
+        <div className="mx-auto max-w-3xl px-6">
+          <GiftChartCalloutCard
+            note="Curious what your goal would take? Our calculator builds the gift chart and pyramid for any goal, and the study is what tells you whether your donors can fill it."
+          />
+        </div>
+      </section>
 
       <CtaBand />
     </>

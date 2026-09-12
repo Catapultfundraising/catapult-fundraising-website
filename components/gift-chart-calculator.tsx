@@ -12,8 +12,10 @@ import {
   buildGiftChart,
   formatCompactDollars,
   formatDollars,
+  formatShare,
   MAX_GOAL,
   MIN_GOAL,
+  type GiftChart,
 } from "@/lib/gift-chart";
 
 const UNLOCK_KEY = "catapult-gift-chart-unlocked";
@@ -28,15 +30,17 @@ function parseGoal(raw: string): number {
   return digits ? Number(digits) : 0;
 }
 
-function GiftPyramid({ rows, goal }: { rows: ReturnType<typeof buildGiftChart>["rows"]; goal: number }) {
+function GiftPyramid({ chart }: { chart: GiftChart }) {
   // The silhouette is a triangle: each level is a horizontal band whose width
   // grows as the gift level drops, which is the shape fundraisers already
-  // recognize from a printed gift chart.
-  const width = 720;
-  const bandHeight = 62;
+  // recognize from a printed gift chart. The widest band at the bottom is the
+  // many smaller gifts that finish the campaign.
+  const rows = chart.rows;
+  const width = 760;
+  const bandHeight = 58;
   const height = rows.length * bandHeight;
-  const topWidth = 150;
-  const maxWidth = width - 40;
+  const topWidth = 130;
+  const maxWidth = width - 30;
 
   return (
     <figure className="mt-4">
@@ -44,7 +48,7 @@ function GiftPyramid({ rows, goal }: { rows: ReturnType<typeof buildGiftChart>["
         viewBox={`0 0 ${width} ${height}`}
         className="h-auto w-full"
         role="img"
-        aria-label={`Gift pyramid for a ${formatDollars(goal)} campaign goal`}
+        aria-label={`Gift pyramid for a ${formatDollars(chart.goal)} campaign goal`}
       >
         {rows.map((row, i) => {
           const t = rows.length === 1 ? 1 : i / (rows.length - 1);
@@ -64,28 +68,31 @@ function GiftPyramid({ rows, goal }: { rows: ReturnType<typeof buildGiftChart>["
 
           // Bands lighten slightly down the pyramid, but stay dark enough that
           // white and brass label text keeps its contrast on every row.
-          const shade = 0.95 - i * 0.05;
+          const shade = 0.95 - i * 0.045;
+          const isMany = row.tier === "many";
 
           return (
-            <g key={row.level}>
+            <g key={row.level ?? "many"}>
               <polygon points={points} fill={`rgba(14, 30, 49, ${Math.max(shade, 0.68)})`} />
               <text
                 x={cx}
                 y={y + bandHeight / 2 - 2}
                 textAnchor="middle"
                 className="fill-white"
-                style={{ fontSize: 16, fontWeight: 600 }}
+                style={{ fontSize: 15, fontWeight: 600 }}
               >
-                {row.gifts} {row.gifts === 1 ? "gift" : "gifts"} at {formatCompactDollars(row.level)}
+                {isMany
+                  ? `Many gifts under ${formatCompactDollars(row.under ?? 0)}`
+                  : `${row.gifts} ${row.gifts === 1 ? "gift" : "gifts"} at ${formatCompactDollars(row.level ?? 0)}`}
               </text>
               <text
                 x={cx}
-                y={y + bandHeight / 2 + 16}
+                y={y + bandHeight / 2 + 15}
                 textAnchor="middle"
                 fill="#D8B76A"
-                style={{ fontSize: 12, fontWeight: 600, letterSpacing: "0.05em" }}
+                style={{ fontSize: 11.5, fontWeight: 600, letterSpacing: "0.05em" }}
               >
-                {formatCompactDollars(row.value)} · {Math.round(row.shareOfGoal * 100)}% OF GOAL
+                {formatCompactDollars(row.value)} · {formatShare(row.shareOfGoal)} OF GOAL
               </text>
             </g>
           );
@@ -93,7 +100,8 @@ function GiftPyramid({ rows, goal }: { rows: ReturnType<typeof buildGiftChart>["
       </svg>
       <figcaption className="mt-3 text-sm text-[rgb(var(--ink))]/60">
         Each band is one gift level. The width shows how many gifts you need at that level, and the
-        percentage shows how much of the goal that level carries.
+        percentage shows how much of the goal that level carries. The largest ten gifts alone carry{" "}
+        {formatShare(chart.topTenShare)} of the goal.
       </figcaption>
     </figure>
   );
@@ -268,7 +276,6 @@ export function GiftChartCalculator() {
   }, []);
 
   const chart = useMemo(() => buildGiftChart(goal), [goal]);
-  const overGoal = chart.total > chart.goal;
 
   if (!unlocked) {
     return (
@@ -326,11 +333,12 @@ export function GiftChartCalculator() {
           </div>
         </div>
 
-        <div className="mt-10 grid gap-6 sm:grid-cols-3">
+        <div className="mt-10 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { label: "Gifts needed", value: chart.totalGifts.toLocaleString("en-US") },
+            { label: "Named gifts needed", value: chart.totalGifts.toLocaleString("en-US") },
             { label: "Prospects to identify", value: chart.totalProspects.toLocaleString("en-US") },
             { label: "Lead gift", value: formatCompactDollars(chart.leadGift) },
+            { label: "Top ten gifts", value: formatShare(chart.topTenShare) },
           ].map((stat) => (
             <div key={stat.label} className="rounded-2xl bg-[rgb(var(--paper))] p-6">
               <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
@@ -342,10 +350,10 @@ export function GiftChartCalculator() {
         </div>
 
         <p className="mt-6 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
-          To raise {formatDollars(chart.goal)} you need roughly {chart.totalGifts} gifts, and about{" "}
-          {chart.totalProspects} qualified prospects to produce them. The top three levels carry{" "}
-          {Math.round(chart.topThreeLevelsShare * 100)} percent of the goal, which is why campaigns
-          are won or lost in the quiet phase.
+          To raise {formatDollars(chart.goal)} you need roughly {chart.totalGifts} named gifts, about{" "}
+          {chart.totalProspects} qualified prospects to produce them, and many smaller gifts to
+          finish. The largest ten gifts carry {formatShare(chart.topTenShare)} of the goal, which is
+          why campaigns are won or lost in the quiet phase.
         </p>
       </div>
 
@@ -365,65 +373,94 @@ export function GiftChartCalculator() {
         </div>
 
         <div className="mt-6 overflow-x-auto">
-          <table className="w-full min-w-[640px] border-collapse text-left">
+          <table className="w-full min-w-[720px] border-collapse text-left">
             <thead>
               <tr className="border-b-2 border-[rgb(var(--navy))]">
-                {["Gifts needed", "Gift level", "Value of gifts", "Cumulative total", "Prospects"].map(
-                  (h) => (
-                    <th
-                      key={h}
-                      className="py-3 text-xs font-semibold uppercase tracking-wider text-[rgb(var(--navy))]"
-                    >
-                      {h}
-                    </th>
-                  )
-                )}
+                {[
+                  "Gifts needed",
+                  "Gift level",
+                  "Value of gifts",
+                  "Cumulative total",
+                  "Prospects",
+                  "Giving tier totals",
+                ].map((h) => (
+                  <th
+                    key={h}
+                    className="py-3 pr-4 text-xs font-semibold uppercase tracking-wider text-[rgb(var(--navy))]"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {chart.rows.map((row) => (
-                <tr key={row.level} className="border-b border-[rgb(var(--line))]">
-                  <td className="py-3 text-[17px] font-semibold text-[rgb(var(--navy))]">{row.gifts}</td>
-                  <td className="py-3 text-[17px] text-[rgb(var(--ink))]/80">{formatDollars(row.level)}</td>
-                  <td className="py-3 text-[17px] text-[rgb(var(--ink))]/80">{formatDollars(row.value)}</td>
-                  <td className="py-3 text-[17px] text-[rgb(var(--ink))]/80">
-                    {formatDollars(row.cumulative)}
-                  </td>
-                  <td className="py-3 text-[17px] text-[rgb(var(--ink))]/80">{row.prospects}</td>
-                </tr>
-              ))}
+              {chart.rows.map((row, index) => {
+                const isMany = row.tier === "many";
+                // The tier total sits on the last row of each tier, the way it
+                // does on the charts we print for clients.
+                const isTierEnd = chart.rows[index + 1]?.tier !== row.tier;
+                const tier = chart.tiers.find((t) => t.tier === row.tier);
+                return (
+                  <tr key={row.level ?? "many"} className="border-b border-[rgb(var(--line))]">
+                    <td className="py-3 pr-4 text-[17px] font-semibold text-[rgb(var(--navy))]">
+                      {isMany ? "Many" : row.gifts}
+                    </td>
+                    <td className="py-3 pr-4 text-[17px] text-[rgb(var(--ink))]/80">
+                      {isMany ? `Under ${formatDollars(row.under ?? 0)}` : formatDollars(row.level ?? 0)}
+                    </td>
+                    <td className="py-3 pr-4 text-[17px] text-[rgb(var(--ink))]/80">
+                      {formatDollars(row.value)}
+                    </td>
+                    <td className="py-3 pr-4 text-[17px] text-[rgb(var(--ink))]/80">
+                      {formatDollars(row.cumulative)}
+                    </td>
+                    <td className="py-3 pr-4 text-[17px] text-[rgb(var(--ink))]/80">
+                      {isMany ? "—" : row.prospects}
+                    </td>
+                    <td className="py-3 pr-4 text-[15px] text-[rgb(var(--ink))]/70">
+                      {isTierEnd && tier
+                        ? isMany
+                          ? `${formatShare(tier.shareOfGoal)} of goal from many smaller gifts`
+                          : `${formatShare(tier.shareOfGoal)} of goal from ${tier.gifts} gifts at ${formatCompactDollars(tier.value)}`
+                        : ""}
+                    </td>
+                  </tr>
+                );
+              })}
               <tr className="border-b-2 border-[rgb(var(--navy))] bg-[rgb(var(--paper))]">
-                <td className="py-3 font-display text-lg text-[rgb(var(--navy))]">{chart.totalGifts}</td>
-                <td className="py-3 text-xs font-semibold uppercase tracking-wider text-[rgb(var(--navy))]">
+                <td className="py-3 pr-4 font-display text-lg text-[rgb(var(--navy))]">
+                  {chart.totalGifts} + many
+                </td>
+                <td className="py-3 pr-4 text-xs font-semibold uppercase tracking-wider text-[rgb(var(--navy))]">
                   Total
                 </td>
-                <td className="py-3 font-display text-lg text-[rgb(var(--navy))]">
-                  {formatDollars(chart.total)}
+                <td className="py-3 pr-4 font-display text-lg text-[rgb(var(--navy))]">
+                  {formatDollars(chart.goal)}
                 </td>
-                <td className="py-3 text-[17px] text-[rgb(var(--ink))]/70">
-                  {Math.round((chart.total / chart.goal) * 100)}% of goal
-                </td>
-                <td className="py-3 font-display text-lg text-[rgb(var(--navy))]">
+                <td className="py-3 pr-4 text-[17px] text-[rgb(var(--ink))]/70">100% of goal</td>
+                <td className="py-3 pr-4 font-display text-lg text-[rgb(var(--navy))]">
                   {chart.totalProspects}
+                </td>
+                <td className="py-3 pr-4 text-[15px] text-[rgb(var(--ink))]/70">
+                  {chart.totalGifts} named gifts for {formatDollars(chart.namedTotal)}
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
 
-        {overGoal && (
-          <p className="mt-4 text-sm text-[rgb(var(--ink))]/60">
-            Round gift levels do not always divide evenly into a goal, so this chart totals slightly
-            above {formatDollars(chart.goal)}. A little headroom is normal, and useful.
-          </p>
-        )}
+        <p className="mt-4 text-sm text-[rgb(var(--ink))]/60">
+          Gift levels are round numbers, so the named levels stop just short of the goal. The closing
+          line of many smaller gifts carries the last {formatDollars(chart.manyValue)} and completes
+          the campaign.
+        </p>
       </div>
 
       <div className="rounded-3xl border border-[rgb(var(--line))] bg-white p-8 shadow-sm print:break-inside-avoid lg:p-10">
         <h2 className="font-display text-3xl text-[rgb(var(--navy))]">
           The same chart as a pyramid
         </h2>
-        <GiftPyramid rows={chart.rows} goal={chart.goal} />
+        <GiftPyramid chart={chart} />
       </div>
 
       <div className="rounded-3xl bg-[rgb(var(--navy))] p-8 text-[rgb(var(--paper))] print:hidden lg:p-10">
