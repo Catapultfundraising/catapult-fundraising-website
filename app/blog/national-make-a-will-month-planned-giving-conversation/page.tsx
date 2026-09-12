@@ -17,7 +17,9 @@ const FEATHER = {
 } as const;
 
 export const metadata = {
-  title: "National Make a Will Month: The Ask You Keep Avoiding",
+  // `absolute` skips the layout's " | Catapult Fundraising" suffix, which
+  // pushed this search-result title past the ~60-character truncation point.
+  title: { absolute: "Make a Will Month: The Ask You Keep Avoiding" },
   description:
     "Anthony R. Alonso on why National Make a Will Month is the perfect low-pressure moment to start the planned giving conversation, and the two-tier calling model that turns loyal donors into legacy donors.",
   keywords: [

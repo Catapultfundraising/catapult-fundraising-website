@@ -11,7 +11,9 @@ const HERO_ALT =
   "A man on a couch celebrating with a raised fist after hearing good news";
 
 export const metadata = {
-  title: "Why People Give: Trust, Connection, and the Moment to Act",
+  // `absolute` skips the layout's " | Catapult Fundraising" suffix, which
+  // pushed this search-result title past the ~60-character truncation point.
+  title: { absolute: "Why People Give: Trust, Connection, and the Ask" },
   description:
     "Amy C. Wiles on why donors rarely give because an organization has a need, and what actually makes someone ready to act on something they already care about.",
   keywords: [

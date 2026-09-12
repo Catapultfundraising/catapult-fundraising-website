@@ -8,7 +8,9 @@ import { ArrowRight, Building, Users, Award } from "lucide-react";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "About | 30+ Years, National Full-Service Firm",
+  // `absolute` skips the root layout's " | Catapult Fundraising" suffix,
+  // which pushed this title to 68 characters in search results.
+  title: { absolute: "About Catapult Fundraising | 30+ Years of Campaigns" },
   description:
     "Catapult Fundraising is the nation's full-service fundraising firm, built on 30+ years of capital campaign and donor engagement experience.",
   keywords: [

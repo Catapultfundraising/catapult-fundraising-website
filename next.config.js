@@ -112,6 +112,15 @@ const nextConfig = {
         permanent: true,
       },
       {
+        // Legacy Wix duplicate of the news page. Still ranking and still
+        // earning clicks in Search Console (70 impressions, 2 clicks in the
+        // 90 days to 2026-09-09) while returning a 404 on the current site,
+        // so those clicks were landing on an error page.
+        source: "/copy-of-news-and-events",
+        destination: "/insights",
+        permanent: true,
+      },
+      {
         source: "/case-studies",
         destination: "/insights/case-studies",
         permanent: true,
