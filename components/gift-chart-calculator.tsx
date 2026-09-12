@@ -19,6 +19,7 @@ import {
 } from "@/lib/gift-chart";
 
 const UNLOCK_KEY = "catapult-gift-chart-unlocked";
+const ORG_KEY = "catapult-gift-chart-org";
 
 const FIELD_CLASS =
   "border-[rgb(var(--line))] bg-white text-[rgb(var(--navy))] placeholder:text-[rgb(var(--ink))]/30 focus-visible:ring-[rgb(var(--brass))] focus-visible:ring-offset-0";
@@ -107,7 +108,7 @@ function GiftPyramid({ chart }: { chart: GiftChart }) {
   );
 }
 
-function LeadGate({ onUnlock }: { onUnlock: (goal: number) => void }) {
+function LeadGate({ onUnlock }: { onUnlock: (goal: number, org: string) => void }) {
   const [name, setName] = useState("");
   const [org, setOrg] = useState("");
   const [email, setEmail] = useState("");
@@ -141,10 +142,11 @@ function LeadGate({ onUnlock }: { onUnlock: (goal: number) => void }) {
       trackLeadSubmission("gift_chart_calculator");
       try {
         window.localStorage.setItem(UNLOCK_KEY, "1");
+        if (org.trim()) window.localStorage.setItem(ORG_KEY, org.trim());
       } catch {
         // Private browsing can block storage. The tool still works for this visit.
       }
-      onUnlock(goal);
+      onUnlock(goal, org.trim());
     } catch {
       setError("Something went wrong. Please try again.");
       setSubmitting(false);
@@ -266,10 +268,12 @@ export function GiftChartCalculator() {
   const [unlocked, setUnlocked] = useState(false);
   const [goal, setGoal] = useState(5_000_000);
   const [goalInput, setGoalInput] = useState("5,000,000");
+  const [org, setOrg] = useState("");
 
   useEffect(() => {
     try {
       if (window.localStorage.getItem(UNLOCK_KEY) === "1") setUnlocked(true);
+      setOrg(window.localStorage.getItem(ORG_KEY) || "");
     } catch {
       // Storage unavailable; visitor just fills the form again.
     }
@@ -277,10 +281,15 @@ export function GiftChartCalculator() {
 
   const chart = useMemo(() => buildGiftChart(goal), [goal]);
 
+  // The branded PDF is rendered server-side from the same buildGiftChart math,
+  // so the download always matches what the visitor sees on screen.
+  const pdfHref = `/api/gift-chart-pdf?goal=${chart.goal}${org ? `&org=${encodeURIComponent(org)}` : ""}`;
+
   if (!unlocked) {
     return (
       <LeadGate
-        onUnlock={(submittedGoal) => {
+        onUnlock={(submittedGoal, submittedOrg) => {
+          setOrg(submittedOrg);
           setGoal(submittedGoal);
           setGoalInput(submittedGoal.toLocaleString("en-US"));
           setUnlocked(true);
@@ -362,14 +371,13 @@ export function GiftChartCalculator() {
           <h2 className="font-display text-3xl text-[rgb(var(--navy))]">
             Suggested gift chart for {formatDollars(chart.goal)}
           </h2>
-          <button
-            type="button"
-            onClick={() => window.print()}
+          <a
+            href={pdfHref}
             className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--line))] px-5 py-2.5 text-sm font-semibold text-[rgb(var(--navy))] transition-colors hover:border-[rgb(var(--brass))] print:hidden"
           >
             <Printer className="h-4 w-4" />
-            Print or save as PDF
-          </button>
+            Download branded PDF
+          </a>
         </div>
 
         <div className="mt-6 overflow-x-auto">
