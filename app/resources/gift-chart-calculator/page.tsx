@@ -28,7 +28,7 @@ const FAQS = [
   {
     question: "How is the calculator's chart built?",
     answer:
-      "It uses the same structure Catapult builds for clients: round gift levels only, a single lead gift at roughly 20 percent of goal, descending levels that reach the goal by the end of the chart, and roughly three qualified prospects for every gift needed. It is a planning starting point, not a chart built against your donor data.",
+      "It uses the same structure Catapult builds for clients: round gift levels only, a single lead gift at roughly 20 percent of goal, a top ten gifts that carry 60 percent or more of the goal, a closing line of many smaller gifts that completes the campaign, and roughly three qualified prospects for every gift needed. It is a planning starting point, not a chart built against your donor data.",
   },
   {
     question: "How many prospects do we need for a capital campaign?",

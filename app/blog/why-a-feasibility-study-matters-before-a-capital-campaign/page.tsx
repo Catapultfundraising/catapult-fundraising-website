@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
+import { GiftChartCalloutCard } from "@/components/tool-callout";
 import { ShareButtons } from "@/components/share-buttons";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -404,6 +405,14 @@ export default function FeasibilityStudyPost() {
           Fundraising&rsquo;s own client experience and are not industry-wide statistics.
         </p>
       </article>
+
+      <section className="bg-white pb-4">
+        <div className="mx-auto max-w-3xl px-6">
+          <GiftChartCalloutCard
+            note="Want to see what your goal would require? Enter it in our gift chart calculator and you get the chart and pyramid in a few seconds. A study is what tells you whether your donors can fill it."
+          />
+        </div>
+      </section>
 
       <CtaBand />
     </>

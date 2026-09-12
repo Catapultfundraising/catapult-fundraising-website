@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
+import { GiftChartCalloutCard } from "@/components/tool-callout";
 import { ShareButtons } from "@/components/share-buttons";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -189,6 +190,12 @@ export default function CapitalCampaignGiftChartPost() {
           .
         </p>
       </article>
+
+      <section className="bg-white pb-4">
+        <div className="mx-auto max-w-3xl px-6">
+          <GiftChartCalloutCard />
+        </div>
+      </section>
 
       <CtaBand />
     </>

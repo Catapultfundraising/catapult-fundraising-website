@@ -23,6 +23,7 @@ export const RESOURCE_LINKS = [
 export const INSIGHTS_LINKS = [
   { href: "/blog", label: "Articles" },
   { href: "/insights/case-studies", label: "Case Studies" },
+  { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
 ];
 
 export const NAV_LINKS = [

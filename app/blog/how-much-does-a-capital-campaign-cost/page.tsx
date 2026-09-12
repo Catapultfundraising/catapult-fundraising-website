@@ -2,6 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
+import { GiftChartCalloutCard } from "@/components/tool-callout";
 import { ShareButtons } from "@/components/share-buttons";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -203,6 +204,14 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
           in-house capacity.
         </p>
       </article>
+
+      <section className="bg-white pb-4">
+        <div className="mx-auto max-w-3xl px-6">
+          <GiftChartCalloutCard
+            note="Before you price the campaign, look at the shape of it. Enter your goal and the calculator builds the gift chart and pyramid: gifts needed at each level, prospects to identify, and how much of the goal sits in the top ten gifts."
+          />
+        </div>
+      </section>
 
       <CtaBand />
     </>
