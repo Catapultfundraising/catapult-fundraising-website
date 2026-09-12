@@ -13,6 +13,13 @@ export const CAMPAIGN_SECTOR_LINKS = [
   { href: "/services/capital-campaign/healthcare", label: "Healthcare Organizations" },
 ];
 
+// HubSpot meeting scheduler for Anthony. Used by the "Book a call" buttons.
+export const MEETING_LINK = "https://go.catapultfr.com/meetings/anthonya";
+
+export const RESOURCE_LINKS = [
+  { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
+];
+
 export const INSIGHTS_LINKS = [
   { href: "/blog", label: "Articles" },
   { href: "/insights/case-studies", label: "Case Studies" },

@@ -1,7 +1,13 @@
 import { PageHero } from "@/components/page-hero";
 import { ContactForm } from "@/components/contact-form";
-import { Phone, Mail, MapPin } from "lucide-react";
-import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
+import { Phone, Mail, MapPin, CalendarCheck, ArrowRight } from "lucide-react";
+import {
+  FIRM_PHONE,
+  FIRM_PHONE_HREF,
+  FIRM_EMAIL,
+  FIRM_ADDRESS_LINES,
+  MEETING_LINK,
+} from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -80,6 +86,26 @@ export default function ContactPage() {
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
         <div className="grid gap-14 lg:grid-cols-3">
           <div className="space-y-8 lg:col-span-1">
+            {/* Self-serve scheduling for visitors who would rather pick a time
+                than wait on a reply to the form. */}
+            <a
+              href={MEETING_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="group flex items-center justify-between gap-3 rounded-2xl bg-[rgb(var(--navy))] p-6 text-[rgb(var(--paper))] transition-transform hover:scale-[1.01]"
+            >
+              <span className="flex items-start gap-3">
+                <CalendarCheck className="mt-0.5 h-5 w-5 shrink-0 text-[rgb(var(--brass-light))]" />
+                <span>
+                  <span className="block font-display text-xl">Book a 20-minute call</span>
+                  <span className="mt-1 block text-sm text-[rgb(var(--paper))]/70">
+                    Pick a time on our calendar. No form required.
+                  </span>
+                </span>
+              </span>
+              <ArrowRight className="h-4 w-4 shrink-0 text-[rgb(var(--brass-light))] transition-transform group-hover:translate-x-1" />
+            </a>
+
             <div className="flex items-start gap-3">
               <Phone className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />
               <div>
