@@ -491,6 +491,13 @@ export function GiftChartCalculator() {
             Book a 20-minute call
           </a>
           <Link
+            href="/resources/campaign-readiness-assessment"
+            className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--paper))]/30 px-7 py-3.5 text-sm font-semibold text-[rgb(var(--paper))] transition-colors hover:border-[rgb(var(--brass))]"
+          >
+            Grade your readiness for this goal
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+          <Link
             href="/services/feasibility-study"
             className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--paper))]/30 px-7 py-3.5 text-sm font-semibold text-[rgb(var(--paper))] transition-colors hover:border-[rgb(var(--brass))]"
           >

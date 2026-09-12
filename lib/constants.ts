@@ -18,12 +18,14 @@ export const MEETING_LINK = "https://go.catapultfr.com/meetings/anthonya";
 
 export const RESOURCE_LINKS = [
   { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
+  { href: "/resources/campaign-readiness-assessment", label: "Campaign Readiness Report Card" },
 ];
 
 export const INSIGHTS_LINKS = [
   { href: "/blog", label: "Articles" },
   { href: "/insights/case-studies", label: "Case Studies" },
   { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
+  { href: "/resources/campaign-readiness-assessment", label: "Readiness Report Card" },
 ];
 
 export const NAV_LINKS = [

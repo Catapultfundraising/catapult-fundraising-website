@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
-import { GiftChartCalloutCard } from "@/components/tool-callout";
+import { GiftChartCalloutCard, ReadinessCalloutCard } from "@/components/tool-callout";
 import { RelatedReading } from "@/components/related-reading";
 import { ClipboardList } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
@@ -267,6 +267,7 @@ export default function CapitalCampaignPage() {
       <section className="bg-[rgb(var(--surface))] pb-6">
         <div className="mx-auto max-w-3xl px-6">
           <GiftChartCalloutCard />
+          <ReadinessCalloutCard note="Before you set a goal, grade yourself. Our readiness report card scores seven areas against the campaign you are considering and names the single biggest risk to it." />
         </div>
       </section>
 

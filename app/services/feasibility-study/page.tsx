@@ -1,7 +1,7 @@
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
-import { GiftChartCalloutCard } from "@/components/tool-callout";
+import { GiftChartCalloutCard, ReadinessCalloutCard } from "@/components/tool-callout";
 import { RelatedReading } from "@/components/related-reading";
 import { ClipboardCheck } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
@@ -291,6 +291,7 @@ export default function FeasibilityStudyPage() {
           <GiftChartCalloutCard
             note="Curious what your goal would take? Our calculator builds the gift chart and pyramid for any goal, and the study is what tells you whether your donors can fill it."
           />
+          <ReadinessCalloutCard note="Not sure whether it is time for a study? Our readiness report card grades seven areas in about three minutes, names your biggest risk, and tells you whether to test a goal now or build the base first." />
         </div>
       </section>
 
