@@ -18,7 +18,9 @@ const FEATHER = {
 } as const;
 
 export const metadata = {
-  title: "Why a Feasibility Study Matters Before a Capital Campaign",
+  // `absolute` skips the layout's " | Catapult Fundraising" suffix, which
+  // pushed this search-result title past the ~60-character truncation point.
+  title: { absolute: "Why a Feasibility Study Comes Before the Campaign" },
   description:
     "Jeff Grandy on why capital campaigns rarely fail because of a weak mission, and how a feasibility study tests the goal, the case, the leadership, and the prospect pipeline before the campaign goes public.",
   keywords: [

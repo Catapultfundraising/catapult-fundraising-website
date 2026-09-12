@@ -41,8 +41,8 @@ function frequencyFor(route: string): "weekly" | "monthly" {
 // this map whenever a route's content actually changes rather than relying
 // on the fallback.
 const ROUTE_LAST_MODIFIED: Record<string, string> = {
-  "": "2026-08-17",
-  "/about": "2026-08-12",
+  "": "2026-09-12",
+  "/about": "2026-09-12",
   "/our-team": "2026-08-12",
   "/contact": "2026-08-03",
   "/results": "2026-08-12",
@@ -56,7 +56,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/services/donor-engagement": "2026-08-17",
   "/services/annual-fund": "2026-08-17",
   "/insights": "2026-08-29",
-  "/insights/case-studies": "2026-08-29",
+  "/insights/case-studies": "2026-09-12",
   "/insights/case-studies/legacy-call-northeast-university": "2026-08-29",
   "/insights/case-studies/legacy-call-new-jersey-hospital": "2026-08-29",
   "/insights/case-studies/legacy-calls-hill-school": "2026-08-29",
@@ -66,8 +66,8 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/insights/case-studies/salvation-army-southern-nevada-capital-campaign": "2026-09-05",
   "/blog": "2026-08-29",
   "/blog/lapsed-donor-reactivation-win-back-your-database": "2026-09-11",
-  "/blog/why-people-give-trust-connection-moment-to-act": "2026-09-05",
-  "/blog/why-a-feasibility-study-matters-before-a-capital-campaign": "2026-08-29",
+  "/blog/why-people-give-trust-connection-moment-to-act": "2026-09-12",
+  "/blog/why-a-feasibility-study-matters-before-a-capital-campaign": "2026-09-12",
   "/blog/giving-usa-2026-record-giving-wealth-transfer": "2026-08-29",
   "/blog/how-much-does-a-capital-campaign-cost": "2026-08-29",
   "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices": "2026-08-12",
@@ -88,7 +88,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
 // Every /answers/[slug] page renders from the single shared lib/answers.ts
 // data file, so they all share that file's own last-real-edit date rather
 // than needing 31 separate entries above.
-const ANSWERS_LAST_MODIFIED = "2026-08-29";
+const ANSWERS_LAST_MODIFIED = "2026-09-12";
 
 const FALLBACK_DATE = "2026-08-29";
 

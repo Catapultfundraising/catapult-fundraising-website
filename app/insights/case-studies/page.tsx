@@ -6,7 +6,7 @@ import { CASE_STUDIES } from "@/lib/case-studies";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Case Studies | Insights | Catapult Fundraising",
+  title: { absolute: "Nonprofit Campaign Case Studies | Catapult" },
   description:
     "Documented results from Catapult Fundraising's capital campaign, calling program, and legacy giving engagements.",
   alternates: { canonical: "/insights/case-studies" },

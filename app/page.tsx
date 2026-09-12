@@ -12,7 +12,9 @@ import { CtaBand } from "@/components/cta-band";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Catapult Fundraising | Nation's Full-Service Capital Campaign Consultants",
+  // Kept under ~60 characters so Google shows the whole title rather than
+  // truncating it mid-phrase; the full positioning line lives in the H1.
+  title: "Capital Campaign Consultants | Catapult Fundraising",
   description:
     "Catapult Fundraising is a national, full-service firm with 30+ years in capital campaigns, annual fund calling, donor engagement, and legacy giving.",
   keywords: [

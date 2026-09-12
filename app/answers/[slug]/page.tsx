@@ -4,6 +4,15 @@ import { ArrowLeft } from "lucide-react";
 import { CtaBand } from "@/components/cta-band";
 import { ANSWERS, getAnswerBySlug } from "@/lib/answers";
 
+// Heading anchors, so the in-page contents list on the longer answers links
+// to its sections and answer engines can cite a specific section.
+function headingId(heading: string) {
+  return heading
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
 const SITE_URL = "https://www.catapultfr.com";
 // Every /answers page renders from this one shared data file, so they all
 // share its own last-real-edit date rather than needing a per-question
@@ -11,8 +20,8 @@ const SITE_URL = "https://www.catapultfr.com";
 // as visible on-page text -- answer engines and human readers alike weigh
 // a dated source over an undated one when picking between two sources that
 // say the same thing.
-const ANSWERS_LAST_MODIFIED = "2026-08-29";
-const ANSWERS_LAST_MODIFIED_DISPLAY = "August 29, 2026";
+const ANSWERS_LAST_MODIFIED = "2026-09-12";
+const ANSWERS_LAST_MODIFIED_DISPLAY = "September 12, 2026";
 
 export function generateStaticParams() {
   return ANSWERS.map((a) => ({ slug: a.slug }));
@@ -118,6 +127,60 @@ export default async function AnswerPage({
             </p>
           ))}
         </div>
+
+        {a.sections && a.sections.length > 0 && (
+          <>
+            <nav
+              aria-label="On this page"
+              className="mt-10 rounded-2xl border border-[rgb(var(--line))] bg-white p-6"
+            >
+              <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+                On this page
+              </p>
+              <ul className="mt-3 space-y-1.5">
+                {a.sections.map((sec) => (
+                  <li key={sec.heading}>
+                    <a
+                      href={`#${headingId(sec.heading)}`}
+                      className="text-[17px] text-[rgb(var(--navy))]/80 underline decoration-[rgb(var(--brass))]/30 decoration-2 underline-offset-4 hover:text-[rgb(var(--navy))] hover:decoration-[rgb(var(--brass))]"
+                    >
+                      {sec.heading}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </nav>
+
+            <div className="mt-12 space-y-12">
+              {a.sections.map((sec) => (
+                <section key={sec.heading} id={headingId(sec.heading)} className="scroll-mt-28">
+                  <h2 className="font-display text-[28px] leading-tight text-[rgb(var(--navy))] sm:text-[32px]">
+                    {sec.heading}
+                  </h2>
+                  {sec.body && (
+                    <div className="mt-4 space-y-5">
+                      {sec.body.map((para, i) => (
+                        <p key={i} className="text-lg leading-relaxed text-[rgb(var(--ink))]/75">
+                          {para}
+                        </p>
+                      ))}
+                    </div>
+                  )}
+                  {sec.bullets && (
+                    <ul className="mt-4 space-y-3">
+                      {sec.bullets.map((b, i) => (
+                        <li key={i} className="flex gap-3 text-lg leading-relaxed text-[rgb(var(--ink))]/75">
+                          <span aria-hidden className="mt-2.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[rgb(var(--brass))]" />
+                          <span>{b}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              ))}
+            </div>
+          </>
+        )}
 
         {a.related.length > 0 && (
           <div className="mt-12 rounded-2xl border border-[rgb(var(--line))] bg-white p-8">
