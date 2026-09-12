@@ -15,6 +15,7 @@ import {
 import { Send, CheckCircle, AlertCircle } from "lucide-react";
 import { FIRM_EMAIL, SERVICE_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
+import { trackLeadSubmission } from "@/lib/analytics";
 
 const SERVICE_OPTIONS = [...SERVICE_LINKS.map((s) => s.label), "Not sure yet"];
 
@@ -92,6 +93,7 @@ export function ContactForm() {
         throw new Error(data?.error || "Request failed");
       }
 
+      trackLeadSubmission("contact_form");
       setSubmitted(true);
     } catch {
       setErrorMessage(

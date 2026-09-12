@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, CalendarCheck } from "lucide-react";
+import { MEETING_LINK } from "@/lib/constants";
 
 export function CtaBand() {
   return (
@@ -17,13 +18,25 @@ export function CtaBand() {
             Tell us about your goal, timeline, and donor base. We&rsquo;ll respond within one business day.
           </p>
         </div>
-        <Link
-          href="/contact"
-          className="group inline-flex shrink-0 items-center gap-2 rounded-full bg-[rgb(var(--brass))] px-7 py-3.5 text-sm font-semibold text-[rgb(var(--navy-deep))] transition-transform hover:scale-[1.02]"
-        >
-          Start the Conversation
-          <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
-        </Link>
+        <div className="flex shrink-0 flex-wrap items-center gap-3">
+          <Link
+            href="/contact"
+            className="group inline-flex items-center gap-2 rounded-full bg-[rgb(var(--brass))] px-7 py-3.5 text-sm font-semibold text-[rgb(var(--navy-deep))] transition-transform hover:scale-[1.02]"
+          >
+            Start the Conversation
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </Link>
+          {/* Second path for visitors who would rather pick a time than write a message. */}
+          <a
+            href={MEETING_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--paper))]/30 px-7 py-3.5 text-sm font-semibold text-[rgb(var(--paper))] transition-colors hover:border-[rgb(var(--brass))] hover:text-[rgb(var(--brass-light))]"
+          >
+            <CalendarCheck className="h-4 w-4" />
+            Book a 20-Minute Call
+          </a>
+        </div>
       </div>
     </section>
   );

@@ -173,6 +173,7 @@ export const ANSWERS: Answer[] = [
       },
     ],
     related: [
+      { label: "Free Gift Chart Calculator", href: "/resources/gift-chart-calculator" },
       { label: "Capital Campaigns for Schools and Universities", href: "/services/capital-campaign/education" },
       { label: "Feasibility Studies", href: "/services/feasibility-study" },
       { label: "Planning a Capital Campaign Gift Chart & Quiet Phase", href: "/blog/planning-a-capital-campaign-gift-chart-quiet-phase" },
@@ -439,6 +440,7 @@ export const ANSWERS: Answer[] = [
       },
     ],
     related: [
+      { label: "Free Gift Chart Calculator", href: "/resources/gift-chart-calculator" },
       { label: "Capital Campaigns for Healthcare Organizations", href: "/services/capital-campaign/healthcare" },
       { label: "Capital Campaigns for Social Service Organizations", href: "/services/capital-campaign/social-service" },
       { label: "Capital Campaigns for Churches and Faith Communities", href: "/services/capital-campaign/churches" },
@@ -512,6 +514,7 @@ export const ANSWERS: Answer[] = [
       },
     ],
     related: [
+      { label: "Free Gift Chart Calculator", href: "/resources/gift-chart-calculator" },
       { label: "Capital Campaigns for Churches and Faith Communities", href: "/services/capital-campaign/churches" },
       { label: "Planning a Capital Campaign Gift Chart & Quiet Phase", href: "/blog/planning-a-capital-campaign-gift-chart-quiet-phase" },
       { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },

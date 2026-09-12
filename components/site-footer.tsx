@@ -61,6 +61,7 @@ export function SiteFooter() {
             <li><Link href="/answers" className="hover:text-[rgb(var(--paper))]">Fundraising Questions, Answered</Link></li>
             <li><Link href="/insights/case-studies" className="hover:text-[rgb(var(--paper))]">Case Studies</Link></li>
             <li><Link href="/results" className="hover:text-[rgb(var(--paper))]">Results Overview</Link></li>
+            <li><Link href="/resources/gift-chart-calculator" className="hover:text-[rgb(var(--paper))]">Gift Chart Calculator</Link></li>
           </ul>
         </div>
 
