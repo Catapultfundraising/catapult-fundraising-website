@@ -2,6 +2,7 @@ import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
 import { RelatedReading } from "@/components/related-reading";
+import { LoyaltyCalloutCard } from "@/components/tool-callout";
 import { Landmark } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
 
@@ -179,6 +180,10 @@ export default function LegacyGivingPage() {
             ))}
           </div>
         </div>
+      </section>
+
+      <section className="mx-auto max-w-4xl px-6 lg:px-10">
+        <LoyaltyCalloutCard note="Before you build a legacy program, find out how many loyal donors you actually have. Our free report card grades your legacy readiness, shows what a pool that size is worth on average, and tells you where to start. Estimates are welcome." />
       </section>
 
       <RelatedReading
