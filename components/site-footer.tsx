@@ -61,7 +61,10 @@ export function SiteFooter() {
             <li><Link href="/answers" className="hover:text-[rgb(var(--paper))]">Fundraising Questions, Answered</Link></li>
             <li><Link href="/insights/case-studies" className="hover:text-[rgb(var(--paper))]">Case Studies</Link></li>
             <li><Link href="/results" className="hover:text-[rgb(var(--paper))]">Results Overview</Link></li>
+            <li><Link href="/resources" className="hover:text-[rgb(var(--paper))]">Free Fundraising Tools</Link></li>
             <li><Link href="/resources/gift-chart-calculator" className="hover:text-[rgb(var(--paper))]">Gift Chart Calculator</Link></li>
+            <li><Link href="/resources/campaign-readiness-assessment" className="hover:text-[rgb(var(--paper))]">Campaign Readiness Report Card</Link></li>
+            <li><Link href="/resources/donor-loyalty-assessment" className="hover:text-[rgb(var(--paper))]">Donor Loyalty &amp; Legacy Report Card</Link></li>
           </ul>
         </div>
 

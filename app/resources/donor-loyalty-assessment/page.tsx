@@ -66,9 +66,10 @@ const jsonLd = {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
+        { "@type": "ListItem", position: 2, name: "Free Tools", item: `${SITE_URL}/resources` },
         {
           "@type": "ListItem",
-          position: 2,
+          position: 3,
           name: "Donor Loyalty and Legacy Assessment",
           item: `${SITE_URL}/resources/donor-loyalty-assessment`,
         },

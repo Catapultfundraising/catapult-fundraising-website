@@ -145,11 +145,11 @@ const nextConfig = {
         destination: "/apply",
         permanent: true,
       },
-      {
-        source: "/resources",
-        destination: "/resources/associations",
-        permanent: true,
-      },
+      // NOTE: /resources used to 301 to /resources/associations (a noindex
+      // internal reference list). It is now a real, indexable hub page listing
+      // the free tools (app/resources/page.tsx), so the redirect is gone. Do
+      // not re-add it: it would send an indexable hub's traffic to a noindex
+      // page and break the tools' breadcrumb parent.
       {
         // Legacy Wix URL (no hyphens) for the same legacy-giving webinar
         // content, now covered by this blog post. Google Search Console
