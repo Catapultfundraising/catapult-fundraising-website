@@ -29,6 +29,16 @@ const GATES = [
     secretEnv: "JAG_DASHBOARD_AUTH_SECRET",
   },
   {
+    // Same gate as /csnf-dashboard, for the same reason as the JAG PDF above:
+    // the printable summary holds the same private interview data.
+    matchPrefix: "/api/csnf-summary-pdf",
+    loginPath: "/csnf-dashboard/login",
+    apiPath: "/api/csnf-login",
+    cookieName: "catapult_csnf_auth",
+    passwordEnv: "CSNF_DASHBOARD_PASSWORD",
+    secretEnv: "CSNF_DASHBOARD_AUTH_SECRET",
+  },
+  {
     // CSNF feasibility study portal. Same tracker as /jag-dashboard, its own
     // password so each client only ever reaches their own study.
     matchPrefix: "/csnf-dashboard",
