@@ -126,37 +126,115 @@ function isShouting(text: string): boolean {
   return letters.length >= 2 && letters === letters.toUpperCase();
 }
 
+// A single token that is entirely uppercase, e.g. "SOCIETY", "TRUST", "USA".
+function isShoutingToken(token: string): boolean {
+  return isShouting(token);
+}
+
+// Isolated all-caps tokens inside otherwise normal text are usually real
+// acronyms ("UNLV Foundation", "the ABC Trust"), so they are left alone.
+// Only a run of two or more consecutive shouted words is treated as shouting.
+function looksLikeAcronym(token: string): boolean {
+  const letters = token.replace(/[^A-Za-z]/g, "");
+  if (KEEP_UPPER.has(letters.toUpperCase())) return true;
+  // Anything four letters or shorter is treated as an initialism (ABC, UNLV,
+  // NASA, LLC). Longer isolated caps words are real words being shouted
+  // ("FOUNDATION", "TRUST") and get rewritten.
+  return letters.length <= 4;
+}
+
 /**
- * Rewrites ALL-CAPS text to Title Case, line by line, leaving anything that
- * already has lowercase letters untouched. Safe to run on any imported
- * string, including empty values and multi-line lists.
+ * Rewrites SHOUTED text to Title Case.
+ *
+ * Works word by word rather than line by line, because 990 grant rows are
+ * routinely half shouted and half not, e.g.
+ * "AMERICAN CANCER SOCIETY (Dallas, TX)". A run of two or more consecutive
+ * all-caps words is rewritten; single all-caps tokens are left as-is so real
+ * acronyms survive. Words that already contain a lowercase letter are never
+ * touched.
  */
 export function smartTitleCase(raw: string | undefined | null): string {
   if (!raw) return "";
   return String(raw)
     .split("\n")
-    .map((line) => (isShouting(line) ? titleCaseSegment(line) : line))
+    .map((line) => titleCaseShoutedRuns(line))
     .join("\n");
 }
 
+function titleCaseShoutedRuns(line: string): string {
+  const parts = line.split(/(\s+)/);
+  // Index of each token that carries letters.
+  const wordPositions: number[] = [];
+  parts.forEach((p, i) => {
+    if (/[A-Za-z]/.test(p)) wordPositions.push(i);
+  });
+  if (!wordPositions.length) return line;
+
+  // Group consecutive shouted words into runs.
+  const shouted = wordPositions.filter((i) => isShoutingToken(parts[i]));
+  const shoutedSet = new Set(shouted);
+  const runs: number[][] = [];
+  let current: number[] = [];
+  for (const pos of wordPositions) {
+    if (shoutedSet.has(pos)) {
+      current.push(pos);
+    } else {
+      if (current.length) runs.push(current);
+      current = [];
+    }
+  }
+  if (current.length) runs.push(current);
+
+  const rewrite = new Set<number>();
+  for (const run of runs) {
+    // A one-word run is only rewritten when it is not acronym-shaped, or when
+    // the whole line is shouting (a single shouted word IS the line).
+    if (run.length === 1 && looksLikeAcronym(parts[run[0]]) && wordPositions.length > 1) continue;
+    run.forEach((i) => rewrite.add(i));
+  }
+  if (!rewrite.size) return line;
+
+  const firstWord = wordPositions[0];
+  const lastWord = wordPositions[wordPositions.length - 1];
+  return parts
+    .map((part, i) => {
+      if (!rewrite.has(i)) return part;
+      const bare = part.replace(/[^A-Za-z'\u2019.]/g, "").toLowerCase();
+      if (
+        i !== firstWord &&
+        i !== lastWord &&
+        SMALL_WORDS.has(bare) &&
+        !KEEP_UPPER.has(bare.toUpperCase())
+      ) {
+        return part.toLowerCase();
+      }
+      return capitalizeWord(part);
+    })
+    .join("");
+}
+
 /**
- * Same idea for prose fields: 990 narrative boxes are sometimes entirely
- * uppercase. Sentence-case the field only when the whole field is shouting,
- * so a stray acronym-heavy sentence in otherwise normal prose is untouched.
+ * Prose version, for narrative boxes. Sentence-cases any sentence that is
+ * entirely shouted and leaves normally cased sentences alone, so a filing
+ * that shouts only part of a narrative comes out consistent.
  */
 export function smartSentenceCase(raw: string | undefined | null): string {
   if (!raw) return "";
   const text = String(raw);
-  if (!isShouting(text)) return text;
-  // Lowercase everything, then restore known all-caps tokens, then capitalize
-  // sentence starts. Proper nouns inside shouted prose cannot be recovered
-  // reliably, so this trades that for readable text.
+  // Split on sentence boundaries but keep the delimiters.
+  return text
+    .split(/(?<=[.!?])(\s+)/)
+    .map((piece) => (isShouting(piece) ? sentenceCasePiece(piece) : piece))
+    .join("");
+}
+
+function sentenceCasePiece(text: string): string {
+  // Lowercase everything, then restore known acronyms, capitalize sentence
+  // starts, and put back the proper nouns that matter most in 990 narratives.
   const lowered = text.toLowerCase().replace(/[a-z][a-z'\u2019.]*/g, (chunk) => {
     const upper = chunk.toUpperCase();
     return ACRONYMS.has(upper) ? upper : chunk;
   });
   const sentenced = lowered.replace(/(^|[.!?]\s+|\n\s*)([a-z])/g, (_m, lead, ch) => lead + ch.toUpperCase());
-  // Shouted prose loses proper nouns, so restore the ones that show up most in
-  // 990 narrative boxes: place names, months, and country/region words.
   return sentenced.replace(PROSE_PROPER_NOUNS, (m) => PROPER_NOUN_MAP[m.toLowerCase()] ?? m);
 }
