@@ -17,6 +17,83 @@ export interface CaseStudy {
 
 export const CASE_STUDIES: CaseStudy[] = [
   {
+    slug: "legacy-call-pbs-kvie",
+    metaTitle: "Legacy Call Secures $4.62M for PBS KVIE",
+    metaDescription: "A Legacy Call planned giving program helped PBS KVIE, a small-shop public television station, close $4,620,000 in planned gifts.",
+    title:
+      "Unlocking the Power of Planned Giving: A Case Study for PBS KVIE",
+    sector: "Public Media \u00b7 Legacy & Planned Giving",
+    image: "/images/case-studies/legacy-call-pbs-kvie.jpg",
+    summary:
+      "PBS KVIE partnered with Catapult to identify and cultivate new planned giving donors, strengthen relationships with existing donors, and secure planned gifts. The Legacy Call program closed $4,620,000 in planned gifts, secured 63 planned gifts, and added 106 donors to the pipeline.",
+    stats: [
+      { value: "$4.62M", label: "In closed planned gifts" },
+      { value: "63", label: "Planned gifts secured" },
+      { value: "106", label: "Donors added to the pipeline" },
+      { value: "3", label: "Call steps per donor" },
+    ],
+    content: [
+      { type: "heading", text: "The Challenge" },
+      {
+        type: "paragraph",
+        text: "As a small shop, creating a pipeline of planned giving donors can be a daunting task. PBS KVIE partnered with Catapult to identify and cultivate new planned giving donors, strengthen relationships with existing donors, and secure planned gifts.",
+      },
+      { type: "heading", text: "Catapult's Solution" },
+      {
+        type: "paragraph",
+        text: "Catapult created a customized, highly personalized planned giving outreach program that helped cast a wider net in an effective way. The outreach process ran in three steps:",
+      },
+      {
+        type: "list",
+        items: [
+          "Database review and loyal donor prospect selection",
+          "Thank-you and planned giving identification call",
+          "Educational call and gift commitment discussion with Catapult's planned giving consultants",
+        ],
+      },
+      { type: "heading", text: "The Impact" },
+      {
+        type: "paragraph",
+        text: "The program delivered on three fronts.",
+      },
+      {
+        type: "paragraph",
+        text: "Steward current donors. Loyal donors received the time, attention, and gratitude they deserved for their years of support and commitment.",
+      },
+      {
+        type: "paragraph",
+        text: "Secure planned gifts. Catapult's planned giving consultants helped uncover and close commitments that may have previously been unknown to the organization, while ensuring gifts were properly recognized and stewarded.",
+      },
+      {
+        type: "paragraph",
+        text: "Create a pipeline for future planned gifts. The outreach program identified donors who expressed interest in making a planned gift but required further nurturing before becoming committed planned giving donors.",
+      },
+      { type: "heading", text: "The Results" },
+      {
+        type: "list",
+        items: [
+          "$4,620,000 in closed planned gifts",
+          "63 planned gifts secured",
+          "106 donors added to the planned giving pipeline",
+        ],
+      },
+      { type: "heading", text: "KVIE Speaks Out" },
+      {
+        type: "quote",
+        text: "Legacy Call was a game-changer for us. We are a small shop and needed help connecting with potential and existing planned giving donors. Thanks to Legacy Call, we reached a wider audience of potential donors. The response was incredible. Not only did we secure several new planned gifts, but we also identified a pool of prospective donors.",
+      },
+      {
+        type: "paragraph",
+        text: "Colleen Schulman, CFRE, CSPG, Chief Philanthropy Officer, PBS KVIE",
+      },
+      { type: "heading", text: "Conclusion" },
+      {
+        type: "paragraph",
+        text: "Catapult partners with nonprofit organizations to create customized and highly personalized planned giving outreach programs that help cast a wider net in an effective way. For PBS KVIE, that meant closed gifts today and a pipeline of prospective legacy donors to work tomorrow.",
+      },
+    ],
+  },
+  {
     slug: "legacy-call-northeast-university",
     metaTitle: "Legacy Call Secures $4.8M for a University",
     metaDescription: "A 500-donor Legacy Call outreach program confirmed 50 planned gifts totaling $4,894,000 for a Northeast university's most loyal donors.",
