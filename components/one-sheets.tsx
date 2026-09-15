@@ -83,6 +83,12 @@ const SHEETS: Sheet[] = [
 
 const CASE_STUDY_SHEETS: Sheet[] = [
   {
+    icon: Gift,
+    title: "PBS KVIE",
+    description: "Legacy Call: 63 planned gifts totaling $4,620,000 and 106 donors added to the pipeline.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Legacy-Call-PBS-KVIE.pdf",
+  },
+  {
     icon: Target,
     title: "Salvation Army of Southern Nevada",
     description: "Capital campaign restarted and finished at $10 million, including a $1.25 million endowment.",
