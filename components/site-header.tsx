@@ -55,6 +55,11 @@ export function SiteHeader() {
   // clicking the logo, so the logo is non-interactive there. Every other
   // page keeps the normal home link.
   const isResearchPage = pathname.startsWith("/research");
+  // On the home page the logo is the "you are here" marker, so a Home link
+  // would be dead weight and the Client Login pill takes that slot instead.
+  // Everywhere else it flips: visitors get a Home link back, and clients who
+  // want the portal use the footer link or the mobile menu.
+  const isHomePage = pathname === "/";
 
   const logoImage = (
     <Image
@@ -100,9 +105,15 @@ export function SiteHeader() {
         )}
 
         <nav className="hidden min-w-0 items-center lg:flex">
-          {/* Home lives on the logo, which links to "/" on every page. Keeping a
-              separate Home link as well pushed Insights under the CTA at
-              1024px. The mobile menu still lists it. */}
+          {homeLink && !isHomePage && (
+            <Link
+              href={homeLink.href}
+              className="whitespace-nowrap px-2.5 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4"
+            >
+              {homeLink.label}
+            </Link>
+          )}
+
           <div className="relative px-2.5 xl:px-4" ref={servicesRef}>
             <button
               onClick={() => setServicesOpen((v) => !v)}
@@ -218,19 +229,21 @@ export function SiteHeader() {
         </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex xl:gap-4">
+          {isHomePage && (
           <a
             href={CLIENT_PORTAL_LINK}
             target="_blank"
             rel="noopener noreferrer"
             // This pill replaced the header phone number, which no longer fit
             // beside the nav (the number stays in the mobile menu, the footer
-            // and on /contact). Now that Home and Our Team fold into the logo
-            // and the About menu, the row has space for it from lg up.
+            // and on /contact). Only on the home page, where there is no Home
+            // link taking the slot; inside pages keep the row uncrowded.
             className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[rgb(var(--navy))]/25 px-4 py-2.5 text-sm font-semibold text-[rgb(var(--navy))] transition-colors hover:border-[rgb(var(--navy))] hover:bg-white"
           >
             <LogIn className="h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
             Client Login
           </a>
+          )}
           <Link
             href="/contact"
             className="whitespace-nowrap rounded-full bg-[rgb(var(--navy))] px-5 py-2.5 text-sm font-semibold text-[rgb(var(--paper))] transition-colors hover:bg-[rgb(var(--navy-deep))]"
