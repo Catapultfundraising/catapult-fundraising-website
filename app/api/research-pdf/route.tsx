@@ -387,9 +387,23 @@ function IconGlyph({ name, color = BRASS, size = 10 }: { name: IconName; color?:
 // Renders a value that may contain **bold**/__underline__ markers (applied
 // via the Bold/Underline toolbar buttons in the form) as properly styled
 // inline PDF text instead of literal asterisks/underscores.
-function FormattedText({ value, style }: { value?: string; style?: any }) {
+function FormattedText({
+  value,
+  style,
+  // When set, long unbroken tokens (work emails, long URLs) are broken across
+  // lines to fit this printable width instead of running off the edge.
+  wrapWidth,
+  wrapFontSize = 9.6,
+}: {
+  value?: string;
+  style?: any;
+  wrapWidth?: number;
+  wrapFontSize?: number;
+}) {
   if (!value) return null;
-  const segments = parseFormattedText(value);
+  const segments = parseFormattedText(
+    wrapWidth ? wrapLongTokens(value, wrapWidth, wrapFontSize) : value
+  );
   return (
     <Text style={style}>
       {segments.map((seg, i) => {
@@ -465,7 +479,7 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
     return (
       <View style={styles.fieldRow} wrap={false}>
         <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
-        <FormattedText value={value} style={styles.fieldValue} />
+        <FormattedText value={value} style={styles.fieldValue} wrapWidth={BODY_WIDTH - 150} />
       </View>
     );
   }
@@ -519,11 +533,11 @@ function FieldRowPair({
     <View style={styles.fieldRow} wrap={false}>
       <View style={{ flexDirection: "row", flex: 1 }}>
         <Text style={styles.fieldLabelSmall}>{left.value ? left.label.toUpperCase() : ""}</Text>
-        <Text style={styles.fieldValue}>{left.value || ""}</Text>
+        <Text style={styles.fieldValue}>{wrapLongTokens(left.value || "", HALF_WIDTH - 108, 9.6)}</Text>
       </View>
       <View style={{ flexDirection: "row", flex: 1 }}>
         <Text style={styles.fieldLabelSmall}>{right.value ? right.label.toUpperCase() : ""}</Text>
-        <Text style={styles.fieldValue}>{right.value || ""}</Text>
+        <Text style={styles.fieldValue}>{wrapLongTokens(right.value || "", HALF_WIDTH - 108, 9.6)}</Text>
       </View>
     </View>
   );
@@ -712,6 +726,54 @@ function militaryValue(data: any): string {
   return branch || details;
 }
 
+
+// Long unbroken tokens (work emails, long URLs) used to run past the right
+// edge of a narrow table cell and get visually clipped: the hyphenation
+// callback above deliberately disables react-pdf's own mid-word splitting,
+// because it inserts a hyphen that reads as part of an email address. Instead
+// we insert real line breaks ourselves, preferring a break right after "@",
+// ".", "_", "-" or "/" so the value reads as two clean lines
+// ("johnnyleach@" / "westcoastlightingandenergy.com"). Ordinary prose is
+// untouched, since normal words never exceed the per-cell character budget.
+const AVG_CHAR_EM = 0.52; // Helvetica average advance width, good enough here
+function wrapLongTokens(value: string, cellWidthPt: number, fontSize = 8.8): string {
+  if (!value) return value;
+  const maxChars = Math.max(10, Math.floor((cellWidthPt - 12) / (fontSize * AVG_CHAR_EM)));
+  return value
+    .split(/(\s+)/)
+    .map((token) => {
+      if (!token.trim() || token.length <= maxChars) return token;
+      const pieces = token.split(/(?<=[@._\-/])/g);
+      const lines: string[] = [];
+      let current = "";
+      for (const piece of pieces) {
+        if (current && (current + piece).length > maxChars) {
+          lines.push(current);
+          current = piece;
+        } else {
+          current += piece;
+        }
+        while (current.length > maxChars) {
+          lines.push(current.slice(0, maxChars));
+          current = current.slice(maxChars);
+        }
+      }
+      if (current) lines.push(current);
+      return lines.join("\n");
+    })
+    .join("");
+}
+
+// Printable width of the body column, and of one half of the side-by-side
+// Phone Numbers / Email Addresses pair (10pt gutter between them).
+const BODY_WIDTH = 532;
+const HALF_WIDTH = (BODY_WIDTH - 10) / 2;
+
+function cellWidthPt(pct: string, frameWidth: number): number {
+  const parsed = parseFloat(String(pct).replace("%", ""));
+  return Number.isFinite(parsed) ? (frameWidth * parsed) / 100 : frameWidth;
+}
+
 function MiniTable({
   title,
   bigTitle,
@@ -722,6 +784,7 @@ function MiniTable({
   rows,
   renderRow,
   keepTogether,
+  frameWidth = BODY_WIDTH,
 }: {
   title?: string;
   // Renders `title` with the larger navy section-heading style (with its
@@ -735,6 +798,9 @@ function MiniTable({
   colWidths: string[];
   rows: any[];
   renderRow: (row: any, i: number) => string[];
+  // Printable width this table occupies, used to give each cell a character
+  // budget so long emails/URLs wrap instead of being clipped.
+  frameWidth?: number;
   // Forces the ENTIRE table (title + header + every row) into one
   // wrap={false} block instead of only grouping the first row. Use this for
   // tables that are always short (e.g. "Children") — without it, a table
@@ -784,7 +850,7 @@ function MiniTable({
               <View style={[styles.tableRow, { backgroundColor: i % 2 === 1 ? ROW_TINT : CREAM }]} key={i}>
                 {cells.map((c, ci) => (
                   <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
-                    {c}
+                    {wrapLongTokens(c, cellWidthPt(colWidths[ci], frameWidth))}
                   </Text>
                 ))}
               </View>
@@ -828,7 +894,7 @@ function MiniTable({
           <View style={[styles.tableRow, { backgroundColor: CREAM }]}>
             {firstCells.map((c, ci) => (
               <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
-                {c}
+                {wrapLongTokens(c, cellWidthPt(colWidths[ci], frameWidth))}
               </Text>
             ))}
           </View>
@@ -843,7 +909,7 @@ function MiniTable({
               <View style={[styles.tableRow, { backgroundColor: idx % 2 === 1 ? ROW_TINT : CREAM }]} key={idx} wrap={false}>
                 {cells.map((c, ci) => (
                   <Text key={ci} style={[styles.tableCell, { width: colWidths[ci] }]}>
-                    {c}
+                    {wrapLongTokens(c, cellWidthPt(colWidths[ci], frameWidth))}
                   </Text>
                 ))}
               </View>
@@ -1027,6 +1093,7 @@ function ProfileDocument({ data }: { data: any }) {
                   icon="phone"
                   headers={["TYPE", "NUMBER"]}
                   colWidths={["35%", "65%"]}
+                  frameWidth={HALF_WIDTH}
                   rows={data.phones}
                   renderRow={(row: any) => [resolveContactType(row), row.number || ""]}
                 />
@@ -1036,7 +1103,8 @@ function ProfileDocument({ data }: { data: any }) {
                   title="Email Addresses"
                   icon="mail"
                   headers={["TYPE", "EMAIL"]}
-                  colWidths={["35%", "65%"]}
+                  colWidths={["30%", "70%"]}
+                  frameWidth={HALF_WIDTH}
                   rows={data.emails}
                   renderRow={(row: any) => [resolveContactType(row), row.address || ""]}
                 />
