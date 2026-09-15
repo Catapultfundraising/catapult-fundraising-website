@@ -29,6 +29,16 @@ const GATES = [
     secretEnv: "JAG_DASHBOARD_AUTH_SECRET",
   },
   {
+    // CSNF feasibility study portal. Same tracker as /jag-dashboard, its own
+    // password so each client only ever reaches their own study.
+    matchPrefix: "/csnf-dashboard",
+    loginPath: "/csnf-dashboard/login",
+    apiPath: "/api/csnf-login",
+    cookieName: "catapult_csnf_auth",
+    passwordEnv: "CSNF_DASHBOARD_PASSWORD",
+    secretEnv: "CSNF_DASHBOARD_AUTH_SECRET",
+  },
+  {
     // Separate, internal-only tool where the data manager uploads the
     // weekly report + survey files. Uses its own password (JAG_ADMIN_PASSWORD)
     // — deliberately NOT the same as JAG_DASHBOARD_PASSWORD, since the
