@@ -4,14 +4,16 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
-import { Menu, X, Phone, ChevronDown } from "lucide-react";
+import { Menu, X, Phone, ChevronDown, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SERVICE_LINKS,
   INSIGHTS_LINKS,
   NAV_LINKS,
+  ABOUT_LINKS,
   FIRM_PHONE,
   FIRM_PHONE_HREF,
+  CLIENT_PORTAL_LINK,
 } from "@/lib/constants";
 
 export function SiteHeader() {
@@ -19,10 +21,12 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const [mobileInsightsOpen, setMobileInsightsOpen] = useState(false);
   const servicesRef = useRef<HTMLDivElement>(null);
   const insightsRef = useRef<HTMLDivElement>(null);
+  const aboutRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -32,6 +36,9 @@ export function SiteHeader() {
       if (insightsRef.current && !insightsRef.current.contains(e.target as Node)) {
         setInsightsOpen(false);
       }
+      if (aboutRef.current && !aboutRef.current.contains(e.target as Node)) {
+        setAboutOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -39,6 +46,7 @@ export function SiteHeader() {
 
   const isServiceActive = pathname.startsWith("/services");
   const isInsightsActive = pathname.startsWith("/insights") || pathname.startsWith("/blog");
+  const isAboutActive = ABOUT_LINKS.some((link) => pathname === link.href);
   const homeLink = NAV_LINKS.find((link) => link.href === "/");
   const restLinks = NAV_LINKS.filter((link) => link.href !== "/");
   // The /research portal is a password-gated internal tool, not a public
@@ -47,6 +55,11 @@ export function SiteHeader() {
   // clicking the logo, so the logo is non-interactive there. Every other
   // page keeps the normal home link.
   const isResearchPage = pathname.startsWith("/research");
+  // On the home page the logo is the "you are here" marker, so a Home link
+  // would be dead weight and the Client Login pill takes that slot instead.
+  // Everywhere else it flips: visitors get a Home link back, and clients who
+  // want the portal use the footer link or the mobile menu.
+  const isHomePage = pathname === "/";
 
   const logoImage = (
     <Image
@@ -65,8 +78,8 @@ export function SiteHeader() {
       // properly small variant instead of the full 768px intrinsic
       // width (this logo is in the sticky header, so it loads
       // site-wide).
-      sizes="(min-width: 1024px) 312px, (min-width: 640px) 264px, 216px"
-      className="h-36 w-auto sm:h-44 lg:h-52"
+      sizes="(min-width: 1280px) 312px, (min-width: 640px) 264px, 216px"
+      className="h-36 w-auto sm:h-44 xl:h-52"
       priority
     />
   );
@@ -92,19 +105,16 @@ export function SiteHeader() {
         )}
 
         <nav className="hidden min-w-0 items-center lg:flex">
-          {homeLink && (
+          {homeLink && !isHomePage && (
             <Link
               href={homeLink.href}
-              className={cn(
-                "whitespace-nowrap px-3 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4",
-                pathname === homeLink.href && "text-[rgb(var(--navy))]"
-              )}
+              className="whitespace-nowrap px-2.5 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4"
             >
               {homeLink.label}
             </Link>
           )}
 
-          <div className="relative px-3 xl:px-4" ref={servicesRef}>
+          <div className="relative px-2.5 xl:px-4" ref={servicesRef}>
             <button
               onClick={() => setServicesOpen((v) => !v)}
               className={cn(
@@ -138,20 +148,41 @@ export function SiteHeader() {
             )}
           </div>
 
-          {restLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
+          <div className="relative px-2.5 xl:px-4" ref={aboutRef}>
+            <button
+              onClick={() => setAboutOpen((v) => !v)}
               className={cn(
-                "whitespace-nowrap px-3 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4",
-                pathname === link.href && "text-[rgb(var(--navy))]"
+                "flex items-center gap-1 whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                isAboutActive && "text-[rgb(var(--navy))]"
               )}
             >
-              {link.label}
-            </Link>
-          ))}
+              About
+              <ChevronDown
+                className={cn("h-4 w-4 transition-transform", aboutOpen && "rotate-180")}
+              />
+            </button>
+            {aboutOpen && (
+              <div className="absolute left-1/2 top-full w-56 -translate-x-1/2 pt-3">
+                <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
+                  {ABOUT_LINKS.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setAboutOpen(false)}
+                      className={cn(
+                        "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                        pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                      )}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-          <div className="relative px-3 xl:px-4" ref={insightsRef}>
+          <div className="relative px-2.5 xl:px-4" ref={insightsRef}>
             <button
               onClick={() => setInsightsOpen((v) => !v)}
               className={cn(
@@ -197,14 +228,22 @@ export function SiteHeader() {
 
         </nav>
 
-        <div className="hidden shrink-0 items-center gap-4 lg:flex">
+        <div className="hidden shrink-0 items-center gap-2.5 lg:flex xl:gap-4">
+          {isHomePage && (
           <a
-            href={`tel:${FIRM_PHONE_HREF}`}
-            className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-[rgb(var(--navy))]"
+            href={CLIENT_PORTAL_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            // This pill replaced the header phone number, which no longer fit
+            // beside the nav (the number stays in the mobile menu, the footer
+            // and on /contact). Only on the home page, where there is no Home
+            // link taking the slot; inside pages keep the row uncrowded.
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[rgb(var(--navy))]/25 px-4 py-2.5 text-sm font-semibold text-[rgb(var(--navy))] transition-colors hover:border-[rgb(var(--navy))] hover:bg-white"
           >
-            <Phone className="h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
-            {FIRM_PHONE}
+            <LogIn className="h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
+            Client Login
           </a>
+          )}
           <Link
             href="/contact"
             className="whitespace-nowrap rounded-full bg-[rgb(var(--navy))] px-5 py-2.5 text-sm font-semibold text-[rgb(var(--paper))] transition-colors hover:bg-[rgb(var(--navy-deep))]"
@@ -307,6 +346,16 @@ export function SiteHeader() {
             >
               <Phone className="h-4 w-4" />
               {FIRM_PHONE}
+            </a>
+            <a
+              href={CLIENT_PORTAL_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="mt-2 flex items-center justify-center gap-1.5 rounded-full border border-[rgb(var(--navy))]/25 px-4 py-3 text-center text-xs font-semibold text-[rgb(var(--navy))]"
+            >
+              <LogIn className="h-4 w-4 text-[rgb(var(--brass))]" />
+              Client Login
             </a>
             <Link
               href="/contact"

@@ -130,6 +130,37 @@ const styles = StyleSheet.create({
     left: PAD,
     right: PAD,
   },
+  // Diagonal SAMPLE mark. The chart is easy to screenshot and pass around as
+  // if it were a finished piece of counsel, so every generated copy is marked
+  // as a sample while the contact details stay readable in the footer.
+  watermarkWrap: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    width: PAGE_W,
+    height: PAGE_H,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  watermark: {
+    fontFamily: "Fraunces",
+    fontWeight: 700,
+    fontSize: 84,
+    letterSpacing: 4,
+    color: NAVY,
+    opacity: 0.085,
+    transform: "rotate(-32deg)",
+  },
+  watermarkSub: {
+    fontFamily: "Manrope",
+    fontWeight: 700,
+    fontSize: 10,
+    letterSpacing: 2.5,
+    color: NAVY,
+    opacity: 0.12,
+    marginTop: 6,
+    transform: "rotate(-32deg)",
+  },
   footerRule: { height: 0.75, backgroundColor: LINE, marginBottom: 6 },
   footerRow: { flexDirection: "row", justifyContent: "space-between" },
   footerText: { fontSize: 7.5, opacity: 0.7 },
@@ -312,6 +343,11 @@ export async function GET(request: Request) {
             Each band is one gift level. The width shows how many gifts you need at that level, and the percentage
             shows how much of the goal that level carries.
           </Text>
+        </View>
+
+        <View style={styles.watermarkWrap} fixed>
+          <Text style={styles.watermark}>SAMPLE</Text>
+          <Text style={styles.watermarkSub}>ILLUSTRATIVE ONLY</Text>
         </View>
 
         <View style={styles.footerWrap} fixed>

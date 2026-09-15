@@ -16,6 +16,10 @@ export const CAMPAIGN_SECTOR_LINKS = [
 // HubSpot meeting scheduler for Anthony. Used by the "Book a call" buttons.
 export const MEETING_LINK = "https://go.catapultfr.com/meetings/anthonya";
 
+// Catapult Shares, the single client access point. Clients enter their email
+// and receive a one-time code, so there is nothing to configure on this site.
+export const CLIENT_PORTAL_LINK = "https://catapultshares.com";
+
 export const RESOURCE_LINKS = [
   { href: "/resources", label: "All Free Tools" },
   { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
@@ -30,6 +34,13 @@ export const INSIGHTS_LINKS = [
   { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
   { href: "/resources/campaign-readiness-assessment", label: "Readiness Report Card" },
   { href: "/resources/donor-loyalty-assessment", label: "Donor Loyalty Report Card" },
+];
+
+// Desktop header groups About and Our Team under one "About" menu so the row
+// fits at 1024-1280px; NAV_LINKS stays the flat list the mobile menu uses.
+export const ABOUT_LINKS = [
+  { href: "/about", label: "About Catapult" },
+  { href: "/our-team", label: "Our Team" },
 ];
 
 export const NAV_LINKS = [
