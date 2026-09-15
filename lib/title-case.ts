@@ -63,9 +63,12 @@ const PROPER_NOUNS = [
   "South Dakota", "Tennessee", "Texas", "Utah", "Vermont", "Virginia",
   "Washington", "West Virginia", "Wisconsin", "Wyoming",
   "United States", "America", "American", "Canada", "Puerto Rico",
-  "January", "February", "March", "April", "May", "June", "July", "August",
+  "January", "February", "April", "June", "July", "August",
   "September", "October", "November", "December",
 ];
+// "May" and "March" are also ordinary words ("may be submitted"), so they are
+// only capitalized when a date context makes the month reading certain.
+const AMBIGUOUS_MONTHS = /\b(may|march)\b(?=\s+\d|\s+(?:1st|2nd|3rd|\d+th)\b)|(?<=\b(?:in|by|of|before|after|until|since|through|and|or|to|from|during|early|late|mid)\s)(may|march)\b(?=\s*(?:\d|and\b|or\b|[.,;]|$))/gi;
 const PROPER_NOUN_MAP: Record<string, string> = Object.fromEntries(
   PROPER_NOUNS.map((n) => [n.toLowerCase(), n])
 );
@@ -236,5 +239,6 @@ function sentenceCasePiece(text: string): string {
     return ACRONYMS.has(upper) ? upper : chunk;
   });
   const sentenced = lowered.replace(/(^|[.!?]\s+|\n\s*)([a-z])/g, (_m, lead, ch) => lead + ch.toUpperCase());
-  return sentenced.replace(PROSE_PROPER_NOUNS, (m) => PROPER_NOUN_MAP[m.toLowerCase()] ?? m);
+  const restored = sentenced.replace(PROSE_PROPER_NOUNS, (m) => PROPER_NOUN_MAP[m.toLowerCase()] ?? m);
+  return restored.replace(AMBIGUOUS_MONTHS, (m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase());
 }

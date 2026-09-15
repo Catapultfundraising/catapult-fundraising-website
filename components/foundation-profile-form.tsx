@@ -39,6 +39,7 @@ import {
   compositeLogoOnWhiteSquare,
   buildProfilePdfFileName,
 } from "@/lib/profile-form-kit";
+import { smartTitleCase, smartSentenceCase } from "@/lib/title-case";
 
 interface GrantRow {
   year: string;
@@ -260,6 +261,34 @@ async function blobToBase64(blob: Blob): Promise<string> {
   });
   const commaIndex = dataUrl.indexOf(",");
   return commaIndex >= 0 ? dataUrl.slice(commaIndex + 1) : dataUrl;
+}
+
+// The import backfills empty fields only, so a value already on the form (from
+// an earlier import made before case normalization shipped) would stay shouted.
+// Run the same normalization over the whole merged record. Both functions no-op
+// on text that is already cased normally, so this is safe to apply every time.
+const TITLE_FIELDS = ["name", "address", "officersDirectors", "financialData"] as const;
+const PROSE_FIELDS = [
+  "missionPurpose", "history", "geographicFocus", "fieldsOfInterest", "programAreas",
+  "typesOfSupport", "limitations", "applicationInformation", "relationshipToOrg",
+  "givingHistoryToClient", "potentialGrantRange", "dueDate",
+] as const;
+
+function normalizeCase(record: FoundationProfileData): FoundationProfileData {
+  const out: FoundationProfileData = { ...record };
+  for (const f of TITLE_FIELDS) out[f] = smartTitleCase(out[f]);
+  for (const f of PROSE_FIELDS) out[f] = smartSentenceCase(out[f]);
+  out.selectedGrants = out.selectedGrants.map((row) => ({
+    ...row,
+    grantee: smartTitleCase(row.grantee),
+  }));
+  out.executives = out.executives.map((p) => ({
+    ...p,
+    name: smartTitleCase(p.name),
+    title: smartTitleCase(p.title),
+    bio: smartSentenceCase(p.bio),
+  }));
+  return out;
 }
 
 export default function FoundationProfileForm() {
@@ -570,7 +599,7 @@ function FoundationProfileFormInner() {
           merged.executives = [...d.executives, ...additions];
         }
 
-        return merged;
+        return normalizeCase(merged);
       });
 
       setPdfUrl(null);
