@@ -31,7 +31,22 @@ import {
 const HUBSPOT_CONTACTS = "https://api.hubapi.com/crm/v3/objects/contacts";
 const HUBSPOT_SEARCH = "https://api.hubapi.com/crm/v3/objects/contacts/search";
 const HUBSPOT_NOTES = "https://api.hubapi.com/crm/v3/objects/notes";
+const HUBSPOT_TASKS = "https://api.hubapi.com/crm/v3/objects/tasks";
+const HUBSPOT_OWNERS = "https://api.hubapi.com/crm/v3/owners";
 const NOTE_TO_CONTACT_ASSOCIATION_TYPE_ID = 202;
+const TASK_TO_CONTACT_ASSOCIATION_TYPE_ID = 204;
+
+/**
+ * A low score on a large goal is the feasibility study conversation, so it
+ * gets a task instead of waiting to be noticed in an inbox. Thresholds are
+ * deliberately conservative: below a C+ on a goal this size, the gift chart
+ * math in the report card has almost certainly already told them their goal is
+ * ahead of their donor base.
+ */
+const TASK_SCORE_AT_OR_BELOW = 65;
+const TASK_GOAL_AT_OR_ABOVE = 3_000_000;
+const TASK_DUE_IN_DAYS = 1;
+const TASK_OWNER_EMAIL = LEAD_EMAILS[0];
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_HUMAN_SUBMIT_MS = 1500;
@@ -309,6 +324,89 @@ async function syncStartToHubSpot(fields: StartFields) {
   return false;
 }
 
+/**
+ * Owner lookup so the task lands on a real task list rather than unassigned.
+ * Cached for the life of the server process; an owner id does not change.
+ */
+let cachedOwnerId: string | null | undefined;
+
+async function findTaskOwnerId(token: string): Promise<string | null> {
+  if (cachedOwnerId !== undefined) return cachedOwnerId;
+  try {
+    const res = await fetch(`${HUBSPOT_OWNERS}?email=${encodeURIComponent(TASK_OWNER_EMAIL)}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) {
+      console.error("HubSpot owner lookup error (readiness task):", res.status, await res.text());
+      cachedOwnerId = null;
+      return null;
+    }
+    const data = await res.json();
+    const id = data.results?.[0]?.id;
+    cachedOwnerId = id ? String(id) : null;
+    return cachedOwnerId;
+  } catch (err) {
+    console.error("HubSpot owner lookup threw (readiness task):", err);
+    cachedOwnerId = null;
+    return null;
+  }
+}
+
+function taskBody(fields: ResultFields) {
+  const lines = [
+    `${fields.org || "An inbound contact"} scored ${fields.grade} (${fields.score}/100) on the readiness report card with a ${formatDollars(fields.goal)} goal.`,
+    `Biggest risk: ${fields.biggestRisk}.`,
+  ];
+  if (fields.giftChartNotes[0]) lines.push(fields.giftChartNotes[0]);
+  lines.push("Full answers and recommended next steps are in the note on this contact.");
+  return lines.join(" ");
+}
+
+/** Only for a low score on a goal big enough to be worth a call. */
+async function createReadinessTask(token: string, contactId: string, fields: ResultFields) {
+  if (fields.score > TASK_SCORE_AT_OR_BELOW || fields.goal < TASK_GOAL_AT_OR_ABOVE) return false;
+
+  const ownerId = await findTaskOwnerId(token);
+  const due = new Date(Date.now() + TASK_DUE_IN_DAYS * 24 * 60 * 60 * 1000);
+
+  try {
+    const res = await fetch(HUBSPOT_TASKS, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        properties: {
+          hs_timestamp: due.toISOString(),
+          hs_task_subject: `Readiness ${fields.grade} on a ${formatDollars(fields.goal)} goal: ${fields.org || fields.email}`,
+          hs_task_body: taskBody(fields),
+          hs_task_status: "NOT_STARTED",
+          hs_task_priority: "HIGH",
+          hs_task_type: "CALL",
+          ...(ownerId ? { hubspot_owner_id: ownerId } : {}),
+        },
+        associations: [
+          {
+            to: { id: contactId },
+            types: [
+              {
+                associationCategory: "HUBSPOT_DEFINED",
+                associationTypeId: TASK_TO_CONTACT_ASSOCIATION_TYPE_ID,
+              },
+            ],
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      console.error("HubSpot task error (readiness result):", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("HubSpot task threw (readiness result):", err);
+    return false;
+  }
+}
+
 /** The result note needs the contact the gate already created. */
 async function findContactId(token: string, email: string): Promise<string | null> {
   try {
@@ -440,14 +538,15 @@ async function handleResult(body: Record<string, unknown>) {
 
   const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
   const hubspotPromise = (async () => {
-    if (!token || !fields.email) return { noted: false, propertiesWritten: false };
+    if (!token || !fields.email) return { noted: false, propertiesWritten: false, taskCreated: false };
     const contactId = await findContactId(token, fields.email);
-    if (!contactId) return { noted: false, propertiesWritten: false };
-    const [, propertiesWritten] = await Promise.all([
+    if (!contactId) return { noted: false, propertiesWritten: false, taskCreated: false };
+    const [, propertiesWritten, taskCreated] = await Promise.all([
       createNote(token, contactId, noteBody),
       writeReadinessProperties(token, fields.email, fields),
+      createReadinessTask(token, contactId, fields),
     ]);
-    return { noted: true, propertiesWritten };
+    return { noted: true, propertiesWritten, taskCreated };
   })();
 
   const [emailResult, hubspot] = await Promise.all([
@@ -471,7 +570,7 @@ async function handleResult(body: Record<string, unknown>) {
     }),
     hubspotPromise.catch((err) => {
       console.error("Readiness result HubSpot sync threw:", err);
-      return { noted: false, propertiesWritten: false };
+      return { noted: false, propertiesWritten: false, taskCreated: false };
     }),
   ]);
 
@@ -480,6 +579,7 @@ async function handleResult(body: Record<string, unknown>) {
     emailSent: emailResult.sent,
     noted: hubspot.noted,
     propertiesWritten: hubspot.propertiesWritten,
+    taskCreated: hubspot.taskCreated,
   });
 }
 
