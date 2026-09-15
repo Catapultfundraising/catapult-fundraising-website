@@ -36,6 +36,13 @@ export const INSIGHTS_LINKS = [
   { href: "/resources/donor-loyalty-assessment", label: "Donor Loyalty Report Card" },
 ];
 
+// Desktop header groups About and Our Team under one "About" menu so the row
+// fits at 1024-1280px; NAV_LINKS stays the flat list the mobile menu uses.
+export const ABOUT_LINKS = [
+  { href: "/about", label: "About Catapult" },
+  { href: "/our-team", label: "Our Team" },
+];
+
 export const NAV_LINKS = [
   { href: "/", label: "Home" },
   { href: "/about", label: "About" },

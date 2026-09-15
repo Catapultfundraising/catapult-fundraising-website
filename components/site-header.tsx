@@ -10,6 +10,7 @@ import {
   SERVICE_LINKS,
   INSIGHTS_LINKS,
   NAV_LINKS,
+  ABOUT_LINKS,
   FIRM_PHONE,
   FIRM_PHONE_HREF,
   CLIENT_PORTAL_LINK,
@@ -20,10 +21,12 @@ export function SiteHeader() {
   const [open, setOpen] = useState(false);
   const [servicesOpen, setServicesOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const [mobileInsightsOpen, setMobileInsightsOpen] = useState(false);
   const servicesRef = useRef<HTMLDivElement>(null);
   const insightsRef = useRef<HTMLDivElement>(null);
+  const aboutRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -33,6 +36,9 @@ export function SiteHeader() {
       if (insightsRef.current && !insightsRef.current.contains(e.target as Node)) {
         setInsightsOpen(false);
       }
+      if (aboutRef.current && !aboutRef.current.contains(e.target as Node)) {
+        setAboutOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -40,6 +46,7 @@ export function SiteHeader() {
 
   const isServiceActive = pathname.startsWith("/services");
   const isInsightsActive = pathname.startsWith("/insights") || pathname.startsWith("/blog");
+  const isAboutActive = ABOUT_LINKS.some((link) => pathname === link.href);
   const homeLink = NAV_LINKS.find((link) => link.href === "/");
   const restLinks = NAV_LINKS.filter((link) => link.href !== "/");
   // The /research portal is a password-gated internal tool, not a public
@@ -66,8 +73,8 @@ export function SiteHeader() {
       // properly small variant instead of the full 768px intrinsic
       // width (this logo is in the sticky header, so it loads
       // site-wide).
-      sizes="(min-width: 1024px) 312px, (min-width: 640px) 264px, 216px"
-      className="h-36 w-auto sm:h-44 lg:h-52"
+      sizes="(min-width: 1280px) 312px, (min-width: 640px) 264px, 216px"
+      className="h-36 w-auto sm:h-44 xl:h-52"
       priority
     />
   );
@@ -93,19 +100,10 @@ export function SiteHeader() {
         )}
 
         <nav className="hidden min-w-0 items-center lg:flex">
-          {homeLink && (
-            <Link
-              href={homeLink.href}
-              className={cn(
-                "whitespace-nowrap px-3 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4",
-                pathname === homeLink.href && "text-[rgb(var(--navy))]"
-              )}
-            >
-              {homeLink.label}
-            </Link>
-          )}
-
-          <div className="relative px-3 xl:px-4" ref={servicesRef}>
+          {/* Home lives on the logo, which links to "/" on every page. Keeping a
+              separate Home link as well pushed Insights under the CTA at
+              1024px. The mobile menu still lists it. */}
+          <div className="relative px-2.5 xl:px-4" ref={servicesRef}>
             <button
               onClick={() => setServicesOpen((v) => !v)}
               className={cn(
@@ -139,20 +137,41 @@ export function SiteHeader() {
             )}
           </div>
 
-          {restLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
+          <div className="relative px-2.5 xl:px-4" ref={aboutRef}>
+            <button
+              onClick={() => setAboutOpen((v) => !v)}
               className={cn(
-                "whitespace-nowrap px-3 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4",
-                pathname === link.href && "text-[rgb(var(--navy))]"
+                "flex items-center gap-1 whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                isAboutActive && "text-[rgb(var(--navy))]"
               )}
             >
-              {link.label}
-            </Link>
-          ))}
+              About
+              <ChevronDown
+                className={cn("h-4 w-4 transition-transform", aboutOpen && "rotate-180")}
+              />
+            </button>
+            {aboutOpen && (
+              <div className="absolute left-1/2 top-full w-56 -translate-x-1/2 pt-3">
+                <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
+                  {ABOUT_LINKS.map((link) => (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setAboutOpen(false)}
+                      className={cn(
+                        "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                        pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                      )}
+                    >
+                      {link.label}
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
-          <div className="relative px-3 xl:px-4" ref={insightsRef}>
+          <div className="relative px-2.5 xl:px-4" ref={insightsRef}>
             <button
               onClick={() => setInsightsOpen((v) => !v)}
               className={cn(
@@ -198,16 +217,16 @@ export function SiteHeader() {
 
         </nav>
 
-        <div className="hidden shrink-0 items-center gap-3 lg:flex xl:gap-4">
+        <div className="hidden shrink-0 items-center gap-2.5 lg:flex xl:gap-4">
           <a
             href={CLIENT_PORTAL_LINK}
             target="_blank"
             rel="noopener noreferrer"
             // This pill replaced the header phone number, which no longer fit
             // beside the nav (the number stays in the mobile menu, the footer
-            // and on /contact). Hidden at lg, where the nav itself already
-            // fills the row; those visitors get the footer link.
-            className="hidden items-center gap-1.5 whitespace-nowrap rounded-full border border-[rgb(var(--navy))]/25 px-4 py-2.5 text-sm font-semibold text-[rgb(var(--navy))] transition-colors hover:border-[rgb(var(--navy))] hover:bg-white xl:flex"
+            // and on /contact). Now that Home and Our Team fold into the logo
+            // and the About menu, the row has space for it from lg up.
+            className="flex items-center gap-1.5 whitespace-nowrap rounded-full border border-[rgb(var(--navy))]/25 px-4 py-2.5 text-sm font-semibold text-[rgb(var(--navy))] transition-colors hover:border-[rgb(var(--navy))] hover:bg-white"
           >
             <LogIn className="h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
             Client Login
