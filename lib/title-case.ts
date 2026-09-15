@@ -14,7 +14,7 @@
 // Words that stay lowercase inside a title, unless first or last.
 const SMALL_WORDS = new Set([
   "a", "an", "and", "as", "at", "but", "by", "for", "from", "in", "into", "nor",
-  "of", "on", "or", "over", "per", "the", "to", "up", "via", "vs", "with",
+  "of", "on", "or", "over", "per", "the", "to", "up", "vs", "with",
 ]);
 
 // Tokens that must stay fully uppercase. Includes org/legal abbreviations,
@@ -87,7 +87,10 @@ function capitalizeWord(word: string): string {
   // Handles internal punctuation: hyphens, slashes, apostrophes, periods.
   return word.replace(/[A-Za-z][A-Za-z'’.]*/g, (chunk) => {
     const upper = chunk.toUpperCase();
+    // Trailing periods must not hide an acronym ("CPA." -> "CPA.").
+    const stem = upper.replace(/\.+$/, "");
     if (KEEP_UPPER.has(upper)) return upper;
+    if (KEEP_UPPER.has(stem)) return upper;
     let out = chunk.charAt(0).toUpperCase() + chunk.slice(1).toLowerCase();
     // Scottish/Irish name prefixes: MCDONALD -> McDonald, O'BRIEN -> O'Brien.
     if (/^Mc[a-z]{2,}$/.test(out)) out = "Mc" + out.charAt(2).toUpperCase() + out.slice(3);
@@ -140,6 +143,9 @@ function isShoutingToken(token: string): boolean {
 function looksLikeAcronym(token: string): boolean {
   const letters = token.replace(/[^A-Za-z]/g, "");
   if (KEEP_UPPER.has(letters.toUpperCase())) return true;
+  // Short place and month names are words, not initialisms: UTAH, IOWA, OHIO,
+  // MAY, JUNE.
+  if (PROPER_NOUN_MAP[letters.toLowerCase()]) return false;
   // Anything four letters or shorter is treated as an initialism (ABC, UNLV,
   // NASA, LLC). Longer isolated caps words are real words being shouted
   // ("FOUNDATION", "TRUST") and get rewritten.
@@ -221,13 +227,87 @@ function titleCaseShoutedRuns(line: string): string {
  * entirely shouted and leaves normally cased sentences alone, so a filing
  * that shouts only part of a narrative comes out consistent.
  */
+
+// Function words that essentially never appear in a person, place, or
+// organization name, but are everywhere in prose. Their presence inside a
+// shouted run tells us the run is a shouted sentence fragment, not a name.
+const PROSE_MARKERS = new Set([
+  "a", "an", "is", "are", "was", "were", "be", "been", "being", "should",
+  "shall", "must", "may", "can", "could", "will", "would", "not", "no",
+  "that", "this", "these", "those", "there", "their", "its", "it", "we",
+  "you", "they", "any", "all", "has", "have", "had", "do", "does", "did",
+  "if", "when", "which", "who", "whom", "whose", "than", "then", "please",
+  "include", "submit", "submitted", "accepted", "sent", "seeking", "sought",
+  "requested", "such", "each", "other", "more", "most", "only", "also",
+]);
+
+// Inside a sentence that is not entirely shouted, rewrite each shouted run:
+// a run that reads like prose gets sentence cased, a run that reads like a
+// name or address gets title cased.
+function fixShoutedRunsInSentence(sentence: string): string {
+  const parts = sentence.split(/(\s+)/);
+  const wordPositions: number[] = [];
+  parts.forEach((p, i) => {
+    if (/[A-Za-z]/.test(p)) wordPositions.push(i);
+  });
+  if (!wordPositions.length) return sentence;
+
+  const shoutedSet = new Set(wordPositions.filter((i) => isShoutingToken(parts[i])));
+  // A single uppercase letter ("A", "I") is not evidence of shouting on its
+  // own, but it must not break a run apart either.
+  const isBridge = (i: number) => /^[A-Z][^A-Za-z]*$/.test(parts[i]);
+  const runs: number[][] = [];
+  let current: number[] = [];
+  for (const pos of wordPositions) {
+    if (shoutedSet.has(pos) || (current.length && isBridge(pos))) current.push(pos);
+    else {
+      if (current.length) runs.push(current);
+      current = [];
+    }
+  }
+  if (current.length) runs.push(current);
+
+  const out = [...parts];
+  let changed = false;
+  for (const run of runs) {
+    if (run.length === 1 && looksLikeAcronym(parts[run[0]])) continue;
+    const bareWords = run.map((i) => parts[i].replace(/[^A-Za-z'\u2019]/g, "").toLowerCase());
+    // Names and addresses can be long ("DIANA BENNETT, 6700 VIA AUSTI PARKWAY
+    // D, LAS VEGAS, NV"), so length alone is weak evidence. Require a function
+    // word, or a very long run, before treating a run as prose.
+    const readsAsProse = bareWords.some((w) => PROSE_MARKERS.has(w)) || run.length >= 12;
+    const startsSegment =
+      run[0] === wordPositions[0] ||
+      /[:;.!?]\s*$/.test(parts.slice(0, run[0]).join(""));
+    const slice = parts.slice(run[0], run[run.length - 1] + 1).join("");
+    let replacement: string;
+    if (readsAsProse) {
+      replacement = sentenceCasePiece(slice);
+      if (!startsSegment) {
+        // Mid-sentence continuation: do not force a capital letter.
+        replacement = replacement.replace(/^([A-Za-z])/, (m) =>
+          ACRONYMS.has(slice.replace(/[^A-Za-z]/g, "").slice(0, 3)) ? m : m.toLowerCase()
+        );
+      }
+    } else {
+      replacement = titleCaseSegment(slice);
+    }
+    if (replacement !== slice) {
+      out[run[0]] = replacement;
+      for (let i = run[0] + 1; i <= run[run.length - 1]; i++) out[i] = "";
+      changed = true;
+    }
+  }
+  return changed ? out.join("") : sentence;
+}
+
 export function smartSentenceCase(raw: string | undefined | null): string {
   if (!raw) return "";
   const text = String(raw);
   // Split on sentence boundaries but keep the delimiters.
   return text
     .split(/(?<=[.!?])(\s+)/)
-    .map((piece) => (isShouting(piece) ? sentenceCasePiece(piece) : piece))
+    .map((piece) => (isShouting(piece) ? sentenceCasePiece(piece) : fixShoutedRunsInSentence(piece)))
     .join("");
 }
 
@@ -236,9 +316,15 @@ function sentenceCasePiece(text: string): string {
   // starts, and put back the proper nouns that matter most in 990 narratives.
   const lowered = text.toLowerCase().replace(/[a-z][a-z'\u2019.]*/g, (chunk) => {
     const upper = chunk.toUpperCase();
-    return ACRONYMS.has(upper) ? upper : chunk;
+    const stem = upper.replace(/\.+$/, "");
+    return ACRONYMS.has(upper) || ACRONYMS.has(stem) ? upper : chunk;
   });
   const sentenced = lowered.replace(/(^|[.!?]\s+|\n\s*)([a-z])/g, (_m, lead, ch) => lead + ch.toUpperCase());
   const restored = sentenced.replace(PROSE_PROPER_NOUNS, (m) => PROPER_NOUN_MAP[m.toLowerCase()] ?? m);
-  return restored.replace(AMBIGUOUS_MONTHS, (m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase());
+  // A shouted name that lands at a sentence start keeps its prefix casing:
+  // "O'brien" -> "O'Brien", "Mcdonald" -> "McDonald".
+  const prefixed = restored
+    .replace(/\bO(['\u2019])([a-z])/g, (_m, q, ch) => "O" + q + ch.toUpperCase())
+    .replace(/\bMc([a-z])([a-z]{2,})/g, (_m, ch, rest) => "Mc" + ch.toUpperCase() + rest);
+  return prefixed.replace(AMBIGUOUS_MONTHS, (m) => m.charAt(0).toUpperCase() + m.slice(1).toLowerCase());
 }
