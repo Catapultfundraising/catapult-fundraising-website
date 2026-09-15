@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Phone, Mail, MapPin } from "lucide-react";
-import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
+import { FIRM_PHONE, FIRM_PHONE_HREF, FIRM_EMAIL, FIRM_ADDRESS_LINES, CLIENT_PORTAL_LINK } from "@/lib/constants";
 
 export function SiteFooter() {
   return (
@@ -101,6 +101,16 @@ export function SiteFooter() {
             &copy; {new Date().getFullYear()} Catapult Fundraising. All rights reserved.
           </p>
           <ul className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs text-[rgb(var(--paper))]/50">
+            <li>
+              <a
+                href={CLIENT_PORTAL_LINK}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-semibold text-[rgb(var(--brass))] hover:text-[rgb(var(--paper))]"
+              >
+                Client Login
+              </a>
+            </li>
             <li><Link href="/services/capital-campaign" className="hover:text-[rgb(var(--paper))]">Services</Link></li>
             <li><Link href="/insights" className="hover:text-[rgb(var(--paper))]">Insights</Link></li>
             <li><Link href="/cookie-policy" className="hover:text-[rgb(var(--paper))]">Cookie Policy</Link></li>

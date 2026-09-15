@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
-import { Menu, X, Phone, ChevronDown } from "lucide-react";
+import { Menu, X, Phone, ChevronDown, LogIn } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   SERVICE_LINKS,
@@ -12,6 +12,7 @@ import {
   NAV_LINKS,
   FIRM_PHONE,
   FIRM_PHONE_HREF,
+  CLIENT_PORTAL_LINK,
 } from "@/lib/constants";
 
 export function SiteHeader() {
@@ -197,13 +198,19 @@ export function SiteHeader() {
 
         </nav>
 
-        <div className="hidden shrink-0 items-center gap-4 lg:flex">
+        <div className="hidden shrink-0 items-center gap-3 lg:flex xl:gap-4">
           <a
-            href={`tel:${FIRM_PHONE_HREF}`}
-            className="flex items-center gap-2 whitespace-nowrap text-sm font-medium text-[rgb(var(--navy))]"
+            href={CLIENT_PORTAL_LINK}
+            target="_blank"
+            rel="noopener noreferrer"
+            // This pill replaced the header phone number, which no longer fit
+            // beside the nav (the number stays in the mobile menu, the footer
+            // and on /contact). Hidden at lg, where the nav itself already
+            // fills the row; those visitors get the footer link.
+            className="hidden items-center gap-1.5 whitespace-nowrap rounded-full border border-[rgb(var(--navy))]/25 px-4 py-2.5 text-sm font-semibold text-[rgb(var(--navy))] transition-colors hover:border-[rgb(var(--navy))] hover:bg-white xl:flex"
           >
-            <Phone className="h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
-            {FIRM_PHONE}
+            <LogIn className="h-4 w-4 shrink-0 text-[rgb(var(--brass))]" />
+            Client Login
           </a>
           <Link
             href="/contact"
@@ -307,6 +314,16 @@ export function SiteHeader() {
             >
               <Phone className="h-4 w-4" />
               {FIRM_PHONE}
+            </a>
+            <a
+              href={CLIENT_PORTAL_LINK}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={() => setOpen(false)}
+              className="mt-2 flex items-center justify-center gap-1.5 rounded-full border border-[rgb(var(--navy))]/25 px-4 py-3 text-center text-xs font-semibold text-[rgb(var(--navy))]"
+            >
+              <LogIn className="h-4 w-4 text-[rgb(var(--brass))]" />
+              Client Login
             </a>
             <Link
               href="/contact"
