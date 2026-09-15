@@ -19,6 +19,23 @@ export const maxDuration = 300;
 // as the old PDF report, not a number that moves while they are looking at it.
 // ---------------------------------------------------------------------------
 
+// Vercel's Hobby plan ignores weekly cron expressions and fires daily, so the
+// Monday-morning cadence is enforced here instead. A person hitting Refresh in
+// /jag-admin is never gated; only the cron is.
+function isMondayInPacific(): boolean {
+  const day = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    weekday: "short",
+  }).format(new Date());
+  return day === "Mon";
+}
+
+function isCronRequest(req: NextRequest): boolean {
+  const secret = process.env.CRON_SECRET;
+  const header = req.headers.get("authorization");
+  return Boolean(secret && header === `Bearer ${secret}`);
+}
+
 async function isAuthorised(req: NextRequest): Promise<boolean> {
   const secret = process.env.CRON_SECRET;
   const header = req.headers.get("authorization");
@@ -29,6 +46,10 @@ async function isAuthorised(req: NextRequest): Promise<boolean> {
 async function run(req: NextRequest, save: boolean) {
   if (!(await isAuthorised(req))) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  if (save && isCronRequest(req) && !isMondayInPacific()) {
+    return NextResponse.json({ ok: true, saved: false, skipped: "not Monday in America/Los_Angeles" });
   }
 
   const slug = req.nextUrl.searchParams.get("project") ?? "jag";
