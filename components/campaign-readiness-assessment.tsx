@@ -263,6 +263,11 @@ export function CampaignReadinessAssessment() {
           email,
           org,
           goal,
+          // The encoded answers let the server regrade and log what they
+          // actually answered. The scores below stay for the fallback path.
+          answers: encodeAnswers(answers),
+          largestGift: answers.largestGift ?? 0,
+          prospectCount: answers.prospectCount ?? 0,
           score: report.score,
           grade: report.grade,
           verdict: report.verdict.label,

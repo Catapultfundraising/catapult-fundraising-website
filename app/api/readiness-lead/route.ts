@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LEAD_EMAILS } from "@/lib/constants";
 import { formatDollars } from "@/lib/gift-chart";
+import {
+  QUESTIONS,
+  buildReadinessReport,
+  decodeAnswers,
+  type Answers,
+  type ReadinessReport,
+} from "@/lib/campaign-readiness";
 
 /**
  * Lead capture for the gated Campaign Readiness Report Card.
@@ -9,8 +16,12 @@ import { formatDollars } from "@/lib/gift-chart";
  *  - "start": the gate form, same plumbing as /api/gift-chart-lead (notify the
  *    team, upsert the HubSpot contact, attach a note).
  *  - "result": the graded outcome, sent after the visitor finishes the
- *    questions. It adds a second note with the score, the grade by area, and
- *    the biggest risk, which is the part that makes inbound sortable by
+ *    questions. The client sends the encoded answers and this route regrades
+ *    them with buildReadinessReport, so the note carries the answer the
+ *    visitor gave to every question plus the recommended next steps, and the
+ *    score is computed server side rather than trusted from the browser.
+ *    The same numbers are written to contact properties, because a note is
+ *    readable but not filterable and the point is to sort inbound by
  *    readiness instead of by arrival order.
  *
  * A HubSpot or email failure must never block the visitor from seeing their
@@ -44,6 +55,8 @@ type StartFields = { name: string; org: string; email: string; goal: number };
 
 type AreaScore = { label: string; score: number; grade: string };
 
+type AnswerLine = { prompt: string; answer: string };
+
 type ResultFields = {
   email: string;
   org: string;
@@ -53,6 +66,9 @@ type ResultFields = {
   verdict: string;
   biggestRisk: string;
   areas: AreaScore[];
+  nextSteps: { area: string; action: string }[];
+  giftChartNotes: string[];
+  answers: AnswerLine[];
 };
 
 function startNoteBody(fields: StartFields) {
@@ -69,7 +85,7 @@ function startNoteBody(fields: StartFields) {
 }
 
 function resultNoteBody(fields: ResultFields) {
-  return [
+  const lines = [
     "Campaign Readiness Report Card: result",
     "",
     `Overall: ${fields.grade} (${fields.score}/100)`,
@@ -80,9 +96,105 @@ function resultNoteBody(fields: ResultFields) {
     "",
     "By area:",
     ...fields.areas.map((a) => `- ${a.label}: ${a.grade} (${a.score}/100)`),
-  ]
-    .filter(Boolean)
-    .join("\n");
+  ].filter(Boolean);
+
+  if (fields.nextSteps.length) {
+    lines.push("", "Recommended next steps:");
+    fields.nextSteps.forEach((step, index) => {
+      lines.push(`${index + 1}. ${step.area}: ${step.action}`);
+    });
+  }
+
+  if (fields.giftChartNotes.length) {
+    lines.push("", "Goal against the gift chart:");
+    fields.giftChartNotes.forEach((note) => lines.push(`- ${note}`));
+  }
+
+  if (fields.answers.length) {
+    lines.push("", "Answers given:");
+    fields.answers.forEach((a) => lines.push(`- ${a.prompt}`, `  ${a.answer}`));
+  }
+
+  return lines.join("\n");
+}
+
+/**
+ * Regrade the submission from the encoded answers. The browser already has a
+ * report on screen, but recomputing here means the note and the contact
+ * properties cannot be spoofed or drift from the scoring code, and it gives us
+ * the answer text and the recommendations, which the client never sent.
+ */
+function reportFromPayload(body: Record<string, unknown>): ReadinessReport | null {
+  if (typeof body.answers !== "string" || !body.answers) return null;
+  try {
+    const largestGift = Number(body.largestGift) || 0;
+    const prospectCount = Number(body.prospectCount) || 0;
+    const answers: Answers = decodeAnswers(String(body.answers), largestGift, prospectCount);
+    return buildReadinessReport({
+      goal: Number(body.goal) || 0,
+      org: body.org ? String(body.org) : "",
+      answers,
+    });
+  } catch (err) {
+    console.error("Readiness regrade failed; falling back to the client payload:", err);
+    return null;
+  }
+}
+
+/** Question prompt paired with the answer in the visitor's own terms. */
+function answerLines(report: ReadinessReport, encoded: string): AnswerLine[] {
+  const answers = decodeAnswers(encoded, report.largestGift, report.prospectCount);
+  return QUESTIONS.map((question) => {
+    const raw = answers[question.id];
+    let answer = "Not answered";
+    if (question.kind === "choice") {
+      answer = question.choices?.[raw]?.label ?? "Not answered";
+    } else if (question.id === "largestGift") {
+      answer = formatDollars(report.largestGift);
+    } else {
+      answer = `${report.prospectCount.toLocaleString("en-US")} prospects`;
+    }
+    return { prompt: question.prompt, answer };
+  });
+}
+
+/**
+ * Contact properties, so a finished report card is filterable. These five are
+ * custom properties on the contact object; if any is missing from the portal
+ * HubSpot rejects the whole patch, so the failure is logged and swallowed the
+ * same way a note failure is.
+ */
+async function writeReadinessProperties(
+  token: string,
+  email: string,
+  fields: ResultFields,
+) {
+  const properties: Record<string, string> = {
+    readiness_score: String(fields.score),
+    readiness_grade: fields.grade,
+    readiness_campaign_goal: String(fields.goal),
+    readiness_biggest_risk: fields.biggestRisk,
+    readiness_completed_date: new Date().toISOString().slice(0, 10),
+  };
+
+  try {
+    const res = await fetch(
+      `${HUBSPOT_CONTACTS}/${encodeURIComponent(email)}?idProperty=email`,
+      {
+        method: "PATCH",
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ properties }),
+      },
+    );
+    if (!res.ok) {
+      console.error("HubSpot property error (readiness result):", res.status, await res.text());
+      return false;
+    }
+    return true;
+  } catch (err) {
+    console.error("HubSpot property patch threw (readiness result):", err);
+    return false;
+  }
 }
 
 async function sendEmailNotification(subject: string, rows: [string, string][]) {
@@ -276,7 +388,13 @@ async function handleStart(body: Record<string, unknown>) {
 }
 
 async function handleResult(body: Record<string, unknown>) {
-  const areas = Array.isArray(body.areas)
+  const email =
+    typeof body.email === "string" && EMAIL_RE.test(body.email) ? body.email : "";
+  const report = reportFromPayload(body);
+
+  // Prefer the server regrade. The fallback keeps older clients working while a
+  // deploy rolls out, and keeps a partial payload from losing the lead.
+  const clientAreas: AreaScore[] = Array.isArray(body.areas)
     ? (body.areas as AreaScore[]).slice(0, 12).map((a) => ({
         label: String(a.label ?? ""),
         score: Number(a.score) || 0,
@@ -284,29 +402,55 @@ async function handleResult(body: Record<string, unknown>) {
       }))
     : [];
 
-  const fields: ResultFields = {
-    email: typeof body.email === "string" && EMAIL_RE.test(body.email) ? body.email : "",
-    org: body.org ? String(body.org) : "",
-    goal: Number(body.goal) || 0,
-    score: Number(body.score) || 0,
-    grade: String(body.grade ?? ""),
-    verdict: String(body.verdict ?? ""),
-    biggestRisk: String(body.biggestRisk ?? ""),
-    areas,
-  };
+  const fields: ResultFields = report
+    ? {
+        email,
+        org: report.org,
+        goal: report.goal,
+        score: report.score,
+        grade: report.grade,
+        verdict: report.verdict.label,
+        biggestRisk: report.biggestRisk.area.label,
+        areas: report.areas.map((a) => ({
+          label: a.area.label,
+          score: a.score,
+          grade: a.grade,
+        })),
+        nextSteps: report.nextSteps,
+        giftChartNotes: [report.leadGiftNote, report.prospectNote],
+        answers: answerLines(report, String(body.answers)),
+      }
+    : {
+        email,
+        org: body.org ? String(body.org) : "",
+        goal: Number(body.goal) || 0,
+        score: Number(body.score) || 0,
+        grade: String(body.grade ?? ""),
+        verdict: String(body.verdict ?? ""),
+        biggestRisk: String(body.biggestRisk ?? ""),
+        areas: clientAreas,
+        nextSteps: [],
+        giftChartNotes: [],
+        answers: [],
+      };
 
   const noteBody = resultNoteBody(fields);
+  // Set READINESS_DEBUG_NOTE=1 locally to print the note that HubSpot receives.
+  if (process.env.READINESS_DEBUG_NOTE) console.log(noteBody);
 
   const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
-  const notePromise = (async () => {
-    if (!token || !fields.email) return false;
+  const hubspotPromise = (async () => {
+    if (!token || !fields.email) return { noted: false, propertiesWritten: false };
     const contactId = await findContactId(token, fields.email);
-    if (!contactId) return false;
-    await createNote(token, contactId, noteBody);
-    return true;
+    if (!contactId) return { noted: false, propertiesWritten: false };
+    const [, propertiesWritten] = await Promise.all([
+      createNote(token, contactId, noteBody),
+      writeReadinessProperties(token, fields.email, fields),
+    ]);
+    return { noted: true, propertiesWritten };
   })();
 
-  const [emailResult, noted] = await Promise.all([
+  const [emailResult, hubspot] = await Promise.all([
     sendEmailNotification(
       `Readiness report card result: ${fields.grade} (${fields.score}/100)${fields.org ? ` - ${fields.org}` : ""}`,
       [
@@ -315,19 +459,28 @@ async function handleResult(body: Record<string, unknown>) {
         ["Overall", `${fields.grade} (${fields.score}/100)`],
         ["Verdict", fields.verdict],
         ["Biggest risk", fields.biggestRisk],
-        ...areas.map((a) => [a.label, `${a.grade} (${a.score}/100)`] as [string, string]),
+        ...fields.areas.map((a) => [a.label, `${a.grade} (${a.score}/100)`] as [string, string]),
+        ...fields.nextSteps.map(
+          (step, index) => [`Next step ${index + 1}`, `${step.area}: ${step.action}`] as [string, string],
+        ),
+        ...fields.answers.map((a) => [a.prompt, a.answer] as [string, string]),
       ],
     ).catch((err) => {
       console.error("Readiness result email threw:", err);
       return { sent: false };
     }),
-    notePromise.catch((err) => {
-      console.error("Readiness result note threw:", err);
-      return false;
+    hubspotPromise.catch((err) => {
+      console.error("Readiness result HubSpot sync threw:", err);
+      return { noted: false, propertiesWritten: false };
     }),
   ]);
 
-  return NextResponse.json({ ok: true, emailSent: emailResult.sent, noted });
+  return NextResponse.json({
+    ok: true,
+    emailSent: emailResult.sent,
+    noted: hubspot.noted,
+    propertiesWritten: hubspot.propertiesWritten,
+  });
 }
 
 export async function POST(req: NextRequest) {
