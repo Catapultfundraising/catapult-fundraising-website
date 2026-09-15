@@ -245,24 +245,56 @@ export const DEFAULT_JAG_DATA: JagDashboardData = {
   ],
 };
 
-export async function getJagDashboardData(): Promise<JagDashboardData> {
+// Used by portals other than JAG before their first sync has run, so a new
+// study dashboard renders an honest empty state instead of JAG's numbers.
+export const EMPTY_DASHBOARD_DATA: JagDashboardData = {
+  reportDate: "Calling has not started",
+  updatedAt: new Date(0).toISOString(),
+  surveyRespondentCount: 0,
+  stats: {
+    totalProspects: 0,
+    tier1: 0,
+    tier2: 0,
+    tier3: 0,
+    tier4: 0,
+    tier5: 0,
+    dials: 0,
+    emailsSent: 0,
+    completed: 0,
+    scheduled: 0,
+    toBeRescheduled: 0,
+    declined: 0,
+    deceased: 0,
+    inCallingProcess: 0,
+  },
+  completedInterviews: [],
+  scheduledInterviews: [],
+  toBeRescheduled: [],
+  declined: [],
+  deceased: [],
+  feasibilitySignals: [],
+  missionThemes: [],
+  quotes: [],
+};
+
+export async function getJagDashboardData(path: string = DATA_PATH): Promise<JagDashboardData> {
   try {
-    const result = await get(DATA_PATH, { access: "private", useCache: false });
-    if (!result || !result.stream) return DEFAULT_JAG_DATA;
+    const result = await get(path, { access: "private", useCache: false });
+    if (!result || !result.stream) return path === DATA_PATH ? DEFAULT_JAG_DATA : EMPTY_DASHBOARD_DATA;
     const text = await new Response(result.stream).text();
     const data = JSON.parse(text) as JagDashboardData;
     // Minimal shape check so a corrupted/partial blob never breaks the page.
     if (!data || !data.stats || !Array.isArray(data.completedInterviews)) {
-      return DEFAULT_JAG_DATA;
+      return path === DATA_PATH ? DEFAULT_JAG_DATA : EMPTY_DASHBOARD_DATA;
     }
     return data;
   } catch {
-    return DEFAULT_JAG_DATA;
+    return path === DATA_PATH ? DEFAULT_JAG_DATA : EMPTY_DASHBOARD_DATA;
   }
 }
 
-export async function saveJagDashboardData(data: JagDashboardData): Promise<void> {
-  await put(DATA_PATH, JSON.stringify(data), {
+export async function saveJagDashboardData(data: JagDashboardData, path: string = DATA_PATH): Promise<void> {
+  await put(path, JSON.stringify(data), {
     access: "private",
     contentType: "application/json",
     addRandomSuffix: false,
