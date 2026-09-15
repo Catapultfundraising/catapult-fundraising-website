@@ -61,6 +61,17 @@ async function run(req: NextRequest, save: boolean) {
     );
   }
 
+  // A closed study is frozen. The delivered numbers on a finished portal are
+  // the client's record of the engagement and the sync must never rewrite them.
+  if (save && !portal.syncEnabled) {
+    return NextResponse.json({
+      ok: true,
+      saved: false,
+      project: portal.slug,
+      skipped: `${portal.clientName} study is closed; this portal is frozen`,
+    });
+  }
+
   try {
     const previous = await getJagDashboardData(portal.dataPath);
     const { data, meta } = await buildPortalDataFromVanillaSoft(portal, {

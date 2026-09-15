@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { Document, Page, View, Text, Image, StyleSheet, Font } from "@react-pdf/renderer";
 import { getJagDashboardData, pickRandomQuotes } from "@/lib/jag-data";
+import { getStudyPortal } from "@/lib/study-portals";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,7 +45,10 @@ const BRASS = "#B28C46";
 const PAPER = "#FFFFFF"; // print deliverable uses a plain white page, per client request
 const LINE = "#D6CDBA";
 
-const CLIENT_NAME = "JAG Nevada";
+// The PDF is shared by every study portal. `?portal=` selects which client it
+// is built for; no param keeps the original JAG behaviour so the link that is
+// already out in the world never changes.
+const DEFAULT_PORTAL = "jag";
 
 const PAGE_W = 612; // 8.5in letter, points
 const PAGE_H = 792; // 11in
@@ -178,21 +182,27 @@ function Header() {
   );
 }
 
-function Footer({ reportDate }: { reportDate: string }) {
+function Footer({ reportDate, clientName }: { reportDate: string; clientName: string }) {
   return (
     <Text
       style={styles.footer}
       fixed
       render={({ pageNumber, totalPages }) =>
-        `${CLIENT_NAME} · Weekly Status Report · ${reportDate} · Page ${pageNumber} of ${totalPages}`
+        `${clientName} · Weekly Status Report · ${reportDate} · Page ${pageNumber} of ${totalPages}`
       }
     />
   );
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const { renderToBuffer } = await import("@react-pdf/renderer");
-  const data = await getJagDashboardData();
+  const slug = new URL(request.url).searchParams.get("portal") || DEFAULT_PORTAL;
+  const portal = getStudyPortal(slug);
+  if (!portal) {
+    return NextResponse.json({ error: `Unknown portal "${slug}"` }, { status: 404 });
+  }
+  const CLIENT_NAME = portal.clientName;
+  const data = await getJagDashboardData(portal.dataPath);
   const quotes = pickRandomQuotes(data.quotes, 3);
 
   const STAT_CARDS = [
@@ -226,7 +236,7 @@ export async function GET() {
       <Page size={[PAGE_W, PAGE_H]} style={styles.page}>
         <Header />
 
-        <Text style={styles.eyebrow}>{CLIENT_NAME} · Donor Assessment Study</Text>
+        <Text style={styles.eyebrow}>{portal.eyebrow}</Text>
         <Text style={styles.title}>Weekly Status Report</Text>
         <Text style={styles.meta}>Prepared for {CLIENT_NAME} · {data.reportDate}</Text>
 
@@ -394,7 +404,7 @@ export async function GET() {
           </View>
         )}
 
-        <Footer reportDate={data.reportDate} />
+        <Footer reportDate={data.reportDate} clientName={CLIENT_NAME} />
       </Page>
     </Document>
   );
@@ -404,7 +414,7 @@ export async function GET() {
     status: 200,
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": 'attachment; filename="JAG_Nevada_Weekly_Summary.pdf"',
+      "Content-Disposition": `attachment; filename="${CLIENT_NAME.replace(/[^A-Za-z0-9]+/g, "_")}_Weekly_Summary.pdf"`,
     },
   });
 }
