@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { getMagicaRunStatus } from "@/lib/magica-client";
+import { smartTitleCase, smartSentenceCase } from "@/lib/title-case";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -41,12 +42,22 @@ function keepNewlines(raw: string | undefined | null): string {
   return String(raw).replace(/[ \t]+\n/g, "\n").replace(/\n{3,}/g, "\n\n").trim();
 }
 
+// 990s shout in some sections and use title case in others. tc() fixes
+// names/addresses/list lines; sc() fixes prose boxes. Both no-op on text that
+// already contains lowercase letters, so filer-cased text is never touched.
+function tc(raw: string | undefined | null): string {
+  return smartTitleCase(raw);
+}
+function sc(raw: string | undefined | null): string {
+  return smartSentenceCase(raw);
+}
+
 function normalizeGrants(rows: unknown, fallbackYear: string) {
   if (!Array.isArray(rows)) return [];
   return rows
     .map((row: any) => ({
       year: str(row?.year) || fallbackYear,
-      grantee: collapse(str(row?.grantee)),
+      grantee: tc(collapse(str(row?.grantee))),
       amount: str(row?.amount),
     }))
     .filter((row) => row.grantee || row.amount);
@@ -57,10 +68,10 @@ function normalizeExecutives(rows: unknown) {
   return rows
     .map((row: any) => ({
       photo: "",
-      name: collapse(str(row?.name)),
-      title: collapse(str(row?.title)),
+      name: tc(collapse(str(row?.name))),
+      title: tc(collapse(str(row?.title))),
       contactInfo: collapse(str(row?.contactInfo)),
-      bio: collapse(str(row?.bio)),
+      bio: sc(collapse(str(row?.bio))),
     }))
     .filter((row) => row.name || row.title);
 }
@@ -150,15 +161,15 @@ export async function GET(req: NextRequest) {
         kind,
         grantCount: grants.length,
         data: {
-          name: collapse(str(extracted.name)),
+          name: tc(collapse(str(extracted.name))),
           ein: normalizeEin(str(extracted.ein)),
-          address: collapse(str(extracted.address)),
+          address: tc(collapse(str(extracted.address))),
           phone: str(extracted.phone),
-          financialData: keepNewlines(str(extracted.financialData)),
-          officersDirectors: keepNewlines(str(extracted.officersDirectors)),
-          geographicFocus: collapse(str(extracted.geographicFocus)),
-          limitations: collapse(str(extracted.limitations)),
-          applicationInformation: collapse(str(extracted.applicationInformation)),
+          financialData: tc(keepNewlines(str(extracted.financialData))),
+          officersDirectors: tc(keepNewlines(str(extracted.officersDirectors))),
+          geographicFocus: sc(collapse(str(extracted.geographicFocus))),
+          limitations: sc(collapse(str(extracted.limitations))),
+          applicationInformation: sc(collapse(str(extracted.applicationInformation))),
           dueDate: str(extracted.dueDate),
           potentialGrantRange: str(extracted.potentialGrantRange),
           selectedGrants: grants,
@@ -172,25 +183,25 @@ export async function GET(req: NextRequest) {
       kind,
       execCount: executives.length,
       data: {
-        name: collapse(str(extracted.name)),
+        name: tc(collapse(str(extracted.name))),
         ein: normalizeEin(str(extracted.ein)),
-        address: collapse(str(extracted.address)),
+        address: tc(collapse(str(extracted.address))),
         phone: str(extracted.phone),
         website: str(extracted.website),
-        missionPurpose: collapse(str(extracted.missionPurpose)),
-        history: collapse(str(extracted.history)),
-        officersDirectors: keepNewlines(str(extracted.officersDirectors)),
-        financialData: keepNewlines(str(extracted.financialData)),
-        geographicFocus: collapse(str(extracted.geographicFocus)),
-        fieldsOfInterest: collapse(str(extracted.fieldsOfInterest)),
-        programAreas: collapse(str(extracted.programAreas)),
-        typesOfSupport: collapse(str(extracted.typesOfSupport)),
+        missionPurpose: sc(collapse(str(extracted.missionPurpose))),
+        history: sc(collapse(str(extracted.history))),
+        officersDirectors: tc(keepNewlines(str(extracted.officersDirectors))),
+        financialData: tc(keepNewlines(str(extracted.financialData))),
+        geographicFocus: sc(collapse(str(extracted.geographicFocus))),
+        fieldsOfInterest: sc(collapse(str(extracted.fieldsOfInterest))),
+        programAreas: sc(collapse(str(extracted.programAreas))),
+        typesOfSupport: sc(collapse(str(extracted.typesOfSupport))),
         potentialGrantRange: str(extracted.potentialGrantRange),
-        limitations: collapse(str(extracted.limitations)),
+        limitations: sc(collapse(str(extracted.limitations))),
         dueDate: str(extracted.dueDate),
-        applicationInformation: collapse(str(extracted.applicationInformation)),
-        relationshipToOrg: collapse(str(extracted.relationshipToOrg)),
-        givingHistoryToClient: collapse(str(extracted.givingHistoryToClient)),
+        applicationInformation: sc(collapse(str(extracted.applicationInformation))),
+        relationshipToOrg: sc(collapse(str(extracted.relationshipToOrg))),
+        givingHistoryToClient: sc(collapse(str(extracted.givingHistoryToClient))),
         executives,
       },
     });
