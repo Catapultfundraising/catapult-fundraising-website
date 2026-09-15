@@ -81,6 +81,63 @@ const SHEETS: Sheet[] = [
   },
 ];
 
+const CASE_STUDY_SHEETS: Sheet[] = [
+  {
+    icon: Target,
+    title: "Salvation Army of Southern Nevada",
+    description: "Capital campaign restarted and finished at $10 million, including a $1.25 million endowment.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Salvation-Army-Southern-Nevada.pdf",
+  },
+  {
+    icon: Gift,
+    title: "Northeast University",
+    description: "Legacy Call: 500 loyal donors, 50 confirmed planned gifts, $4,894,000.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Legacy-Call-Northeast-University.pdf",
+  },
+  {
+    icon: Gift,
+    title: "The Hill School",
+    description: "Legacy Calls across two phases: 47 confirmed planned gifts totaling $7,666,000.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Legacy-Calls-The-Hill-School.pdf",
+  },
+  {
+    icon: Gift,
+    title: "Ronald Reagan Presidential Library",
+    description: "Legacy Call: 26 confirmed planned gifts totaling $2,825,000.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Legacy-Call-Ronald-Reagan-Presidential-Library.pdf",
+  },
+  {
+    icon: Phone,
+    title: "Special Olympics Indiana",
+    description: "AF Connect: an 85% pledge rate with lapsed donors and a 39% higher average gift.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-AF-Connect-Special-Olympics-Indiana.pdf",
+  },
+  {
+    icon: Gift,
+    title: "New Jersey Hospital",
+    description: "Legacy Call: $1,023,000 confirmed in three months, 30% interest among those reached.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Legacy-Call-New-Jersey-Hospital.pdf",
+  },
+  {
+    icon: Gift,
+    title: "International Ministry",
+    description: "Legacy Call across two phases: 149 planned gifts totaling $6,867,161.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Legacy-Call-International-Ministry.pdf",
+  },
+  {
+    icon: Users,
+    title: "Faith-Based Organization",
+    description: "Mid-level engagement: 57% qualified for stewardship, 9% for a major gift appointment.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Mid-Level-Donor-Engagement-Faith-Based.pdf",
+  },
+  {
+    icon: Users,
+    title: "Performing Arts Organization",
+    description: "Hidden capacity under $350 lifetime giving: 467 new gifts and a $2,390 average first gift.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Hidden-Donor-Potential-Performing-Arts.pdf",
+  },
+];
+
 export function OneSheets() {
   return (
     <div className="mt-16 space-y-6">
@@ -98,6 +155,44 @@ export function OneSheets() {
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
         {SHEETS.map((sheet) => (
+          <a
+            key={sheet.href}
+            href={sheet.href}
+            download
+            target="_blank"
+            rel="noopener noreferrer"
+            className="group flex flex-col rounded-2xl border border-[rgb(var(--line))] bg-white p-6 transition-colors hover:border-[rgb(var(--brass))] lg:p-10"
+          >
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-[rgb(var(--navy))]/5">
+              <sheet.icon className="h-5 w-5 text-[rgb(var(--brass))]" />
+            </span>
+            <h3 className="mt-4 font-display text-lg text-[rgb(var(--navy))]">{sheet.title}</h3>
+            <p className="mt-1.5 flex-1 text-sm leading-relaxed text-[rgb(var(--ink))]/65">
+              {sheet.description}
+            </p>
+            <span className="mt-4 inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--navy))] transition-colors group-hover:text-[rgb(var(--brass))]">
+              <Download className="h-4 w-4" />
+              Download PDF
+            </span>
+          </a>
+        ))}
+      </div>
+
+      <div className="pt-6">
+        <p className="text-[15px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          Case Studies
+        </p>
+        <h2 className="mt-2 font-display text-3xl text-[rgb(var(--navy))]">
+          One-page case studies, ready to leave behind.
+        </h2>
+        <p className="mt-2 max-w-2xl text-sm text-[rgb(var(--ink))]/65">
+          Each published case study as a single branded page. Clients who have approved named use are
+          named; the rest are described by organization type.
+        </p>
+      </div>
+
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {CASE_STUDY_SHEETS.map((sheet) => (
           <a
             key={sheet.href}
             href={sheet.href}
