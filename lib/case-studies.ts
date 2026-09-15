@@ -21,11 +21,11 @@ export const CASE_STUDIES: CaseStudy[] = [
     metaTitle: "Legacy Call Secures $4.62M for PBS KVIE",
     metaDescription: "A Legacy Call planned giving program helped PBS KVIE, a small-shop public television station, close $4,620,000 in planned gifts.",
     title:
-      "Catapult Fundraising's Legacy Call Program Secures $4.62 Million in Planned Gifts for PBS KVIE",
+      "Unlocking the Power of Planned Giving: A Case Study for PBS KVIE",
     sector: "Public Media \u00b7 Legacy & Planned Giving",
     image: "/images/case-studies/legacy-call-pbs-kvie.jpg",
     summary:
-      "As a small shop, PBS KVIE needed help connecting with potential and existing planned giving donors. A Legacy Call outreach program secured 63 planned gifts totaling $4,620,000 and added 106 donors to the station's planned giving pipeline.",
+      "PBS KVIE partnered with Catapult to identify and cultivate new planned giving donors, strengthen relationships with existing donors, and secure planned gifts. The Legacy Call program closed $4,620,000 in planned gifts, secured 63 planned gifts, and added 106 donors to the pipeline.",
     stats: [
       { value: "$4.62M", label: "In closed planned gifts" },
       { value: "63", label: "Planned gifts secured" },
@@ -36,37 +36,37 @@ export const CASE_STUDIES: CaseStudy[] = [
       { type: "heading", text: "The Challenge" },
       {
         type: "paragraph",
-        text: "As a small shop, connecting with potential and existing planned giving donors can be a daunting task. To overcome this challenge, PBS KVIE partnered with Catapult to help the station identify and cultivate new planned giving donors, strengthen relationships with existing donors, and secure planned gifts.",
+        text: "As a small shop, creating a pipeline of planned giving donors can be a daunting task. PBS KVIE partnered with Catapult to identify and cultivate new planned giving donors, strengthen relationships with existing donors, and secure planned gifts.",
       },
-      { type: "heading", text: "The Solution" },
+      { type: "heading", text: "Catapult's Solution" },
       {
         type: "paragraph",
-        text: "Catapult built a customized, highly personalized planned giving outreach program for the station, designed to cast a wider net than a small development team could reach on its own. The program ran in three steps:",
+        text: "Catapult created a customized, highly personalized planned giving outreach program that helped cast a wider net in an effective way. The outreach process ran in three steps:",
       },
       {
         type: "list",
         items: [
           "Database review and loyal donor prospect selection",
-          "A thank you and planned giving identification call",
-          "A planned giving education call and gift commitment discussion with Catapult's planned giving consultants",
+          "Thank-you and planned giving identification call",
+          "Educational call and gift commitment discussion with Catapult's planned giving consultants",
         ],
       },
-      { type: "heading", text: "The Benefits" },
+      { type: "heading", text: "The Impact" },
       {
         type: "paragraph",
-        text: "Through Catapult's Legacy Call program, loyal donors receive the time, attention, and gratitude they deserve for their years of support and commitment. The program delivers on three fronts.",
+        text: "The program delivered on three fronts.",
       },
       {
         type: "paragraph",
-        text: "Steward current donors. In addition to educating donors and closing planned gifts, Catapult's planned giving consultants have the expertise to uncover planned gifts that may have been previously unknown to the organization. That insight lets a station properly recognize and steward commitments its donors have already made.",
+        text: "Steward current donors. Loyal donors received the time, attention, and gratitude they deserved for their years of support and commitment.",
       },
       {
         type: "paragraph",
-        text: "Secure planned gifts. The Legacy Call outreach program identifies donors who have expressed interest in making a planned gift but require further nurturing. With proper stewardship, these prospects may eventually become committed planned giving donors.",
+        text: "Secure planned gifts. Catapult's planned giving consultants helped uncover and close commitments that may have previously been unknown to the organization, while ensuring gifts were properly recognized and stewarded.",
       },
       {
         type: "paragraph",
-        text: "Create a pipeline for future planned gifts. Every conversation adds qualified names to a pipeline the station can work for years, which matters most for a team without the staff to build one call by call.",
+        text: "Create a pipeline for future planned gifts. The outreach program identified donors who expressed interest in making a planned gift but required further nurturing before becoming committed planned giving donors.",
       },
       { type: "heading", text: "The Results" },
       {
@@ -80,7 +80,7 @@ export const CASE_STUDIES: CaseStudy[] = [
       { type: "heading", text: "KVIE Speaks Out" },
       {
         type: "quote",
-        text: "Legacy Call service was a game-changer for us. We are a small shop. We needed help connecting with potential and existing planned giving donors. Thanks to Legacy Call, we were able to reach out to a wider audience of potential donors. The response was incredible. Not only did we secure several new planned gifts, but we also identified a pool of prospective donors.",
+        text: "Legacy Call was a game-changer for us. We are a small shop and needed help connecting with potential and existing planned giving donors. Thanks to Legacy Call, we reached a wider audience of potential donors. The response was incredible. Not only did we secure several new planned gifts, but we also identified a pool of prospective donors.",
       },
       {
         type: "paragraph",
