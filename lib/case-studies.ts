@@ -17,6 +17,95 @@ export interface CaseStudy {
 
 export const CASE_STUDIES: CaseStudy[] = [
   {
+    slug: "capital-campaign-rmhc-south-texas",
+    metaTitle: "RMHC South Texas Exceeds $25M Goal",
+    metaDescription:
+      "Ronald McDonald House Charities South Texas grew the Love Builds a New Home campaign from just over $5 million to more than $25 million raised.",
+    title:
+      "Ronald McDonald House Charities South Texas Exceeds $25 Million Capital Campaign Goal Through Strategic Partnership",
+    sector: "Health & Family Services \u00b7 Capital Campaign",
+    image: "/images/case-studies/capital-campaign-rmhc-south-texas.jpg",
+    summary:
+      "Ronald McDonald House Charities South Texas partnered with Catapult Fundraising to strengthen major gift capacity, provide campaign leadership and accountability, and organize a disciplined prospect strategy for its Love Builds a New Home capital campaign. The campaign grew from just over $5 million in commitments when the partnership began to more than $25 million raised by August 2026, exceeding its $25 million public goal.",
+    stats: [
+      { value: "$25M+", label: "Raised by August 2026" },
+      { value: "$5M to $25M+", label: "Campaign growth during the partnership" },
+      { value: "25 to 45", label: "Rooms in the new Ronald McDonald House" },
+      { value: "80%", label: "Increase in bedroom capacity" },
+    ],
+    content: [
+      {
+        type: "lede",
+        text: "A capital campaign that had raised just over $5 million when Catapult joined finished past its $25 million public goal, funding a new House that grows from 25 to 45 rooms for families with children in treatment.",
+      },
+      { type: "heading", text: "The Situation" },
+      {
+        type: "paragraph",
+        text: "Ronald McDonald House Charities South Texas provides lodging, meals, and support for families who travel to Corpus Christi while their children receive specialized medical care. Growing demand had outpaced the capacity of its existing 25-room House. The Love Builds a New Home campaign was created to replace and expand the facility, increasing bedroom capacity from 25 to 45 rooms, an 80 percent increase. The new House will allow RMHC South Texas to serve significantly more families while keeping them close to their children's medical care.",
+      },
+      {
+        type: "paragraph",
+        text: "When Catapult Fundraising joined the campaign, just over $5 million had been committed. A campaign study had previously been completed by another consulting firm, so the organization did not need another study. It needed additional major gift fundraising capacity, greater accountability for campaign activity, and an organized strategy for identifying, prioritizing, cultivating, and soliciting major gift prospects.",
+      },
+      { type: "heading", text: "The Partnership" },
+      {
+        type: "paragraph",
+        text: "Catapult worked as an extension of the RMHC South Texas fundraising team and campaign leadership rather than as a consultant operating separately from them. The partnership added major gift fundraising capacity while creating a more structured approach to campaign execution. Together, RMHC South Texas and Catapult organized prospects around a clear gift strategy, strengthened accountability for campaign committee members, established priorities and next steps, and prepared leaders for important donor conversations.",
+      },
+      {
+        type: "paragraph",
+        text: "Catapult also provided hands-on coaching before meetings and solicitations. Staff and volunteer leaders were able to enter donor conversations better prepared to communicate the need, connect the opportunity to the donor's interests, and make confident, mission-focused fundraising requests.",
+      },
+      {
+        type: "paragraph",
+        text: "The objective was not simply to create a campaign plan. It was to help the RMHC South Texas team and campaign committee consistently execute that plan and move priority prospects toward confirmed commitments.",
+      },
+      { type: "heading", text: "Growing With the Opportunity" },
+      {
+        type: "paragraph",
+        text: "The campaign continued to evolve as fundraising success demonstrated what was possible. Rather than remain tied to an earlier plan, Catapult and RMHC South Texas continued to evaluate the major gift pipeline, funding priorities, donor opportunities, and changing needs of the project. The fundraising strategy adapted as the project grew.",
+      },
+      {
+        type: "paragraph",
+        text: "That flexibility became an important part of the partnership. New opportunities could be incorporated into the campaign without losing the discipline and accountability that had helped create momentum. By August 2026, more than $25 million had been raised, exceeding the campaign's $25 million public goal.",
+      },
+      { type: "heading", text: "The Result" },
+      {
+        type: "paragraph",
+        text: "The Love Builds a New Home campaign moved from just over $5 million in commitments to more than $25 million raised during the Catapult partnership. The successful campaign is supporting a new Ronald McDonald House that will expand from 25 to 45 rooms, increasing capacity by 80 percent for families who need to remain close to their children during medical treatment.",
+      },
+      {
+        type: "paragraph",
+        text: "A ceremonial groundbreaking was held in April 2026. Actual construction begins in September 2026, with project completion expected within approximately 18 to 24 months. The result reflects what can happen when fundraising strategy, staff capacity, campaign leadership, volunteer engagement, prospect management, and donor relationships work together.",
+      },
+      { type: "heading", text: "Why It Worked" },
+      {
+        type: "list",
+        items: [
+          "Added fundraising capacity. Catapult provided additional major gift support at a time when consistent prospect management and follow-through were critical.",
+          "Accountability and leadership. Campaign committee members had clearer priorities, assignments, preparation, and next steps.",
+          "An organized major gift strategy. Priority prospects were approached intentionally, with research, strategy, preparation, and coaching supporting each stage of the relationship.",
+          "Hands-on coaching. Staff and volunteers were prepared to make mission-focused asks with greater confidence.",
+          "Flexibility. As donor support increased and the project opportunity expanded, the campaign strategy evolved with it rather than remaining tied to an outdated plan.",
+        ],
+      },
+      { type: "heading", text: "In the Client's Words" },
+      {
+        type: "quote",
+        text: "The Catapult team brought unparalleled energy, insight, and strategy to our campaign. Their hands-on guidance helped us connect deeply with our supporters and coached our Capital Campaign committee members to make the ask. Jeff's leadership was instrumental in driving these results, and his commitment to our mission was evident in every interaction.",
+      },
+      {
+        type: "paragraph",
+        text: "Michelle Horine, Chief Executive Officer, Ronald McDonald House Charities South Texas",
+      },
+      { type: "heading", text: "Conclusion" },
+      {
+        type: "paragraph",
+        text: "The Love Builds a New Home campaign demonstrates the value of a fundraising partnership that combines strategy with execution. Catapult worked alongside RMHC South Texas staff, campaign leaders, and volunteers to add capacity, establish accountability, organize the major gift opportunity, and adapt the strategy as fundraising success expanded what was possible. The result is a campaign that exceeded its $25 million goal and a new Ronald McDonald House positioned to serve more South Texas families for years to come.",
+      },
+    ],
+  },
+  {
     slug: "legacy-call-pbs-kvie",
     metaTitle: "Legacy Call Secures $4.62M for PBS KVIE",
     metaDescription: "A Legacy Call planned giving program helped PBS KVIE, a small-shop public television station, close $4,620,000 in planned gifts.",

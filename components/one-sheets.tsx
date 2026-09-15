@@ -1,4 +1,4 @@
-import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen, BookOpen, Heart, Mail } from "lucide-react";
+import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen, BookOpen, Heart, Mail, Home } from "lucide-react";
 
 interface Sheet {
   icon: React.ComponentType<{ className?: string }>;
@@ -82,6 +82,12 @@ const SHEETS: Sheet[] = [
 ];
 
 const CASE_STUDY_SHEETS: Sheet[] = [
+  {
+    icon: Home,
+    title: "Ronald McDonald House Charities South Texas",
+    description: "Capital Campaign: Love Builds a New Home grew from just over $5 million to more than $25 million raised, exceeding its $25 million goal.",
+    href: "/one-sheets/case-studies/Catapult-Case-Study-Capital-Campaign-RMHC-South-Texas.pdf",
+  },
   {
     icon: Gift,
     title: "PBS KVIE",
