@@ -201,15 +201,22 @@ function isPlaceholder(name: string): boolean {
   return /^Contact \d+$/.test(name);
 }
 
+// Rows that still cannot be named after the carry-forward are dropped rather
+// than shown to a client as "Contact 1219313061". The headline count still
+// comes from VanillaSoft, so a table can be shorter than its stat until the
+// one-time contact seed is done. A short table is honest; a raw record id in a
+// client-facing table is not.
 function backfillNames<T extends { name: string }>(rows: T[], previous: T[] = []): T[] {
   const known = new Set(rows.filter((r) => !isPlaceholder(r.name)).map((r) => r.name));
   const spares = previous.filter((p) => !known.has(p.name));
   let i = 0;
-  return rows.map((row) => {
-    if (!isPlaceholder(row.name)) return row;
-    const spare = spares[i++];
-    return spare ? { ...row, ...spare } : row;
-  });
+  return rows
+    .map((row) => {
+      if (!isPlaceholder(row.name)) return row;
+      const spare = spares[i++];
+      return spare ? { ...row, ...spare } : null;
+    })
+    .filter((row): row is T => row !== null);
 }
 
 // ---------------------------------------------------------------------------
@@ -223,6 +230,7 @@ export interface SyncResult {
     callRecords: number;
     contactsKnown: number;
     contactsRefreshed: number;
+    unnamedRowsDropped: number;
     tierSource: "vanillasoft" | "carried-forward";
     historyFrom: string;
     historyTo: string;
@@ -298,6 +306,8 @@ export async function buildPortalDataFromVanillaSoft(
   // than a structured field, so any reason a human previously entered for the
   // same person is carried forward instead of being blanked out.
   const prev = options.previous;
+  const rowsBeforeNaming =
+    completedInterviews.length + scheduledInterviews.length + toBeRescheduled.length + declined.length;
   const namedCompleted = backfillNames(completedInterviews, prev?.completedInterviews);
   const namedScheduled = backfillNames(scheduledInterviews, prev?.scheduledInterviews);
   const namedRescheduled = backfillNames(toBeRescheduled, prev?.toBeRescheduled);
@@ -402,6 +412,9 @@ export async function buildPortalDataFromVanillaSoft(
       contactsKnown: contacts.length,
       contactsRefreshed: refreshed.length,
       tierSource: storeCoversPool ? "vanillasoft" : "carried-forward",
+      unnamedRowsDropped:
+        rowsBeforeNaming -
+        (completedInterviews.length + scheduledInterviews.length + toBeRescheduled.length + declined.length),
       historyFrom: start.toISOString().slice(0, 10),
       historyTo: asOf.toISOString().slice(0, 10),
     },

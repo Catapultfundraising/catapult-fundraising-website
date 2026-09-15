@@ -40,6 +40,11 @@ export interface StudyPortalConfig {
   signals: SurveySignalConfig[];
   /** PDF summary endpoint, if the portal has one. */
   pdfPath?: string;
+  /**
+   * Whether the scheduled sync may refresh this portal. A finished study is
+   * set to false so its delivered numbers can never be rewritten.
+   */
+  syncEnabled: boolean;
 }
 
 const STANDARD_SIGNALS: SurveySignalConfig[] = [
@@ -94,6 +99,7 @@ export const STUDY_PORTALS: Record<string, StudyPortalConfig> = {
               : s
     ),
     pdfPath: "/api/jag-summary-pdf",
+    syncEnabled: false, // donor assessment study closed 2026-09; page is frozen as delivered
   },
   csnf: {
     slug: "csnf",
@@ -117,6 +123,8 @@ export const STUDY_PORTALS: Record<string, StudyPortalConfig> = {
               ? { ...s, label: "Would consider a leadership role with CSNF" }
               : s
     ),
+    pdfPath: "/api/jag-summary-pdf?portal=csnf",
+    syncEnabled: true,
   },
 };
 
