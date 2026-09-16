@@ -159,13 +159,13 @@ export default function CsnfCampaignPage() {
       <section className="relative">
         <div className="relative h-[300px] w-full sm:h-[420px]">
           <Image
-            src="/csnf/campus-rendering.jpg"
-            alt="Architectural rendering of the CSN Northwest Campus"
+            src="/csnf/campus-main-entrance.jpg"
+            alt="Architectural rendering of the main entrance of the CSN Northwest Campus"
             fill
-            className="object-cover"
+            className="object-cover object-left sm:object-center"
             priority
           />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#004990]/90 via-[#004990]/70 to-[#004990]/20" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#00263F]/95 via-[#004990]/75 to-[#004990]/30" />
         </div>
         <div className="absolute inset-0 flex items-center">
           <div className="mx-auto w-full max-w-5xl px-6">
@@ -406,14 +406,13 @@ export default function CsnfCampaignPage() {
               illustrates the kinds of gifts that will make a campaign like this
               possible.
             </p>
-            <p>
-                The community has waited for two decades for the Northwest Campus
+            <p className="clear-both">
+              The community has waited for two decades for the Northwest Campus
               to come to life, and the time has now come. The first building on
               the CSN Northwest campus will transform the area, bringing
               affordable higher education to the Northwest Valley for the first
-              time and
-              providing a new home for CSN&rsquo;s Southern Desert Regional
-              Police Academy.
+              time and providing a new home for CSN&rsquo;s Southern Desert
+              Regional Police Academy.
             </p>
           </div>
         </div>
