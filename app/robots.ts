@@ -10,7 +10,18 @@ const SITE_URL = "https://www.catapultfr.com";
 // addition on top of the noindex tags in app/research/layout.tsx,
 // app/assets/layout.tsx, and app/jag-dashboard/layout.tsx, not a substitute
 // for them.
-const DISALLOWED_INTERNAL_TOOLS = ["/research", "/assets", "/decks", "/jag-dashboard", "/jag-admin"];
+const DISALLOWED_INTERNAL_TOOLS = [
+  "/research",
+  "/assets",
+  "/decks",
+  "/jag-dashboard",
+  "/jag-admin",
+  "/csnf-dashboard",
+  // Client-facing CSNF campaign page: shared only by direct link in the
+  // feasibility study interview invitation, never meant to be indexed. Its
+  // own noindex tag in app/csnf/page.tsx is the primary mechanism.
+  "/csnf",
+];
 
 export default function robots(): MetadataRoute.Robots {
   return {
