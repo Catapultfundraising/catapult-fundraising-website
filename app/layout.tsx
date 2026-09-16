@@ -4,6 +4,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { CookieConsent } from "@/components/cookie-consent";
+import { BareRoute } from "@/components/bare-route";
 import { FIRM_PHONE, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -503,9 +504,13 @@ o.onload=function(){window.trackingFunctions.onLoad({appId:"6a7b2ca6343a240014fd
 document.head.appendChild(o)}initApollo();`,
           }}
         />
-        <SiteHeader />
+        <BareRoute>
+          <SiteHeader />
+        </BareRoute>
         <main>{children}</main>
-        <SiteFooter />
+        <BareRoute>
+          <SiteFooter />
+        </BareRoute>
         <CookieConsent />
       </body>
     </html>
