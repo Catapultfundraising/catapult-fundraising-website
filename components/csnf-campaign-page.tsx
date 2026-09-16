@@ -216,17 +216,17 @@ export default function CsnfCampaignPage({
       <section className="mx-auto max-w-3xl px-6 py-14">
         <div className="space-y-5 text-base leading-relaxed">
           <p>
-            Southern Nevada is one of the nation&rsquo;s fastest-growing regions,
-            yet access to affordable higher education has not kept pace with that
-            growth.
+            Southern Nevada is one of the nation&rsquo;s fastest-growing
+            regions, yet access to affordable higher education has not kept pace
+            with that growth.
           </p>
           <p>
-            Nearly 10,000 College of Southern Nevada (CSN) students living in the
-            Northwest Valley commute 30 to 90 minutes to the nearest campus,
+            Nearly 10,000 College of Southern Nevada (CSN) students living in
+            the Northwest Valley commute 30 to 90 minutes to the nearest campus,
             creating unnecessary barriers to enrollment, persistence, and degree
             completion. At the same time, continued population growth is
-            increasing demand for an educated and highly skilled workforce across
-            Southern Nevada.
+            increasing demand for an educated and highly skilled workforce
+            across Southern Nevada.
           </p>
           <p>
             These challenges affect students, families, employers, and the
@@ -248,9 +248,9 @@ export default function CsnfCampaignPage({
               side="right"
             />
             <p>
-              For more than 55 years, the College of Southern Nevada has provided
-              affordable, high-quality education that helps students achieve
-              degrees, workforce credentials, and career advancement. As
+              For more than 55 years, the College of Southern Nevada has
+              provided affordable, high-quality education that helps students
+              achieve degrees, workforce credentials, and career advancement. As
               Nevada&rsquo;s largest community college and the state&rsquo;s
               first Hispanic-Serving Institution and Minority Serving
               Institution, CSN serves more than 41,000 students annually through
@@ -260,8 +260,8 @@ export default function CsnfCampaignPage({
             </p>
             <p>
               Today, CSN is ready to expand that mission by establishing its
-              fourth full-service campus, bringing higher education closer to one
-              of the fastest-growing areas of Southern Nevada.
+              fourth full-service campus, bringing higher education closer to
+              one of the fastest-growing areas of Southern Nevada.
             </p>
           </div>
         </div>
@@ -283,16 +283,16 @@ export default function CsnfCampaignPage({
               moving closer to reality.
             </p>
             <p>
-              The first phase will establish the campus through construction of a
-              60,000-square-foot building that will serve as the cornerstone of
-              future development. It will provide general education courses and
-              comprehensive student support services while also serving as the
-              new home of CSN&rsquo;s Southern Desert Regional Police Academy,
-              relocating from Henderson to expand training capacity for regional
-              law enforcement agencies. Future phases of the campus will add
-              additional buildings and bring additional workforce training
-              programs, including Fire, EMS, and Allied Health Programs as the
-              site develops over time.
+              The first phase will establish the campus through construction of
+              a 60,000-square-foot building that will serve as the cornerstone
+              of future development. It will provide general education courses
+              and comprehensive student support services while also serving as
+              the new home of CSN&rsquo;s Southern Desert Regional Police
+              Academy, relocating from Henderson to expand training capacity for
+              regional law enforcement agencies. Future phases of the campus
+              will add additional buildings and bring additional workforce
+              training programs, including Fire, EMS, and Allied Health Programs
+              as the site develops over time.
             </p>
             <p>
               The first building on the CSN Northwest Campus will be able to
@@ -338,8 +338,8 @@ export default function CsnfCampaignPage({
             </p>
             <p>
               As the campus develops in future phases, CSN envisions a broader
-              public safety training hub that includes law enforcement, fire, and
-              EMS training together under one roof.
+              public safety training hub that includes law enforcement, fire,
+              and EMS training together under one roof.
             </p>
           </div>
         </div>
@@ -349,14 +349,14 @@ export default function CsnfCampaignPage({
           <div className="mt-5 space-y-5 text-base leading-relaxed">
             <p>
               Development of the Northwest Campus represents a significant
-              public-private partnership, bringing together CSN, public entities,
-              and philanthropic partners around a shared investment in Southern
-              Nevada&rsquo;s future. The project is being advanced through a
-              braided funding plan involving public and private resources. CSN is
-              pursuing funding at the local, state, and federal levels, while the
-              CSN Foundation is leading a $10 million philanthropic campaign to
-              demonstrate community commitment and help make the Northwest Campus
-              a reality.
+              public-private partnership, bringing together CSN, public
+              entities, and philanthropic partners around a shared investment in
+              Southern Nevada&rsquo;s future. The project is being advanced
+              through a braided funding plan involving public and private
+              resources. CSN is pursuing funding at the local, state, and
+              federal levels, while the CSN Foundation is leading a $10 million
+              philanthropic campaign to demonstrate community commitment and
+              help make the Northwest Campus a reality.
             </p>
             <p>
               Importantly, the Nevada System of Higher Education (NSHE) Board of
@@ -365,21 +365,23 @@ export default function CsnfCampaignPage({
               consideration. Additionally, the Southern Nevada Forum recently
               prioritized the CSN Northwest Campus as a top priority going into
               the legislative session. These prioritizations underscore the
-              importance of the project to Nevada&rsquo;s higher education system
-              and the community.
+              importance of the project to Nevada&rsquo;s higher education
+              system and the community.
             </p>
             <p>
               An investment in the CSN Northwest Campus is an investment in
               educational opportunities, workforce readiness, economic growth,
               and safer communities. Donors will have the opportunity to help
-              create lasting change by expanding access to higher education while
-              preparing the next generation of a highly skilled workforce.
+              create lasting change by expanding access to higher education
+              while preparing the next generation of a highly skilled workforce.
             </p>
           </div>
         </div>
 
         <div className="mt-12">
-          <SectionHeading>Support from the community is critical</SectionHeading>
+          <SectionHeading>
+            Support from the community is critical
+          </SectionHeading>
           <div className="mt-5 space-y-5 text-base leading-relaxed after:block after:clear-both after:content-['']">
             <WrapFigure
               src="/csnf/gift-chart.png"
@@ -390,11 +392,11 @@ export default function CsnfCampaignPage({
             />
             <p>
               CSN&rsquo;s Northwest Campus campaign will require support at many
-              different levels to reach the $10 million philanthropic goal. Every
-              gift, no matter the size, will play a vital role in establishing
-              the campus and bringing the first building to fruition. This chart
-              illustrates the kinds of gifts that will make a campaign like this
-              possible.
+              different levels to reach the $10 million philanthropic goal.
+              Every gift, no matter the size, will play a vital role in
+              establishing the campus and bringing the first building to
+              fruition. This chart illustrates the kinds of gifts that will make
+              a campaign like this possible.
             </p>
             <p className="clear-both">
               The community has waited for two decades for the Northwest Campus
@@ -406,50 +408,51 @@ export default function CsnfCampaignPage({
             </p>
           </div>
         </div>
-      </section>
 
-      {/* History and leadership */}
-      <section className="mx-auto max-w-3xl px-6 py-14">
-        <SectionHeading>History</SectionHeading>
-        <p className="mt-5 text-base leading-relaxed">
-          Founded in 1971 as Clark County Community College, CSN&rsquo;s early
-          days saw only a few hundred students enrolled in a single building in
-          North Las Vegas. Over the course of the next two decades, the college
-          steadily grew and expanded, opening the Henderson and West Charleston
-          campuses in the mid-1980s. In 1991, the school was renamed the
-          Community College of Southern Nevada, and what is today known as the
-          CSN Foundation was established. To reflect its growing importance in
-          the region and the number of types of degrees it awarded, the school
-          became the College of Southern Nevada in 2007.
-        </p>
-
+        {/* History and leadership */}
         <div className="mt-12">
-          <SectionHeading>Leadership committed to success</SectionHeading>
-          <div className="mt-5 space-y-5 text-base leading-relaxed">
-            <p>
-              <strong className="text-[#004990]">
-                Dr. Stacy Klippenstein, President,
-              </strong>{" "}
-              came to CSN in 2025, bringing more than 30 years of experience in
-              higher education administration and leadership. Known to colleagues
-              and students as &ldquo;Dr. Klip,&rdquo; he believes in creating and
-              nurturing a community of thinkers and collaborators and is
-              passionate about helping students earn their degrees and workforce
-              credentials. Prior to coming to CSN, he was president of Mohave
-              College in Arizona and Miles Community College in Montana.
-            </p>
-            <p>
-              <strong className="text-[#004990]">Dr. James R. McCoy</strong>{" "}
-              serves as Executive Vice President for Academic Affairs and Chief
-              Academic Officer, where he oversees approximately 1,400 faculty
-              serving about 40,000 students each year and draws upon more than 26
-              years of higher education leadership experience, including prior
-              service as Assistant Vice Chancellor for Student Success for the
-              Nevada System of Higher Education. As one of the executive sponsors
-              for CSN&rsquo;s proposed Northwest Campus, Dr. McCoy is helping to
-              lead the planning and development of the transformational new
-              campus.
-            </p>
+          <SectionHeading>History</SectionHeading>
+          <p className="mt-5 text-base leading-relaxed">
+            Founded in 1971 as Clark County Community College, CSN&rsquo;s early
+            days saw only a few hundred students enrolled in a single building
+            in North Las Vegas. Over the course of the next two decades, the
+            college steadily grew and expanded, opening the Henderson and West
+            Charleston campuses in the mid-1980s. In 1991, the school was
+            renamed the Community College of Southern Nevada, and what is today
+            known as the CSN Foundation was established. To reflect its growing
+            importance in the region and the number of types of degrees it
+            awarded, the school became the College of Southern Nevada in 2007.
+          </p>
+
+          <div className="mt-12">
+            <SectionHeading>Leadership committed to success</SectionHeading>
+            <div className="mt-5 space-y-5 text-base leading-relaxed">
+              <p>
+                <strong className="text-[#004990]">
+                  Dr. Stacy Klippenstein, President,
+                </strong>{" "}
+                came to CSN in 2025, bringing more than 30 years of experience
+                in higher education administration and leadership. Known to
+                colleagues and students as &ldquo;Dr. Klip,&rdquo; he believes
+                in creating and nurturing a community of thinkers and
+                collaborators and is passionate about helping students earn
+                their degrees and workforce credentials. Prior to coming to CSN,
+                he was president of Mohave College in Arizona and Miles
+                Community College in Montana.
+              </p>
+              <p>
+                <strong className="text-[#004990]">Dr. James R. McCoy</strong>{" "}
+                serves as Executive Vice President for Academic Affairs and
+                Chief Academic Officer, where he oversees approximately 1,400
+                faculty serving about 40,000 students each year and draws upon
+                more than 26 years of higher education leadership experience,
+                including prior service as Assistant Vice Chancellor for Student
+                Success for the Nevada System of Higher Education. As one of the
+                executive sponsors for CSN&rsquo;s proposed Northwest Campus,
+                Dr. McCoy is helping to lead the planning and development of the
+                transformational new campus.
+              </p>
+            </div>
           </div>
         </div>
       </section>
@@ -468,7 +471,10 @@ export default function CsnfCampaignPage({
       </section>
 
       {/* FAQ */}
-      <section id="faq" className="border-t border-[#d8e3ef] bg-[#f5f8fc] py-14">
+      <section
+        id="faq"
+        className="border-t border-[#d8e3ef] bg-[#f5f8fc] py-14"
+      >
         <div className="mx-auto max-w-3xl px-6">
           <SectionHeading>Frequently asked questions</SectionHeading>
           <div className="mt-6 divide-y divide-[#d8e3ef] border-y border-[#d8e3ef]">
@@ -510,7 +516,10 @@ export default function CsnfCampaignPage({
             </a>
             <p className="text-sm text-white/85">
               or contact Kayla Jones, Engagement Director, at{" "}
-              <a className="font-semibold underline" href={`mailto:${CONTACT_EMAIL}`}>
+              <a
+                className="font-semibold underline"
+                href={`mailto:${CONTACT_EMAIL}`}
+              >
                 {CONTACT_EMAIL}
               </a>
             </p>
@@ -530,10 +539,7 @@ export default function CsnfCampaignPage({
           />
           <p className="text-sm text-[#1f2933]/70">
             Powered by{" "}
-            <Link
-              href="/"
-              className="font-semibold text-[#004990] underline"
-            >
+            <Link href="/" className="font-semibold text-[#004990] underline">
               Catapult Fundraising
             </Link>
           </p>
