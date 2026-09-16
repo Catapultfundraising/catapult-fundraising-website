@@ -88,6 +88,43 @@ const FIRST_BUILDING_POINTS = [
   "Establish the first Northwest presence of CSN High School and expand access to dual enrollment.",
 ];
 
+function WrapFigure({
+  src,
+  alt,
+  width,
+  height,
+  side = "right",
+  caption,
+}: {
+  src: string;
+  alt: string;
+  width: number;
+  height: number;
+  side?: "left" | "right";
+  caption?: string;
+}) {
+  const sideClasses =
+    side === "right"
+      ? "sm:float-right sm:ml-7 sm:mr-0"
+      : "sm:float-left sm:mr-7 sm:ml-0";
+  return (
+    <figure className={`mb-6 mt-2 w-full sm:w-[46%] ${sideClasses}`}>
+      <Image
+        src={src}
+        alt={alt}
+        width={width}
+        height={height}
+        className="w-full rounded-md object-cover"
+      />
+      {caption ? (
+        <figcaption className="mt-2 text-sm text-[#1f2933]/70">
+          {caption}
+        </figcaption>
+      ) : null}
+    </figure>
+  );
+}
+
 function SectionHeading({ children }: { children: React.ReactNode }) {
   return (
     <h2 className="text-2xl font-bold uppercase tracking-wide text-[#004990] sm:text-3xl">
@@ -212,7 +249,14 @@ export default function CsnfCampaignPage() {
 
         <div className="mt-12">
           <SectionHeading>A proven solution for Southern Nevada</SectionHeading>
-          <div className="mt-5 space-y-5 text-base leading-relaxed">
+          <div className="mt-5 space-y-5 text-base leading-relaxed after:block after:clear-both after:content-['']">
+            <WrapFigure
+              src="/csnf/students-library.jpg"
+              alt="CSN students studying together in a campus library"
+              width={542}
+              height={361}
+              side="right"
+            />
             <p>
               For more than 55 years, the College of Southern Nevada has provided
               affordable, high-quality education that helps students achieve
@@ -230,20 +274,19 @@ export default function CsnfCampaignPage() {
               of the fastest-growing areas of Southern Nevada.
             </p>
           </div>
-          <figure className="mt-8">
-            <Image
-              src="/csnf/students-library.jpg"
-              alt="CSN students studying together in a campus library"
-              width={542}
-              height={361}
-              className="w-full rounded-md object-cover"
-            />
-          </figure>
         </div>
 
         <div className="mt-12">
           <SectionHeading>The CSN Northwest Campus</SectionHeading>
           <div className="mt-5 space-y-5 text-base leading-relaxed">
+            <WrapFigure
+              src="/csnf/campus-entrance.jpg"
+              alt="Rendering of the entrance to the first building on the CSN Northwest Campus"
+              width={883}
+              height={456}
+              side="left"
+              caption="Rendering of the first building on the CSN Northwest Campus."
+            />
             <p>
               More than 20 years ago, CSN acquired over 40 acres for a future
               campus in Northwest Las Vegas. That long-awaited vision is now
@@ -268,7 +311,7 @@ export default function CsnfCampaignPage() {
               years. The first building on the new campus will:
             </p>
           </div>
-          <ul className="mt-5 space-y-3">
+          <ul className="mt-5 space-y-3 after:block after:clear-both after:content-['']">
             {FIRST_BUILDING_POINTS.map((point) => (
               <li key={point} className="flex gap-3 text-base leading-relaxed">
                 <span
@@ -279,25 +322,20 @@ export default function CsnfCampaignPage() {
               </li>
             ))}
           </ul>
-          <figure className="mt-8">
-            <Image
-              src="/csnf/campus-entrance.jpg"
-              alt="Rendering of the entrance to the first building on the CSN Northwest Campus"
-              width={883}
-              height={456}
-              className="w-full rounded-md object-cover"
-            />
-            <figcaption className="mt-2 text-sm text-[#1f2933]/70">
-              Rendering of the first building on the CSN Northwest Campus.
-            </figcaption>
-          </figure>
         </div>
 
         <div className="mt-12">
           <SectionHeading>
             Phase one: the Southern Desert Regional Police Academy
           </SectionHeading>
-          <div className="mt-5 space-y-5 text-base leading-relaxed">
+          <div className="mt-5 space-y-5 text-base leading-relaxed after:block after:clear-both after:content-['']">
+            <WrapFigure
+              src="/csnf/police-academy.jpg"
+              alt="Recruits at CSN's Southern Desert Regional Police Academy"
+              width={878}
+              height={586}
+              side="right"
+            />
             <p>
               The first building&rsquo;s anchor tenant will be CSN&rsquo;s
               Southern Desert Regional Police Academy, relocating from its
@@ -314,15 +352,6 @@ export default function CsnfCampaignPage() {
               EMS training together under one roof.
             </p>
           </div>
-          <figure className="mt-8">
-            <Image
-              src="/csnf/police-academy.jpg"
-              alt="Recruits at CSN's Southern Desert Regional Police Academy"
-              width={878}
-              height={586}
-              className="w-full rounded-md object-cover"
-            />
-          </figure>
         </div>
 
         <div className="mt-12">
@@ -361,7 +390,14 @@ export default function CsnfCampaignPage() {
 
         <div className="mt-12">
           <SectionHeading>Support from the community is critical</SectionHeading>
-          <div className="mt-5 space-y-5 text-base leading-relaxed">
+          <div className="mt-5 space-y-5 text-base leading-relaxed after:block after:clear-both after:content-['']">
+            <WrapFigure
+              src="/csnf/gift-chart.png"
+              alt="Gift chart showing giving levels from $10,000 to $2,000,000 and above"
+              width={519}
+              height={519}
+              side="left"
+            />
             <p>
               CSN&rsquo;s Northwest Campus campaign will require support at many
               different levels to reach the $10 million philanthropic goal. Every
@@ -370,24 +406,16 @@ export default function CsnfCampaignPage() {
               illustrates the kinds of gifts that will make a campaign like this
               possible.
             </p>
+            <p>
+                The community has waited for two decades for the Northwest Campus
+              to come to life, and the time has now come. The first building on
+              the CSN Northwest campus will transform the area, bringing
+              affordable higher education to the Northwest Valley for the first
+              time and
+              providing a new home for CSN&rsquo;s Southern Desert Regional
+              Police Academy.
+            </p>
           </div>
-          <figure className="mt-8 flex justify-center">
-            <Image
-              src="/csnf/gift-chart.png"
-              alt="Gift chart showing giving levels from $10,000 to $2,000,000 and above"
-              width={519}
-              height={519}
-              className="w-full max-w-md"
-            />
-          </figure>
-          <p className="mt-6 text-base leading-relaxed">
-            The community has waited for two decades for the Northwest Campus to
-            come to life, and the time has now come. The first building on the
-            CSN Northwest campus will transform the area, bringing affordable
-            higher education to the Northwest Valley for the first time and
-            providing a new home for CSN&rsquo;s Southern Desert Regional Police
-            Academy.
-          </p>
         </div>
       </section>
 
