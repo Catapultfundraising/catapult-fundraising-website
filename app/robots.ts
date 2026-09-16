@@ -21,6 +21,7 @@ const DISALLOWED_INTERNAL_TOOLS = [
   // feasibility study interview invitation, never meant to be indexed. Its
   // own noindex tag in app/csnf/page.tsx is the primary mechanism.
   "/csnf",
+  "/csnfvip",
 ];
 
 export default function robots(): MetadataRoute.Robots {
