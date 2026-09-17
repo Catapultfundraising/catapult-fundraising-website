@@ -18,6 +18,17 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "loyal-small-dollar-donors-nobody-visits",
+    title: "The Loyal Small-Dollar Donor Nobody Ever Visits",
+    description:
+      "Anthony R. Alonso on the donors who have given every year for a decade without a single conversation, why loyalty predicts legacy gifts better than wealth, and how one list splits into a legacy program and a mid-level program.",
+    readTime: "7 min read",
+    image: "/blog/loyal-small-dollar-donors/hero-loyal-donor.jpg",
+    alt: "Two experienced women smiling as they open a letter together at home",
+    pillars: ["Planned Giving", "Donor Acquisition & Retention"],
+    services: ["legacy-giving", "donor-engagement"],
+  },
+  {
     slug: "lapsed-donor-reactivation-win-back-your-database",
     title:
       "Only 4% of Your Donor Database Gave This Year. Here’s How to Win the Rest Back.",
