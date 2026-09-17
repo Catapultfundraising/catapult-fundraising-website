@@ -168,7 +168,7 @@ export default function CsnfCampaignPage({
               A $10 Million Philanthropic Campaign
             </p>
             <h1 className="mt-3 max-w-2xl text-3xl font-bold leading-tight text-white sm:text-5xl">
-              Bringing higher education home to the Northwest Valley
+              Bringing higher education home to the Northwest Community
             </h1>
             <p className="mt-4 max-w-xl text-base text-white/90 sm:text-lg">
               The CSN Northwest Campus will open the doors of affordable college
