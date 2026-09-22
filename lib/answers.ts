@@ -637,6 +637,7 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "Hidden Major Gift Potential in a Performing Arts Organization's Donor Base", href: "/insights/case-studies/engaging-hidden-donor-potential-performing-arts-organization" },
       { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
     ],
   },
   {
