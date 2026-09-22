@@ -18,6 +18,17 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "planned-giving-loyalty-jeff-grandy-first-day-podcast",
+    title: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor",
+    description:
+      "Jeff Grandy joins The Fund Raising School's First Day podcast to explain why loyalty identifies planned giving prospects better than wealth does, and how to open that first conversation.",
+    readTime: "9 min read",
+    image: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast/first-day-podcast-jeff-grandy.jpg",
+    alt: "First Day Podcast episode card featuring Jeff Grandy of Catapult Fundraising, hosted by Bill Stanczykiewicz, Ed.D., of The Fund Raising School",
+    pillars: ["Planned Giving"],
+    services: ["legacy-giving"],
+  },
+  {
     slug: "lapsed-donor-reactivation-win-back-your-database",
     title:
       "Only 4% of Your Donor Database Gave This Year. Here’s How to Win the Rest Back.",

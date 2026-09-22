@@ -107,6 +107,7 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
       { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
     ],
   },
   {
@@ -896,6 +897,7 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "Legacy & Planned Giving Programs", href: "/services/legacy-giving" },
       { label: "Growing Your Legacy Society — Why Aren't We Asking?", href: "/blog/growing-your-legacy-society-why-arent-we-asking" },
+      { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
     ],
   },
   {
@@ -911,6 +913,7 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "Legacy Call — International Ministry", href: "/insights/case-studies/legacy-call-international-ministry" },
       { label: "Legacy Call — New Jersey Hospital", href: "/insights/case-studies/legacy-call-new-jersey-hospital" },
+      { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
     ],
   },
   {
@@ -925,6 +928,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Legacy Calls — The Hill School", href: "/insights/case-studies/legacy-calls-hill-school" },
+      { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
       { label: "Legacy & Planned Giving Programs", href: "/services/legacy-giving" },
     ],
   },

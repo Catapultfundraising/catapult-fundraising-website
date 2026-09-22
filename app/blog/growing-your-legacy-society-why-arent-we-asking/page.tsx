@@ -210,6 +210,16 @@ export default function GrowingYourLegacySocietyPost() {
           result.
         </p>
 
+        <p className="mt-6 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          For more on how to spot those donors and open the first conversation, Catapult Vice
+          President Jeff Grandy walked through the loyalty signals and the opening call on The Fund
+          Raising School&rsquo;s First Day podcast:{" "}
+          <Link href="/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" className="font-semibold text-[rgb(var(--navy))] underline">
+            Loyalty, Not Wealth: Finding Your Next Legacy Donor
+          </Link>
+          .
+        </p>
+
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Ready to find out how many legacy prospects are already sitting in your database?{" "}
           <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">

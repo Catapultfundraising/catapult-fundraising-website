@@ -188,7 +188,12 @@ export default function LegacyGivingPage() {
 
       <RelatedReading
         heading="Legacy and planned giving guidance."
-        service="legacy-giving"
+        postSlugs={[
+          "planned-giving-loyalty-jeff-grandy-first-day-podcast",
+          "growing-your-legacy-society-why-arent-we-asking",
+          "national-make-a-will-month-planned-giving-conversation",
+          "giving-usa-2026-record-giving-wealth-transfer",
+        ]}
         pillars={["Planned Giving"]}
       />
 
