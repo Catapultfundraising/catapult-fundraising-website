@@ -2,6 +2,7 @@ import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { TestimonialStrip } from "@/components/testimonial-strip";
+import { RelatedReading } from "@/components/related-reading";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -194,6 +195,16 @@ export default function ResultsPage() {
           </div>
         </div>
       </section>
+
+      <RelatedReading
+        heading="How these programs work in practice."
+        postSlugs={[
+          "planned-giving-loyalty-jeff-grandy-first-day-podcast",
+          "lapsed-donor-reactivation-win-back-your-database",
+          "capital-campaign-donor-engagement-legacy-giving-best-practices",
+        ]}
+        answerLimit={0}
+      />
 
       <TestimonialStrip />
       <CtaBand />

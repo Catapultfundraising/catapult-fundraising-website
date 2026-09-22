@@ -4,6 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { ContentBlocks } from "@/components/content-blocks";
 import { CtaBand } from "@/components/cta-band";
+import { RelatedReading } from "@/components/related-reading";
 import { CASE_STUDIES, getCaseStudyBySlug } from "@/lib/case-studies";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -112,6 +113,20 @@ export default async function CaseStudyPage({
           <ContentBlocks blocks={cs.content} />
         </div>
       </article>
+
+      {/* Legacy Call case studies link out to our planned giving reading so
+          every Legacy Call surface on the site points to the same guidance. */}
+      {cs.sector.includes("Legacy") ? (
+        <RelatedReading
+          heading="More on legacy and planned giving."
+          postSlugs={[
+            "planned-giving-loyalty-jeff-grandy-first-day-podcast",
+            "growing-your-legacy-society-why-arent-we-asking",
+            "national-make-a-will-month-planned-giving-conversation",
+          ]}
+          pillars={["Planned Giving"]}
+        />
+      ) : null}
 
       <CtaBand />
     </>

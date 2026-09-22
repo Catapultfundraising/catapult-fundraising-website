@@ -260,6 +260,15 @@ export default function BestPracticesPost() {
 
       <div className="clear-both" />
 
+        <p className="mt-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          Jeff Grandy explains how Catapult identifies that loyalty, and why non-consecutive givers
+          belong on the list, on The Fund Raising School&rsquo;s First Day podcast:{" "}
+          <Link href="/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" className="font-semibold text-[rgb(var(--navy))] underline">
+            Loyalty, Not Wealth: Finding Your Next Legacy Donor
+          </Link>
+          .
+        </p>
+
         <h3 className="mt-6 font-display text-xl text-[rgb(var(--navy))]">2. Lead with gratitude, not a request</h3>
         <p className="mt-2 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           An effective legacy call opens by thanking the donor for their specific giving history, not by asking for

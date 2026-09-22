@@ -3,6 +3,7 @@ import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { QaLinksSection } from "@/components/qa-links-section";
 import { CtaBand } from "@/components/cta-band";
+import { RelatedReading } from "@/components/related-reading";
 import { ArrowRight, Building, Users, Award } from "lucide-react";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -239,6 +240,16 @@ export default function AboutPage() {
         heading="Frequently asked questions about Catapult Fundraising."
         intro="Direct answers to the questions we hear most, each linked to the page that covers it in full depth."
         items={ABOUT_FAQS}
+      />
+
+      <RelatedReading
+        heading="Our team, in their own words."
+        postSlugs={[
+          "planned-giving-loyalty-jeff-grandy-first-day-podcast",
+          "why-a-feasibility-study-matters-before-a-capital-campaign",
+          "why-people-give-trust-connection-moment-to-act",
+        ]}
+        answerLimit={0}
       />
 
       <CtaBand />
