@@ -45,6 +45,11 @@ export interface Answer {
   // schema text); `sections` is the supporting depth a buyer researching the
   // decision actually reads. Only the highest-intent questions carry it.
   sections?: AnswerSection[];
+  // Optional pointer to the service page that should rank for the commercial
+  // version of this question. Rendered right under the short answer so Google
+  // sees one clear primary page for the head term instead of rotating between
+  // the answer, the service page, and related articles.
+  primaryService?: { label: string; href: string; blurb: string };
 }
 
 export const PILLARS = [
@@ -256,6 +261,11 @@ export const ANSWERS: Answer[] = [
   },
   {
     slug: "what-is-a-capital-campaign-feasibility-study",
+    primaryService: {
+      label: "Capital campaign feasibility study",
+      href: "/services/feasibility-study",
+      blurb: "How Catapult runs a study: confidential interviews, a tested goal, a gift chart, and a written report for your board.",
+    },
     pillar: "Feasibility Studies",
     question: "What is a capital campaign feasibility study, and who should conduct one?",
     metaTitle: "What is a capital campaign feasibility study?",
@@ -315,6 +325,11 @@ export const ANSWERS: Answer[] = [
   },
   {
     slug: "how-much-does-a-feasibility-study-cost",
+    primaryService: {
+      label: "Capital campaign feasibility study",
+      href: "/services/feasibility-study",
+      blurb: "How Catapult runs a study: confidential interviews, a tested goal, a gift chart, and a written report for your board.",
+    },
     pillar: "Feasibility Studies",
     question: "How much does a fundraising feasibility study cost?",
     metaDescription: "Feasibility study cost varies with scope, but a well-run study generally ranges between $50,000 and $75,000, driven by interview volume, travel, and",

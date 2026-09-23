@@ -37,6 +37,16 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: "/callcentermanager",
+        destination: "/services/annual-fund",
+        permanent: true,
+      },
+      {
+        source: "/majordonorresearch",
+        destination: "/services/capital-campaign",
+        permanent: true,
+      },
+      {
         source: "/legacycall",
         destination: "/services/legacy-giving",
         permanent: true,

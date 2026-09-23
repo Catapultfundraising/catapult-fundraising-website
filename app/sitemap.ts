@@ -72,7 +72,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast": "2026-09-22",
   "/blog/lapsed-donor-reactivation-win-back-your-database": "2026-09-11",
   "/blog/why-people-give-trust-connection-moment-to-act": "2026-09-12",
-  "/blog/why-a-feasibility-study-matters-before-a-capital-campaign": "2026-09-12",
+  "/blog/why-a-feasibility-study-matters-before-a-capital-campaign": "2026-09-22",
   "/blog/giving-usa-2026-record-giving-wealth-transfer": "2026-08-29",
   "/blog/how-much-does-a-capital-campaign-cost": "2026-08-29",
   "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices": "2026-08-12",
@@ -93,7 +93,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
 // Every /answers/[slug] page renders from the single shared lib/answers.ts
 // data file, so they all share that file's own last-real-edit date rather
 // than needing 31 separate entries above.
-const ANSWERS_LAST_MODIFIED = "2026-09-12";
+const ANSWERS_LAST_MODIFIED = "2026-09-22";
 
 const FALLBACK_DATE = "2026-08-29";
 
