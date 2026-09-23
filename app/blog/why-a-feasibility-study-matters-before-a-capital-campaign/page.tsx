@@ -390,8 +390,14 @@ export default function FeasibilityStudyPost() {
         </p>
 
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
-          Catapult Fundraising conducts feasibility studies, readiness assessments, and capital
-          campaign planning for nonprofits across the country. If you are weighing a campaign and
+          Catapult Fundraising conducts{" "}
+          <Link
+            href="/services/feasibility-study"
+            className="font-semibold text-[rgb(var(--navy))] underline"
+          >
+            capital campaign feasibility studies
+          </Link>
+          , readiness assessments, and capital campaign planning for nonprofits across the country. If you are weighing a campaign and
           want an honest read on whether you are ready,{" "}
           <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">
             let&rsquo;s start the conversation
