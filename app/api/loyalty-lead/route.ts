@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { LEAD_EMAILS } from "@/lib/constants";
+import { sendToolLeadEmail } from "@/lib/tool-lead-email";
 
 /**
  * Lead capture for the gated Donor Loyalty and Legacy Report Card.
@@ -105,24 +105,7 @@ async function sendEmailNotification(subject: string, rows: [string, string][]) 
     </table>
   `;
 
-  // See the note in /api/contact: the Resend sandbox sender can only deliver
-  // to the account address, so only the first lead address is used.
-  const res = await fetch("https://api.resend.com/emails", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-    body: JSON.stringify({
-      from: "Catapult Fundraising Website <onboarding@resend.dev>",
-      to: [LEAD_EMAILS[0]],
-      subject,
-      html,
-    }),
-  });
-
-  if (!res.ok) {
-    console.error("Resend API error (loyalty lead):", res.status, await res.text());
-    return { sent: false };
-  }
-  return { sent: true };
+  return sendToolLeadEmail(apiKey, { subject: subject, html }, "loyalty lead");
 }
 
 async function createNote(token: string, contactId: string, noteBody: string) {

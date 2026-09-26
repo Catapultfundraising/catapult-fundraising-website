@@ -59,7 +59,6 @@ export const DECKS: Deck[] = [
       "Feasibility study, campaign counsel, and the calling muscle to finish. A senior executive, creative writer, account manager, and prospect researchers on your campaign, across four phases and a 24 to 36 month arc.",
     slideCount: 5,
     quoteService: "capital-campaign",
-    quotesLast: ["capital-campaign-client"],
     serviceHref: "/services/capital-campaign",
     sampleDashboard: {
       href: "/decks/sample-dashboard",

@@ -12,7 +12,7 @@ import {
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Contact",
+  title: "Contact Our Fundraising Consultants",
   description:
     "Start a conversation about capital campaign counsel, annual fund calling, mid-level donor engagement, or legacy giving with Catapult Fundraising.",
   keywords: [
@@ -78,7 +78,8 @@ export default function ContactPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Contact"
+        eyebrowInHeading
+        eyebrow="Contact Catapult Fundraising"
         title="Let's talk about growing your donor base."
         description="Whether you're exploring a feasibility study, launching a public-phase calling program, building a mid-level donor pipeline, or growing legacy gifts, we respond to every inquiry within one business day."
       />

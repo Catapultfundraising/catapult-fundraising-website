@@ -8,7 +8,7 @@ import { Users } from "lucide-react";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  "title": "Capital Campaigns for Schools and Universities",
+  "title": "School & University Capital Campaigns",
   "description": "How alumni and education donors actually behave in a capital campaign: wealth capacity versus real giving, dual goal scenarios, alumni file hygiene, and why timing follows leadership.",
   "keywords": [
     "university capital campaign consultant",
@@ -174,7 +174,8 @@ export default function EducationDonorBehaviorPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Capital Campaigns by Sector"
+        eyebrowInHeading
+        eyebrow="Capital Campaigns for"
         title="Schools and universities."
         description="Alumni are not simply giving to an institution. They are often giving to a part of their own story. That connection matters. It affects what they care about, how they respond to a campaign, and sometimes how quickly they are willing to make a gift."
       />

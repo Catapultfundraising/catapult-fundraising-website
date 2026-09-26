@@ -16,7 +16,7 @@ const HERO_ALT =
 const GFX = "/blog/lapsed-donor-reactivation";
 
 export const metadata = {
-  title: TITLE,
+  title: { absolute: "Lapsed Donor Reactivation: Win Back Your Database | Catapult" },
   description: DESCRIPTION,
   keywords: [
     "lapsed donor reactivation",

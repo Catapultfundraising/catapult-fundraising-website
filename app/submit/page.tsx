@@ -2,7 +2,7 @@ import { PageHero } from "@/components/page-hero";
 import { SubmitToHubspotForm } from "@/components/submit-to-hubspot-form";
 
 export const metadata = {
-  title: "Partner Intake | Catapult Fundraising",
+  title: "Partner Intake",
   description:
     "Share information about your organization, donor base, and case for support so our team can follow up on a potential partnership.",
   alternates: { canonical: "/submit" },

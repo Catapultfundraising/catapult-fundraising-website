@@ -4,11 +4,12 @@ import { CtaBand } from "@/components/cta-band";
 import { RelatedReading } from "@/components/related-reading";
 import { PhoneCall } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
+import { TestimonialQuote } from "@/components/testimonial-quote";
 
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Annual Fund Calling Services (AF Connect)",
+  title: "Annual Fund Calling Services",
   description:
     "High-end annual fund calling that treats every donor like a major gift prospect, with segmented outreach and digital stewardship.",
   keywords: [
@@ -134,7 +135,8 @@ export default function AnnualFundPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Annual Fund Calling"
+        eyebrowInHeading
+        eyebrow="Annual Fund Calling Services"
         title="Every donor deserves a face-to-face-quality conversation — even on the phone."
         description="AF Connect combines trained Engagement Officers, donor segmentation, and digital stewardship into one program designed to upgrade donors, re-engage lapsed givers, and acquire new ones."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/513c85b8-7588-44b1-9dcb-41e3cf4f486e.jpeg"
@@ -159,22 +161,7 @@ export default function AnnualFundPage() {
           </p>
           <div className="mt-8 space-y-12">
             {testimonialsFor("annual-fund").map((t) => (
-              <div key={t.id}>
-                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]">
-                  {t.quote.map((para, i) => (
-                    <p key={i}>
-                      {i === 0 && "“"}
-                      {para}
-                      {i === t.quote.length - 1 && "”"}
-                    </p>
-                  ))}
-                </blockquote>
-                <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
-                  <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
-                  <br />
-                  {t.org}
-                </p>
-              </div>
+              <TestimonialQuote key={t.id} t={t} />
             ))}
           </div>
         </div>

@@ -5,11 +5,12 @@ import { RelatedReading } from "@/components/related-reading";
 import { LoyaltyCalloutCard } from "@/components/tool-callout";
 import { Users2 } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
+import { TestimonialQuote } from "@/components/testimonial-quote";
 
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Mid-Level Donor Engagement",
+  title: "Mid-Level Donor Engagement Program",
   description:
     "A multi-channel Donor Engagement program that upgrades mid-level donors, deepens retention, and builds a qualified major-gift pipeline.",
   keywords: [
@@ -144,7 +145,8 @@ export default function DonorEngagementPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Mid-Level Donor Engagement"
+        eyebrowInHeading
+        eyebrow="Mid-Level Donor Engagement Program"
         title="Turn your best-kept fundraising secret — mid-level donors — into your next major gift pipeline."
         description="A dedicated Engagement Officer treats every qualifying donor like a portfolio assignment, building the relationship before the ask and reporting results daily."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f814dca4-4b83-4023-925a-9a7274bbf2d2.jpeg"
@@ -170,22 +172,7 @@ export default function DonorEngagementPage() {
           </p>
           <div className="mt-8 space-y-12">
             {testimonialsFor("donor-engagement").map((t) => (
-              <div key={t.id}>
-                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]">
-                  {t.quote.map((para, i) => (
-                    <p key={i}>
-                      {i === 0 && "“"}
-                      {para}
-                      {i === t.quote.length - 1 && "”"}
-                    </p>
-                  ))}
-                </blockquote>
-                <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
-                  <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
-                  <br />
-                  {t.org}
-                </p>
-              </div>
+              <TestimonialQuote key={t.id} t={t} />
             ))}
           </div>
         </div>

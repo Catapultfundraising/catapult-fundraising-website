@@ -5,6 +5,7 @@ import { RelatedReading } from "@/components/related-reading";
 import { LoyaltyCalloutCard } from "@/components/tool-callout";
 import { Landmark } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
+import { TestimonialQuote } from "@/components/testimonial-quote";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -135,7 +136,8 @@ export default function LegacyGivingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Legacy & Planned Giving"
+        eyebrowInHeading
+        eyebrow="Legacy & Planned Giving Programs"
         title="Your most loyal donors are ready for a legacy conversation. Legacy Call finds them."
         description="A full-service, two-tier planned giving methodology, not a single survey, that uncovers bequests and deferred gifts most capital campaigns leave on the table."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a0d01eb-79d6-4dfe-b7ce-54b1b8418ee0.png"
@@ -161,22 +163,7 @@ export default function LegacyGivingPage() {
           </p>
           <div className="mt-8 space-y-12">
             {testimonialsFor("legacy-giving").map((t) => (
-              <div key={t.id}>
-                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]">
-                  {t.quote.map((para, i) => (
-                    <p key={i}>
-                      {i === 0 && "“"}
-                      {para}
-                      {i === t.quote.length - 1 && "”"}
-                    </p>
-                  ))}
-                </blockquote>
-                <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
-                  <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
-                  <br />
-                  {t.org}
-                </p>
-              </div>
+              <TestimonialQuote key={t.id} t={t} />
             ))}
           </div>
         </div>

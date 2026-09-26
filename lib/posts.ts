@@ -8,6 +8,8 @@ export interface Post {
   title: string;
   description: string;
   readTime: string;
+  /** Publish date (YYYY-MM-DD), matches the article's JSON-LD datePublished. Drives "latest articles". */
+  date: string;
   image: string;
   alt: string;
   /** Answer-library pillars this article supports, used for related links. */
@@ -18,7 +20,20 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "new-charitable-deduction-2026-donor-conversation",
+    date: "2026-09-25",
+    title: "A New Tax Incentive, and How to Use It in a Donor Conversation",
+    description:
+      "Zina Birmingham on the 2026 charitable deduction for donors who don't itemize: what it is, what not to say, which lapsed donors to call first, and where the tax change belongs in the conversation.",
+    readTime: "10 min read",
+    image: "/blog/new-charitable-deduction-2026-donor-conversation/hero-donor-phone-call.jpg",
+    alt: "A smiling older woman with glasses talking on her phone at home",
+    pillars: ["Annual Fund", "Donor Acquisition & Retention"],
+    services: ["annual-fund", "donor-engagement"],
+  },
+  {
     slug: "planned-giving-loyalty-jeff-grandy-first-day-podcast",
+    date: "2026-09-22",
     title: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor",
     description:
       "Jeff Grandy joins The Fund Raising School's First Day podcast to explain why loyalty identifies planned giving prospects better than wealth does, and how to open that first conversation.",
@@ -30,6 +45,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "lapsed-donor-reactivation-win-back-your-database",
+    date: "2026-09-11",
     title:
       "Only 4% of Your Donor Database Gave This Year. Here’s How to Win the Rest Back.",
     description:
@@ -42,6 +58,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "why-people-give-trust-connection-moment-to-act",
+    date: "2026-09-05",
     title: "Why People Give: Trust, Connection, and the Moment to Act",
     description:
       "Amy C. Wiles on why donors rarely give because an organization has a need, and what actually makes someone ready to act on something they already care about.",
@@ -53,6 +70,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "why-a-feasibility-study-matters-before-a-capital-campaign",
+    date: "2026-08-26",
     title: "Why a Feasibility Study Matters Before a Capital Campaign",
     description:
       "Jeff Grandy on why campaigns rarely struggle because the mission is weak, and how a feasibility study tests the goal, the case, the leadership, and the prospect pipeline before you go public.",
@@ -64,6 +82,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "national-make-a-will-month-planned-giving-conversation",
+    date: "2026-08-13",
     title: "National Make a Will Month: The Planned Giving Conversation You Keep Avoiding",
     description:
       "Anthony R. Alonso on why National Make a Will Month is the perfect low-pressure moment to start the bequest conversation, and the two-tier calling model that turns loyal donors into legacy donors.",
@@ -75,6 +94,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "giving-usa-2026-record-giving-wealth-transfer",
+    date: "2026-08-12",
     title: "Giving USA 2026: Record Giving, the Great Wealth Transfer, and the Ask We Keep Avoiding",
     description:
       "Anthony R. Alonso on what Giving USA 2026's record $617.2 billion, a 19.7% jump in bequest giving, and the aging of the Baby Boomer generation mean for nonprofit fundraisers who've stopped asking.",
@@ -86,6 +106,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "the-state-of-fundraising-in-nevada",
+    date: "2026-08-07",
     title: "The State of Fundraising in Nevada",
     description:
       "Nevada ranks 49th out of 50 states in WalletHub's 2025 Most Charitable States study. What the data actually means for capital campaign strategy.",
@@ -97,6 +118,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "how-much-does-a-capital-campaign-cost",
+    date: "2026-08-07",
     title: "How Much Does a Capital Campaign Cost?",
     description:
       "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
@@ -108,6 +130,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "capital-campaign-donor-engagement-legacy-giving-best-practices",
+    date: "2026-07-22",
     title:
       "Capital Campaigns, Mid-Level Donor Engagement, and Legacy Giving: A Best Practices Guide",
     description:
@@ -120,6 +143,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "understanding-latino-philanthropy",
+    date: "2026-08-12",
     title: "Understanding Latino Philanthropy: Lessons for Nonprofit Fundraisers",
     description:
       "Anthony Alonso on why 'Latinos don't give' is a myth, what the data actually says about Hispanic and Latino giving, and how to frame a case for support that resonates.",
@@ -131,6 +155,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "the-ask-ladder-structuring-a-major-gift-solicitation",
+    date: "2026-08-12",
     title: "The Ask Ladder: How to Structure a Major Gift Solicitation",
     description:
       "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
@@ -142,6 +167,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "planning-a-capital-campaign-gift-chart-quiet-phase",
+    date: "2026-08-12",
     title: "Planning a Capital Campaign: The Gift Chart and Quiet Phase",
     description:
       "The gift chart math, feasibility study, board participation standard, and quiet-phase discipline behind a successful capital campaign.",
@@ -153,6 +179,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "growing-your-legacy-society-why-arent-we-asking",
+    date: "2026-08-12",
     title: "Growing Your Legacy Society: Why Aren't We Asking?",
     description:
       "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
@@ -164,6 +191,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "seven-touchpoints-donor-loyalty-between-asks",
+    date: "2026-08-12",
     title: "Seven Touchpoints: Building Donor Loyalty Between Asks",
     description:
       "The low-cost touchpoints, from the 'five by ten' calling habit to digital voicemail drops, that build donor loyalty and quietly upgrade mid-level gifts.",
@@ -175,6 +203,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "key-steps-for-soliciting-major-donors",
+    date: "2026-08-12",
     title: "Key Steps for Soliciting Major Donors",
     description:
       "Catapult's “four-right rule” for turning long-time supporters into major gift donors: the right person asking the right prospect for the right amount at the right time.",
@@ -186,6 +215,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "how-to-effectively-use-the-phone-today",
+    date: "2026-08-07",
     title: "How to Effectively Use the Phone Today",
     description:
       "Anthony R. Alonso on why telefundraising is far from dead, and the two-step, personalized method that lifts gift sizes 25 to 30 percent.",
@@ -197,6 +227,7 @@ export const POSTS: Post[] = [
   },
   {
     slug: "multi-channel-fundraising-are-you-missing-the-mark",
+    date: "2026-08-12",
     title: "Multi-Channel Fundraising — Are You Missing the Mark?",
     description:
       "Anthony Alonso on why digital fundraising alone can't upgrade donors or build a major gift pipeline, and the segmentation, storytelling, and calling strategy that can.",
@@ -215,4 +246,15 @@ export function postsForService(service: string, limit = 3): Post[] {
 
 export function postsForPillar(pillar: string, limit = 3): Post[] {
   return POSTS.filter((p) => p.pillars.includes(pillar)).slice(0, limit);
+}
+
+/**
+ * Newest articles first, by publish date. Articles published the same day keep
+ * their order in POSTS (newest additions go at the top of the list).
+ */
+export function latestPosts(limit?: number): Post[] {
+  const sorted = POSTS.map((p, i) => ({ p, i }))
+    .sort((a, b) => b.p.date.localeCompare(a.p.date) || a.i - b.i)
+    .map(({ p }) => p);
+  return limit ? sorted.slice(0, limit) : sorted;
 }

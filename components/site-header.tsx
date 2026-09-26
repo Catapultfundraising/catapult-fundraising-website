@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils";
 import {
   SERVICE_LINKS,
   INSIGHTS_LINKS,
+  FREE_TOOLS_LINKS,
   NAV_LINKS,
   ABOUT_LINKS,
   FIRM_PHONE,
@@ -22,11 +23,14 @@ export function SiteHeader() {
   const [servicesOpen, setServicesOpen] = useState(false);
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const [mobileToolsOpen, setMobileToolsOpen] = useState(false);
   const [mobileServicesOpen, setMobileServicesOpen] = useState(false);
   const [mobileInsightsOpen, setMobileInsightsOpen] = useState(false);
   const servicesRef = useRef<HTMLDivElement>(null);
   const insightsRef = useRef<HTMLDivElement>(null);
   const aboutRef = useRef<HTMLDivElement>(null);
+  const toolsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -39,6 +43,9 @@ export function SiteHeader() {
       if (aboutRef.current && !aboutRef.current.contains(e.target as Node)) {
         setAboutOpen(false);
       }
+      if (toolsRef.current && !toolsRef.current.contains(e.target as Node)) {
+        setToolsOpen(false);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
@@ -47,6 +54,7 @@ export function SiteHeader() {
   const isServiceActive = pathname.startsWith("/services");
   const isInsightsActive = pathname.startsWith("/insights") || pathname.startsWith("/blog");
   const isAboutActive = ABOUT_LINKS.some((link) => pathname === link.href);
+  const isToolsActive = pathname.startsWith("/resources");
   const homeLink = NAV_LINKS.find((link) => link.href === "/");
   const restLinks = NAV_LINKS.filter((link) => link.href !== "/");
   // The /research portal is a password-gated internal tool, not a public
@@ -104,129 +112,6 @@ export function SiteHeader() {
           </Link>
         )}
 
-        <nav className="hidden min-w-0 items-center lg:flex">
-          {homeLink && !isHomePage && (
-            <Link
-              href={homeLink.href}
-              className="whitespace-nowrap px-2.5 text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4"
-            >
-              {homeLink.label}
-            </Link>
-          )}
-
-          <div className="relative px-2.5 xl:px-4" ref={servicesRef}>
-            <button
-              onClick={() => setServicesOpen((v) => !v)}
-              className={cn(
-                "flex items-center gap-1 whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
-                isServiceActive && "text-[rgb(var(--navy))]"
-              )}
-            >
-              Services
-              <ChevronDown
-                className={cn("h-4 w-4 transition-transform", servicesOpen && "rotate-180")}
-              />
-            </button>
-            {servicesOpen && (
-              <div className="absolute left-1/2 top-full w-72 -translate-x-1/2 pt-3">
-                <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
-                  {SERVICE_LINKS.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setServicesOpen(false)}
-                      className={cn(
-                        "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
-                        pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
-                      )}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="relative px-2.5 xl:px-4" ref={aboutRef}>
-            <button
-              onClick={() => setAboutOpen((v) => !v)}
-              className={cn(
-                "flex items-center gap-1 whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
-                isAboutActive && "text-[rgb(var(--navy))]"
-              )}
-            >
-              About
-              <ChevronDown
-                className={cn("h-4 w-4 transition-transform", aboutOpen && "rotate-180")}
-              />
-            </button>
-            {aboutOpen && (
-              <div className="absolute left-1/2 top-full w-56 -translate-x-1/2 pt-3">
-                <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
-                  {ABOUT_LINKS.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setAboutOpen(false)}
-                      className={cn(
-                        "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
-                        pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
-                      )}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="relative px-2.5 xl:px-4" ref={insightsRef}>
-            <button
-              onClick={() => setInsightsOpen((v) => !v)}
-              className={cn(
-                "flex items-center gap-1 whitespace-nowrap text-lg font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
-                isInsightsActive && "text-[rgb(var(--navy))]"
-              )}
-            >
-              Insights
-              <ChevronDown
-                className={cn("h-4 w-4 transition-transform", insightsOpen && "rotate-180")}
-              />
-            </button>
-            {insightsOpen && (
-              <div className="absolute left-1/2 top-full w-72 -translate-x-1/2 pt-3">
-                <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
-                  <Link
-                    href="/insights"
-                    onClick={() => setInsightsOpen(false)}
-                    className={cn(
-                      "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
-                      pathname === "/insights" && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
-                    )}
-                  >
-                    All Insights
-                  </Link>
-                  {INSIGHTS_LINKS.map((link) => (
-                    <Link
-                      key={link.href}
-                      href={link.href}
-                      onClick={() => setInsightsOpen(false)}
-                      className={cn(
-                        "block rounded-lg px-4 py-3 text-base font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
-                        pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
-                      )}
-                    >
-                      {link.label}
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-        </nav>
 
         <div className="hidden shrink-0 items-center gap-2.5 lg:flex xl:gap-4">
           {isHomePage && (
@@ -259,6 +144,168 @@ export function SiteHeader() {
         >
           {open ? <X className="h-8 w-8" /> : <Menu className="h-8 w-8" />}
         </button>
+      </div>
+
+      {/* Second row: the full menu sits below the logo so there is room for
+          more items (and larger type) than the old single-row header allowed. */}
+      <div className="hidden border-t border-[rgb(var(--line))]/70 lg:block">
+          <nav className="mx-auto flex max-w-7xl items-center justify-center px-6 py-2 lg:px-10">
+            {homeLink && !isHomePage && (
+              <Link
+                href={homeLink.href}
+                className="whitespace-nowrap px-2.5 text-[22.5px] font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))] xl:px-4"
+              >
+                {homeLink.label}
+              </Link>
+            )}
+
+            <div className="relative px-3 xl:px-5" ref={servicesRef}>
+              <button
+                onClick={() => setServicesOpen((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 whitespace-nowrap text-[22.5px] font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                  isServiceActive && "text-[rgb(var(--navy))]"
+                )}
+              >
+                Services
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform", servicesOpen && "rotate-180")}
+                />
+              </button>
+              {servicesOpen && (
+                <div className="absolute left-1/2 top-full w-72 -translate-x-1/2 pt-3">
+                  <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
+                    {SERVICE_LINKS.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setServicesOpen(false)}
+                        className={cn(
+                          "block rounded-lg px-4 py-3 text-[17px] font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                          pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                        )}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative px-3 xl:px-5" ref={aboutRef}>
+              <button
+                onClick={() => setAboutOpen((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 whitespace-nowrap text-[22.5px] font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                  isAboutActive && "text-[rgb(var(--navy))]"
+                )}
+              >
+                About
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform", aboutOpen && "rotate-180")}
+                />
+              </button>
+              {aboutOpen && (
+                <div className="absolute left-1/2 top-full w-56 -translate-x-1/2 pt-3">
+                  <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
+                    {ABOUT_LINKS.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setAboutOpen(false)}
+                        className={cn(
+                          "block rounded-lg px-4 py-3 text-[17px] font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                          pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                        )}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative px-3 xl:px-5" ref={insightsRef}>
+              <button
+                onClick={() => setInsightsOpen((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 whitespace-nowrap text-[22.5px] font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                  isInsightsActive && "text-[rgb(var(--navy))]"
+                )}
+              >
+                Insights
+                <ChevronDown
+                  className={cn("h-4 w-4 transition-transform", insightsOpen && "rotate-180")}
+                />
+              </button>
+              {insightsOpen && (
+                <div className="absolute left-1/2 top-full w-72 -translate-x-1/2 pt-3">
+                  <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
+                    <Link
+                      href="/insights"
+                      onClick={() => setInsightsOpen(false)}
+                      className={cn(
+                        "block rounded-lg px-4 py-3 text-[17px] font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                        pathname === "/insights" && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                      )}
+                    >
+                      All Insights
+                    </Link>
+                    {INSIGHTS_LINKS.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setInsightsOpen(false)}
+                        className={cn(
+                          "block rounded-lg px-4 py-3 text-[17px] font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                          pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                        )}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="relative px-3 xl:px-5" ref={toolsRef}>
+              <button
+                onClick={() => setToolsOpen((v) => !v)}
+                className={cn(
+                  "flex items-center gap-1 whitespace-nowrap text-[22.5px] font-bold tracking-wide text-[rgb(var(--navy))]/70 transition-colors hover:text-[rgb(var(--navy))]",
+                  isToolsActive && "text-[rgb(var(--navy))]"
+                )}
+              >
+                Free Tools
+                <ChevronDown
+                  className={cn("h-5 w-5 transition-transform", toolsOpen && "rotate-180")}
+                />
+              </button>
+              {toolsOpen && (
+                <div className="absolute left-1/2 top-full w-80 -translate-x-1/2 pt-3">
+                  <div className="rounded-xl border border-[rgb(var(--line))] bg-white p-2 shadow-xl shadow-[rgb(var(--navy))]/10">
+                    {FREE_TOOLS_LINKS.map((link) => (
+                      <Link
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setToolsOpen(false)}
+                        className={cn(
+                          "block rounded-lg px-4 py-3 text-[17px] font-medium text-[rgb(var(--navy))]/80 transition-colors hover:bg-[rgb(var(--paper))] hover:text-[rgb(var(--navy))]",
+                          pathname === link.href && "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"
+                        )}
+                      >
+                        {link.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+          </nav>
       </div>
 
       {open && (
@@ -328,6 +375,30 @@ export function SiteHeader() {
                   All Insights
                 </Link>
                 {INSIGHTS_LINKS.map((link) => (
+                  <Link
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setOpen(false)}
+                    className="py-1.5 text-xs font-medium text-[rgb(var(--navy))]/75"
+                  >
+                    {link.label}
+                  </Link>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setMobileToolsOpen((v) => !v)}
+              className="flex items-center justify-between py-2 text-lg font-bold text-[rgb(var(--navy))]"
+            >
+              Free Tools
+              <ChevronDown
+                className={cn("h-5 w-5 transition-transform", mobileToolsOpen && "rotate-180")}
+              />
+            </button>
+            {mobileToolsOpen && (
+              <div className="flex flex-col gap-0.5 border-l-2 border-[rgb(var(--line))] pl-4">
+                {FREE_TOOLS_LINKS.map((link) => (
                   <Link
                     key={link.href}
                     href={link.href}

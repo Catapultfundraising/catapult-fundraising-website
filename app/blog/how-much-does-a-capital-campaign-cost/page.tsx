@@ -9,7 +9,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "how-much-does-a-capital-campaign-cost";
 
 export const metadata = {
-  title: "How Much Does a Capital Campaign Cost?",
+  title: { absolute: "How Much Does a Capital Campaign Cost? | Catapult" },
   description:
     "What drives capital campaign consulting fees, typical fee structures, and how to think about ROI before you sign a contract.",
   keywords: [

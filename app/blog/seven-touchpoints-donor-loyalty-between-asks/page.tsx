@@ -8,7 +8,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "seven-touchpoints-donor-loyalty-between-asks";
 
 export const metadata = {
-  title: "Seven Touchpoints: Building Donor Loyalty",
+  title: { absolute: "Seven Touchpoints to Build Donor Loyalty | Catapult" },
   description:
     "Anthony Alonso on the low-cost touchpoints, from the 'five by ten' habit to voicemail drops, that build donor loyalty between asks.",
   keywords: [
