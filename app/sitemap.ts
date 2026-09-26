@@ -46,7 +46,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/our-team": "2026-08-12",
   "/contact": "2026-08-03",
   "/results": "2026-08-12",
-  "/services/capital-campaign": "2026-09-11",
+  "/services/capital-campaign": "2026-09-26",
   "/services/feasibility-study": "2026-09-11",
   "/services/capital-campaign/education": "2026-09-05",
   "/services/capital-campaign/churches": "2026-09-05",
@@ -73,13 +73,13 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast": "2026-09-22",
   "/blog/lapsed-donor-reactivation-win-back-your-database": "2026-09-11",
   "/blog/why-people-give-trust-connection-moment-to-act": "2026-09-12",
-  "/blog/why-a-feasibility-study-matters-before-a-capital-campaign": "2026-09-22",
+  "/blog/why-a-feasibility-study-matters-before-a-capital-campaign": "2026-09-26",
   "/blog/giving-usa-2026-record-giving-wealth-transfer": "2026-08-29",
-  "/blog/how-much-does-a-capital-campaign-cost": "2026-08-29",
+  "/blog/how-much-does-a-capital-campaign-cost": "2026-09-26",
   "/blog/capital-campaign-donor-engagement-legacy-giving-best-practices": "2026-08-12",
   "/blog/understanding-latino-philanthropy": "2026-08-29",
   "/blog/the-ask-ladder-structuring-a-major-gift-solicitation": "2026-08-29",
-  "/blog/planning-a-capital-campaign-gift-chart-quiet-phase": "2026-08-29",
+  "/blog/planning-a-capital-campaign-gift-chart-quiet-phase": "2026-09-26",
   "/blog/growing-your-legacy-society-why-arent-we-asking": "2026-08-29",
   "/blog/seven-touchpoints-donor-loyalty-between-asks": "2026-08-29",
   "/blog/key-steps-for-soliciting-major-donors": "2026-08-29",
@@ -94,7 +94,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
 // Every /answers/[slug] page renders from the single shared lib/answers.ts
 // data file, so they all share that file's own last-real-edit date rather
 // than needing 31 separate entries above.
-const ANSWERS_LAST_MODIFIED = "2026-09-22";
+const ANSWERS_LAST_MODIFIED = "2026-09-26";
 
 const FALLBACK_DATE = "2026-08-29";
 

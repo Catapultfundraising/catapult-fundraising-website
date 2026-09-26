@@ -47,7 +47,7 @@ const HOME_FAQS = [
     question: "What services does Catapult Fundraising provide?",
     answer:
       "Catapult is a true full-service partner covering the entire donor lifecycle: capital and comprehensive campaigns, annual fund calling, mid-level donor engagement, and legacy and planned giving, plus major donor research and board fundraising training. Most firms specialize in only one of these; we deliver all of them as one accountable team.",
-    link: { href: "/services/capital-campaign", label: "Explore our services" },
+    link: { href: "/services/capital-campaign", label: "Explore our capital campaign consulting" },
   },
   {
     question: "What makes Catapult different from other fundraising consultants?",

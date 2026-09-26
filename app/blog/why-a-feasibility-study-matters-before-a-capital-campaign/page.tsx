@@ -397,7 +397,11 @@ export default function FeasibilityStudyPost() {
           >
             capital campaign feasibility studies
           </Link>
-          , readiness assessments, and capital campaign planning for nonprofits across the country. If you are weighing a campaign and
+          , readiness assessments, and full{" "}
+          <Link href="/services/capital-campaign" className="font-semibold text-[rgb(var(--navy))] underline">
+            capital campaign consulting
+          </Link>{" "}
+          for nonprofits across the country. If you are weighing a campaign and
           want an honest read on whether you are ready,{" "}
           <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">
             let&rsquo;s start the conversation

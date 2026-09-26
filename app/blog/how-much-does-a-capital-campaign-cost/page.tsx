@@ -192,7 +192,12 @@ export default function HowMuchDoesACapitalCampaignCostPost() {
           or is that priced separately? Is public-phase calling included, or will you need a second
           vendor? Is there one accountable point of contact across the whole campaign, or will
           responsibility be split across a planning firm, a calling firm, and your own staff? The
-          fee number matters far less than what it actually buys you.
+          fee number matters far less than what it actually buys you.{" "}
+          Here is{" "}
+          <Link href="/services/capital-campaign" className="font-semibold text-[rgb(var(--navy))] underline">
+            what Catapult&rsquo;s capital campaign consulting includes
+          </Link>
+          , phase by phase.
         </p>
 
         <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
