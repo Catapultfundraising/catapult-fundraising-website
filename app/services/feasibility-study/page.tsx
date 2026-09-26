@@ -243,7 +243,7 @@ export default function FeasibilityStudyPage() {
               href="/services/capital-campaign"
               className="font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))] decoration-2 underline-offset-4"
             >
-              Capital Campaign Counsel
+              our capital campaign consulting page
             </Link>
             .
           </p>

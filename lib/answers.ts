@@ -78,7 +78,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Feasibility Studies", href: "/services/feasibility-study" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "How Much Does a Capital Campaign Cost?", href: "/blog/how-much-does-a-capital-campaign-cost" },
     ],
   },
@@ -94,7 +94,7 @@ export const ANSWERS: Answer[] = [
       "Campaign Connect, the public or community phase, then reaches core constituencies (alumni, parents, grateful patients, members, subscribers) by phone to raise the remaining 10-20% of the goal while dramatically expanding the donor base.",
     ],
     related: [
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "Planning a Capital Campaign Gift Chart & Quiet Phase", href: "/blog/planning-a-capital-campaign-gift-chart-quiet-phase" },
     ],
   },
@@ -110,7 +110,7 @@ export const ANSWERS: Answer[] = [
       "If those pieces aren't yet in place, that's not a reason to abandon the goal, it's information that shapes a realistic timeline and often points to a Donor Engagement or Legacy Call program first, to build the donor base a campaign will eventually need.",
     ],
     related: [
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
       { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
     ],
@@ -183,7 +183,7 @@ export const ANSWERS: Answer[] = [
       { label: "Capital Campaigns for Schools and Universities", href: "/services/capital-campaign/education" },
       { label: "Feasibility Studies", href: "/services/feasibility-study" },
       { label: "Planning a Capital Campaign Gift Chart & Quiet Phase", href: "/blog/planning-a-capital-campaign-gift-chart-quiet-phase" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
     ],
   },
   {
@@ -196,12 +196,17 @@ export const ANSWERS: Answer[] = [
       "The single biggest driver of timeline is the Quiet Phase, since major gift cultivation and solicitation can't be rushed without damaging the relationships the campaign depends on. Organizations that skip or compress this phase typically fall short of goal or burn out donor relationships they need for future campaigns.",
     ],
     related: [
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "How Much Does a Capital Campaign Cost?", href: "/blog/how-much-does-a-capital-campaign-cost" },
     ],
   },
   {
     slug: "how-much-does-a-capital-campaign-consultant-cost",
+    primaryService: {
+      label: "Capital campaign consulting",
+      href: "/services/capital-campaign",
+      blurb: "How Catapult carries a campaign from feasibility study through quiet-phase major gifts and a staffed public phase, with one accountable team.",
+    },
     pillar: "Capital Campaigns",
     question: "How much does a capital campaign consultant cost, and what does a consultant actually do?",
     metaTitle: "How much does a capital campaign consultant cost?",
@@ -254,7 +259,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Feasibility Studies", href: "/services/feasibility-study" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "How Much Does a Capital Campaign Cost?", href: "/blog/how-much-does-a-capital-campaign-cost" },
       { label: "Catapult vs. Other Fundraising Consultants", href: "/blog/catapult-vs-fundraising-consultants" },
     ],
@@ -319,7 +324,7 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "Why a Feasibility Study Matters Before a Capital Campaign", href: "/blog/why-a-feasibility-study-matters-before-a-capital-campaign" },
       { label: "Feasibility Studies", href: "/services/feasibility-study" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "How Much Does a Capital Campaign Cost?", href: "/blog/how-much-does-a-capital-campaign-cost" },
     ],
   },
@@ -393,7 +398,7 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "Why a Feasibility Study Matters Before a Capital Campaign", href: "/blog/why-a-feasibility-study-matters-before-a-capital-campaign" },
       { label: "Feasibility Studies", href: "/services/feasibility-study" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
     ],
   },
   {
@@ -462,7 +467,7 @@ export const ANSWERS: Answer[] = [
       { label: "Capital Campaigns for Churches and Faith Communities", href: "/services/capital-campaign/churches" },
       { label: "Capital Campaigns for Schools and Universities", href: "/services/capital-campaign/education" },
       { label: "Planning a Capital Campaign Gift Chart & Quiet Phase", href: "/blog/planning-a-capital-campaign-gift-chart-quiet-phase" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
     ],
   },
   {
@@ -533,7 +538,7 @@ export const ANSWERS: Answer[] = [
       { label: "Free Gift Chart Calculator", href: "/resources/gift-chart-calculator" },
       { label: "Capital Campaigns for Churches and Faith Communities", href: "/services/capital-campaign/churches" },
       { label: "Planning a Capital Campaign Gift Chart & Quiet Phase", href: "/blog/planning-a-capital-campaign-gift-chart-quiet-phase" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
     ],
   },
   {
@@ -547,7 +552,7 @@ export const ANSWERS: Answer[] = [
       "A committee recruited without that third quality, willingness to ask, is the single most common reason campaigns underperform their gift chart even with a strong case for support.",
     ],
     related: [
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "Key Steps for Soliciting Major Donors", href: "/blog/key-steps-for-soliciting-major-donors" },
     ],
   },
@@ -564,7 +569,7 @@ export const ANSWERS: Answer[] = [
       "Fourth: recruiting a Campaign Committee for prestige rather than willingness to give and ask, which quietly stalls solicitations for months.",
     ],
     related: [
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "Catapult vs. Other Fundraising Consultants", href: "/blog/catapult-vs-fundraising-consultants" },
     ],
   },
@@ -630,7 +635,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "Annual Fund Calling (AF Connect)", href: "/services/annual-fund" },
     ],
   },
@@ -718,7 +723,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "How Do You Cultivate Major Donors?", href: "/answers/how-do-you-cultivate-major-donors" },
-      { label: "Capital Campaign Counsel", href: "/services/capital-campaign" },
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
       { label: "Key Steps for Soliciting Major Donors", href: "/blog/key-steps-for-soliciting-major-donors" },
     ],

@@ -20,8 +20,8 @@ const SITE_URL = "https://www.catapultfr.com";
 // as visible on-page text -- answer engines and human readers alike weigh
 // a dated source over an undated one when picking between two sources that
 // say the same thing.
-const ANSWERS_LAST_MODIFIED = "2026-09-22";
-const ANSWERS_LAST_MODIFIED_DISPLAY = "September 12, 2026";
+const ANSWERS_LAST_MODIFIED = "2026-09-26";
+const ANSWERS_LAST_MODIFIED_DISPLAY = "September 26, 2026";
 
 export function generateStaticParams() {
   return ANSWERS.map((a) => ({ slug: a.slug }));
