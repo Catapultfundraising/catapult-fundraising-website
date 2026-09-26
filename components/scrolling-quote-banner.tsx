@@ -33,7 +33,7 @@ export function ScrollingQuoteBanner() {
           >
             {t.logo && (
               <div className="absolute right-5 top-5">
-                <ClientLogo logo={t.logo} maxH={40} maxW={124} />
+                <ClientLogo logo={t.logo} maxH={40} maxW={124} eager />
               </div>
             )}
             <blockquote
