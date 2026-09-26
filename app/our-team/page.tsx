@@ -67,16 +67,16 @@ const LEADERSHIP = [
     bio: "Behind every flawless campaign letter and perfectly segmented donor list is Desiree. With nearly 15 years of database leadership experience, she's the reason Catapult's personalization actually works at scale, turning raw donor data into the kind of precision that makes a mailed letter feel like it was written just for an audience of one, every single time.",
   },
   {
-    name: "Victor Mendes",
-    role: "Head of AI and Strategy",
-    photo: "/team/victor-mendes.jpg",
-    bio: "Victor leads Catapult's AI and Strategy practice. He believes technology should sharpen the relationship at the center of a campaign, never replace it, helping Engagement Officers find the right prospect sooner and strategists spot gift-chart patterns in hours instead of weeks. He built Catapult's AI-powered prospect research and reporting tools from the ground up, and nothing ships unless it makes life better for a donor and a client.",
-  },
-  {
     name: "Jackie Goodman",
     role: "Client Coordinator",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/d11bc880-1ca9-4abc-bb4e-39af2b01e888.png",
     bio: "For over three years, Jackie led major gift research for Catapult's campaign services team, shaping the prospect intelligence behind every feasibility study and quiet-phase strategy. She's since brought that same precision to campaign accounts, pairing a background in real estate with a genuine talent for finding the smartest technology to help a mission move forward.",
+  },
+  {
+    name: "Victor Mendes",
+    role: "Head of AI and Strategy",
+    photo: "/team/victor-mendes-v2.jpg",
+    bio: "Victor leads Catapult's AI and Strategy practice. He believes technology should sharpen the relationship at the center of a campaign, never replace it, helping Engagement Officers find the right prospect sooner and strategists spot gift-chart patterns in hours instead of weeks. He built Catapult's AI-powered prospect research and reporting tools from the ground up, and nothing ships unless it makes life better for a donor and a client.",
   },
   {
     name: "Penelope Santos",
@@ -117,7 +117,7 @@ const LEADERSHIP = [
   {
     name: "Dr. Austin Braunwalder",
     role: "Consultant",
-    photo: "/team/austin-braunwalder.jpg",
+    photo: "/team/austin-braunwalder-v2.jpg",
     bio: "Austin has spent 15 years in major and principal gift fundraising, most recently as Senior Director of Philanthropy at Providence Little Company of Mary Hospital. At Claremont McKenna College he managed a portfolio of more than 200 leadership prospects toward a $1.1 billion goal and personally raised $13 million in a single year. A Doctor of Business Administration and adjunct faculty member at California Baptist University, he studies what drives the decision to give.",
   },
 ];
