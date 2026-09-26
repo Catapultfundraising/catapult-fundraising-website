@@ -17,7 +17,14 @@ export interface Testimonial {
   name: string;
   org: string;
   /** Client's official full-color logo (public/clients), shown top-right of the quote. */
-  logo?: { src: string; alt: string; width: number; height: number };
+  logo?: {
+    src: string;
+    alt: string;
+    width: number;
+    height: number;
+    /** Optional size boost for tall/stacked marks that read small next to wide wordmarks. */
+    scale?: number;
+  };
   /** Which services/pages this testimonial is most relevant to. */
   services: (
     | "capital-campaign"
@@ -115,7 +122,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Michelle Horine",
     org: "CEO, Ronald McDonald House Charities South Texas",
     services: ["capital-campaign"],
-    logo: { src: "/clients/rmhc-south-texas.png", alt: "Ronald McDonald House Charities South Texas", width: 69, height: 148 },
+    logo: { src: "/clients/rmhc-south-texas.png", alt: "Ronald McDonald House Charities South Texas", width: 69, height: 148, scale: 1.75 },
   },
   {
     id: "emily-manck-white",

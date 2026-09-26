@@ -18,7 +18,9 @@ export function ClientLogo({
   className?: string;
 }) {
   const ratio = logo.width / logo.height;
-  let h = maxH;
+  // Tall, stacked marks (e.g. RMHC's house) look tiny at the same height as a
+  // wide wordmark, so they can opt into a larger height via `logo.scale`.
+  let h = maxH * (logo.scale ?? 1);
   let w = h * ratio;
   if (w > maxW) {
     w = maxW;
