@@ -6,12 +6,13 @@ import { GiftChartCalloutCard, ReadinessCalloutCard } from "@/components/tool-ca
 import { RelatedReading } from "@/components/related-reading";
 import { ClipboardList } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
+import { TestimonialQuote } from "@/components/testimonial-quote";
 import { CAMPAIGN_SECTOR_LINKS } from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Capital Campaign Counsel",
+  title: "Capital Campaign Consulting & Counsel",
   description:
     "Feasibility studies, campaign planning, quiet-phase major gift strategy, and public-phase calling, with one accountable partner from start to finish.",
   keywords: [
@@ -167,7 +168,8 @@ export default function CapitalCampaignPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Capital Campaign Services"
+        eyebrowInHeading
+        eyebrow="Capital Campaign Consulting Services"
         title="The full-service firm that carries your campaign from first feasibility call to final pledge."
         description="Catapult is the only national firm that plans your capital campaign from the earliest quiet-phase strategy through a professionally staffed public-phase calling program, wrapping every campaign in one accountable partner instead of three vendors."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/62ebe036-cc54-4a61-8952-61060ecd662c.jpeg"
@@ -208,22 +210,7 @@ export default function CapitalCampaignPage() {
           </p>
           <div className="mt-8 space-y-12">
             {testimonialsFor("capital-campaign").map((t) => (
-              <div key={t.id}>
-                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]">
-                  {t.quote.map((para, i) => (
-                    <p key={i}>
-                      {i === 0 && "“"}
-                      {para}
-                      {i === t.quote.length - 1 && "”"}
-                    </p>
-                  ))}
-                </blockquote>
-                <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
-                  <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
-                  <br />
-                  {t.org}
-                </p>
-              </div>
+              <TestimonialQuote key={t.id} t={t} />
             ))}
           </div>
         </div>

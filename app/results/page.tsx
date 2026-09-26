@@ -113,7 +113,8 @@ export default function ResultsPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Results"
+        eyebrowInHeading
+        eyebrow="Nonprofit Fundraising Results"
         title="Representative outcomes from campaigns we've carried start to finish."
         description="Every nonprofit's numbers are confidential to their board, but the patterns below reflect the kind of results clients see across all four of our services when planning, major gifts, and public-phase calling are handled by one accountable team."
       />

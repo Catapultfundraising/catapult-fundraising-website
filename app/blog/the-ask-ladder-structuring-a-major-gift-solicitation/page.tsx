@@ -8,7 +8,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "the-ask-ladder-structuring-a-major-gift-solicitation";
 
 export const metadata = {
-  title: "The Ask Ladder: Structuring a Major Gift Ask",
+  title: { absolute: "The Ask Ladder: Structuring a Major Gift Ask | Catapult" },
   description:
     "How to build an ask ladder, plan a three-visit solicitation, and frame naming opportunities so major donors say yes.",
   keywords: [

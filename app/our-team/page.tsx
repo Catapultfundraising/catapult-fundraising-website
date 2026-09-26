@@ -67,10 +67,10 @@ const LEADERSHIP = [
     bio: "Behind every flawless campaign letter and perfectly segmented donor list is Desiree. With nearly 15 years of database leadership experience, she's the reason Catapult's personalization actually works at scale, turning raw donor data into the kind of precision that makes a mailed letter feel like it was written just for an audience of one, every single time.",
   },
   {
-    name: "Sean Jones",
-    role: "Database Manager",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2b7cd57c-ca8d-4a37-a37f-ff4378b44533.png",
-    bio: "Sean built a 19-year career in higher education data management before joining Catapult, where he designs custom Microsoft Access databases and automated reporting for every client campaign. He spent nearly two decades at UNLV's Financial Aid office, rising through five roles and supervising staff of up to 11 people. A UNLV philosophy graduate, Sean brings that same rigor to every donor database he builds.",
+    name: "Victor Mendes",
+    role: "Head of AI and Strategy",
+    photo: "/team/victor-mendes.jpg",
+    bio: "Victor leads Catapult's AI and Strategy practice. He believes technology should sharpen the relationship at the center of a campaign, never replace it, helping Engagement Officers find the right prospect sooner and strategists spot gift-chart patterns in hours instead of weeks. He built Catapult's AI-powered prospect research and reporting tools from the ground up, and nothing ships unless it makes life better for a donor and a client.",
   },
   {
     name: "Jackie Goodman",
@@ -114,6 +114,12 @@ const LEADERSHIP = [
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/20fb7cc5-85f6-4b75-aa8c-a9080d35762a.png",
     bio: "Jon has spent over three decades building fundraising programs from the ground up, from founding North Street Development Advisors to creating a statewide scholarship granting organization from scratch. A CFRE with deep roots in faith-based and educational institutions, Jon brings a builder's instinct for capital campaigns, planned giving, and advancement offices that need to be started, or started over.",
   },
+  {
+    name: "Dr. Austin Braunwalder",
+    role: "Consultant",
+    photo: "/team/austin-braunwalder.jpg",
+    bio: "Austin has spent 15 years in major and principal gift fundraising, most recently as Senior Director of Philanthropy at Providence Little Company of Mary Hospital. At Claremont McKenna College he managed a portfolio of more than 200 leadership prospects toward a $1.1 billion goal and personally raised $13 million in a single year. A Doctor of Business Administration and adjunct faculty member at California Baptist University, he studies what drives the decision to give.",
+  },
 ];
 
 const VALUES = [
@@ -138,7 +144,7 @@ const VALUES = [
 ];
 
 export const metadata = {
-  title: "Our Team | Leadership",
+  title: "Our Team of Fundraising Consultants",
   description:
     "Meet the Catapult Fundraising leadership team: strategists, campaign managers, and Engagement Officers with 30+ years of experience.",
   keywords: [
@@ -183,7 +189,7 @@ const jsonLd = {
         "@type": "Person",
         name: member.name,
         jobTitle: member.role,
-        image: member.photo,
+        image: member.photo.startsWith("/") ? `${SITE_URL}${member.photo}` : member.photo,
         worksFor: { "@id": `${SITE_URL}/#organization` },
       })),
     },
@@ -198,7 +204,8 @@ export default function OurTeamPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Our Team"
+        eyebrowInHeading
+        eyebrow="Our Fundraising Consultants"
         title="The people behind more than 30 years of capital campaign and donor engagement results."
         description="Catapult Fundraising's leadership and Engagement Officer teams bring decades of national campaign experience to every client, from feasibility study through the final pledge."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/6d87d722-c1cc-47ac-82d6-2675e8c2162e.jpeg"

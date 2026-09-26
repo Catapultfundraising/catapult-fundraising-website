@@ -2,7 +2,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { ArrowRight } from "lucide-react";
 import { ANSWERS, type Answer } from "@/lib/answers";
-import { POSTS, type Post } from "@/lib/posts";
+import { POSTS, latestPosts, type Post } from "@/lib/posts";
 
 interface RelatedReadingProps {
   /** Heading for the block. */
@@ -10,6 +10,8 @@ interface RelatedReadingProps {
   intro?: string;
   /** Article slugs to feature, in order. Falls back to service/pillar matching. */
   postSlugs?: string[];
+  /** Show the N most recently published articles instead of a fixed list. */
+  latest?: number;
   /** Service key (e.g. "capital-campaign") used to pick matching articles. */
   service?: string;
   /** Answer-library pillars whose questions should be linked. */
@@ -30,13 +32,16 @@ export function RelatedReading({
   heading = "Keep reading",
   intro,
   postSlugs,
+  latest,
   service,
   pillars,
   answerSlugs,
   answerLimit = 6,
 }: RelatedReadingProps) {
   let posts: Post[] = [];
-  if (postSlugs?.length) {
+  if (latest) {
+    posts = latestPosts(latest);
+  } else if (postSlugs?.length) {
     posts = postSlugs
       .map((slug) => POSTS.find((p) => p.slug === slug))
       .filter((p): p is Post => Boolean(p));

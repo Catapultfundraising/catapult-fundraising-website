@@ -10,7 +10,7 @@ const PAGE_DESCRIPTION =
   "Three free tools from Catapult Fundraising: build a suggested gift chart and gift pyramid from your campaign goal, grade your capital campaign readiness in seven areas, and score your legacy and mid-level donor programs. Each one returns a branded PDF.";
 
 export const metadata = {
-  title: { absolute: PAGE_TITLE },
+  title: { absolute: `${PAGE_TITLE} for Nonprofits | Catapult` },
   description: PAGE_DESCRIPTION,
   alternates: { canonical: "/resources" },
   openGraph: {
@@ -83,7 +83,8 @@ export default function ResourcesPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <PageHero
-        eyebrow="Free Tools"
+        eyebrowInHeading
+        eyebrow="Free Fundraising Tools"
         title="Answer the three questions every campaign conversation starts with."
         description="Can we raise it, are we ready, and who have we been ignoring. These are the same models our consultants use with clients, put in your hands for free. Each one ends with a branded PDF you can hand to your board."
       />

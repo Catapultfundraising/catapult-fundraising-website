@@ -3,7 +3,7 @@ import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { ArrowRight } from "lucide-react";
-import { POSTS } from "@/lib/posts";
+import { latestPosts } from "@/lib/posts";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -61,14 +61,15 @@ export default function BlogIndexPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <PageHero
-        eyebrow="Insights"
+        eyebrowInHeading
+        eyebrow="Nonprofit Fundraising Articles"
         title="Practical guidance for nonprofit fundraising leaders."
         description="Deep dives on capital campaigns, mid-level donor engagement, and legacy giving, drawn from decades of feasibility studies, quiet-phase asks, and public-phase calling programs."
       />
 
       <section className="mx-auto max-w-5xl px-6 py-14 lg:px-10 lg:py-16">
         <div className="space-y-8">
-          {POSTS.map((post) => (
+          {latestPosts().map((post) => (
             <Link
               key={post.slug}
               href={`/blog/${post.slug}`}

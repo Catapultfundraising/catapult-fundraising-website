@@ -8,7 +8,7 @@ import { Users } from "lucide-react";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  "title": "Capital Campaigns for Churches and Faith Communities",
+  "title": "Church Capital Campaign Consulting",
   "description": "How church donors behave in a capital campaign: the highest interview response rates of any sector, identity-driven giving, and why the goal usually needs money from outside the pews.",
   "keywords": [
     "church capital campaign",
@@ -174,7 +174,8 @@ export default function ChurchDonorBehaviorPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Capital Campaigns by Sector"
+        eyebrowInHeading
+        eyebrow="Capital Campaigns for"
         title="Churches and faith communities."
         description="Church donors tend to be unusually willing to participate in a feasibility study. That matters because the more people you hear from, the better picture you get of what the congregation really thinks about the project and the goal."
       />

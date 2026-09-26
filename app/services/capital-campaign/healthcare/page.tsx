@@ -8,7 +8,7 @@ import { Users } from "lucide-react";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  "title": "Capital Campaigns for Healthcare Organizations",
+  "title": "Healthcare Capital Campaign Consulting",
   "description": "How healthcare donors behave in a capital campaign: agreement on need does not mean confidence in the goal, awareness gaps among high-capacity donors, and where hospital money actually comes from.",
   "keywords": [
     "healthcare capital campaign consultant",
@@ -175,7 +175,8 @@ export default function HealthcareDonorBehaviorPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrow="Capital Campaigns by Sector"
+        eyebrowInHeading
+        eyebrow="Capital Campaigns for"
         title="Healthcare organizations."
         description="Healthcare donors can agree completely that a project is needed and still question whether the campaign can raise the proposed amount. That distinction is important. In a feasibility study, we want to know both what donors think about the need and what they honestly believe can be raised."
       />

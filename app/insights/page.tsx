@@ -8,7 +8,7 @@ import { CASE_STUDIES } from "@/lib/case-studies";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Insights",
+  title: "Nonprofit Fundraising Insights",
   description:
     "Articles and case studies on capital campaigns, telefundraising, and donor engagement from the Catapult Fundraising team.",
   alternates: { canonical: "/insights" },
@@ -63,7 +63,8 @@ export default function InsightsPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <PageHero
-        eyebrow="Insights"
+        eyebrowInHeading
+        eyebrow="Nonprofit Fundraising Insights"
         title="Field notes from three decades of capital campaigns and donor calling programs."
         description="Practical guidance on soliciting major donors, telefundraising, and multi-channel strategy, plus real results from campaigns we've carried start to finish."
       />

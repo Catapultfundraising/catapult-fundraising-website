@@ -27,7 +27,8 @@ export async function generateMetadata({
   const cs = getCaseStudyBySlug(slug);
   if (!cs) return {};
   return {
-    title: cs.metaTitle,
+    // Shorter " | Catapult" suffix keeps these under ~60 characters in search results.
+    title: { absolute: `${cs.metaTitle} | Catapult` },
     description: cs.metaDescription,
     alternates: { canonical: `/insights/case-studies/${cs.slug}` },
   };

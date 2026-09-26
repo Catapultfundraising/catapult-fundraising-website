@@ -27,6 +27,15 @@ export const RESOURCE_LINKS = [
   { href: "/resources/donor-loyalty-assessment", label: "Donor Loyalty and Legacy Report Card" },
 ];
 
+// Desktop + mobile "Free Tools" menu. The same tools also stay listed under
+// Insights (Resources) so visitors find them from either place.
+export const FREE_TOOLS_LINKS = [
+  { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
+  { href: "/resources/campaign-readiness-assessment", label: "Readiness Report Card" },
+  { href: "/resources/donor-loyalty-assessment", label: "Donor Loyalty Report Card" },
+  { href: "/resources", label: "All Free Tools" },
+];
+
 export const INSIGHTS_LINKS = [
   { href: "/blog", label: "Articles" },
   { href: "/insights/case-studies", label: "Case Studies" },
@@ -61,6 +70,10 @@ export const FIRM_ADDRESS_LINES = [
 
 // Where new website leads (contact form submissions) are routed.
 export const LEAD_EMAILS = ["anthonya@catapultfr.com", "jeffg@catapultfr.com"];
+
+// Who is notified when someone completes a free tool (gift chart calculator,
+// readiness report card, donor loyalty report card). See lib/tool-lead-email.ts.
+export const TOOL_LEAD_EMAILS = ["anthonya@catapultfr.com", "jeffg@catapultfr.com"];
 
 // HubSpot tracking script portal ID. Loaded only after a visitor accepts
 // analytics cookies via the CookieConsent banner (see components/cookie-consent.tsx).

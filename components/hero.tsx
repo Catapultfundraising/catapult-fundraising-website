@@ -26,13 +26,17 @@ export function Hero() {
       />
       <div className="relative mx-auto max-w-7xl px-6 py-12 lg:px-10 lg:py-16">
         <div className="reveal max-w-3xl">
-          <p className="font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass-light))]">
-            Capital Campaign & Donor Engagement Consultants
-          </p>
-          <h1 className="mt-4 font-display text-5xl leading-[1.05] tracking-tight text-balance sm:text-6xl lg:text-7xl">
-            The full-service partner that grows your donor base at{" "}
-            <span className="italic text-[rgb(var(--brass-light))]">every stage</span>{" "}
-            of the giving journey.
+          {/* The kicker sits inside the h1 (visually unchanged) so the homepage
+              heading leads with the search phrase, not just the tagline. */}
+          <h1>
+            <span className="block font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass-light))]">
+              Capital Campaign & Donor Engagement Consultants
+            </span>
+            <span className="mt-4 block font-display text-5xl leading-[1.05] tracking-tight text-balance sm:text-6xl lg:text-7xl">
+              The full-service partner that grows your donor base at{" "}
+              <span className="italic text-[rgb(var(--brass-light))]">every stage</span>{" "}
+              of the giving journey.
+            </span>
           </h1>
           <p className="mt-6 max-w-xl text-lg leading-relaxed text-[rgb(var(--paper))]/75">
             Capital campaign counsel, annual fund calling, mid-level donor

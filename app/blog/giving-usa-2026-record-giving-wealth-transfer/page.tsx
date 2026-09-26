@@ -17,7 +17,7 @@ const FEATHER = {
 } as const;
 
 export const metadata = {
-  title: "Giving USA 2026: Record Giving, Wealth Shift",
+  title: { absolute: "Giving USA 2026: Record Giving, Wealth Shift | Catapult" },
   description:
     "Anthony R. Alonso on what Giving USA 2026's record $617.2 billion and a 19.7% jump in bequest giving mean for fundraisers who've stopped asking.",
   keywords: [

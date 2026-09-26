@@ -14,7 +14,7 @@ const SITE_URL = "https://www.catapultfr.com";
 export const metadata = {
   // Kept under ~60 characters so Google shows the whole title rather than
   // truncating it mid-phrase; the full positioning line lives in the H1.
-  title: "Capital Campaign Consultants | Catapult Fundraising",
+  title: { absolute: "Capital Campaign Consultants for Nonprofits | Catapult" },
   description:
     "Catapult Fundraising is a national, full-service firm with 30+ years in capital campaigns, annual fund calling, donor engagement, and legacy giving.",
   keywords: [
@@ -149,11 +149,7 @@ export default function HomePage() {
       <RelatedReading
         heading="Guidance from the team that runs the campaigns."
         intro="Practical articles and direct answers to the questions nonprofit boards ask before they commit to a campaign."
-        postSlugs={[
-          "why-a-feasibility-study-matters-before-a-capital-campaign",
-          "how-much-does-a-capital-campaign-cost",
-          "planning-a-capital-campaign-gift-chart-quiet-phase",
-        ]}
+        latest={3}
         answerSlugs={[
           "what-is-a-capital-campaign",
           "what-is-a-capital-campaign-feasibility-study",

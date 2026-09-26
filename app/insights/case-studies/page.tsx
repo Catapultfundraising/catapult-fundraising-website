@@ -38,7 +38,8 @@ export default function CaseStudiesPage() {
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbJsonLd) }} />
       <PageHero
-        eyebrow="Insights / Case Studies"
+        eyebrowInHeading
+        eyebrow="Nonprofit Fundraising Case Studies"
         title="Documented results from our partnerships."
         description="Millions of dollars in confirmed gifts, re-energized donor bases, and pipelines built for the future — this is what happens when strategic planning meets disciplined execution and a true partnership between consulting firm and client. See what's possible for your organization."
       />

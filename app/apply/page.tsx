@@ -7,7 +7,7 @@ import { FIRM_PHONE, FIRM_PHONE_HREF } from "@/lib/constants";
 const RECRUITER_EMAIL = "recruiter@catapultfr.com";
 
 export const metadata: Metadata = {
-  title: "Apply for a Job",
+  title: "Careers: Join Our Fundraising Team",
   description:
     "Join the Catapult Fundraising team. Submit your application and resume for open roles in capital campaign counsel, donor engagement, and client services.",
   alternates: { canonical: "/apply" },
@@ -17,7 +17,8 @@ export default function ApplyPage() {
   return (
     <>
       <PageHero
-        eyebrow="Careers"
+        eyebrowInHeading
+        eyebrow="Careers at Catapult Fundraising"
         title="Join the team behind the ask."
         description="Catapult is built on people who believe a well-run campaign can change what a community thinks is possible. Tell us about yourself below."
       />

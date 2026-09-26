@@ -1,4 +1,5 @@
 import { TESTIMONIALS } from "@/lib/testimonials";
+import { TestimonialQuote } from "@/components/testimonial-quote";
 
 // The full "What Clients Say" grid, shown on /results so every client quote is
 // represented in one place. Sources directly from lib/testimonials.ts (the single
@@ -12,26 +13,11 @@ export function TestimonialStrip() {
         </p>
         <div className="mt-12 grid gap-10 sm:grid-cols-2">
           {TESTIMONIALS.map((t) => (
-            <figure key={t.id} className="flex flex-col justify-between">
-              <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]">
-                {t.quote.map((para, i) => (
-                  <p key={i}>
-                    {i === 0 && "“"}
-                    {para}
-                    {i === t.quote.length - 1 && "”"}
-                  </p>
-                ))}
-              </blockquote>
-              <figcaption className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
-                <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
-                <br />
-                {t.org}
-              </figcaption>
-            </figure>
+            <TestimonialQuote key={t.id} t={t} compact />
           ))}
         </div>
         <p className="mt-10 text-[15px] text-[rgb(var(--ink))]/40">
-          Shared with client permission. Capital campaign case study coming soon.
+          Shared with client permission.
         </p>
       </div>
     </section>

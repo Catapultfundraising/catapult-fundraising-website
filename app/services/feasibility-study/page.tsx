@@ -5,6 +5,7 @@ import { GiftChartCalloutCard, ReadinessCalloutCard } from "@/components/tool-ca
 import { RelatedReading } from "@/components/related-reading";
 import { ClipboardCheck } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
+import { TestimonialQuote } from "@/components/testimonial-quote";
 import Link from "next/link";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -196,6 +197,7 @@ export default function FeasibilityStudyPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
+        eyebrowInHeading
         eyebrow="Capital Campaign Feasibility Study"
         title="Test the goal before you announce it."
         description="Catapult's feasibility study puts a confidential conversation in front of every prospect who would have to fund your campaign, then hands your board a defensible goal, a gift chart, and a leadership list instead of a guess."
@@ -255,22 +257,7 @@ export default function FeasibilityStudyPage() {
           </p>
           <div className="mt-8 space-y-12">
             {testimonialsFor("feasibility-study").map((t) => (
-              <div key={t.id}>
-                <blockquote className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]">
-                  {t.quote.map((para, i) => (
-                    <p key={i}>
-                      {i === 0 && "\u201C"}
-                      {para}
-                      {i === t.quote.length - 1 && "\u201D"}
-                    </p>
-                  ))}
-                </blockquote>
-                <p className="mt-6 text-[17.5px] text-[rgb(var(--ink))]/60">
-                  <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
-                  <br />
-                  {t.org}
-                </p>
-              </div>
+              <TestimonialQuote key={t.id} t={t} />
             ))}
           </div>
         </div>

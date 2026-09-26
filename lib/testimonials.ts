@@ -16,6 +16,8 @@ export interface Testimonial {
   excerpt: string;
   name: string;
   org: string;
+  /** Client's official full-color logo (public/clients), shown top-right of the quote. */
+  logo?: { src: string; alt: string; width: number; height: number };
   /** Which services/pages this testimonial is most relevant to. */
   services: (
     | "capital-campaign"
@@ -38,6 +40,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Bill LaBore",
     org: "Director of Planned Giving, Loma Linda University Health | Philanthropy",
     services: ["legacy-giving"],
+    logo: { src: "/clients/loma-linda-university-health.png", alt: "Loma Linda University Health", width: 740, height: 209 },
   },
   {
     id: "matthew-talley",
@@ -50,17 +53,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Matthew Talley",
     org: "Assistant Director of Annual Giving, University of Maryland Global Campus",
     services: ["annual-fund"],
-  },
-  {
-    id: "capital-campaign-client",
-    quote: [
-      "They were the only firm willing to stay with us from the feasibility study all the way through the public phase calling. One team, one accountable partner from start to finish.",
-    ],
-    excerpt:
-      "They were the only firm willing to stay with us from the feasibility study all the way through the public phase calling.",
-    name: "Executive Director",
-    org: "Capital Campaign Client",
-    services: ["capital-campaign"],
+    logo: { src: "/clients/umgc.svg", alt: "University of Maryland Global Campus", width: 3636, height: 684 },
   },
   {
     id: "colleen-schulman",
@@ -72,6 +65,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Colleen Schulman, CFRE, CSPG",
     org: "Chief Philanthropy Officer, PBS KVIE",
     services: ["legacy-giving"],
+    logo: { src: "/clients/pbs-kvie.svg", alt: "PBS KVIE", width: 93619, height: 21600 },
   },
   {
     id: "christine-ann-stevens",
@@ -83,6 +77,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Christine Ann Stevens",
     org: "Former Sr. Director of Development, Houston Symphony",
     services: ["donor-engagement"],
+    logo: { src: "/clients/houston-symphony.png", alt: "Houston Symphony", width: 508, height: 54 },
   },
   {
     id: "erica-kobbe",
@@ -94,6 +89,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Erica Kobbe",
     org: "Sr. Annual Giving Officer, Sacramento State University",
     services: ["annual-fund"],
+    logo: { src: "/clients/sacramento-state.png", alt: "Sacramento State", width: 670, height: 129 },
   },
   // --- New quotes (added from "Quotes for Website.docx") ---
   {
@@ -106,6 +102,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Sara Villanueva, CFRE",
     org: "Vice President of Donor Relations, Benevilla",
     services: ["capital-campaign"],
+    logo: { src: "/clients/benevilla.png", alt: "Benevilla", width: 1465, height: 471 },
   },
   {
     id: "michelle-horine",
@@ -118,6 +115,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Michelle Horine",
     org: "CEO, Ronald McDonald House Charities South Texas",
     services: ["capital-campaign"],
+    logo: { src: "/clients/rmhc-south-texas.png", alt: "Ronald McDonald House Charities South Texas", width: 69, height: 148 },
   },
   {
     id: "emily-manck-white",
@@ -131,6 +129,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Emily Manck White",
     org: "Associate Director of Development, Theatre Under The Stars",
     services: ["annual-fund"],
+    logo: { src: "/clients/theatre-under-the-stars.png", alt: "Theatre Under The Stars", width: 450, height: 25 },
   },
   {
     id: "debra-kathman",
@@ -142,6 +141,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Debra G. Kathman, JD",
     org: "Senior Director of Gift Planning | Development, World Wildlife Fund",
     services: ["legacy-giving"],
+    logo: { src: "/clients/wwf.svg", alt: "World Wildlife Fund", width: 8163, height: 12237 },
   },
   {
     id: "kyle-smith",
@@ -153,6 +153,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Major Kyle Smith",
     org: "Salvation Army",
     services: ["capital-campaign"],
+    logo: { src: "/clients/salvation-army.svg", alt: "The Salvation Army", width: 39, height: 46 },
   },
   {
     id: "natalie-krauser",
@@ -166,6 +167,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Natalie R. Krauser",
     org: "President, Association of Fundraising Professionals NJ Chapter",
     services: ["donor-engagement", "annual-fund"],
+    logo: { src: "/clients/afp-new-jersey.png", alt: "AFP New Jersey Chapter", width: 177, height: 135 },
   },
   {
     id: "kelly-ries",
@@ -180,6 +182,7 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Kelly Ries",
     org: "Senior Director of Donor Engagement, Special Olympics Indiana",
     services: ["annual-fund", "donor-engagement"],
+    logo: { src: "/clients/special-olympics-indiana.svg", alt: "Special Olympics Indiana", width: 288, height: 70 },
   },
   {
     id: "rene-cantu",
@@ -191,6 +194,20 @@ export const TESTIMONIALS: Testimonial[] = [
     name: "Rene Cantu, Ph.D.",
     org: "Executive Director, Jobs for Nevada Grads",
     services: ["capital-campaign", "feasibility-study"],
+    logo: { src: "/clients/jobs-for-nevada-grads.png", alt: "Jobs for Nevada's Graduates", width: 974, height: 596 },
+  },
+  {
+    id: "rebekah-alexander-fishburne",
+    quote: [
+      "It's been a pleasure working with you and the Catapult team throughout this process.",
+      "Thank you again for your excellent support, responsiveness, and partnership. We are grateful for all you've done to help advance our annual giving efforts.",
+    ],
+    excerpt:
+      "Thank you again for your excellent support, responsiveness, and partnership. We are grateful for all you've done to help advance our annual giving efforts.",
+    name: "Rebekah A. Alexander-Fishburne",
+    org: "Senior Director of Annual Giving, Kean University",
+    services: ["annual-fund"],
+    logo: { src: "/clients/kean-university.svg", alt: "Kean University", width: 619, height: 168 },
   },
 ];
 
