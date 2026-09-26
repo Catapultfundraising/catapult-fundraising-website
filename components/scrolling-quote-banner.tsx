@@ -10,6 +10,8 @@ import { ClientLogo } from "@/components/client-logo";
 // is seamless. Respects prefers-reduced-motion via the `motion-reduce:` variant
 // (Tailwind's built-in media-query modifier) by disabling the animation and
 // letting the row wrap normally for anyone who has that OS/browser setting on.
+// Hover-to-pause only applies on devices with a real mouse: on phones/tablets a
+// tap leaves a sticky :hover, which froze the marquee until another tap elsewhere.
 export function ScrollingQuoteBanner() {
   const quotes = TESTIMONIALS;
   const track = [...quotes, ...quotes];
@@ -22,7 +24,7 @@ export function ScrollingQuoteBanner() {
         </p>
       </div>
       <div
-        className="group mt-10 flex w-max gap-6 motion-reduce:flex-wrap motion-reduce:w-full animate-marquee motion-reduce:animate-none hover:[animation-play-state:paused]"
+        className="group mt-10 flex w-max gap-6 motion-reduce:flex-wrap motion-reduce:w-full animate-marquee motion-reduce:animate-none [@media(hover:hover)]:hover:[animation-play-state:paused]"
         aria-hidden={false}
       >
         {track.map((t, i) => (
