@@ -1,4 +1,4 @@
-import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen, BookOpen, Heart, Mail, Home } from "lucide-react";
+import { Download, Layers, Gift, Users, Phone, UserCircle, HelpCircle, Target, FolderOpen, BookOpen, Heart, Mail, Home, Landmark } from "lucide-react";
 
 interface Sheet {
   icon: React.ComponentType<{ className?: string }>;
@@ -37,6 +37,12 @@ const SHEETS: Sheet[] = [
     title: "Annual Fund Calling",
     description: "The AF Connect program and included digital enhancements.",
     href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0ffd3539-4742-4480-a0ad-9e8b158ab8f4.pdf",
+  },
+  {
+    icon: Landmark,
+    title: "Board Development",
+    description: "Board assessment, recruitment, orientation, and activation in five steps.",
+    href: "/one-sheets/Catapult-Board-Development-One-Sheet.pdf",
   },
   {
     icon: UserCircle,

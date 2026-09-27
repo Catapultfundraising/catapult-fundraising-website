@@ -27,7 +27,7 @@ export interface Deck {
    */
   quotesLast?: string[];
   /** Matching public service page for prospects who want more detail. */
-  serviceHref: string;
+  serviceHref?: string;
   /** Optional sample deliverables shown under the deck. */
   samples?: DeckSample[];
   /** Optional link to a live sample dashboard elsewhere under /decks. */
@@ -106,6 +106,15 @@ export const DECKS: Deck[] = [
     slideCount: 5,
     quoteService: "donor-engagement",
     serviceHref: "/services/donor-engagement",
+  },
+  {
+    slug: "board-development",
+    name: "Board Development",
+    promise: "Build a board that gives, gets, and leads.",
+    summary:
+      "Board assessment, prospect research, recruitment, orientation, and activation. We define the roles and expectations, build and vet the candidate pipeline, support the asks, and help new members start contributing from their first meeting.",
+    slideCount: 6,
+    quoteService: "board-development",
   },
 ];
 

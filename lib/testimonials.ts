@@ -32,6 +32,7 @@ export interface Testimonial {
     | "legacy-giving"
     | "donor-engagement"
     | "annual-fund"
+    | "board-development"
   )[];
 }
 
@@ -200,7 +201,7 @@ export const TESTIMONIALS: Testimonial[] = [
       "It certainly raised the level of awareness and engagement from these wonderful folks. You guys are an all star team!",
     name: "Rene Cantu, Ph.D.",
     org: "Executive Director, Jobs for Nevada Grads",
-    services: ["capital-campaign", "feasibility-study"],
+    services: ["capital-campaign", "feasibility-study", "board-development"],
     logo: { src: "/clients/jobs-for-nevada-grads.png", alt: "Jobs for Nevada's Graduates", width: 974, height: 596 },
   },
   {

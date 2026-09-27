@@ -45,13 +45,15 @@ export default async function DeckPage({ params }: { params: Promise<{ slug: str
             All decks
           </Link>
           <div className="flex flex-wrap items-center gap-4">
-            <Link
-              href={deck.serviceHref}
-              className="inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--navy))] underline-offset-4 hover:underline"
-            >
-              Service page
-              <ArrowRight className="h-4 w-4" />
-            </Link>
+            {deck.serviceHref && (
+              <Link
+                href={deck.serviceHref}
+                className="inline-flex items-center gap-2 text-sm font-semibold text-[rgb(var(--navy))] underline-offset-4 hover:underline"
+              >
+                Service page
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
             <a
               href={`/decks/${deck.slug}/deck.pdf`}
               className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--navy-deep))]"
