@@ -115,6 +115,7 @@ export const DECKS: Deck[] = [
       "Board assessment, prospect research, recruitment, orientation, and activation. We define the roles and expectations, build and vet the candidate pipeline, support the asks, and help new members start contributing from their first meeting.",
     slideCount: 6,
     quoteService: "board-development",
+    serviceHref: "/services/board-development",
   },
 ];
 

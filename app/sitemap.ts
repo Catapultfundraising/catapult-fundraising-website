@@ -13,6 +13,7 @@ const HIGH_PRIORITY_WEEKLY = new Set([
   "/services/legacy-giving",
   "/services/donor-engagement",
   "/services/annual-fund",
+  "/services/board-development",
 ]);
 
 const SUPPORTING_MONTHLY = new Set(["/about", "/our-team", "/contact", "/results"]);
@@ -55,6 +56,7 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/services/legacy-giving": "2026-08-17",
   "/services/donor-engagement": "2026-08-17",
   "/services/annual-fund": "2026-08-17",
+  "/services/board-development": "2026-09-26",
   "/resources": "2026-09-13",
   "/resources/gift-chart-calculator": "2026-09-12",
   "/resources/campaign-readiness-assessment": "2026-09-12",
@@ -123,6 +125,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/services/legacy-giving",
     "/services/donor-engagement",
     "/services/annual-fund",
+    "/services/board-development",
     "/insights",
     "/insights/case-studies",
     "/insights/case-studies/legacy-call-northeast-university",
