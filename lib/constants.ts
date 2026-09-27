@@ -4,6 +4,7 @@ export const SERVICE_LINKS = [
   { href: "/services/legacy-giving", label: "Legacy Giving" },
   { href: "/services/donor-engagement", label: "Donor Engagement" },
   { href: "/services/annual-fund", label: "Annual Fund Calling" },
+  { href: "/services/board-development", label: "Board Development" },
 ];
 
 export const CAMPAIGN_SECTOR_LINKS = [
