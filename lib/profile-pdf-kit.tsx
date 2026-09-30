@@ -42,7 +42,29 @@ export function buildProfilePdfFileName(
   // are replaced with a hyphen rather than stripped or underscored, so the
   // fields stay visually intact instead of colliding into one run of words.
   const sanitize = (s?: string) =>
-    (s || "").replace(/[\\/:*?"<>|]/g, "-").replace(/\s+/g, " ").trim();
+    (s || "")
+      // Normalize common "smart" typography (from text pasted out of Word
+      // or Google Docs) to plain ASCII equivalents first, so a client name
+      // like "SilverSummit Healthplan \u2014 Community Reinvestment
+      // Program" still reads naturally in the filename instead of being
+      // silently mangled by the stricter step below.
+      .replace(/[\u2013\u2014]/g, "-") // en dash, em dash -> hyphen
+      .replace(/[\u2018\u2019]/g, "'") // curly single quotes -> straight
+      .replace(/[\u201C\u201D]/g, '"') // curly double quotes -> straight
+      .replace(/\u2026/g, "...") // ellipsis -> three dots
+      .replace(/[\\/:*?"<>|]/g, "-")
+      // The Content-Disposition header's filename= parameter is restricted
+      // to Latin-1 (the Fetch/Web Headers spec treats it as a ByteString).
+      // Any other remaining non-Latin-1 character -- an em dash that slips
+      // past the replacements above, an accented letter, an emoji -- would
+      // otherwise crash PDF generation entirely with a cryptic "Cannot
+      // convert argument to a ByteString" error, exactly as happened with
+      // a real client profile ("SilverSummit Healthplan \u2014 ..."). Strip
+      // anything left outside that range as a last-resort safety net so
+      // this specific failure can never recur for any future character.
+      .replace(/[^\x00-\xFF]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
   // Only the Client Name portion (before the "/") is used in the filename --
   // the Profiler Initials after the "/" are dropped here, though the field
   // itself is untouched and still shows both on screen and in the PDF.
