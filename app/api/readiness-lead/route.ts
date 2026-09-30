@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LEAD_EMAILS } from "@/lib/constants";
 import { sendToolLeadEmail } from "@/lib/tool-lead-email";
+import { tagToolLead } from "@/lib/hubspot-tool-lead";
 import { formatDollars } from "@/lib/gift-chart";
 import {
   QUESTIONS,
@@ -289,7 +290,10 @@ async function syncStartToHubSpot(fields: StartFields) {
 
   if (res.ok) {
     const created = await res.json();
-    await createNote(token, created.id, noteBody);
+    await Promise.all([
+      createNote(token, created.id, noteBody),
+      tagToolLead(token, created.id, "readiness", { readiness_campaign_goal: String(fields.goal) }),
+    ]);
     return true;
   }
 
@@ -299,7 +303,10 @@ async function syncStartToHubSpot(fields: StartFields) {
   if (res.status === 409) {
     const existingId = errorBody.match(/Existing ID:\s*(\d+)/i)?.[1];
     if (existingId) {
-      await createNote(token, existingId, noteBody);
+      await Promise.all([
+        createNote(token, existingId, noteBody),
+        tagToolLead(token, existingId, "readiness", { readiness_campaign_goal: String(fields.goal) }),
+      ]);
       return true;
     }
   }
@@ -529,6 +536,7 @@ async function handleResult(body: Record<string, unknown>) {
       createNote(token, contactId, noteBody),
       writeReadinessProperties(token, fields.email, fields),
       createReadinessTask(token, contactId, fields),
+      tagToolLead(token, contactId, "readiness"),
     ]);
     return { noted: true, propertiesWritten, taskCreated };
   })();

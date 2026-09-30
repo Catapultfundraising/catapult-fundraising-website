@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendToolLeadEmail } from "@/lib/tool-lead-email";
+import { tagToolLead } from "@/lib/hubspot-tool-lead";
 import { formatDollars } from "@/lib/gift-chart";
 
 /**
@@ -126,7 +127,10 @@ async function syncToHubSpot(fields: Fields) {
 
   if (res.ok) {
     const created = await res.json();
-    await createNote(token, created.id, noteBody);
+    await Promise.all([
+      createNote(token, created.id, noteBody),
+      tagToolLead(token, created.id, "gift_chart", { gift_chart_goal: String(fields.goal) }),
+    ]);
     return true;
   }
 
@@ -136,7 +140,10 @@ async function syncToHubSpot(fields: Fields) {
   if (res.status === 409) {
     const existingId = errorBody.match(/Existing ID:\s*(\d+)/i)?.[1];
     if (existingId) {
-      await createNote(token, existingId, noteBody);
+      await Promise.all([
+        createNote(token, existingId, noteBody),
+        tagToolLead(token, existingId, "gift_chart", { gift_chart_goal: String(fields.goal) }),
+      ]);
       return true;
     }
   }

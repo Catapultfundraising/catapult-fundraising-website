@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { sendToolLeadEmail } from "@/lib/tool-lead-email";
+import { tagToolLead } from "@/lib/hubspot-tool-lead";
 
 /**
  * Lead capture for the gated Donor Loyalty and Legacy Report Card.
@@ -162,7 +163,10 @@ async function syncStartToHubSpot(fields: StartFields) {
 
   if (res.ok) {
     const created = await res.json();
-    await createNote(token, created.id, noteBody);
+    await Promise.all([
+      createNote(token, created.id, noteBody),
+      tagToolLead(token, created.id, "loyalty", { loyalty_active_donors: String(fields.totalDonors) }),
+    ]);
     return true;
   }
 
@@ -172,7 +176,10 @@ async function syncStartToHubSpot(fields: StartFields) {
   if (res.status === 409) {
     const existingId = errorBody.match(/Existing ID:\s*(\d+)/i)?.[1];
     if (existingId) {
-      await createNote(token, existingId, noteBody);
+      await Promise.all([
+        createNote(token, existingId, noteBody),
+        tagToolLead(token, existingId, "loyalty", { loyalty_active_donors: String(fields.totalDonors) }),
+      ]);
       return true;
     }
   }
@@ -280,7 +287,17 @@ async function handleResult(body: Record<string, unknown>) {
     if (!token || !fields.email) return false;
     const contactId = await findContactId(token, fields.email);
     if (!contactId) return false;
-    await createNote(token, contactId, noteBody);
+    await Promise.all([
+      createNote(token, contactId, noteBody),
+      tagToolLead(token, contactId, "loyalty", {
+        loyalty_active_donors: String(fields.totalDonors),
+        loyalty_legacy_grade: fields.legacyGrade,
+        loyalty_legacy_score: String(fields.legacyScore),
+        loyalty_midlevel_grade: fields.midGrade,
+        loyalty_midlevel_score: String(fields.midScore),
+        loyalty_recommendation: fields.recommendation,
+      }),
+    ]);
     return true;
   })();
 
