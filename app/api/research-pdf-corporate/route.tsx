@@ -241,6 +241,12 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     console.error("research-pdf-corporate error", err);
-    return NextResponse.json({ error: "Failed to generate PDF." }, { status: 500 });
+    // Surface the real exception message to the caller (this route is only
+    // reachable behind the /research password gate, so this isn't exposing
+    // anything to the public) -- the generic "Failed to generate PDF." text
+    // that used to be returned here made it impossible to diagnose a
+    // profile-specific failure without direct server log access.
+    const detail = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ error: `Failed to generate PDF: ${detail}` }, { status: 500 });
   }
 }
