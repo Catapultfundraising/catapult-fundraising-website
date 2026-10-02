@@ -6,6 +6,7 @@ import { LoyaltyCalloutCard } from "@/components/tool-callout";
 import { Landmark } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
 import { TestimonialQuote } from "@/components/testimonial-quote";
+import { WebinarCallout } from "@/components/webinar-callout";
 
 const SITE_URL = "https://www.catapultfr.com";
 
@@ -173,6 +174,7 @@ export default function LegacyGivingPage() {
         <LoyaltyCalloutCard note="Before you build a legacy program, find out how many loyal donors you actually have. Our free report card grades your legacy readiness, shows what a pool that size is worth on average, and tells you where to start. Estimates are welcome." />
       </section>
 
+      <WebinarCallout lead="Ready to start the gift annuity conversation with your loyal donors? Join our free live webinar with Endowment Partners." />
       <RelatedReading
         heading="Legacy and planned giving guidance."
         postSlugs={[

@@ -18,6 +18,7 @@ import {
   type Answers,
   type TrackResult,
 } from "@/lib/donor-loyalty";
+import { WebinarCallout } from "@/components/webinar-callout";
 
 const UNLOCK_KEY = "catapult-loyalty-unlocked";
 const ORG_KEY = "catapult-loyalty-org";
@@ -516,6 +517,11 @@ export function DonorLoyaltyAssessment() {
           </div>
 
           <TrackCard track={report.legacy} />
+
+          <WebinarCallout
+            inset
+            lead="Long-time loyal donors are often strong charitable gift annuity prospects, and most are never asked. Learn how to find and approach them."
+          />
 
           <div className="rounded-3xl border border-[rgb(var(--line))] bg-white p-8 shadow-sm lg:p-10">
             <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">

@@ -3,6 +3,7 @@ import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { ShareButtons } from "@/components/share-buttons";
+import { WebinarCallout } from "@/components/webinar-callout";
 
 const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "capital-campaign-donor-engagement-legacy-giving-best-practices";
@@ -327,6 +328,7 @@ export default function BestPracticesPost() {
         </p>
       </article>
 
+      <WebinarCallout />
       <CtaBand />
     </>
   );

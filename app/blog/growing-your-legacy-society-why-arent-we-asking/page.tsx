@@ -3,6 +3,7 @@ import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { ShareButtons } from "@/components/share-buttons";
+import { WebinarCallout } from "@/components/webinar-callout";
 
 const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "growing-your-legacy-society-why-arent-we-asking";
@@ -229,6 +230,7 @@ export default function GrowingYourLegacySocietyPost() {
         </p>
       </article>
 
+      <WebinarCallout />
       <CtaBand />
     </>
   );

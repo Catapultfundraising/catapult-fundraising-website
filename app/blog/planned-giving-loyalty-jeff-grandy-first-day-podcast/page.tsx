@@ -5,6 +5,7 @@ import { CtaBand } from "@/components/cta-band";
 import { ShareButtons } from "@/components/share-buttons";
 import { YouTubeEmbed } from "@/components/youtube-embed";
 import { RelatedReading } from "@/components/related-reading";
+import { WebinarCallout } from "@/components/webinar-callout";
 
 const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "planned-giving-loyalty-jeff-grandy-first-day-podcast";
@@ -401,6 +402,7 @@ export default function JeffGrandyFirstDayPodcastPost() {
         pillars={["Planned Giving"]}
       />
 
+      <WebinarCallout />
       <CtaBand />
     </>
   );
