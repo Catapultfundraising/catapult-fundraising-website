@@ -26,6 +26,7 @@ export const RESOURCE_LINKS = [
   { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
   { href: "/resources/campaign-readiness-assessment", label: "Campaign Readiness Report Card" },
   { href: "/resources/donor-loyalty-assessment", label: "Donor Loyalty and Legacy Report Card" },
+  { href: "/resources/cga-webinar", label: "Free CGA Webinar (Nov 4)" },
 ];
 
 // Desktop + mobile "Free Tools" menu. The same tools also stay listed under
@@ -34,6 +35,7 @@ export const FREE_TOOLS_LINKS = [
   { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
   { href: "/resources/campaign-readiness-assessment", label: "Readiness Report Card" },
   { href: "/resources/donor-loyalty-assessment", label: "Donor Loyalty Report Card" },
+  { href: "/resources/cga-webinar", label: "Free CGA Webinar (Nov 4)" },
   { href: "/resources", label: "All Free Tools" },
 ];
 
@@ -44,6 +46,7 @@ export const INSIGHTS_LINKS = [
   { href: "/resources/gift-chart-calculator", label: "Gift Chart Calculator" },
   { href: "/resources/campaign-readiness-assessment", label: "Readiness Report Card" },
   { href: "/resources/donor-loyalty-assessment", label: "Donor Loyalty Report Card" },
+  { href: "/resources/cga-webinar", label: "Free CGA Webinar" },
 ];
 
 // Desktop header groups About and Our Team under one "About" menu so the row

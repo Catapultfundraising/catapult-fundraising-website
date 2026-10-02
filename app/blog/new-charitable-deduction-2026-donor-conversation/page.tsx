@@ -4,6 +4,7 @@ import type { ReactNode } from "react";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 import { ShareButtons } from "@/components/share-buttons";
+import { WebinarCallout } from "@/components/webinar-callout";
 
 const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "new-charitable-deduction-2026-donor-conversation";
@@ -442,6 +443,7 @@ export default function CharitableDeduction2026Post() {
         </p>
       </article>
 
+      <WebinarCallout />
       <CtaBand />
     </>
   );
