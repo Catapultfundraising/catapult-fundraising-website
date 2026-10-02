@@ -1,5 +1,7 @@
 import Link from "next/link";
-import { ArrowRight } from "lucide-react";
+import Image from "next/image";
+import { ArrowRight, CalendarDays } from "lucide-react";
+import { CGA_WEBINAR } from "@/lib/webinars";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
 
@@ -88,6 +90,40 @@ export default function ResourcesPage() {
         title="Answer the three questions every campaign conversation starts with."
         description="Can we raise it, are we ready, and who have we been ignoring. These are the same models our consultants use with clients, put in your hands for free. Each one ends with a branded PDF you can hand to your board."
       />
+
+      <section className="mx-auto max-w-7xl px-6 pt-14 lg:px-10 lg:pt-16">
+        <Link
+          href={CGA_WEBINAR.href}
+          className="group grid items-center gap-8 overflow-hidden rounded-2xl border border-[rgb(var(--brass))]/60 bg-[rgb(var(--navy))] text-[rgb(var(--paper))] sm:grid-cols-[220px_1fr] lg:grid-cols-[260px_1fr_auto] lg:pr-10"
+        >
+          <Image
+            src={CGA_WEBINAR.image}
+            alt={CGA_WEBINAR.title}
+            width={520}
+            height={520}
+            sizes="260px"
+            className="h-full w-full object-cover"
+          />
+          <div className="px-8 pb-8 sm:px-0 sm:py-8 sm:pr-8 lg:pr-0">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[rgb(var(--brass-light))]">
+              Free live webinar · with {CGA_WEBINAR.partner}
+            </p>
+            <h2 className="mt-3 font-display text-3xl text-balance">{CGA_WEBINAR.title}</h2>
+            <p className="mt-3 flex items-center gap-2 text-sm text-[rgb(var(--paper))]/75">
+              <CalendarDays className="h-4 w-4 text-[rgb(var(--brass-light))]" />
+              {CGA_WEBINAR.dateLabel} · {CGA_WEBINAR.timeLabel}
+            </p>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-[rgb(var(--paper))]/70">
+              Find the CGA prospects already in your donor file, start the conversation without
+              opening with tax math, and set up a program that lasts.
+            </p>
+          </div>
+          <span className="mx-8 mb-8 inline-flex w-fit items-center gap-2 rounded-full bg-[rgb(var(--brass))] px-6 py-3 text-sm font-semibold text-[rgb(var(--navy-deep))] sm:col-start-2 sm:mx-0 lg:col-start-3 lg:mb-0">
+            Save my seat
+            <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
+          </span>
+        </Link>
+      </section>
 
       <section className="mx-auto max-w-7xl px-6 py-14 lg:px-10 lg:py-16">
         <div className="grid gap-8 lg:grid-cols-3">
