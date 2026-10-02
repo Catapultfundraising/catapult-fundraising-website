@@ -20,6 +20,18 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "annual-fund-donor-relationships-lasting-philanthropy",
+    date: "2026-10-02",
+    title: "The Annual Fund: Where Donor Relationships Become Lasting Philanthropy",
+    description:
+      "Gwen Paxon on building an annual fund around relationships: clean data, real segmentation, lapsed donors, recurring gifts, pledge follow-through, stewardship, and a path to major and planned gifts.",
+    readTime: "13 min read",
+    image: "/blog/annual-fund-donor-relationships-lasting-philanthropy/hero-donor-thank-you-call.jpg",
+    alt: "An older man smiling as he talks on the phone at home",
+    pillars: ["Annual Fund", "Donor Acquisition & Retention"],
+    services: ["annual-fund", "donor-engagement"],
+  },
+  {
     slug: "new-charitable-deduction-2026-donor-conversation",
     date: "2026-09-25",
     title: "A New Tax Incentive, and How to Use It in a Donor Conversation",
