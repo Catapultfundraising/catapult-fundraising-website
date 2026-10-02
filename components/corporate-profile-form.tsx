@@ -30,6 +30,7 @@ import {
   Plus,
   ArrowUp,
   ArrowDown,
+  FileUp,
 } from "lucide-react";
 import {
   Field,
@@ -42,6 +43,7 @@ import {
   compositeLogoOnWhiteSquare,
   buildProfilePdfFileName,
 } from "@/lib/profile-form-kit";
+import { smartTitleCase, smartSentenceCase } from "@/lib/title-case";
 
 interface CorporateProfileData {
   dateCreated: string;
@@ -145,6 +147,91 @@ function emptyProfile(): CorporateProfileData {
   };
 }
 
+async function safeJson(res: Response): Promise<any> {
+  try {
+    return await res.json();
+  } catch {
+    return null;
+  }
+}
+
+// Vercel serverless functions reject request bodies over ~4.5 MB, and an
+// annual report saved to PDF can easily be 20 MB+. Same approach as the
+// Foundation builder: the browser splits an oversized PDF into page ranges
+// that each fit under the limit, and each range is imported in turn.
+const MAX_IMPORT_CHUNK_BYTES = 3 * 1024 * 1024;
+
+async function splitPdfIntoChunks(file: File): Promise<File[]> {
+  if (file.size <= MAX_IMPORT_CHUNK_BYTES) return [file];
+
+  const { PDFDocument } = await import("pdf-lib");
+  const source = await PDFDocument.load(await file.arrayBuffer(), { ignoreEncryption: true });
+  const pageCount = source.getPageCount();
+  if (pageCount <= 1) return [file];
+  const selected = Array.from({ length: pageCount }, (_, i) => i);
+
+  const avgPageBytes = Math.max(1, Math.floor(file.size / pageCount));
+  let pagesPerChunk = Math.max(1, Math.floor(MAX_IMPORT_CHUNK_BYTES / avgPageBytes));
+
+  const chunks: File[] = [];
+  let start = 0;
+  while (start < selected.length) {
+    let take = Math.min(pagesPerChunk, selected.length - start);
+    let bytes: Uint8Array | null = null;
+    while (take >= 1) {
+      const out = await PDFDocument.create();
+      // Lead every slice with page 1, which usually carries the company name,
+      // so a mid-document slice is still attributed to the right company.
+      const pageIndexes = selected.slice(start, start + take);
+      const withCover = pageIndexes.includes(0) ? pageIndexes : [0, ...pageIndexes];
+      const copied = await out.copyPages(source, withCover);
+      copied.forEach((page) => out.addPage(page));
+      bytes = await out.save();
+      if (bytes.byteLength <= MAX_IMPORT_CHUNK_BYTES || take === 1) break;
+      take = Math.floor(take / 2);
+      pagesPerChunk = take;
+    }
+    if (!bytes) break;
+    const perPage = Math.max(1, Math.floor(bytes.byteLength / take));
+    pagesPerChunk = Math.max(1, Math.floor((MAX_IMPORT_CHUNK_BYTES * 0.9) / perPage));
+    const first = selected[start] + 1;
+    const last = selected[start + take - 1] + 1;
+    const name = file.name.replace(/\.pdf$/i, "") + `-pages-${first}-${last}.pdf`;
+    chunks.push(new File([new Uint8Array(bytes)], name, { type: "application/pdf" }));
+    start += take;
+  }
+  return chunks.length ? chunks : [file];
+}
+
+const nameKey = (v: string) => (v || "").toLowerCase().replace(/\s+/g, " ").trim();
+
+// The import backfills empty fields only, so run the same case normalization
+// the Foundation builder uses over the whole merged record. Both functions
+// no-op on text that is already cased normally.
+const TITLE_FIELDS = ["name", "address", "companyAffiliations"] as const;
+const PROSE_FIELDS = [
+  "relationshipToOrg", "companyHeritage", "keyInformation", "productsOperations",
+  "values", "corporateGiving", "relevantFindings",
+] as const;
+
+function normalizeCase(record: CorporateProfileData): CorporateProfileData {
+  const out: CorporateProfileData = { ...record };
+  for (const f of TITLE_FIELDS) out[f] = smartTitleCase(out[f]);
+  for (const f of PROSE_FIELDS) out[f] = smartSentenceCase(out[f]);
+  out.keyPeople = out.keyPeople.map((p) => ({
+    ...p,
+    name: smartTitleCase(p.name),
+    title: smartTitleCase(p.title),
+    bio: smartSentenceCase(p.bio),
+  }));
+  out.foundations = out.foundations.map((f) => ({
+    ...f,
+    name: smartTitleCase(f.name),
+    address: smartTitleCase(f.address),
+  }));
+  return out;
+}
+
 const DRAFT_KEY_PREFIX = "catapult-corporate-profile-draft";
 const draftKey = (id: string | null) => `${DRAFT_KEY_PREFIX}:${id || "unsaved"}`;
 
@@ -189,6 +276,10 @@ function CorporateProfileFormInner() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [lastSavedAt, setLastSavedAt] = useState<string | null>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
+  const importInputRef = useRef<HTMLInputElement>(null);
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
   const loadedRef = useRef(false);
   const skipReloadIdRef = useRef<string | null>(null);
 
@@ -314,6 +405,146 @@ function CorporateProfileFormInner() {
   async function handleLogoUpload(file: File) {
     const uri = await compositeLogoOnWhiteSquare(file);
     set("photo", uri);
+  }
+
+  // Uploads one PDF (or one page range of a big one), waits for the
+  // extraction, and merges it FILL-IN-THE-BLANKS ONLY: anything already typed
+  // always wins. Key People and Company Foundations APPEND de-duplicated
+  // cards (matched by name), so re-uploading the same PDF is a no-op.
+  async function importOneChunk(
+    file: File,
+    progressLabel: string
+  ): Promise<{ addedPeople: number; addedFoundations: number }> {
+    const formData = new FormData();
+    formData.append("pdf", file);
+    const startRes = await fetch("/api/corporate-pdf-import", { method: "POST", body: formData });
+    const startBody = await safeJson(startRes);
+    if (!startRes.ok || !startBody?.runId) {
+      throw new Error(startBody?.error || `Failed to start the PDF import (server returned ${startRes.status}).`);
+    }
+    const { runId, logo } = startBody;
+
+    setImportNotice(progressLabel);
+    const maxAttempts = 90; // ~3 minutes at 2s intervals
+    let payload: any = null;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+      const pollRes = await fetch(`/api/corporate-pdf-import/status?runId=${encodeURIComponent(runId)}`);
+      const pollBody = await safeJson(pollRes);
+      if (!pollRes.ok) {
+        throw new Error(pollBody?.error || `The import failed while processing (server returned ${pollRes.status}).`);
+      }
+      if (pollBody?.status === "COMPLETED") {
+        payload = pollBody;
+        break;
+      }
+      if (pollBody?.error) throw new Error(pollBody.error);
+    }
+    if (!payload) {
+      throw new Error("The PDF import is taking longer than expected. Please try again in a moment.");
+    }
+
+    const x = payload.data || {};
+    let addedPeople = 0;
+    let addedFoundations = 0;
+
+    setData((d) => {
+      // Revenue year and amount travel together: only take the document's pair
+      // when both boxes are still empty, so a typed figure is never paired
+      // with a year from a different source.
+      const takeRevenue = !d.revenueYear && !d.revenueAmount;
+      const merged: CorporateProfileData = {
+        ...d,
+        name: d.name || x.name || "",
+        address: d.address || x.address || "",
+        phone: d.phone || x.phone || "",
+        website: d.website || x.website || "",
+        relationshipToOrg: d.relationshipToOrg || x.relationshipToOrg || "",
+        firstGiftAmount: d.firstGiftAmount || x.firstGiftAmount || "",
+        lastGiftAmount: d.lastGiftAmount || x.lastGiftAmount || "",
+        largestGiftAmount: d.largestGiftAmount || x.largestGiftAmount || "",
+        revenueYear: takeRevenue ? x.revenueYear || "" : d.revenueYear,
+        revenueAmount: takeRevenue ? x.revenueAmount || "" : d.revenueAmount,
+        companyHeritage: d.companyHeritage || x.companyHeritage || "",
+        keyInformation: d.keyInformation || x.keyInformation || "",
+        productsOperations: d.productsOperations || x.productsOperations || "",
+        values: d.values || x.values || "",
+        corporateGiving: d.corporateGiving || x.corporateGiving || "",
+        companyAffiliations: d.companyAffiliations || x.companyAffiliations || "",
+        relevantFindings: d.relevantFindings || x.relevantFindings || "",
+        photo: d.photo || logo || "",
+      };
+
+      if (Array.isArray(x.keyPeople) && x.keyPeople.length) {
+        const seen = new Set(d.keyPeople.map((p) => nameKey(p.name)));
+        const additions = (x.keyPeople as PersonEntry[]).filter((p) => {
+          const key = nameKey(p.name);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        addedPeople = additions.length;
+        merged.keyPeople = [...d.keyPeople, ...additions];
+      }
+
+      if (Array.isArray(x.foundations) && x.foundations.length) {
+        const seen = new Set(d.foundations.map((f) => nameKey(f.name)));
+        const additions = (x.foundations as FoundationItem[]).filter((f) => {
+          const key = nameKey(f.name);
+          if (!key || seen.has(key)) return false;
+          seen.add(key);
+          return true;
+        });
+        addedFoundations = additions.length;
+        merged.foundations = [...d.foundations, ...additions];
+      }
+
+      return normalizeCase(merged);
+    });
+
+    setPdfUrl(null);
+    return { addedPeople, addedFoundations };
+  }
+
+  async function handleImportPdf(file: File) {
+    setImporting(true);
+    setImportError(null);
+    setImportNotice(null);
+    let addedPeople = 0;
+    let addedFoundations = 0;
+    let chunksDone = 0;
+    let chunkCount = 1;
+    try {
+      setImportNotice("Reading the PDF...");
+      const chunks = await splitPdfIntoChunks(file);
+      chunkCount = chunks.length;
+      for (let i = 0; i < chunks.length; i++) {
+        const label =
+          chunkCount === 1
+            ? "Extracting. A long document can take a couple of minutes."
+            : `Extracting part ${i + 1} of ${chunkCount}. A long annual report takes several minutes.`;
+        const result = await importOneChunk(chunks[i], label);
+        addedPeople += result.addedPeople;
+        addedFoundations += result.addedFoundations;
+        chunksDone++;
+      }
+    } catch (err: any) {
+      const partial =
+        chunkCount > 1 && chunksDone > 0
+          ? ` Parts 1-${chunksDone} of ${chunkCount} were imported, so what is on the form below is incomplete.`
+          : "";
+      setImportError((err?.message || "Something went wrong importing this PDF.") + partial);
+      setImporting(false);
+      return;
+    }
+    const parts: string[] = [];
+    if (chunkCount > 1) parts.push(`Read all ${chunkCount} parts of this PDF.`);
+    if (addedPeople > 0) parts.push(`Added ${addedPeople} key ${addedPeople === 1 ? "person" : "people"}.`);
+    if (addedFoundations > 0)
+      parts.push(`Added ${addedFoundations} company foundation${addedFoundations === 1 ? "" : "s"}.`);
+    parts.push("Only empty fields were filled, so nothing you already entered was changed. Review everything below before saving.");
+    setImportNotice(parts.join(" "));
+    setImporting(false);
   }
 
   function addPerson() {
@@ -473,6 +704,55 @@ function CorporateProfileFormInner() {
         you&rsquo;re ready, click &ldquo;Generate PDF&rdquo; to produce a fully formatted,
         ready-to-download profile.
       </p>
+
+      <div className="mt-6 rounded-2xl border border-[rgb(var(--brass))]/40 bg-[rgb(var(--brass))]/10 p-4">
+        <label className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
+          <FileUp className="h-3.5 w-3.5" />
+          Import From PDF
+        </label>
+        <p className="mt-1 text-xs text-[rgb(var(--ink))]/60">
+          Upload one document or several, in any order. Imports only fill fields that are still
+          empty, so anything you have already typed is never overwritten. Key people and company
+          foundations are added to the lists below without duplicating ones you already have.
+        </p>
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div className="rounded-xl bg-white p-4">
+            <p className="text-sm font-semibold text-[rgb(var(--navy))]">Company Information</p>
+            <p className="mt-1 text-xs leading-relaxed text-[rgb(var(--ink))]/60">
+              A company profile from a research database, annual report, corporate responsibility
+              or community giving report, or the company&apos;s About page saved as a PDF. Pulls
+              contact details, revenue, heritage, key information, products and operations, values,
+              corporate giving, company foundations, affiliations, key people, and a logo.
+            </p>
+            <input
+              ref={importInputRef}
+              type="file"
+              accept="application/pdf"
+              className="hidden"
+              onChange={(e) => {
+                if (e.target.files?.[0]) handleImportPdf(e.target.files[0]);
+                e.target.value = "";
+              }}
+            />
+            <button
+              type="button"
+              onClick={() => importInputRef.current?.click()}
+              disabled={importing}
+              className="mt-3 inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-4 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-[rgb(var(--brass))] disabled:opacity-60"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileText className="h-4 w-4" />}
+              {importing ? "Importing..." : "Upload Information PDF"}
+            </button>
+          </div>
+        </div>
+        {importing && (
+          <p className="mt-3 text-xs text-[rgb(var(--ink))]/60">
+            Reading the document. A long annual report can take a couple of minutes, keep this tab open.
+          </p>
+        )}
+        {importError && <p className="mt-3 text-sm text-red-600">{importError}</p>}
+        {importNotice && <p className="mt-3 text-sm text-emerald-700">{importNotice}</p>}
+      </div>
 
       <div className="mt-6 flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-[rgb(var(--line))] bg-[rgb(var(--paper))] p-4">
         <div className="flex items-center gap-3">
