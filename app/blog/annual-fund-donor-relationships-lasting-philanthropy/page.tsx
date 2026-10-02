@@ -171,7 +171,7 @@ export default function AnnualFundRelationshipsPost() {
         <Clear />
 
         <H2>The annual fund is more than a revenue program</H2>
-        <Figure src={`${IMG}/graphic-donor-pathway.jpg`} alt="Graphic: an annual gift is where the relationship starts, moving from first-time donor to recurring donor, upgrade prospect, and major or planned gift" />
+        <Figure src={`${IMG}/graphic-donor-pathway-v2.jpg`} alt="Graphic: an annual gift is where the relationship starts, moving from first-time donor to recurring donor, upgrade prospect, and major or planned gift" />
         <P>
           An annual gift can be the beginning of a much larger relationship.
         </P>
@@ -220,7 +220,7 @@ export default function AnnualFundRelationshipsPost() {
         <Clear />
 
         <H2>Start with good data</H2>
-        <Figure src={`${IMG}/graphic-good-data.jpg`} alt="Graphic: make sure you can reach your donors by correcting addresses, adding phone and cell numbers, appending email and age, and flagging old numbers instead of overwriting them" />
+        <Figure src={`${IMG}/graphic-good-data-v2.jpg`} alt="Graphic: can you reach your donors? In one program, 74 percent of undecided prospects could not be reached by phone" />
         <P>
           Before worrying about the perfect appeal, make sure you can reach your donors.
         </P>
@@ -277,7 +277,7 @@ export default function AnnualFundRelationshipsPost() {
         <Clear />
 
         <H2>Don&rsquo;t treat every donor the same</H2>
-        <Figure src={`${IMG}/graphic-segmentation.jpg`} alt="Graphic: segmentation changes the ask, the message, the messenger, the channel, the timing, and the next step" />
+        <Figure src={`${IMG}/graphic-segmentation-v2.jpg`} alt="Graphic: segmentation changes the ask, the message, the messenger, the channel, the timing, and the next step" />
         <P>
           One of the biggest mistakes an annual fund can make is treating the entire database as one
           audience.
@@ -352,7 +352,7 @@ export default function AnnualFundRelationshipsPost() {
         <Clear />
 
         <H2>Don&rsquo;t write off lapsed donors</H2>
-        <Figure src={`${IMG}/graphic-lapsed-donors.jpg`} alt="Graphic: at one large university, lapsed and never-given alumni drove 52 percent of annual fund revenue and 73 percent of new dollars raised" />
+        <Figure src={`${IMG}/graphic-lapsed-donors-v2.jpg`} alt="Graphic: at one large university, lapsed and never-given alumni drove 52 percent of annual fund revenue and 73 percent of new dollars raised" />
         <P>
           A lapsed donor isn&rsquo;t necessarily a lost donor.
         </P>
@@ -421,7 +421,7 @@ export default function AnnualFundRelationshipsPost() {
         <Clear />
 
         <H2>Follow through on the pledge</H2>
-        <Figure src={`${IMG}/graphic-pledge-follow-through.jpg`} alt="Graphic: pledge reminders at 14, 28, and 42 days plus a text with a giving link, with pledge fulfillment rising from about 62 percent to about 68 percent" />
+        <Figure src={`${IMG}/graphic-pledge-follow-through-v2.jpg`} alt="Graphic: pledge reminders at 14, 28, and 42 days plus a text with a giving link, with pledge fulfillment rising from about 62 percent to about 68 percent" />
         <P>
           A pledge isn&rsquo;t a gift until it&rsquo;s paid.
         </P>
@@ -504,7 +504,7 @@ export default function AnnualFundRelationshipsPost() {
         <Clear />
 
         <H2>A &ldquo;no&rdquo; is still information</H2>
-        <Figure src={`${IMG}/graphic-no-is-information.jpg`} alt="Graphic: in one program only 10 percent of decisions were hard declines, while 35 percent cited short-term finances and could be asked again next year" />
+        <Figure src={`${IMG}/graphic-no-is-information-v2.jpg`} alt="Graphic: in one program only 10 percent of decisions were hard declines, while 35 percent cited short-term finances and could be asked again next year" />
         <P>
           A declined ask doesn&rsquo;t necessarily mean a donor is finished with the organization.
         </P>
@@ -562,7 +562,7 @@ export default function AnnualFundRelationshipsPost() {
         <Clear />
 
         <H2>Create a path to the next relationship</H2>
-        <Figure src={`${IMG}/graphic-signals.jpg`} alt="Graphic: four signals worth watching, giving at or above the ask, paying a full pledge up front, mentioning a DAF or IRA gift, and giving for ten years or more" />
+        <Figure src={`${IMG}/graphic-signals-v2.jpg`} alt="Graphic: four signals worth watching, giving at or above the ask, paying a full pledge up front, mentioning a DAF or IRA gift, and giving for ten years or more" />
         <P>
           Annual fund success shouldn&rsquo;t be measured only by dollars raised, pledge rates or the
           number of donors renewed.
