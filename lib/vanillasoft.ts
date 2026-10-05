@@ -51,6 +51,8 @@ export interface VsCallRecord {
   result_group?: string;
   user_name?: string;
   talk_time?: number;
+  /** Caller's free-text note on the call. Declines and deaths are explained here. */
+  comment?: string;
   deleted?: boolean;
 }
 

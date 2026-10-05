@@ -165,17 +165,49 @@ function tierNumber(value: string): number | null {
 interface ContactOutcome {
   status: "completed" | "declined" | "rescheduled" | "closed" | "deceased" | null;
   lastDate: string;
+  /** Caller's note on the terminal call (decline reason, death notice). */
+  comment: string;
 }
+
+// Callers rarely use a dedicated "Deceased" result code. They code the call
+// "Declined" and write the death into the note ("Prospect deceased", "he passed
+// away on Sept 25th"). Only the TERMINAL call's note is read, so a passing
+// mention on an earlier call ("his wife is deceased") cannot misfile anyone.
+const DECEASED_NOTE = /\b(deceased|passed away|has passed|passed on|died)\b/i;
 
 function rollUpOutcomes(calls: VsCallRecord[]): Map<number, ContactOutcome> {
   const outcomes = new Map<number, ContactOutcome>();
   // calls arrive sorted oldest-first, so the last terminal code seen wins.
   for (const call of calls) {
-    const status = TERMINAL_RESULT_CODES[call.result_code];
+    let status = TERMINAL_RESULT_CODES[call.result_code];
     if (!status) continue;
-    outcomes.set(call.contact_id, { status, lastDate: call.call_date_time_utc });
+    const comment = (call.comment ?? "").trim();
+    if (status === "declined" && DECEASED_NOTE.test(comment)) status = "deceased";
+    outcomes.set(call.contact_id, { status, lastDate: call.call_date_time_utc, comment });
   }
   return outcomes;
+}
+
+// Caller notes are shorthand ("SW Ted he has never been to Nevada..."), which
+// is not something to put in front of a client. Each note is mapped to the
+// same short reason vocabulary the weekly Interview Status Report used. A note
+// that matches nothing reads "Declined to interview" rather than guessing.
+const DECLINE_REASONS: Array<[RegExp, string]> = [
+  [/personal (reason|issue|matter)|family (reason|issue|matter)|health/i, "Personal Reasons"],
+  [/too busy|busy|no time|schedule (is )?full|bandwidth/i, "Too Busy"],
+  [/does ?n[o']t (do|participate in) (study |studies|interviews|surveys)|policy against/i, "Does not do study interviews"],
+  [/out of (the )?country/i, "Out of Country"],
+  [/out of town|travel(l)?ing|out of (the )?office for/i, "Out of Town"],
+  [/no longer lives|moved (away|out)|relocated/i, "No longer lives in the area"],
+  [/never been to|no (affiliation|connection|relationship|ties)|not affiliated|does ?n[o']t know (the |about )/i, "No connection to the organization"],
+  [/recommend(ed)? (another|someone|a colleague)|refer(red)? (us |me )?to/i, "Recommended another person"],
+  [/not interested|no interest|would not be interested|isn'?t interested/i, "Not Interested"],
+];
+
+export function declineReason(comment: string): string {
+  const text = comment.replace(/\s+/g, " ").trim();
+  for (const [pattern, reason] of DECLINE_REASONS) if (pattern.test(text)) return reason;
+  return "Declined to interview";
 }
 
 function formatDate(iso: string): string {
@@ -284,7 +316,7 @@ export async function buildPortalDataFromVanillaSoft(
     if (outcome?.status === "completed") {
       completedInterviews.push({ name: nameOf(id), org: orgOf(id), date: formatDate(outcome.lastDate) });
     } else if (outcome?.status === "declined") {
-      declined.push({ name: nameOf(id), org: orgOf(id), reason: "" });
+      declined.push({ name: nameOf(id), org: orgOf(id), reason: declineReason(outcome.comment) });
     } else if (outcome?.status === "deceased") {
       deceased.push({ name: nameOf(id), reason: "Passed Away" });
     } else if (outcome?.status === "rescheduled") {
