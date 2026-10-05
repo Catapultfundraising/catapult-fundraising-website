@@ -169,7 +169,8 @@ interface ContactOutcome {
   comment: string;
 }
 
-// Callers rarely use a dedicated "Deceased" result code. They code the call
+// The "Deceased" result code is the primary signal (added to CSNF Oct 2026).
+// For older records, callers coded the call
 // "Declined" and write the death into the note ("Prospect deceased", "he passed
 // away on Sept 25th"). Only the TERMINAL call's note is read, so a passing
 // mention on an earlier call ("his wife is deceased") cannot misfile anyone.
@@ -204,11 +205,25 @@ const DECLINE_REASONS: Array<[RegExp, string]> = [
   [/not interested|no interest|would not be interested|isn'?t interested/i, "Not Interested"],
 ];
 
-export function declineReason(comment: string): string {
-  const text = comment.replace(/\s+/g, " ").trim();
-  for (const [pattern, reason] of DECLINE_REASONS) if (pattern.test(text)) return reason;
+export function declineReason(comment: string, fieldValue = ""): string {
+  // The "Reason For Declining" contact field (required on a Declined result
+  // since Oct 2026) is the primary source; the call note is the fallback for
+  // older records. Either is mapped to the short client-facing vocabulary. A
+  // short field entry that matches nothing ("Board conflict") is shown as typed
+  // because a person chose those words for the record; a long free-text entry
+  // that matches nothing falls back to the neutral default.
+  const field = fieldValue.replace(/\s+/g, " ").trim();
+  const note = comment.replace(/\s+/g, " ").trim();
+  for (const text of [field, note]) {
+    if (!text) continue;
+    for (const [pattern, reason] of DECLINE_REASONS) if (pattern.test(text)) return reason;
+  }
+  if (field && field.length <= 40) return field.charAt(0).toUpperCase() + field.slice(1);
   return "Declined to interview";
 }
+
+/** Name of the VanillaSoft contact field callers fill in on a Declined result. */
+export const DECLINE_REASON_FIELD = "Reason For Declining";
 
 function formatDate(iso: string): string {
   if (!iso) return "";
@@ -315,8 +330,12 @@ export async function buildPortalDataFromVanillaSoft(
 
     if (outcome?.status === "completed") {
       completedInterviews.push({ name: nameOf(id), org: orgOf(id), date: formatDate(outcome.lastDate) });
+    } else if (outcome?.status === "declined" && contact && DECEASED_NOTE.test(customField(contact, DECLINE_REASON_FIELD))) {
+      // Older records: coded Declined with "Deceased" entered as the reason.
+      deceased.push({ name: nameOf(id), reason: "Passed Away" });
     } else if (outcome?.status === "declined") {
-      declined.push({ name: nameOf(id), org: orgOf(id), reason: declineReason(outcome.comment) });
+      const fieldReason = contact ? customField(contact, DECLINE_REASON_FIELD) : "";
+      declined.push({ name: nameOf(id), org: orgOf(id), reason: declineReason(outcome.comment, fieldReason) });
     } else if (outcome?.status === "deceased") {
       deceased.push({ name: nameOf(id), reason: "Passed Away" });
     } else if (outcome?.status === "rescheduled") {
