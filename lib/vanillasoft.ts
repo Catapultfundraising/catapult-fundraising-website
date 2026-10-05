@@ -53,6 +53,9 @@ export interface VsCallRecord {
   talk_time?: number;
   /** Caller's free-text note on the call. Declines and deaths are explained here. */
   comment?: string;
+  /** 1 = scheduled callback, 2 = appointment (interview), 0 = no event. */
+  event_type?: number;
+  event_date_utc?: string | null;
   deleted?: boolean;
 }
 

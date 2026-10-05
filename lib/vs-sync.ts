@@ -189,6 +189,25 @@ function rollUpOutcomes(calls: VsCallRecord[]): Map<number, ContactOutcome> {
   return outcomes;
 }
 
+// The contact's calendar slot (scheduled_call_date_time) is filled by BOTH a
+// booked interview and a scheduled callback, so on its own it overstates
+// "Scheduled Interviews" (Jim Marsh, CSNF, Oct 2026). The call that created the
+// slot tells them apart: event_type 2 / "I - ..." codes are appointments,
+// event_type 1 / "Contact-Callback" group (code CB) are callbacks. Only the
+// most recent booking call counts. Contacts with no booking call in the pulled
+// history keep the old behavior so older projects are not emptied out.
+function lastBookingKind(calls: VsCallRecord[]): Map<number, "interview" | "callback"> {
+  const kinds = new Map<number, "interview" | "callback">();
+  for (const call of calls) {
+    if (call.event_type === 1 || call.result_group === "Contact-Callback" || call.result_code === "CB") {
+      kinds.set(call.contact_id, "callback");
+    } else if (call.event_type === 2 || /^I\s*-/.test(call.result_code)) {
+      kinds.set(call.contact_id, "interview");
+    }
+  }
+  return kinds;
+}
+
 // Caller notes are shorthand ("SW Ted he has never been to Nevada..."), which
 // is not something to put in front of a client. Each note is mapped to the
 // same short reason vocabulary the weekly Interview Status Report used. A note
@@ -305,6 +324,7 @@ export async function buildPortalDataFromVanillaSoft(
   const contacts = Object.values(store);
   const byId = new Map(contacts.map((c) => [c.contact_id, c]));
   const outcomes = rollUpOutcomes(calls);
+  const lastBooking = lastBookingKind(calls);
 
   // Every contact that exists in the store or has been called at all.
   const allContactIds = new Set<number>([...byId.keys(), ...calls.map((c) => c.contact_id)]);
@@ -340,7 +360,7 @@ export async function buildPortalDataFromVanillaSoft(
       deceased.push({ name: nameOf(id), reason: "Passed Away" });
     } else if (outcome?.status === "rescheduled") {
       toBeRescheduled.push({ name: nameOf(id), org: orgOf(id) });
-    } else if (scheduledAt && new Date(scheduledAt) >= asOf) {
+    } else if (scheduledAt && new Date(scheduledAt) >= asOf && lastBooking.get(id) !== "callback") {
       scheduledInterviews.push({ name: nameOf(id), org: orgOf(id), date: formatDate(scheduledAt) });
     } else if (outcome?.status !== "closed") {
       inCallingProcess++;
