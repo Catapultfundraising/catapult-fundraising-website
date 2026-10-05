@@ -110,19 +110,38 @@ export const STUDY_PORTALS: Record<string, StudyPortalConfig> = {
     dataPath: "csnf-dashboard/data.json",
     contactsPath: "csnf-dashboard/vs-contacts.json",
     historyStart: "2026-09-01",
-    missionThemeQuestion: "5",
+    // CSNF uses its own questionnaire ("CSNF Donor Assessment Study Interview
+    // Questions FINAL 9.14.26"), numbered differently from JAG's, so it gets
+    // its own question mapping rather than the JAG-based STANDARD_SIGNALS.
+    missionThemeQuestion: "7", // Which elements of the Northwest Campus resonate most (multi-select)
     quoteQuestions: ["3", "10"],
-    signals: STANDARD_SIGNALS.map((s) =>
-      s.question === "3"
-        ? { ...s, label: "Rate CSNF’s reputation “Very Good” or “Good”" }
-        : s.question === "8"
-          ? { ...s, label: "Would consider a financial gift to CSNF if asked" }
-          : s.question === "13"
-            ? { ...s, label: "Are willing to introduce CSNF to others in their network" }
-            : s.question === "12"
-              ? { ...s, label: "Would consider a leadership role with CSNF" }
-              : s
-    ),
+    signals: [
+      {
+        question: "3",
+        label: "Rate CSN’s reputation “Very Good” or “Good”",
+        positiveAnswers: ["very good", "good"],
+      },
+      {
+        question: "5",
+        label: "Believe CSN should move forward with the Northwest Campus",
+        positiveAnswers: ["yes"],
+      },
+      {
+        question: "9",
+        label: "Believe the CSN Foundation can raise $10 million",
+        positiveAnswers: ["yes"],
+      },
+      {
+        question: "12",
+        label: "Would consider a gift to the CSNF Campaign if asked",
+        positiveAnswers: ["yes", "maybe"], // Maybe counts as a yes (Anthony/Amy, 2026-10-05)
+      },
+      {
+        question: "13",
+        label: "Would consider serving on the CSNF Campaign Committee",
+        positiveAnswers: ["yes"],
+      },
+    ],
     pdfPath: "/api/csnf-summary-pdf",
     syncEnabled: true,
   },
