@@ -48,7 +48,11 @@ async function run(req: NextRequest, save: boolean) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (save && isCronRequest(req) && !isMondayInPacific()) {
+  // `force=1` lets a one-off, authorised refresh run on a non-Monday (e.g. an
+  // extra mid-week update a client asked for). The daily Vercel cron never
+  // sends it, so the normal Monday cadence is unchanged.
+  const forced = req.nextUrl.searchParams.get("force") === "1";
+  if (save && isCronRequest(req) && !forced && !isMondayInPacific()) {
     return NextResponse.json({ ok: true, saved: false, skipped: "not Monday in America/Los_Angeles" });
   }
 

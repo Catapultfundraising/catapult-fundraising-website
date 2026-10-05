@@ -123,7 +123,7 @@ export const STUDY_PORTALS: Record<string, StudyPortalConfig> = {
               ? { ...s, label: "Would consider a leadership role with CSNF" }
               : s
     ),
-    pdfPath: "/api/jag-summary-pdf?portal=csnf",
+    pdfPath: "/api/csnf-summary-pdf",
     syncEnabled: true,
   },
 };
