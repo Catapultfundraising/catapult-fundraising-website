@@ -134,7 +134,7 @@ export const STUDY_PORTALS: Record<string, StudyPortalConfig> = {
       {
         question: "12",
         label: "Would consider a gift to the CSNF Campaign if asked",
-        positiveAnswers: ["yes"],
+        positiveAnswers: ["yes", "maybe"], // Maybe counts as a yes (Anthony/Amy, 2026-10-05)
       },
       {
         question: "13",
