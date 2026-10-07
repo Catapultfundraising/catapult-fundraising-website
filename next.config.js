@@ -37,6 +37,16 @@ const nextConfig = {
   async redirects() {
     return [
       {
+        source: "/specialolympicsindiana",
+        destination: "/insights/case-studies/af-connect-special-olympics-indiana",
+        permanent: true,
+      },
+      {
+        source: "/independentschoolcasestudy",
+        destination: "/insights/case-studies/legacy-calls-hill-school",
+        permanent: true,
+      },
+      {
         source: "/callcentermanager",
         destination: "/services/annual-fund",
         permanent: true,

@@ -26,6 +26,11 @@ const FAQS = [
       "A gift chart, also called a gift range chart, sets out how many gifts you need at each level to reach your goal. It starts with one lead gift at roughly 15 to 20 percent of the goal and works down through descending levels, and it usually shows how many qualified prospects you need to identify to produce each gift.",
   },
   {
+    question: "Is a gift pyramid the same as a gift chart?",
+    answer:
+      "Yes. Gift pyramid, giving pyramid, gift range chart, and gift table all describe the same planning tool: a few large gifts at the top and many smaller gifts at the bottom, with the number of gifts and prospects needed at each level. This calculator works as a gift pyramid calculator, gift table calculator, or campaign gift chart calculator.",
+  },
+  {
     question: "How is the calculator's chart built?",
     answer:
       "It uses the same structure Catapult builds for clients: round gift levels only, a single lead gift at roughly 20 percent of goal, a top ten gifts that carry 60 percent or more of the goal, a closing line of many smaller gifts that completes the campaign, and roughly three qualified prospects for every gift needed. It is a planning starting point, not a chart built against your donor data.",

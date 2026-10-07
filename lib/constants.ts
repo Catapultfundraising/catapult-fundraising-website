@@ -2,7 +2,7 @@ export const SERVICE_LINKS = [
   { href: "/services/capital-campaign", label: "Capital Campaigns" },
   { href: "/services/feasibility-study", label: "Feasibility Studies" },
   { href: "/services/legacy-giving", label: "Legacy Giving" },
-  { href: "/services/donor-engagement", label: "Donor Engagement" },
+  { href: "/services/donor-engagement", label: "Mid-Level Donor Engagement" },
   { href: "/services/annual-fund", label: "Annual Fund Calling" },
   { href: "/services/board-development", label: "Board Development" },
 ];

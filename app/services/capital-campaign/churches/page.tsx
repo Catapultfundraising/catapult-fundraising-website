@@ -104,6 +104,10 @@ const SECTIONS = [
 
 const FAQS = [
   {
+    "question": "What is a church capital campaign planning study?",
+    "answer": "A planning study, also called a feasibility study, is a round of confidential interviews with church leadership, active members, and potential lead donors before a campaign is announced. It tests whether the congregation supports the project, whether the goal is realistic, and who is ready to give at the top of the gift chart. The result is a written report with a confirmed or adjusted goal, a draft gift chart, and a recommended timeline, so the church commits to a number its members have already helped shape."
+  },
+  {
     "question": "How do church donors behave differently in a capital campaign?",
     "answer": "Church donors give out of identity, obligation, and belonging rather than in response to a case for support, which makes them extraordinarily loyal and reliable but difficult to upgrade. They also participate in feasibility studies at higher rates than any other sector, volunteer for campaign committees more readily, and redirect their giving quickly when a crisis hits the community."
   },
@@ -246,6 +250,14 @@ export default function ChurchDonorBehaviorPage() {
           "why-a-feasibility-study-matters-before-a-capital-campaign",
           "planning-a-capital-campaign-gift-chart-quiet-phase",
           "how-much-does-a-capital-campaign-cost",
+        ]}
+        answerSlugs={[
+          "what-is-a-capital-campaign-feasibility-study",
+          "how-do-you-plan-and-conduct-a-capital-campaign",
+          "how-much-does-a-feasibility-study-cost",
+          "is-my-nonprofit-ready-for-a-capital-campaign",
+          "what-is-the-quiet-phase-of-a-capital-campaign",
+          "how-do-you-choose-a-capital-campaign-consulting-firm",
         ]}
         pillars={["Capital Campaigns", "Feasibility Studies"]}
       />
