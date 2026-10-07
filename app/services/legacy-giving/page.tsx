@@ -180,6 +180,7 @@ export default function LegacyGivingPage() {
         postSlugs={[
           "planned-giving-loyalty-jeff-grandy-first-day-podcast",
           "growing-your-legacy-society-why-arent-we-asking",
+          "capital-campaign-donor-engagement-legacy-giving-best-practices",
           "national-make-a-will-month-planned-giving-conversation",
           "giving-usa-2026-record-giving-wealth-transfer",
         ]}

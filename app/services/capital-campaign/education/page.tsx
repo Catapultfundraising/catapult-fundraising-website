@@ -104,6 +104,10 @@ const SECTIONS = [
 
 const FAQS = [
   {
+    "question": "What is a school or college campaign feasibility study?",
+    "answer": "A campaign feasibility study, often called a planning study in independent schools, is a set of confidential interviews with trustees, leadership, alumni, parents, and top prospects before a campaign is announced. It tests the case for support, the proposed goal, and the depth of leadership gift capacity, and it surfaces data problems in the alumni file early. Colleges and universities use it to choose between goal scenarios; schools use it to confirm the project has the support of the families and alumni who will fund it."
+  },
+  {
     "question": "Why does wealth screening show more capacity than our alumni actually give?",
     "answer": "Because capacity measures what a person could give and giving history measures what someone has asked them for. In education campaigns the gap is usually large, and it almost always points to a development office that has never been staffed for major gift work rather than to disinterested alumni. Closing that gap is normally the first recommendation in the study."
   },
@@ -246,6 +250,14 @@ export default function EducationDonorBehaviorPage() {
           "why-a-feasibility-study-matters-before-a-capital-campaign",
           "planning-a-capital-campaign-gift-chart-quiet-phase",
           "how-much-does-a-capital-campaign-cost",
+        ]}
+        answerSlugs={[
+          "what-is-a-capital-campaign-feasibility-study",
+          "how-do-you-plan-and-conduct-a-capital-campaign",
+          "how-much-does-a-feasibility-study-cost",
+          "is-my-nonprofit-ready-for-a-capital-campaign",
+          "what-is-the-quiet-phase-of-a-capital-campaign",
+          "how-do-you-choose-a-capital-campaign-consulting-firm",
         ]}
         pillars={["Capital Campaigns", "Feasibility Studies"]}
       />

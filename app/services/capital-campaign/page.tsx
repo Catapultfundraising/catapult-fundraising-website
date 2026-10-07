@@ -448,6 +448,14 @@ export default function CapitalCampaignPage() {
         heading="Capital campaign reading before you commit to a goal."
         service="capital-campaign"
         pillars={["Capital Campaigns", "Feasibility Studies"]}
+        answerSlugs={[
+          "how-do-you-choose-a-capital-campaign-consulting-firm",
+          "how-do-you-plan-and-conduct-a-capital-campaign",
+          "what-is-the-quiet-phase-of-a-capital-campaign",
+          "what-is-a-capital-campaign-feasibility-study",
+          "how-much-does-a-capital-campaign-consultant-cost",
+          "is-my-nonprofit-ready-for-a-capital-campaign",
+        ]}
       />
 
       <section className="bg-[rgb(var(--surface))] pb-6">

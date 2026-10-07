@@ -150,11 +150,15 @@ export default function HomePage() {
         heading="Guidance from the team that runs the campaigns."
         intro="Practical articles and direct answers to the questions nonprofit boards ask before they commit to a campaign."
         latest={3}
+        answerLimit={9}
         answerSlugs={[
           "what-is-a-capital-campaign",
+          "how-do-you-plan-and-conduct-a-capital-campaign",
+          "how-do-you-choose-a-capital-campaign-consulting-firm",
           "what-is-a-capital-campaign-feasibility-study",
           "is-my-nonprofit-ready-for-a-capital-campaign",
           "how-much-does-a-feasibility-study-cost",
+          "what-is-a-mid-level-donor-program",
           "how-do-you-ask-for-a-major-gift",
           "how-do-you-start-a-planned-giving-program",
         ]}

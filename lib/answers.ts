@@ -84,17 +84,89 @@ export const ANSWERS: Answer[] = [
   },
   {
     slug: "how-do-you-plan-and-conduct-a-capital-campaign",
+    primaryService: {
+      label: "Capital campaign consulting",
+      href: "/services/capital-campaign",
+      blurb: "How Catapult carries a campaign through all five phases, from the feasibility study to a staffed public phase, with one accountable team.",
+    },
     pillar: "Capital Campaigns",
-    question: "How do you plan and conduct a capital campaign?",
-    metaDescription: "Catapult plans and runs a capital campaign in five sequential phases.",
+    question: "How do you plan and run a capital campaign? The five phases, step by step",
+    metaTitle: "Capital Campaign Phases: How to Plan and Run One",
+    metaDescription: "The five phases of a capital campaign, from feasibility study and planning through the quiet phase, public phase, and stewardship, and how to start.",
     answer: [
       "Catapult plans and runs a capital campaign in five sequential phases. The Feasibility Study comes first: we interview board members, staff, and top prospects to pressure-test the goal before a single dollar is asked for.",
       "Campaign Planning follows over a focused 3-6 month runway, prioritizing prospect data, finalizing campaign materials, and recruiting and training a Campaign Committee.",
       "The Quiet Phase runs 24-36 months, working alongside the Campaign Chair and Steering Committee to solicit major gifts from individuals, foundations, and corporations, typically securing the majority of the goal before any public announcement.",
       "Campaign Connect, the public or community phase, then reaches core constituencies (alumni, parents, grateful patients, members, subscribers) by phone to raise the remaining 10-20% of the goal while dramatically expanding the donor base.",
+      "Stewardship is the fifth phase: collecting pledges, recognizing donors, and keeping the relationships the campaign built so they carry into the annual fund and the next campaign.",
+    ],
+    sections: [
+      {
+        heading: "The five phases at a glance",
+        bullets: [
+          "Phase 1, Feasibility Study: confidential interviews with board members, staff, and top prospects to test the goal and the case before anything is announced.",
+          "Phase 2, Campaign Planning (3 to 6 months): prospect data, gift chart, campaign materials, and recruiting and training the Campaign Committee.",
+          "Phase 3, Quiet Phase (24 to 36 months): leadership and major gifts from individuals, foundations, and corporations, sequenced from the top of the gift chart down.",
+          "Phase 4, Campaign Connect, the public phase: reaching the broader constituency by phone to raise the remaining 10 to 20 percent and widen the donor base.",
+          "Phase 5, Stewardship: pledge fulfillment, recognition, and keeping campaign donors engaged after the goal is reached.",
+        ],
+      },
+      {
+        heading: "How to start a capital campaign",
+        body: [
+          "Most campaigns start well before anyone is asked for money. The first step is a clear project: what you are building or funding, what it will cost, and why it matters to the people you serve. A general need for more money is not a campaign case.",
+          "Next, the board agrees to explore a campaign, not to launch one. That distinction matters, because the honest answer to whether the goal is realistic comes from the feasibility study, not from the board room. In the meantime, pull together your donor file, giving history, and a first list of people who could make leadership gifts.",
+          "Then commission the feasibility study. It is the point where the organization stops guessing and starts working from what its donors actually say. Our free Campaign Readiness Assessment is a quick way to see where you stand before that conversation.",
+        ],
+      },
+      {
+        heading: "Phase 1: The feasibility study",
+        body: [
+          "A feasibility study, sometimes called a planning study, is a set of confidential interviews with the people whose support the campaign depends on. It tests whether the case resonates, whether leadership will give and ask, whether top prospects are ready to make lead gifts, and whether the goal holds up against real capacity.",
+          "The output is a written report with a confirmed or corrected goal, a draft gift chart, and a recommended timeline. A well-run feasibility study runs $50,000-$75,000, cost varies.",
+        ],
+      },
+      {
+        heading: "Phase 2: Campaign planning",
+        body: [
+          "Planning turns the study into a blueprint over a focused 3 to 6 month runway. Prospects are researched, rated, and assigned. The gift chart is built against named prospects rather than aspiration. The case statement and campaign materials are finalized, and the Campaign Chair and Steering Committee are recruited and trained before they make a single ask.",
+        ],
+      },
+      {
+        heading: "Phase 3: The quiet phase",
+        body: [
+          "The quiet phase is where the campaign is won. Over roughly 24 to 36 months, the Campaign Chair, Steering Committee, and staff solicit the leadership and major gifts that carry the goal, starting with the board and moving down the gift chart from the top. The common benchmark is to have 70 to 80 percent or more of the goal committed before going public.",
+        ],
+      },
+      {
+        heading: "Phase 4: Campaign Connect, the public phase",
+        body: [
+          "Once the quiet phase reaches its threshold, the campaign is announced and opened to the wider community: alumni, parents, grateful patients, members, congregants, and subscribers. Catapult runs this phase by phone with trained Engagement Officers, which raises the remaining 10 to 20 percent of the goal and brings in many first-time campaign donors who become the base for future giving.",
+        ],
+      },
+      {
+        heading: "Phase 5: Stewardship and closing the campaign",
+        body: [
+          "A campaign is not finished when the goal is pledged. Multi-year pledges have to be collected, donors recognized, and progress reported back to the people who made the project possible. Organizations that steward well keep their campaign donors giving to the annual fund and are in a far stronger position when the next campaign comes around.",
+        ],
+      },
+      {
+        heading: "Where campaigns go wrong in the first year",
+        bullets: [
+          "Announcing a goal before testing it with a feasibility study.",
+          "Skipping or compressing planning, so volunteers ask without a gift chart, a dollar range, or training.",
+          "Starting outside solicitations before the board has given.",
+          "Going public early to create momentum, which usually means the quiet phase was cut short.",
+          "Treating the public phase as an afterthought instead of a planned, staffed effort.",
+        ],
+      },
     ],
     related: [
       { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
+      { label: "What Is the Quiet Phase of a Capital Campaign?", href: "/answers/what-is-the-quiet-phase-of-a-capital-campaign" },
+      { label: "Is My Nonprofit Ready for a Capital Campaign?", href: "/answers/is-my-nonprofit-ready-for-a-capital-campaign" },
+      { label: "Free Campaign Readiness Assessment", href: "/resources/campaign-readiness-assessment" },
+      { label: "Free Gift Chart Calculator", href: "/resources/gift-chart-calculator" },
       { label: "Planning a Capital Campaign Gift Chart & Quiet Phase", href: "/blog/planning-a-capital-campaign-gift-chart-quiet-phase" },
     ],
   },
@@ -261,6 +333,67 @@ export const ANSWERS: Answer[] = [
       { label: "Feasibility Studies", href: "/services/feasibility-study" },
       { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "How Much Does a Capital Campaign Cost?", href: "/blog/how-much-does-a-capital-campaign-cost" },
+      { label: "Catapult vs. Other Fundraising Consultants", href: "/blog/catapult-vs-fundraising-consultants" },
+    ],
+  },
+  {
+    slug: "how-do-you-choose-a-capital-campaign-consulting-firm",
+    primaryService: {
+      label: "Capital campaign consulting",
+      href: "/services/capital-campaign",
+      blurb: "Catapult is one national firm across all five campaign phases, including staffing the public phase with trained Engagement Officers.",
+    },
+    pillar: "Capital Campaigns",
+    question: "How do you choose a capital campaign consulting firm?",
+    metaTitle: "How to Choose a Capital Campaign Consulting Firm",
+    metaDescription: "What to look for in capital campaign consulting firms: who does the work, how the study is run, how fees work, and who runs the public phase.",
+    answer: [
+      "Choose a capital campaign consulting firm on four things: who will actually do the work, how they run the feasibility study, how they are paid, and what happens in the public phase. A strong pitch matters less than the named senior counsel who will sit in your committee meetings for the next three years.",
+      "Ask every firm for references from campaigns similar to yours in size and sector, a sample feasibility report, and a clear description of what they do in each phase. Be wary of any firm paid a percentage of dollars raised, which the AFP Code of Ethical Standards prohibits.",
+      "Finally, ask who runs the public phase. Many organizations end up with three vendors: one for the study, one for campaign counsel, and a separate calling company. Catapult is one accountable firm across all five phases.",
+    ],
+    sections: [
+      {
+        heading: "Who will actually do the work",
+        body: [
+          "The most common complaint about campaign counsel is a senior partner who wins the work and a junior associate who shows up after the contract is signed. Ask for the name of the person who will attend your committee meetings, coach your volunteers, and write your reports, and ask to speak with them before you sign.",
+        ],
+      },
+      {
+        heading: "How the feasibility study is run",
+        body: [
+          "A real study is built on confidential interviews, not a survey link. Ask how many interviews are included, who conducts them, and what the final report contains. You should come out of it with a confirmed or corrected goal, a gift chart built from your actual prospects, and a timeline you can defend to the board.",
+        ],
+      },
+      {
+        heading: "How the firm is paid",
+        body: [
+          "Reputable firms work on a fixed monthly retainer for a defined term or a project fee for a defined deliverable such as a study. You know the cost before you start. A consultant paid on commission has an incentive to chase the easy gift instead of the right one, and donors who learn part of their gift went to a commission rarely give again.",
+        ],
+      },
+      {
+        heading: "What happens in the public phase",
+        body: [
+          "Many campaign firms plan the public phase and then leave it to staff or hand it to a separate telefunding vendor. That handoff is where prospect data gets lost and accountability gets blurry. Ask who will reach your broader community, how callers are trained on your case, and how results are reported.",
+        ],
+      },
+      {
+        heading: "Questions to ask every firm",
+        bullets: [
+          "Who, by name, will be our day-to-day counsel?",
+          "Can we speak with three clients whose campaigns looked like ours?",
+          "How many interviews does your feasibility study include, and who conducts them?",
+          "How is your fee structured, and does it change based on dollars raised?",
+          "What do you do in the quiet phase, and how do you prepare volunteers before they ask?",
+          "Who runs the public phase, and is that your team or another vendor?",
+          "How and how often will you report progress against the gift chart?",
+        ],
+      },
+    ],
+    related: [
+      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
+      { label: "How Much Does a Capital Campaign Consultant Cost?", href: "/answers/how-much-does-a-capital-campaign-consultant-cost" },
+      { label: "Capital Campaign Phases: How to Plan and Run One", href: "/answers/how-do-you-plan-and-conduct-a-capital-campaign" },
       { label: "Catapult vs. Other Fundraising Consultants", href: "/blog/catapult-vs-fundraising-consultants" },
     ],
   },
@@ -755,6 +888,61 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "The Ask Ladder: Structuring a Major Gift Solicitation", href: "/blog/the-ask-ladder-structuring-a-major-gift-solicitation" },
       { label: "Key Steps for Soliciting Major Donors", href: "/blog/key-steps-for-soliciting-major-donors" },
+    ],
+  },
+  {
+    slug: "what-is-a-mid-level-donor-program",
+    primaryService: {
+      label: "Mid-level donor engagement",
+      href: "/services/donor-engagement",
+      blurb: "Catapult's 8-stage Donor Engagement program assigns an Engagement Officer to your mid-level donors and builds a qualified major gift pipeline.",
+    },
+    pillar: "Donor Acquisition & Retention",
+    question: "What is a mid-level donor program, and how do you build one?",
+    metaTitle: "What Is a Mid-Level Donor Program?",
+    metaDescription: "A mid-level donor program cultivates donors between annual fund and major gift level, so they upgrade, stay longer, and feed your major gift pipeline.",
+    answer: [
+      "A mid-level donor program is a dedicated effort to cultivate the donors between your annual fund and your major gift portfolio. They give too much to be treated like everyone else on the mailing list, but not yet enough to be assigned to a major gift officer, so in most organizations nobody is responsible for them.",
+      "A good program identifies those donors, assigns each one to a person who builds the relationship, and asks for an upgrade only after that relationship is in place. Catapult's Donor Engagement program does this through an 8-stage journey with a dedicated Engagement Officer, and clients typically see 20-30% average gift growth at renewal.",
+      "The other payoff is the pipeline. Mid-level donors are where your future major and planned gifts come from, and a program that knows them by name hands your major gift team warm, qualified prospects instead of cold names from a wealth screen.",
+    ],
+    sections: [
+      {
+        heading: "Who counts as a mid-level donor",
+        body: [
+          "There is no universal dollar range. The right definition depends on your file: the band above your typical annual fund gift and below the level where your major gift officers start a relationship. Wealth screening and giving-pattern analysis help find donors in that band who have more capacity than their giving shows, along with loyal donors who have given consistently for years.",
+        ],
+      },
+      {
+        heading: "How to build a mid-level donor program",
+        bullets: [
+          "Identify and prioritize the segment using giving history and wealth screening.",
+          "Review the list with your team so nobody already in a major gift portfolio is contacted twice.",
+          "Introduce the program with a personal letter from leadership.",
+          "Assign each donor to one person who calls, listens, and learns what the donor cares about before any ask.",
+          "Ask for a specific upgrade tied to the donor's area of interest.",
+          "Fulfill, thank, and report quickly, then keep stewarding between asks.",
+          "Pass donors who show major gift interest to your major gift team.",
+        ],
+      },
+      {
+        heading: "Mid-level donor program vs. a major gift officer",
+        body: [
+          "A major gift officer manages a portfolio of donors who are already identified as major gift prospects. A mid-level program works one tier below that, finding and warming up the donors who are not yet in any portfolio. The two work best together: the mid-level program feeds the major gift portfolio rather than competing with it.",
+        ],
+      },
+      {
+        heading: "Start with loyalty, not just wealth",
+        body: [
+          "Your most consistent donors are often your best mid-level and legacy prospects, even when a wealth screen does not flag them. Our free Donor Loyalty Assessment is a quick way to see how many loyal donors are sitting in your file without anyone assigned to them.",
+        ],
+      },
+    ],
+    related: [
+      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Free Donor Loyalty Assessment", href: "/resources/donor-loyalty-assessment" },
+      { label: "Major Gift Officer vs. Donor Engagement Program", href: "/answers/major-gift-officer-vs-donor-engagement-program" },
+      { label: "How Can Nonprofits Increase Average Gift Size?", href: "/answers/how-can-nonprofits-increase-average-gift-size" },
     ],
   },
   {

@@ -186,6 +186,14 @@ export default function DonorEngagementPage() {
         heading="Mid-level donor engagement guidance."
         service="donor-engagement"
         pillars={["Donor Acquisition & Retention", "Major Gifts"]}
+        answerSlugs={[
+          "what-is-a-mid-level-donor-program",
+          "major-gift-officer-vs-donor-engagement-program",
+          "how-can-nonprofits-increase-average-gift-size",
+          "how-do-you-increase-donor-retention",
+          "how-do-you-find-major-donors",
+          "how-do-you-build-a-major-gifts-program",
+        ]}
       />
 
       <CtaBand />
