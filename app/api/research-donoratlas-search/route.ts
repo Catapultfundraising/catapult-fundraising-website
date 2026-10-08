@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isResearchAuthed } from "@/lib/research-auth";
 import { searchDonors } from "@/lib/donoratlas-client";
 
 export const runtime = "nodejs";
@@ -7,7 +8,10 @@ export const maxDuration = 30;
 // Looks up candidate donors by name (+ optional city/state) in DonorAtlas so
 // the profiler can pick the right person before pulling their full profile.
 // 1 DonorAtlas credit per search.
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  if (!(await isResearchAuthed(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const body = await req.json().catch(() => ({}));
     const firstName = String(body?.firstName || "").trim();

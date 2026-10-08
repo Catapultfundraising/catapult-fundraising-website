@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isResearchAuthed } from "@/lib/research-auth";
 import { PDFDocument, PDFName, PDFRawStream } from "pdf-lib";
 import { startMagicaRun } from "@/lib/magica-client";
 import zlib from "zlib";
@@ -243,7 +244,10 @@ async function extractHeadshot(pdfBytes: Uint8Array): Promise<string> {
 // /api/research-pdf-import/status to get the result. This avoids holding
 // one long HTTP connection open for the 1-3 minutes a large PDF can take,
 // which is fragile against gateway/proxy idle timeouts.
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
+  if (!(await isResearchAuthed(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const formData = await req.formData();
     const file = formData.get("pdf");
