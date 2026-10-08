@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isResearchAuthed } from "@/lib/research-auth";
 import { getMagicaRunStatus } from "@/lib/magica-client";
 
 export const runtime = "nodejs";
@@ -139,7 +140,10 @@ function computeGivingCapacity(annualRaw: string | undefined, fallbackRaw: strin
 // /api/research-pdf-import). The client polls this on an interval instead
 // of one call blocking until the model finishes -- keeps every request
 // short-lived so no gateway/proxy idle timeout can ever truncate it.
-export async function GET(req: Request) {
+export async function GET(req: NextRequest) {
+  if (!(await isResearchAuthed(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const { searchParams } = new URL(req.url);
     const runId = searchParams.get("runId");

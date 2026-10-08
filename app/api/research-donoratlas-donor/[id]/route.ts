@@ -1,4 +1,5 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { isResearchAuthed } from "@/lib/research-auth";
 import { getDonorById, exportDonorFields } from "@/lib/donoratlas-client";
 import { formatPhoneNumber } from "@/lib/phone-format";
 
@@ -373,7 +374,10 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
 // never throws (see exportDonorFields), so a hiccup there degrades
 // gracefully to just missing those specific fields rather than failing the
 // whole lookup.
-export async function GET(_req: Request, context: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, context: { params: Promise<{ id: string }> }) {
+  if (!(await isResearchAuthed(req))) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
   try {
     const { id } = await context.params;
     if (!id) {
