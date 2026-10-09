@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon, Font } from "@react-pdf/renderer";
 import { parseFormattedText } from "@/lib/rich-text";
-import { createContext, useContext } from "react";
 import { getDocumentProxy } from "unpdf";
 
 export const runtime = "nodejs";
@@ -14,11 +13,28 @@ export const maxDuration = 60;
 // down), so instead POST renders the PDF, reads back where each section's
 // label actually landed, and re-renders with an explicit `break` before the
 // first offending section, repeating until none are left. The set of
-// sections to break before travels through this context.
-const PageBreakContext = createContext<Set<string>>(new Set());
-function useBreakBefore(id?: string): boolean {
-  const breaks = useContext(PageBreakContext);
-  return !!id && breaks.has(id);
+// sections to break before is held in a module-level variable for the
+// duration of one render. (React context is not available in route handlers:
+// Next bundles them with the react-server build, which has no createContext.)
+// Renders are serialized through renderLock so concurrent requests can't see
+// each other's break sets.
+let CURRENT_BREAKS: Set<string> = new Set();
+let renderLock: Promise<unknown> = Promise.resolve();
+function breakBefore(id?: string): boolean {
+  return !!id && CURRENT_BREAKS.has(id);
+}
+async function renderProfile(data: any, breaks: Set<string>): Promise<Buffer> {
+  const { renderToBuffer } = await import("@react-pdf/renderer");
+  const run = renderLock.then(async () => {
+    CURRENT_BREAKS = breaks;
+    try {
+      return await renderToBuffer(<ProfileDocument data={data} />);
+    } finally {
+      CURRENT_BREAKS = new Set();
+    }
+  });
+  renderLock = run.catch(() => undefined);
+  return run;
 }
 
 // react-pdf hyphenates any "word" (whitespace-delimited token) that's too
@@ -463,7 +479,7 @@ function FormattedText({
 
 
 function FieldRow({ label, value }: { label: string; value?: string }) {
-  const brk = useBreakBefore(label);
+  const brk = breakBefore(label);
   if (!value) return null;
   // IMPORTANT: hard returns in these free-text fields are meaningful, not
   // accidental. Fields like Business Colleagues, Boards, and Family
@@ -708,7 +724,7 @@ function computeGivingByCategory(rows: any[]): Array<{ label: string; value: num
 }
 
 function GivingByCategoryChart({ rows }: { rows: any[] }) {
-  const brk = useBreakBefore("Giving by Category");
+  const brk = breakBefore("Giving by Category");
   const data = computeGivingByCategory(rows);
   if (data.length === 0) return null;
   const size = 90;
@@ -856,7 +872,7 @@ function MiniTable({
   // orphaned/unlabeled data.
   keepTogether?: boolean;
 }) {
-  const brk = useBreakBefore(title);
+  const brk = breakBefore(title);
   if (!rows || rows.length === 0) return null;
 
   const titleBlock = title ? (
@@ -1004,7 +1020,7 @@ function HeaderFooter({ data }: { data: any }) {
   );
 }
 
-function ProfileDocument({ data, breaks = new Set<string>() }: { data: any; breaks?: Set<string> }) {
+function ProfileDocument({ data }: { data: any }) {
   const rightText = metaText(data);
 
   // Fixed left/right column order, agreed layout — left column reads
@@ -1053,7 +1069,6 @@ function ProfileDocument({ data, breaks = new Set<string>() }: { data: any; brea
 
   return (
     <Document>
-      <PageBreakContext.Provider value={breaks}>
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
 
@@ -1250,7 +1265,7 @@ function ProfileDocument({ data, breaks = new Set<string>() }: { data: any; brea
                   {/* Heading grouped with the first card in one wrap={false}
                       block so "Real Estate" never renders alone at the
                       bottom of a page with every card pushed to the next one. */}
-                  <View wrap={false} break={breaks.has("Real Estate")}>
+                  <View wrap={false} break={breakBefore("Real Estate")}>
                     <View style={[styles.sectionHeadingRow, styles.sectionHeading]}>
                       <IconGlyph name="home" color={NAVY} size={12} />
                       <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 5 }}>Real Estate</Text>
@@ -1298,7 +1313,7 @@ function ProfileDocument({ data, breaks = new Set<string>() }: { data: any; brea
             silently rendered a blank page and dropped content. Letting the
             FieldRow value keep wrapping independently (as intended for all
             long free-text fields) avoids that failure mode entirely. */}
-        <View wrap={false} break={breaks.has("Boards & Affiliations")}>
+        <View wrap={false} break={breakBefore("Boards & Affiliations")}>
           <View style={styles.sectionAccent} />
           <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
         </View>
@@ -1331,7 +1346,6 @@ function ProfileDocument({ data, breaks = new Set<string>() }: { data: any; brea
         <FieldRow label="Liquidity Notes" value={data.liquidityExplanation} />
         </View>
       </Page>
-      </PageBreakContext.Provider>
     </Document>
   );
 }
@@ -1412,9 +1426,8 @@ async function findFirstLowSection(buffer: Uint8Array): Promise<string | null> {
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
-    const { renderToBuffer } = await import("@react-pdf/renderer");
     const breaks = new Set<string>();
-    let buffer = await renderToBuffer(<ProfileDocument data={data} breaks={breaks} />);
+    let buffer = await renderProfile(data, breaks);
     // Enforce the bottom-20% rule one section at a time (each forced break
     // shifts everything after it, so later positions must be re-measured).
     // Any failure in the check falls back to the last good render.
@@ -1428,7 +1441,7 @@ export async function POST(req: NextRequest) {
       }
       if (!low || breaks.has(low)) break;
       breaks.add(low);
-      buffer = await renderToBuffer(<ProfileDocument data={data} breaks={breaks} />);
+      buffer = await renderProfile(data, new Set(breaks));
     }
     const fileName = buildProfilePdfFileName(data?.clientProfiler, data?.name, data?.dateCreated, "Prospect Intelligence Profile");
     return new NextResponse(new Uint8Array(buffer), {
