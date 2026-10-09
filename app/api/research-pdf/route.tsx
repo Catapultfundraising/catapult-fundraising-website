@@ -1,8 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, View, Text, Image, StyleSheet, Svg, Path, Rect, Polygon, Font } from "@react-pdf/renderer";
 import { parseFormattedText } from "@/lib/rich-text";
+import { createContext, useContext } from "react";
+import { getDocumentProxy } from "unpdf";
 
 export const runtime = "nodejs";
+// The route renders up to MAX_BREAK_PASSES times (see POST), so give it room.
+export const maxDuration = 60;
+
+// SECTION PAGE-BREAK RULE (Anthony, 2026-10-09): no section may START in
+// the bottom 20% of a page -- if it would, it moves to the top of the next
+// page. minPresenceAhead is unreliable in this document (see note further
+// down), so instead POST renders the PDF, reads back where each section's
+// label actually landed, and re-renders with an explicit `break` before the
+// first offending section, repeating until none are left. The set of
+// sections to break before travels through this context.
+const PageBreakContext = createContext<Set<string>>(new Set());
+function useBreakBefore(id?: string): boolean {
+  const breaks = useContext(PageBreakContext);
+  return !!id && breaks.has(id);
+}
 
 // react-pdf hyphenates any "word" (whitespace-delimited token) that's too
 // long to fit on one line by DEFAULT -- it inserts its own hyphen character
@@ -102,7 +119,9 @@ function fmtMoneyExpanded(value?: string): string {
   if (!value) return "";
   const trimmed = String(value).trim();
   if (!trimmed) return "";
-  const tokenRe = /\$?\s*([\d,]*\.?\d+)\s*([KkMmBb])?/g;
+  // The space before a K/M/B suffix is only consumed when a suffix follows,
+  // so ranges keep their spacing ("$100 - $500" no longer renders "$100- $500").
+  const tokenRe = /\$?\s*([\d,]*\.?\d+)(?:\s*([KkMmBb])(?![A-Za-z]))?/g;
   let matchedAny = false;
   const result = trimmed.replace(tokenRe, (match, numStr, suffix) => {
     if (!numStr || !/\d/.test(numStr)) return match;
@@ -444,6 +463,7 @@ function FormattedText({
 
 
 function FieldRow({ label, value }: { label: string; value?: string }) {
+  const brk = useBreakBefore(label);
   if (!value) return null;
   // IMPORTANT: hard returns in these free-text fields are meaningful, not
   // accidental. Fields like Business Colleagues, Boards, and Family
@@ -499,7 +519,7 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   const isLong = value.length > 200 || value.includes("\n");
   if (!isLong) {
     return (
-      <View style={styles.fieldRow} wrap={false}>
+      <View style={styles.fieldRow} wrap={false} break={brk}>
         <Text style={styles.fieldLabel}>{label.toUpperCase()}</Text>
         <FormattedText value={value} style={styles.fieldValue} wrapWidth={BODY_WIDTH - 150} />
       </View>
@@ -528,7 +548,7 @@ function FieldRow({ label, value }: { label: string; value?: string }) {
   // rarely end up alone at the very bottom of a page with the value
   // continuing on the next one -- annoying, but never corrupted/unreadable.
   return (
-    <View style={styles.fieldRowLong}>
+    <View style={styles.fieldRowLong} break={brk}>
       <Text style={styles.fieldLabelAbs}>{label.toUpperCase()}</Text>
       <FormattedText
         value={value}
@@ -688,6 +708,7 @@ function computeGivingByCategory(rows: any[]): Array<{ label: string; value: num
 }
 
 function GivingByCategoryChart({ rows }: { rows: any[] }) {
+  const brk = useBreakBefore("Giving by Category");
   const data = computeGivingByCategory(rows);
   if (data.length === 0) return null;
   const size = 90;
@@ -708,7 +729,7 @@ function GivingByCategoryChart({ rows }: { rows: any[] }) {
   // it comes before it in the document. Letting it flow normally keeps it
   // pinned directly under Other Giving History, where it belongs.
   return (
-    <View style={{ marginBottom: 8 }}>
+    <View style={{ marginBottom: 8 }} break={brk}>
       <View style={[styles.sectionHeadingRow, { marginBottom: 4 }]} wrap={false}>
         <IconGlyph name="gift" color={BRASS} size={9} />
         <Text style={{ fontSize: 8.5, fontFamily: "Helvetica-Bold", color: BRASS, letterSpacing: 0.5, marginLeft: 4 }}>
@@ -835,6 +856,7 @@ function MiniTable({
   // orphaned/unlabeled data.
   keepTogether?: boolean;
 }) {
+  const brk = useBreakBefore(title);
   if (!rows || rows.length === 0) return null;
 
   const titleBlock = title ? (
@@ -855,7 +877,7 @@ function MiniTable({
 
   if (keepTogether) {
     return (
-      <View style={{ marginBottom: 8 }} wrap={false}>
+      <View style={{ marginBottom: 8 }} wrap={false} break={brk}>
         {titleBlock}
         {note ? <Text style={styles.italicNote}>{note}</Text> : null}
         <View style={{ borderRadius: 8, overflow: "hidden", borderWidth: 1, borderColor: LINE }}>
@@ -901,7 +923,7 @@ function MiniTable({
   const [firstRow, ...restRows] = rows;
   const firstCells = renderRow(firstRow, 0);
   return (
-    <View style={{ marginBottom: 8 }}>
+    <View style={{ marginBottom: 8 }} break={brk}>
       <View wrap={false}>
         {titleBlock}
         {note ? <Text style={styles.italicNote}>{note}</Text> : null}
@@ -982,7 +1004,7 @@ function HeaderFooter({ data }: { data: any }) {
   );
 }
 
-function ProfileDocument({ data }: { data: any }) {
+function ProfileDocument({ data, breaks = new Set<string>() }: { data: any; breaks?: Set<string> }) {
   const rightText = metaText(data);
 
   // Fixed left/right column order, agreed layout — left column reads
@@ -1031,6 +1053,7 @@ function ProfileDocument({ data }: { data: any }) {
 
   return (
     <Document>
+      <PageBreakContext.Provider value={breaks}>
       <Page size="LETTER" style={styles.page}>
         <HeaderFooter data={data} />
 
@@ -1227,7 +1250,7 @@ function ProfileDocument({ data }: { data: any }) {
                   {/* Heading grouped with the first card in one wrap={false}
                       block so "Real Estate" never renders alone at the
                       bottom of a page with every card pushed to the next one. */}
-                  <View wrap={false}>
+                  <View wrap={false} break={breaks.has("Real Estate")}>
                     <View style={[styles.sectionHeadingRow, styles.sectionHeading]}>
                       <IconGlyph name="home" color={NAVY} size={12} />
                       <Text style={{ fontSize: 13, fontFamily: "Helvetica-Bold", color: NAVY, marginLeft: 5 }}>Real Estate</Text>
@@ -1275,7 +1298,7 @@ function ProfileDocument({ data }: { data: any }) {
             silently rendered a blank page and dropped content. Letting the
             FieldRow value keep wrapping independently (as intended for all
             long free-text fields) avoids that failure mode entirely. */}
-        <View wrap={false}>
+        <View wrap={false} break={breaks.has("Boards & Affiliations")}>
           <View style={styles.sectionAccent} />
           <Text style={styles.sectionHeading}>Boards &amp; Affiliations</Text>
         </View>
@@ -1308,15 +1331,105 @@ function ProfileDocument({ data }: { data: any }) {
         <FieldRow label="Liquidity Notes" value={data.liquidityExplanation} />
         </View>
       </Page>
+      </PageBreakContext.Provider>
     </Document>
   );
+}
+
+// Section starts checked by the bottom-20% rule, in document order. `id` is
+// what the components look up in the break set; `label` is the text that
+// marks the section's first line in the rendered PDF (FieldRow/MiniTable
+// labels print upper-cased; the big navy headings print as written).
+// Sections that don't render for a profile are simply never found.
+const BREAKABLE_SECTIONS: Array<{ id: string; label: string }> = [
+  ...["Home Address", "Born", "Marital Status", "Spouse", "Parents", "Children", "Education",
+    "Hobbies & Interests", "Relationship to Organization", "Giving History to Organization"].map((id) => ({ id, label: id.toUpperCase() })),
+  { id: "Real Estate", label: "Real Estate" },
+  ...["Other Assets", "Business Address(es) & Phone(s)", "Family Foundation", "Additional Information"].map((id) => ({ id, label: id.toUpperCase() })),
+  { id: "Boards & Affiliations", label: "Boards & Affiliations" },
+  ...["Boards", "Clubs & Affiliations", "Business Colleagues"].map((id) => ({ id, label: id.toUpperCase() })),
+  { id: "Other Giving History", label: "Other Giving History" },
+  ...["Giving by Category", "FEC Recipient Organization", "Liquidity Notes"].map((id) => ({ id, label: id.toUpperCase() })),
+];
+const BOTTOM_ZONE = 0.2; // a section may not start in the bottom 20% of a page
+const MAX_BREAK_PASSES = 8;
+
+const norm = (t: string) => t.replace(/\s+/g, "").replace(/&amp;/g, "&");
+
+// Reads the rendered PDF back and returns the id of the FIRST section whose
+// label starts inside the bottom zone of its page (or null if none do).
+// Text items are grouped into visual lines; sections are matched in order,
+// each search starting after the previous match, so a value that happens to
+// contain a later label's words can't be mistaken for it.
+async function findFirstLowSection(buffer: Uint8Array): Promise<string | null> {
+  const pdf = await getDocumentProxy(new Uint8Array(buffer));
+  type Line = { page: number; top: number; text: string };
+  const lines: Line[] = [];
+  const pageHeights: number[] = [];
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const h = page.getViewport({ scale: 1 }).height;
+    pageHeights[p] = h;
+    const content = await page.getTextContent();
+    const byLine = new Map<number, { top: number; parts: Array<{ x: number; s: string }> }>();
+    for (const it of content.items as any[]) {
+      if (!it.str || !it.transform) continue;
+      const baseline = it.transform[5];
+      const key = Math.round(baseline);
+      const top = h - baseline - (it.height || 8);
+      const entry = byLine.get(key) || { top, parts: [] };
+      entry.top = Math.min(entry.top, top);
+      entry.parts.push({ x: it.transform[4], s: it.str });
+      byLine.set(key, entry);
+    }
+    const pageLines = Array.from(byLine.values())
+      .sort((a, b) => a.top - b.top)
+      .map((l) => ({ page: p, top: l.top, text: norm(l.parts.sort((a, b) => a.x - b.x).map((q) => q.s).join("")) }));
+    lines.push(...pageLines);
+  }
+  let cursor = 0;
+  for (const sec of BREAKABLE_SECTIONS) {
+    const target = norm(sec.label);
+    let found = -1;
+    for (let i = cursor; i < lines.length; i++) {
+      const t = lines[i].text;
+      // Labels can sit on the same baseline as their value ("BORN" + date)
+      // or wrap onto two lines ("RELATIONSHIP TO" / "ORGANIZATION").
+      if (t.startsWith(target) || (t.length >= 8 && target.startsWith(t))) {
+        found = i;
+        break;
+      }
+    }
+    if (found < 0) continue;
+    cursor = found + 1;
+    const line = lines[found];
+    const fromTop = line.top / pageHeights[line.page];
+    if (fromTop > 1 - BOTTOM_ZONE) return sec.id;
+  }
+  return null;
 }
 
 export async function POST(req: NextRequest) {
   try {
     const data = await req.json();
     const { renderToBuffer } = await import("@react-pdf/renderer");
-    const buffer = await renderToBuffer(<ProfileDocument data={data} />);
+    const breaks = new Set<string>();
+    let buffer = await renderToBuffer(<ProfileDocument data={data} breaks={breaks} />);
+    // Enforce the bottom-20% rule one section at a time (each forced break
+    // shifts everything after it, so later positions must be re-measured).
+    // Any failure in the check falls back to the last good render.
+    for (let pass = 0; pass < MAX_BREAK_PASSES; pass++) {
+      let low: string | null = null;
+      try {
+        low = await findFirstLowSection(buffer);
+      } catch (e) {
+        console.error("research-pdf page-break check failed", e);
+        break;
+      }
+      if (!low || breaks.has(low)) break;
+      breaks.add(low);
+      buffer = await renderToBuffer(<ProfileDocument data={data} breaks={breaks} />);
+    }
     const fileName = buildProfilePdfFileName(data?.clientProfiler, data?.name, data?.dateCreated, "Prospect Intelligence Profile");
     return new NextResponse(new Uint8Array(buffer), {
       status: 200,
