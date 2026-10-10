@@ -20,6 +20,18 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "capital-campaign-lead-gift-prospects",
+    date: "2026-10-10",
+    title: "Your Donor File Has No $1M Prospects. Now What?",
+    description:
+      "A strong feasibility study but no $1 million prospects in your database? Anthony Alonso on finding lead gifts outside your file, building the committee, and a gift chart you can raise.",
+    readTime: "8 min read",
+    image: "/blog/capital-campaign-lead-gift-prospects/hero-reviewing-building-plans.jpg",
+    alt: "Three people leaning over architectural plans for a new building",
+    pillars: ["Capital Campaigns", "Major Gifts"],
+    services: ["capital-campaign"],
+  },
+  {
     slug: "annual-fund-donor-relationships-lasting-philanthropy",
     date: "2026-10-02",
     title: "The Annual Fund: Where Donor Relationships Become Lasting Philanthropy",
@@ -49,7 +61,7 @@ export const POSTS: Post[] = [
     title: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor",
     description:
       "Jeff Grandy joins The Fund Raising School's First Day podcast to explain why loyalty identifies planned giving prospects better than wealth does, and how to open that first conversation.",
-    readTime: "9 min read",
+    readTime: "8 min read",
     image: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast/first-day-podcast-jeff-grandy.jpg",
     alt: "First Day Podcast episode card featuring Jeff Grandy of Catapult Fundraising, hosted by Bill Stanczykiewicz, Ed.D., of The Fund Raising School",
     pillars: ["Planned Giving"],
