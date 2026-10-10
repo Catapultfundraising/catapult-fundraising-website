@@ -317,10 +317,6 @@ export default function LeadGiftProspectsPost() {
           </Link>{" "}
           capital campaigns.
         </p>
-
-        <p className="mt-6 text-sm italic leading-relaxed text-[rgb(var(--ink))]/50">
-          Client details are anonymized. Figures reflect Catapult Fundraising&rsquo;s own campaign experience and are not industry-wide statistics.
-        </p>
       </article>
 
       <RelatedReading
