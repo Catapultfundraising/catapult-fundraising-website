@@ -108,6 +108,25 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(httpsUrl, 308);
   }
 
+  // Client data portals live at /{client}/data-dashboard (e.g. /csnf/data-dashboard),
+  // served from /research/{client}-data behind the research password.
+  const dash = pathname.match(/^\/([A-Za-z0-9-]+)\/data-dashboard\/?$/);
+  const oldDash = pathname.match(/^\/research\/([a-z0-9-]+)-data\/?$/);
+  if (oldDash) {
+    return NextResponse.redirect(new URL(`/${oldDash[1]}/data-dashboard`, req.url));
+  }
+  if (dash) {
+    const client = dash[1].toLowerCase();
+    const cookie = req.cookies.get("catapult_research_auth")?.value;
+    const expected = await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET");
+    if (cookie && expected && cookie === expected) {
+      return NextResponse.rewrite(new URL(`/research/${client}-data`, req.url));
+    }
+    const loginUrl = new URL("/research/login", req.url);
+    loginUrl.searchParams.set("redirect", `/${client}/data-dashboard`);
+    return NextResponse.redirect(loginUrl);
+  }
+
   const gate = GATES.find((g) => pathname.startsWith(g.matchPrefix));
   if (!gate) {
     return NextResponse.next();

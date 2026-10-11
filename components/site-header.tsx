@@ -95,7 +95,7 @@ export function SiteHeader() {
   // Client data portals (e.g. /research/csnf-data) are client-facing tools:
   // no site menu or "Start a Conversation" CTA, and the client's logo sits
   // where the CTA normally lives.
-  if (pathname.startsWith("/research/csnf-data")) {
+  if (pathname.startsWith("/research/csnf-data") || /\/data-dashboard\/?$/i.test(pathname)) {
     return (
       <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-1.5 lg:px-10">
