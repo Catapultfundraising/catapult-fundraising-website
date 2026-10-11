@@ -1,0 +1,37 @@
+import { get } from "@vercel/blob";
+
+// Internal CSNF donor-data dashboard snapshot. Built from the CSNF database
+// (Azure SQL schema `csnf`, originally the Access file) by Viktor and written
+// as one private JSON blob. Never commit donor data to the repo.
+export const CSNF_DATA_PATH = "csnf-data/snapshot.json";
+
+export interface Person {
+  cptid: number; name: string; lifetime: number; gifts: number; first: string; last: string;
+  largest: number; years: number; ds: string; capacity: string; capMin: number; qs: string;
+}
+export interface CsnfSnapshot {
+  client: string; asOf: string; builtAt: string; source: string;
+  kpi: { total: number; gifts: number; donors: number; avg: number; gho: number; cash: number; inkind: number };
+  stages: { stage: string; gifts: number; total: number }[];
+  fys: { fy: number; total: number; gifts: number; donors: number }[];
+  retention: { fy: number; retained: number; prior: number; rate: number; new: number }[];
+  pyramid: { band: string; donors: number; total: number }[];
+  dsRating: [string, number][]; capacity: [string, number][];
+  pool: (Person & { rating: number; basis: string })[];
+  highWealth: Person[]; highWealthCount: number; midLevel: Person[]; midLevelCount: number;
+  legacy: Person[]; legacyCount: number; lapsed: Person[]; lapsedCount: number; top: Person[];
+  board: { name: string; title: string; board: string; term: string; active: boolean; ask: number; get: number; lifetime: number; last: string; ds: string; capacity: string }[];
+  health: Record<string, number>; donorType: [string, number][]; flags: Record<string, number>; orgTypes: [string, number][];
+  batches: { batch: string; count: number; tiers: Record<string, number>; people: { name: string; tier: string; interviewer: string; lifetime: number; ds: string }[] }[];
+  alumni: { total: number; snv: number; donors: number; bySchool: [string, number][]; byDecade: [number, number][]; topZips: [string, number][] };
+}
+
+export async function getCsnfSnapshot(): Promise<CsnfSnapshot | null> {
+  try {
+    const r = await get(CSNF_DATA_PATH, { access: "private", useCache: false });
+    if (!r || !r.stream) return null;
+    return JSON.parse(await new Response(r.stream).text()) as CsnfSnapshot;
+  } catch {
+    return null;
+  }
+}
