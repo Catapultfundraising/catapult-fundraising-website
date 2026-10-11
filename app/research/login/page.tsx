@@ -8,6 +8,8 @@ function ResearchLoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/research";
+  // The CSNF data portal shares this password but must read as its own portal.
+  const isCsnf = redirectTo.startsWith("/research/csnf-data");
 
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +48,17 @@ function ResearchLoginForm() {
           </span>
         </div>
         <h1 className="mt-4 text-center font-display text-2xl text-[rgb(var(--navy))]">
-          Prospect Intelligence Profiles
+          {isCsnf ? "CSN Foundation Data Portal" : "Prospect Intelligence Profiles"}
         </h1>
+        {isCsnf && (
+          <p className="mt-1 text-center text-xs uppercase tracking-[0.18em] text-[rgb(var(--brass))]">
+            College of Southern Nevada Foundation · Prepared by Catapult Fundraising
+          </p>
+        )}
         <p className="mt-2 text-center text-sm text-[rgb(var(--ink))]/65">
-          This tool is for authorized Catapult team members only. Enter the shared password to
-          continue.
+          {isCsnf
+            ? "Donor records, prospect pools, gift charts and reports for the CSN Foundation campaign. Authorized users only. Enter the portal password to continue."
+            : "This tool is for authorized Catapult team members only. Enter the shared password to continue."}
         </p>
 
         <form onSubmit={handleSubmit} className="mt-6 space-y-4">

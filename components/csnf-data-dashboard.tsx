@@ -5,7 +5,10 @@ import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
 } from "recharts";
 import type { CsnfSnapshot, Person } from "@/lib/csnf-data-store";
-import { buildGiftChart, formatDollars } from "@/lib/gift-chart";
+import { formatDollars } from "@/lib/gift-chart";
+import { seatGc2p } from "@/lib/csnf-gc2p";
+import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadUrl, useCrm, type ExportKind } from "@/components/csnf-data-crm";
+import type { IndexRow } from "@/lib/csnf-data-store";
 
 const NAVY = "#15212e";
 const GOLD = "#b28c46";
@@ -17,7 +20,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Board", "Calling", "Database Health", "Alumni"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Board", "Calling", "Database Health", "Alumni"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -41,24 +44,16 @@ function H({ children, sub }: { children: React.ReactNode; sub?: string }) {
   );
 }
 
-function toCsv(rows: Record<string, unknown>[], file: string) {
-  if (!rows.length) return;
-  const keys = Object.keys(rows[0]);
-  const esc = (v: unknown) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-  const csv = [keys.join(","), ...rows.map((r) => keys.map((k) => esc(r[k])).join(","))].join("\n");
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-  a.download = file;
-  a.click();
-}
-
 function Table<T extends Record<string, unknown>>({
-  rows, cols, csvName,
+  rows, cols, csvName, exportSub,
 }: {
   rows: T[];
   cols: { key: keyof T; label: string; fmt?: (v: T[keyof T], r: T) => string; right?: boolean }[];
+  /** Report title for the branded PDF/Excel download. */
   csvName?: string;
+  exportSub?: string;
 }) {
+  const { open } = useCrm();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ k: keyof T; dir: 1 | -1 } | null>(null);
   const shown = useMemo(() => {
@@ -78,12 +73,14 @@ function Table<T extends Record<string, unknown>>({
         />
         <span className="text-xs text-[rgb(var(--ink))]/55">{num(shown.length)} rows</span>
         {csvName && (
-          <button
-            onClick={() => toCsv(shown as Record<string, unknown>[], csvName)}
-            className="ml-auto rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-xs font-medium text-white"
-          >
-            Export CSV
-          </button>
+          <DownloadButtons
+            get={() => ({
+              title: csvName.replace(/\.csv$/i, "").replace(/^CSNF /, ""),
+              subtitle: [exportSub, q ? `Filtered: "${q}"` : ""].filter(Boolean).join(" · ") || undefined,
+              cols: cols.map((c) => ({ label: c.label, kind: kindOf(c, shown[0]) })),
+              sections: [{ rows: shown.map((r) => cols.map((c) => cellOut(c, r))) }],
+            })}
+          />
         )}
       </div>
       <div className="max-h-[560px] overflow-auto rounded-lg border border-[rgb(var(--line))]">
@@ -103,7 +100,11 @@ function Table<T extends Record<string, unknown>>({
           </thead>
           <tbody>
             {shown.map((r, i) => (
-              <tr key={i} className={i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"}>
+              <tr
+                key={i}
+                onClick={typeof r.cptid === "number" ? () => open(r.cptid as number) : undefined}
+                className={`${i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"} ${typeof r.cptid === "number" ? "cursor-pointer hover:bg-[rgb(var(--brass))]/10" : ""}`}
+              >
                 {cols.map((c) => (
                   <td key={String(c.key)} className={`whitespace-nowrap px-3 py-1.5 ${c.right ? "text-right tabular-nums" : ""}`}>
                     {c.fmt ? c.fmt(r[c.key], r) : String(r[c.key] ?? "")}
@@ -116,6 +117,23 @@ function Table<T extends Record<string, unknown>>({
       </div>
     </div>
   );
+}
+
+type AnyCol = { key: unknown; label: string; fmt?: (v: never, r: never) => string; right?: boolean };
+// Money columns export as numbers with currency format; other formatted
+// columns export as the text shown on screen.
+function kindOf(c: AnyCol, sample?: Record<string, unknown>): ExportKind {
+  if (!sample) return "text";
+  const v = sample[c.key as string];
+  if (typeof v !== "number") return "text";
+  if (!c.fmt) return c.right ? "num" : "text";
+  return (c.fmt as (v: unknown, r: unknown) => string)(v, sample).startsWith("$") ? "usd" : "text";
+}
+function cellOut(c: AnyCol, r: Record<string, unknown>): string | number {
+  const v = r[c.key as string];
+  const k = kindOf(c, r);
+  if (k === "usd" || k === "num") return typeof v === "number" ? v : String(v ?? "");
+  return c.fmt ? (c.fmt as (v: unknown, r: unknown) => string)(v, r) : String(v ?? "");
 }
 
 const personCols: { key: keyof Person; label: string; fmt?: (v: never) => string; right?: boolean }[] = [
@@ -188,6 +206,7 @@ function Overview({ d }: { d: CsnfSnapshot }) {
       <Card>
         <H>Recent fiscal years</H>
         <Table
+          csvName="Giving by Fiscal Year"
           rows={[...recent].reverse().map((f) => {
             const r = d.retention.find((x) => x.fy === f.fy);
             return { ...f, retention: r ? r.rate : 0, newDonors: r ? r.new : 0 };
@@ -205,6 +224,7 @@ function Overview({ d }: { d: CsnfSnapshot }) {
       <Card>
         <H sub="Gift file stages">Gifts by stage</H>
         <Table
+          csvName="Gifts by Stage"
           rows={d.stages}
           cols={[
             { key: "stage", label: "Stage" },
@@ -217,15 +237,28 @@ function Overview({ d }: { d: CsnfSnapshot }) {
   );
 }
 
+function useDrill() {
+  const { index, drill, loading } = useCrm();
+  return (title: string, sub: string, f: (r: IndexRow) => boolean) => {
+    if (!index) { alert(loading ? "Donor records are still loading, try again in a moment." : "Donor records are not available."); return; }
+    drill(title, sub, index.filter(f));
+  };
+}
+
 function Pyramid({ d }: { d: CsnfSnapshot }) {
   const max = Math.max(...d.pyramid.map((p) => p.donors));
+  const go = useDrill();
   return (
     <div className="space-y-6">
       <Card>
-        <H sub="Donors grouped by lifetime giving. This is the starting point for a campaign gift chart.">Lifetime giving pyramid</H>
+        <H sub="Donors grouped by lifetime giving. Click any band to see the donors in it.">Lifetime giving pyramid</H>
         <div className="space-y-1.5">
           {d.pyramid.map((p) => (
-            <div key={p.band} className="grid grid-cols-[120px_1fr_90px_110px_60px] items-center gap-3 text-sm">
+            <div
+              key={p.band}
+              onClick={() => go(`Lifetime giving ${p.band}`, "Donors in this lifetime giving band", (r) => r.band === p.band)}
+              className="grid cursor-pointer grid-cols-[120px_1fr_90px_110px_60px] items-center gap-3 rounded text-sm hover:bg-[rgb(var(--brass))]/10"
+            >
               <span className="font-medium">{p.band}</span>
               <div className="h-6 rounded bg-[rgb(var(--paper))]">
                 <div className="h-6 rounded" style={{ width: `${Math.max(2, (p.donors / max) * 100)}%`, background: NAVY }} />
@@ -239,11 +272,22 @@ function Pyramid({ d }: { d: CsnfSnapshot }) {
       </Card>
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
-          <H sub="DonorSearch wealth-based capacity">Capacity distribution</H>
-          <Table rows={d.capacity.map(([c, n]) => ({ capacity: c, count: n }))} cols={[{ key: "capacity", label: "Capacity" }, { key: "count", label: "Donors", right: true }]} />
+          <H sub="DonorSearch wealth-based capacity. Click a row to see the prospects.">Capacity distribution</H>
+          <div className="max-h-[300px] overflow-auto rounded-lg border border-[rgb(var(--line))]">
+            {d.capacity.map(([c, n], i) => (
+              <button
+                key={c}
+                onClick={() => go(`Capacity ${c}`, "DonorSearch wealth-based capacity", (r) => r.capacity === c)}
+                className={`flex w-full justify-between px-3 py-1.5 text-left text-sm hover:bg-[rgb(var(--brass))]/10 ${i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"}`}
+              >
+                <span className="text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40">{c}</span>
+                <span className="tabular-nums">{num(n)}</span>
+              </button>
+            ))}
+          </div>
         </Card>
         <Card>
-          <H sub="DS1 = proven philanthropist, 1 is strongest">DS rating distribution</H>
+          <H sub="DS1 = proven philanthropist, 1 is strongest. Click a bar to see the prospects.">DS rating distribution</H>
           <div className="h-72">
             <ResponsiveContainer>
               <BarChart data={d.dsRating.map(([r, n]) => ({ r, n }))}>
@@ -251,7 +295,16 @@ function Pyramid({ d }: { d: CsnfSnapshot }) {
                 <XAxis dataKey="r" />
                 <YAxis />
                 <Tooltip />
-                <Bar dataKey="n" fill={GOLD} name="Donors" />
+                <Bar
+                  dataKey="n"
+                  fill={GOLD}
+                  name="Donors"
+                  cursor="pointer"
+                  onClick={(e: { r?: string; payload?: { r: string } }) => {
+                    const r = e.payload?.r ?? e.r ?? "";
+                    go(`DS Rating ${r}`, "DonorSearch DS rating", (x) => x.ds === r);
+                  }}
+                />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -259,7 +312,7 @@ function Pyramid({ d }: { d: CsnfSnapshot }) {
       </div>
       <Card>
         <H sub="Top 250 donors by lifetime giving">Top donors</H>
-        <Table rows={d.top as never} cols={personCols as never} csvName="CSNF Top Donors.csv" />
+        <Table rows={d.top as never} cols={personCols as never} csvName="Top 250 Donors" />
       </Card>
     </div>
   );
@@ -268,29 +321,14 @@ function Pyramid({ d }: { d: CsnfSnapshot }) {
 
 function GiftChartTab({ d }: { d: CsnfSnapshot }) {
   const [goalText, setGoalText] = useState("10000000");
+  const [busy, setBusy] = useState<string | null>(null);
   const goal = Math.min(500_000_000, Math.max(100_000, Number(goalText.replace(/[^\d]/g, "")) || 0));
-  const chart = useMemo(() => buildGiftChart(goal), [goal]);
-  const seated = useMemo(() => {
-    const used = new Set<number>();
-    return chart.rows
-      .filter((r) => r.level !== null && r.gifts !== null && (r.level as number) >= 50_000)
-      .map((r) => {
-        const need = (r.gifts as number) * 3;
-        const cands = d.pool
-          .filter((p) => !used.has(p.cptid) && p.rating >= (r.level as number))
-          .sort((a, b) => b.lifetime - a.lifetime || b.rating - a.rating)
-          .slice(0, need);
-        cands.forEach((p) => used.add(p.cptid));
-        return { row: r, need, people: cands };
-      });
-  }, [chart, d.pool]);
-  const shownValue = seated.reduce((s, x) => s + x.row.value, 0);
-  const exportRows = seated.flatMap((x) =>
-    x.people.map((p) => ({
-      level: x.row.level, name: p.name, cptid: p.cptid, ratedAt: p.rating, basis: p.basis, capacity: p.capacity, ds: p.ds,
-      lifetime: p.lifetime, largest: p.largest, lastGift: p.last,
-    })),
-  );
+  const { chart, seated, notShown } = useMemo(() => seatGc2p(goal, d.pool), [goal, d.pool]);
+  const shownValue = goal - notShown;
+  const fullDownload = async (format: "pdf" | "xlsx") => {
+    setBusy(format);
+    try { await downloadUrl(`/api/csnf-data-gift-chart-pdf?goal=${goal}&format=${format}`, `CSNF Gift Chart and GC2P.${format}`); } finally { setBusy(null); }
+  };
   return (
     <div className="space-y-6">
       <Card>
@@ -300,6 +338,14 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
             <input value={goalText} onChange={(e) => setGoalText(e.target.value)} className="mt-1 block w-48 rounded-md border border-[rgb(var(--line))] px-3 py-2 font-display text-xl" />
           </div>
           <p className="text-sm text-[rgb(var(--ink))]/60">{formatDollars(goal)} · Catapult house shape (round levels, about 20% lead gift, top 10 gifts carry 60%+, 3 prospects per gift)</p>
+          <div className="ml-auto flex gap-2">
+            <button onClick={() => fullDownload("pdf")} disabled={!!busy} className="rounded-md bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+              {busy === "pdf" ? "Building PDF..." : "Download full Gift Chart + GC2P PDF"}
+            </button>
+            <button onClick={() => fullDownload("xlsx")} disabled={!!busy} className="rounded-md border border-[rgb(var(--brass))] px-4 py-2 text-sm font-medium text-[rgb(var(--navy))] disabled:opacity-60">
+              {busy === "xlsx" ? "Building..." : "Excel"}
+            </button>
+          </div>
         </div>
       </Card>
       <Card>
@@ -309,7 +355,7 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
             gifts: r.gifts ?? "Many", level: r.level === null ? `Under ${formatDollars(r.under ?? 0)}` : formatDollars(r.level),
             value: r.value, cumulative: r.cumulative, prospects: r.prospects ?? "", share: Math.round(r.shareOfGoal * 1000) / 10,
           }))}
-          csvName={`CSNF Gift Chart ${goal}.csv`}
+          csvName={`Gift Chart ${formatDollars(goal)}`}
           cols={[
             { key: "gifts", label: "Gifts" }, { key: "level", label: "Gift Level" },
             { key: "value", label: "Value", fmt: (v) => usd(v as number), right: true },
@@ -325,8 +371,8 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
         </H>
         <div className="mb-4 space-y-1.5">
           {seated.map((x) => (
-            <div key={x.row.level} className="grid grid-cols-[110px_1fr_140px] items-center gap-3 text-sm">
-              <span className="font-medium">{formatDollars(x.row.level as number)}</span>
+            <div key={x.level} className="grid grid-cols-[110px_1fr_140px] items-center gap-3 text-sm">
+              <span className="font-medium">{formatDollars(x.level)}</span>
               <div className="h-5 rounded bg-[rgb(var(--paper))]">
                 <div className="h-5 rounded" style={{ width: `${Math.min(100, (x.people.length / x.need) * 100)}%`, background: x.people.length >= x.need ? NAVY : GOLD }} />
               </div>
@@ -334,15 +380,17 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
             </div>
           ))}
         </div>
-        <button onClick={() => toCsv(exportRows, `CSNF GC2P ${goal}.csv`)} className="mb-4 rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-xs font-medium text-white">Export GC2P CSV</button>
+        <p className="mb-4 text-xs text-[rgb(var(--ink))]/55">Click any prospect to open the full donor record. Use the download buttons at the top for the complete branded PDF with every section.</p>
         <div className="space-y-5">
           {seated.map((x) => (
-            <div key={x.row.level}>
+            <div key={x.level}>
               <p className="mb-1 font-display text-lg text-[rgb(var(--navy))]">
-                {formatDollars(x.row.level as number)} level · {x.row.gifts} gift{x.row.gifts === 1 ? "" : "s"} · {x.people.length} of {x.need} prospects
+                {formatDollars(x.level)} level · {x.row.gifts} gift{x.row.gifts === 1 ? "" : "s"} · {x.people.length} of {x.need} prospects
               </p>
               {x.people.length > 0 && (
                 <Table
+                  csvName={`GC2P ${formatDollars(x.level)} Level`}
+                  exportSub={`${formatDollars(goal)} goal`}
                   rows={x.people as never}
                   cols={[
                     { key: "name", label: "Prospect" },
@@ -359,6 +407,23 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
           ))}
         </div>
       </Card>
+    </div>
+  );
+}
+
+function Lookup({ d }: { d: CsnfSnapshot }) {
+  const { index, loading } = useCrm();
+  return (
+    <div className="space-y-6">
+      <Card>
+        <H sub="Search any constituent by name, city or CPTID, then click to open the full record: contact details, every gift, wealth screening, board, calling results and alumni data.">Donor lookup</H>
+        <DonorSearch />
+      </Card>
+      <Card>
+        <H sub={`All ${index ? num(index.length) : ""} constituents, largest lifetime giving first. Sort or filter, then click any name.`}>All records</H>
+        {index ? <PeopleTable rows={index} /> : <p className="text-sm">{loading ? "Loading donor records..." : "Donor records are not available yet."}</p>}
+      </Card>
+      <p className="text-xs text-[rgb(var(--ink))]/50">Data as of {d.asOf}.</p>
     </div>
   );
 }
@@ -384,7 +449,7 @@ function Prospects({ d }: { d: CsnfSnapshot }) {
       </div>
       <Card>
         <H sub={`${p.desc}${p.n > p.rows.length ? ` Showing top ${p.rows.length} of ${num(p.n)}.` : ""}`}>{p.k} prospects</H>
-        <Table rows={p.rows as never} cols={personCols as never} csvName={`CSNF ${p.k} Prospects.csv`} />
+        <Table rows={p.rows as never} cols={personCols as never} csvName={`${p.k} Prospects`} />
       </Card>
     </div>
   );
@@ -407,7 +472,7 @@ function Board({ d }: { d: CsnfSnapshot }) {
         <H sub="Board campaign ask vs. get, with giving history and DonorSearch">Board report</H>
         <Table
           rows={d.board}
-          csvName="CSNF Board Report.csv"
+          csvName="Board Report"
           cols={[
             { key: "name", label: "Name" },
             { key: "title", label: "Title" },
@@ -452,7 +517,7 @@ function Calling({ d }: { d: CsnfSnapshot }) {
         <H sub="Live call outcomes are on the CSNF Study Dashboard">Everyone sent to calling</H>
         <Table
           rows={all}
-          csvName="CSNF Calling Batches.csv"
+          csvName="Calling Batches"
           cols={[
             { key: "batch", label: "Batch" },
             { key: "name", label: "Name" },
@@ -484,15 +549,15 @@ function Health({ d }: { d: CsnfSnapshot }) {
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <H>Donor type</H>
-          <Table rows={d.donorType.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Donor Type" }, { key: "count", label: "Records", right: true }]} />
+          <Table csvName="Donor Types" rows={d.donorType.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Donor Type" }, { key: "count", label: "Records", right: true }]} />
         </Card>
         <Card>
           <H>Affiliation flags</H>
-          <Table rows={Object.entries(d.flags).map(([k, n]) => ({ flag: k, count: n }))} cols={[{ key: "flag", label: "Flag" }, { key: "count", label: "Records", right: true }]} />
+          <Table csvName="Affiliation Flags" rows={Object.entries(d.flags).map(([k, n]) => ({ flag: k, count: n }))} cols={[{ key: "flag", label: "Flag" }, { key: "count", label: "Records", right: true }]} />
         </Card>
         <Card>
           <H>Organization types</H>
-          <Table rows={d.orgTypes.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Type" }, { key: "count", label: "Orgs", right: true }]} />
+          <Table csvName="Organization Types" rows={d.orgTypes.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Type" }, { key: "count", label: "Orgs", right: true }]} />
         </Card>
       </div>
     </div>
@@ -511,11 +576,11 @@ function Alumni({ d }: { d: CsnfSnapshot }) {
       <div className="grid gap-6 md:grid-cols-2">
         <Card>
           <H>By school</H>
-          <Table rows={a.bySchool.map(([k, n]) => ({ school: k, count: n }))} cols={[{ key: "school", label: "School" }, { key: "count", label: "Alumni", right: true }]} />
+          <Table csvName="Alumni by School" rows={a.bySchool.map(([k, n]) => ({ school: k, count: n }))} cols={[{ key: "school", label: "School" }, { key: "count", label: "Alumni", right: true }]} />
         </Card>
         <Card>
           <H>Top zip codes</H>
-          <Table rows={a.topZips.map(([k, n]) => ({ zip: k, count: n }))} cols={[{ key: "zip", label: "Zip" }, { key: "count", label: "Alumni", right: true }]} />
+          <Table csvName="Alumni Top Zip Codes" rows={a.topZips.map(([k, n]) => ({ zip: k, count: n }))} cols={[{ key: "zip", label: "Zip" }, { key: "count", label: "Alumni", right: true }]} />
         </Card>
       </div>
     </div>
@@ -525,12 +590,16 @@ function Alumni({ d }: { d: CsnfSnapshot }) {
 export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
   const [tab, setTab] = useState<Tab>("Overview");
   return (
+    <CrmProvider>
     <main className="min-h-screen bg-[rgb(var(--paper))]">
       <header className="bg-[rgb(var(--navy))] px-6 py-8 text-white">
-        <div className="mx-auto max-w-7xl">
-          <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">Catapult Fundraising · Internal</p>
-          <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
-          <p className="mt-1 text-sm text-white/70">Donor data dashboard · Data as of {data.asOf} · Source: {data.source}</p>
+        <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4">
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">CSN Foundation Data Portal · Prepared by Catapult Fundraising</p>
+            <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
+            <p className="mt-1 text-sm text-white/70">Data as of {data.asOf} · Source: {data.source}</p>
+          </div>
+          <DonorSearch dark />
         </div>
       </header>
       <nav className="sticky top-0 z-10 border-b border-[rgb(var(--line))] bg-white">
@@ -547,6 +616,7 @@ export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
         </div>
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
+        {tab === "Donor Lookup" && <Lookup d={data} />}
         {tab === "Overview" && <Overview d={data} />}
         {tab === "Gift Pyramid" && <Pyramid d={data} />}
         {tab === "Gift Chart + GC2P" && <GiftChartTab d={data} />}
@@ -560,5 +630,6 @@ export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
         </p>
       </div>
     </main>
+    </CrmProvider>
   );
 }

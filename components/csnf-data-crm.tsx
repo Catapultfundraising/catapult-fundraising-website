@@ -1,0 +1,317 @@
+"use client";
+
+import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { Search, X, Download, FileSpreadsheet } from "lucide-react";
+import type { DonorRecord, IndexRow } from "@/lib/csnf-data-store";
+
+export const usd = (n: number, d = 0) =>
+  (n || 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: d, minimumFractionDigits: d });
+
+// ---------- branded downloads ----------
+export type ExportKind = "text" | "usd" | "num" | "pct";
+export interface ExportPayload {
+  title: string; subtitle?: string; cols: { label: string; kind?: ExportKind }[];
+  sections: { heading?: string; rows: (string | number | null)[][] }[]; notes?: string[];
+}
+async function saveResponse(res: Response, fallback: string) {
+  if (!res.ok) { alert("Download failed. Please try again."); return; }
+  const cd = res.headers.get("content-disposition") || "";
+  const name = /filename="([^"]+)"/.exec(cd)?.[1] || fallback;
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(await res.blob());
+  a.download = name;
+  a.click();
+}
+export async function downloadExport(p: ExportPayload, format: "pdf" | "xlsx") {
+  const res = await fetch("/api/csnf-data-export", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...p, format }) });
+  await saveResponse(res, `CSNF ${p.title}.${format}`);
+}
+export async function downloadUrl(url: string, fallback: string) {
+  await saveResponse(await fetch(url), fallback);
+}
+export function DownloadButtons({ get, small, label }: { get: () => ExportPayload; small?: boolean; label?: string }) {
+  const [busy, setBusy] = useState<string | null>(null);
+  const run = async (f: "pdf" | "xlsx") => {
+    setBusy(f);
+    try { await downloadExport(get(), f); } finally { setBusy(null); }
+  };
+  const cls = `inline-flex items-center gap-1.5 rounded-md px-3 ${small ? "py-1" : "py-1.5"} text-xs font-medium disabled:opacity-60`;
+  return (
+    <span className="ml-auto flex gap-2">
+      <button onClick={() => run("pdf")} disabled={!!busy} className={`${cls} bg-[rgb(var(--navy))] text-white`}>
+        <Download className="h-3.5 w-3.5" />{busy === "pdf" ? "Building..." : `${label ?? ""}PDF`}
+      </button>
+      <button onClick={() => run("xlsx")} disabled={!!busy} className={`${cls} border border-[rgb(var(--brass))] text-[rgb(var(--navy))]`}>
+        <FileSpreadsheet className="h-3.5 w-3.5" />{busy === "xlsx" ? "Building..." : `${label ?? ""}Excel`}
+      </button>
+    </span>
+  );
+}
+
+// ---------- index + record context ----------
+interface Ctx { index: IndexRow[] | null; loading: boolean; open: (cptid: number) => void; drill: (title: string, sub: string, rows: IndexRow[]) => void }
+const CrmCtx = createContext<Ctx>({ index: null, loading: true, open: () => {}, drill: () => {} });
+export const useCrm = () => useContext(CrmCtx);
+
+export function CrmProvider({ children }: { children: React.ReactNode }) {
+  const [index, setIndex] = useState<IndexRow[] | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [recId, setRecId] = useState<number | null>(null);
+  const [drillState, setDrill] = useState<{ title: string; sub: string; rows: IndexRow[] } | null>(null);
+  useEffect(() => {
+    fetch("/api/csnf-data-records").then((r) => (r.ok ? r.json() : null)).then((d) => setIndex(d?.index ?? null)).finally(() => setLoading(false));
+  }, []);
+  const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }) }), [index, loading]);
+  return (
+    <CrmCtx.Provider value={ctx}>
+      {children}
+      {drillState && <DrillModal {...drillState} onClose={() => setDrill(null)} />}
+      {recId !== null && <RecordModal cptid={recId} onClose={() => setRecId(null)} />}
+    </CrmCtx.Provider>
+  );
+}
+
+function Modal({ title, sub, onClose, children, wide }: { title: string; sub?: string; onClose: () => void; children: React.ReactNode; wide?: boolean }) {
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4 md:p-10" onClick={onClose}>
+      <div className={`w-full ${wide ? "max-w-6xl" : "max-w-4xl"} rounded-2xl bg-white shadow-xl`} onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start gap-4 rounded-t-2xl bg-[rgb(var(--navy))] px-6 py-5 text-white">
+          <div className="flex-1">
+            <h3 className="font-display text-2xl">{title}</h3>
+            {sub && <p className="mt-1 text-sm text-white/70">{sub}</p>}
+          </div>
+          <button onClick={onClose} aria-label="Close" className="rounded p-1 hover:bg-white/10"><X className="h-5 w-5" /></button>
+        </div>
+        <div className="p-6">{children}</div>
+      </div>
+    </div>
+  );
+}
+
+export const indexCols: { key: keyof IndexRow; label: string; kind?: ExportKind }[] = [
+  { key: "name", label: "Name" }, { key: "kind", label: "Type" }, { key: "city", label: "City" },
+  { key: "lifetime", label: "Lifetime", kind: "usd" }, { key: "gifts", label: "# Gifts", kind: "num" },
+  { key: "largest", label: "Largest", kind: "usd" }, { key: "last", label: "Last Gift" },
+  { key: "ds", label: "DS Rating" }, { key: "capacity", label: "Capacity" },
+];
+export function indexPayload(title: string, sub: string, rows: IndexRow[]): ExportPayload {
+  return {
+    title, subtitle: sub, cols: [{ label: "CPTID" }, ...indexCols.map((c) => ({ label: c.label, kind: c.kind }))],
+    sections: [{ rows: rows.map((r) => [r.cptid, ...indexCols.map((c) => (r[c.key] ?? "") as string | number)]) }],
+  };
+}
+
+export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: number }) {
+  const { open } = useCrm();
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<{ k: keyof IndexRow; dir: 1 | -1 }>({ k: "lifetime", dir: -1 });
+  const shown = useMemo(() => {
+    const ql = q.toLowerCase();
+    const r = q ? rows.filter((x) => `${x.name} ${x.city ?? ""} ${x.cptid}`.toLowerCase().includes(ql)) : rows;
+    return [...r].sort((a, b) => ((a[sort.k] ?? "") > (b[sort.k] ?? "") ? 1 : (a[sort.k] ?? "") < (b[sort.k] ?? "") ? -1 : 0) * sort.dir);
+  }, [rows, q, sort]);
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2">
+        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Filter this list..." className="w-64 rounded-md border border-[rgb(var(--line))] px-3 py-1.5 text-sm" />
+        <span className="text-xs text-[rgb(var(--ink))]/55">{shown.length.toLocaleString()} records{shown.length > max ? `, showing ${max}` : ""} · click a name to open the record</span>
+      </div>
+      <div className="max-h-[520px] overflow-auto rounded-lg border border-[rgb(var(--line))]">
+        <table className="w-full text-sm">
+          <thead className="sticky top-0 bg-[rgb(var(--navy))] text-left text-xs uppercase tracking-wider text-white">
+            <tr>
+              {indexCols.map((c) => (
+                <th key={c.key} onClick={() => setSort({ k: c.key, dir: sort.k === c.key && sort.dir === -1 ? 1 : -1 })} className={`cursor-pointer whitespace-nowrap px-3 py-2 ${c.kind ? "text-right" : ""}`}>{c.label}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {shown.slice(0, max).map((r, i) => (
+              <tr key={r.cptid} onClick={() => open(r.cptid)} className={`cursor-pointer hover:bg-[rgb(var(--brass))]/10 ${i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"}`}>
+                {indexCols.map((c) => (
+                  <td key={c.key} className={`whitespace-nowrap px-3 py-1.5 ${c.kind ? "text-right tabular-nums" : ""} ${c.key === "name" ? "font-medium text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40" : ""}`}>
+                    {c.kind === "usd" ? usd(r[c.key] as number) : String(r[c.key] ?? "")}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
+
+function DrillModal({ title, sub, rows, onClose }: { title: string; sub: string; rows: IndexRow[]; onClose: () => void }) {
+  return (
+    <Modal title={title} sub={`${rows.length.toLocaleString()} records · ${sub}`} onClose={onClose} wide>
+      <div className="mb-3 flex"><DownloadButtons get={() => indexPayload(title, sub, rows)} /></div>
+      <PeopleTable rows={rows} />
+    </Modal>
+  );
+}
+
+// ---------- global search ----------
+export function DonorSearch({ dark }: { dark?: boolean }) {
+  const { index, loading, open } = useCrm();
+  const [q, setQ] = useState("");
+  const hits = useMemo(() => {
+    if (!index || q.trim().length < 2) return [];
+    const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+    return index.filter((r) => { const h = `${r.name} ${r.city ?? ""} ${r.cptid}`.toLowerCase(); return terms.every((t) => h.includes(t)); }).slice(0, 12);
+  }, [index, q]);
+  return (
+    <div className="relative w-full max-w-md">
+      <Search className={`pointer-events-none absolute left-3 top-2.5 h-4 w-4 ${dark ? "text-white/60" : "text-[rgb(var(--ink))]/40"}`} />
+      <input
+        value={q}
+        onChange={(e) => setQ(e.target.value)}
+        placeholder={loading ? "Loading donor records..." : "Look up a donor by name, city or CPTID"}
+        className={`w-full rounded-lg py-2 pl-9 pr-3 text-sm outline-none ${dark ? "border border-white/20 bg-white/10 text-white placeholder:text-white/60 focus:border-[rgb(var(--brass))]" : "border border-[rgb(var(--line))] bg-white"}`}
+      />
+      {hits.length > 0 && (
+        <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-[rgb(var(--line))] bg-white text-[rgb(var(--ink))] shadow-lg">
+          {hits.map((h) => (
+            <button key={h.cptid} onClick={() => { open(h.cptid); setQ(""); }} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-[rgb(var(--paper))]">
+              <span>
+                <span className="font-medium text-[rgb(var(--navy))]">{h.name}</span>
+                <span className="ml-2 text-xs text-[rgb(var(--ink))]/55">{[h.kind, h.city, `CPTID ${h.cptid}`].filter(Boolean).join(" · ")}</span>
+              </span>
+              <span className="tabular-nums text-xs">{usd(h.lifetime)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ---------- full donor record ----------
+function Field({ k, v }: { k: string; v?: string | number | null }) {
+  if (v === undefined || v === null || v === "") return null;
+  return (
+    <div className="flex gap-3 border-b border-[rgb(var(--line))]/60 py-1.5 text-sm">
+      <span className="w-40 shrink-0 text-[rgb(var(--ink))]/55">{k}</span>
+      <span className="text-[rgb(var(--navy))]">{v}</span>
+    </div>
+  );
+}
+function Sec({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border border-[rgb(var(--line))] p-4">
+      <h4 className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-[rgb(var(--brass))]">{title}</h4>
+      {children}
+    </div>
+  );
+}
+
+export function recordPayload(r: DonorRecord): ExportPayload {
+  const c = r.contact ?? {};
+  const prof: (string | number | null)[][] = [
+    ["CPTID", String(r.cptid), "", "", "", ""], ["Type", r.kind ?? "", "", "", "", ""],
+    ["Address", [c.street, c.city, c.state, c.zip].filter(Boolean).join(", "), "", "", "", ""],
+    ["Phone", [c.phone, c.mobile].filter(Boolean).join(" / "), "", "", "", ""], ["Email", [c.email, c.workEmail].filter(Boolean).join(" / "), "", "", "", ""],
+    ["Lifetime giving", usd(r.summary.lifetime), "", "", "", ""], ["Gifts", String(r.summary.gifts), "", "", "", ""],
+    ["Largest gift", usd(r.summary.largest), "", "", "", ""], ["First / last gift", `${r.summary.first ?? ""} / ${r.summary.last ?? ""}`, "", "", "", ""],
+    ["DS rating / capacity", `${r.ds?.["DS Rating"] ?? ""} / ${r.ds?.["Wealth-Based Capacity"] ?? ""}`, "", "", "", ""],
+    ["Affiliations", (r.flags ?? []).join(", "), "", "", "", ""],
+  ];
+  return {
+    title: `Donor Record, ${r.name}`, subtitle: `CPTID ${r.cptid}`,
+    cols: [{ label: "Date" }, { label: "Amount", kind: "usd" }, { label: "Stage" }, { label: "Type" }, { label: "Campaign" }, { label: "Allocation" }],
+    sections: [
+      { heading: "Profile", rows: prof.filter((x) => x[1]) },
+      { heading: `Gift history (${r.gifts?.length ?? 0})`, rows: (r.gifts ?? []).map((g) => [g.date ?? "", g.amount, g.stage ?? "", g.type ?? "", g.campaign ?? "", g.allocation ?? ""]) },
+    ],
+    notes: [...(r.calls ?? []).map((x) => `Call ${x.date}: ${x.result}${x.reason ? ` (${x.reason})` : ""}. ${x.comments ?? ""}`), ...(r.notes ?? []).map((n) => `Interest: ${n}`)],
+  };
+}
+
+function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
+  const [r, setR] = useState<DonorRecord | null>(null);
+  const [err, setErr] = useState(false);
+  useEffect(() => {
+    setR(null); setErr(false);
+    fetch(`/api/csnf-data-records?id=${cptid}`).then((x) => (x.ok ? x.json() : Promise.reject())).then(setR).catch(() => setErr(true));
+  }, [cptid]);
+  if (err) return <Modal title="Record not found" onClose={onClose}><p>No record for CPTID {cptid}.</p></Modal>;
+  if (!r) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
+  const c = r.contact ?? {};
+  const s = r.summary;
+  const byYear = new Map<string, number>();
+  for (const g of r.gifts ?? []) { const y = (g.date ?? "").slice(0, 4) || "Undated"; byYear.set(y, (byYear.get(y) ?? 0) + g.amount); }
+  return (
+    <Modal title={r.name} sub={[r.kind, c.city && `${c.city}${c.state ? ", " + c.state : ""}`, `CPTID ${r.cptid}`].filter(Boolean).join(" · ")} onClose={onClose} wide>
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        {(r.flags ?? []).map((f) => <span key={f} className="rounded-full bg-[rgb(var(--brass))]/15 px-2.5 py-0.5 text-xs text-[rgb(var(--navy))]">{f}</span>)}
+        {(r.board ?? []).some((b) => b.active) && <span className="rounded-full bg-[rgb(var(--navy))] px-2.5 py-0.5 text-xs text-white">Board member</span>}
+        {(r.calling ?? []).length > 0 && <span className="rounded-full bg-[rgb(var(--navy))]/10 px-2.5 py-0.5 text-xs">Sent to calling</span>}
+        <DownloadButtons get={() => recordPayload(r)} small />
+      </div>
+      <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
+        {[["Lifetime giving", usd(s.lifetime)], ["Gifts", String(s.gifts)], ["Largest gift", usd(s.largest)], ["Years giving", String(s.years)], ["Last gift", s.last || "None"]].map(([k, v]) => (
+          <div key={k} className="rounded-xl border border-[rgb(var(--line))] p-3">
+            <p className="font-display text-xl text-[rgb(var(--navy))]">{v}</p>
+            <p className="text-[11px] uppercase tracking-wider text-[rgb(var(--ink))]/55">{k}</p>
+          </div>
+        ))}
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <Sec title="Contact">
+          <Field k="Formal greeting" v={c.greeting} /><Field k="Salutation" v={c.salutation} /><Field k="Primary contact" v={c.primaryContact} />
+          <Field k="Title" v={c.title} /><Field k="Affiliation" v={c.affiliation} />
+          <Field k="Address" v={[c.street, c.city, c.state, c.zip].filter(Boolean).join(", ")} />
+          <Field k="Phone" v={c.phone} /><Field k="Mobile" v={c.mobile} /><Field k="Email" v={c.email} /><Field k="Work email" v={c.workEmail} />
+          <Field k="Marital status" v={c.marital} /><Field k="Birthdate" v={c.birthdate} />
+          {!Object.values(c).some(Boolean) && <p className="text-sm text-[rgb(var(--ink))]/55">No contact details on file.</p>}
+        </Sec>
+        <Sec title="Wealth screening (DonorSearch)">
+          {r.ds ? Object.entries(r.ds).map(([k, v]) => <Field key={k} k={k} v={v} />) : <p className="text-sm text-[rgb(var(--ink))]/55">Not screened.</p>}
+        </Sec>
+        <Sec title="Giving summary">
+          <Field k="First gift" v={s.first} /><Field k="Last gift" v={s.last} /><Field k="Lifetime band" v={s.band} />
+          {s.ghoTotal !== undefined && s.ghoTotal !== null && Math.abs((s.ghoTotal ?? 0) - s.lifetime) > 1 && <Field k="Giving History Overview" v={`${usd(s.ghoTotal)} (differs from gift file)`} />}
+          {r.softCredits && <><Field k="Soft credits" v={r.softCredits.count} /><Field k="Largest soft credit" v={r.softCredits.largest} /></>}
+          {byYear.size > 0 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[...byYear.entries()].sort().reverse().slice(0, 12).map(([y, v]) => <span key={y} className="rounded bg-[rgb(var(--paper))] px-2 py-0.5 text-xs tabular-nums">{y}: {usd(v)}</span>)}
+            </div>
+          )}
+        </Sec>
+        <Sec title="Board, committees, calling and alumni">
+          {(r.board ?? []).map((b, i) => <Field key={i} k={b.board || "Board"} v={`${b.title ?? ""} ${b.term ?? ""}${b.active ? "" : " (former)"}${b.ask ? ` · Ask ${usd(b.ask)} · Get ${usd(b.get ?? 0)}` : ""}`} />)}
+          {(r.committees ?? []).map((x, i) => <Field key={i} k="Committee" v={x} />)}
+          {(r.calling ?? []).map((x, i) => <Field key={i} k={`Calling ${x.batch}`} v={[x.tier, x.interviewer && `Interviewer: ${x.interviewer}`, x.appt && `Appt ${x.appt}`].filter(Boolean).join(" · ")} />)}
+          {(r.calls ?? []).map((x, i) => <Field key={i} k={`Call ${x.date}`} v={`${x.result}${x.reason ? ` (${x.reason})` : ""}${x.comments ? `: ${x.comments}` : ""}`} />)}
+          {(r.notes ?? []).map((x, i) => <Field key={i} k="Interest" v={x} />)}
+          {r.alumni && <Field k="Alumni" v={[r.alumni.degrees || r.alumni.school, r.alumni.gradYear && `Class of ${r.alumni.gradYear}`, r.alumni.firstGen && "First gen", r.alumni.veteran && "Veteran"].filter(Boolean).join(" · ")} />}
+          {!r.board?.length && !r.committees?.length && !r.calling?.length && !r.calls?.length && !r.notes?.length && !r.alumni && <p className="text-sm text-[rgb(var(--ink))]/55">None on file.</p>}
+        </Sec>
+      </div>
+      <div className="mt-4">
+        <Sec title={`Gift history (${r.gifts?.length ?? 0})`}>
+          <div className="max-h-[360px] overflow-auto">
+            <table className="w-full text-sm">
+              <thead className="sticky top-0 bg-[rgb(var(--navy))] text-left text-xs uppercase text-white">
+                <tr><th className="px-3 py-2">Date</th><th className="px-3 py-2 text-right">Amount</th><th className="px-3 py-2">Stage</th><th className="px-3 py-2">Type</th><th className="px-3 py-2">Campaign</th><th className="px-3 py-2">Allocation</th></tr>
+              </thead>
+              <tbody>
+                {(r.gifts ?? []).map((g, i) => (
+                  <tr key={i} className={i % 2 ? "bg-[rgb(var(--paper))]" : ""}>
+                    <td className="px-3 py-1.5">{g.date}</td><td className="px-3 py-1.5 text-right tabular-nums">{usd(g.amount, 2)}</td>
+                    <td className="px-3 py-1.5">{g.stage}</td><td className="px-3 py-1.5">{g.type}</td><td className="px-3 py-1.5">{g.campaign}</td><td className="px-3 py-1.5">{g.allocation}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </Sec>
+      </div>
+    </Modal>
+  );
+}
