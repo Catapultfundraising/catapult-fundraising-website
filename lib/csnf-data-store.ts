@@ -1,4 +1,16 @@
-import { get } from "@vercel/blob";
+import { get as blobGet } from "@vercel/blob";
+
+// Local QA only: CSNF_LOCAL_DIR points at a folder holding snapshot.json and
+// records.json so the portal can run without the blob store.
+async function get(path: string, opts: Parameters<typeof blobGet>[1]) {
+  const dir = process.env.CSNF_LOCAL_DIR;
+  if (dir) {
+    const { readFile } = await import("node:fs/promises");
+    const text = await readFile(`${dir}/${path.split("/").pop()}`, "utf8");
+    return { stream: new Response(text).body } as Awaited<ReturnType<typeof blobGet>>;
+  }
+  return blobGet(path, opts);
+}
 
 // Internal CSNF donor-data dashboard snapshot. Built from the CSNF database
 // (Azure SQL schema `csnf`, originally the Access file) by Viktor and written
