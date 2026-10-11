@@ -5,7 +5,9 @@ import {
 } from "docx";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { getCsnfSnapshot } from "@/lib/csnf-data-store";
-import { seatGc2p, GC2P_RATIO, GC2P_MIN_LEVEL } from "@/lib/csnf-gc2p";
+import { extrasFromIndex, seatGc2p, GC2P_RATIO, GC2P_MIN_LEVEL } from "@/lib/csnf-gc2p";
+import { getCsnfRecords } from "@/lib/csnf-data-store";
+import { getCsnfTracking } from "@/lib/csnf-tracking";
 import { formatCompactDollars, formatDollars, formatShare, MAX_GOAL, MIN_GOAL, type GiftChartRow } from "@/lib/gift-chart";
 import { BrandFooter, bs, BRASS, CREAM, LINE, LOGO_ASPECT, LOGO_URL, NAVY, preparedOn, registerBrandFonts } from "@/lib/csnf-brand-pdf";
 import { buildBrandedXlsx } from "@/lib/csnf-brand-xlsx";
@@ -52,7 +54,11 @@ export async function GET(req: NextRequest) {
   if (!Number.isFinite(goal) || goal < MIN_GOAL || goal > MAX_GOAL) return NextResponse.json({ error: "bad goal" }, { status: 400 });
   const snap = await getCsnfSnapshot();
   if (!snap) return NextResponse.json({ error: "no data" }, { status: 503 });
-  const { chart, seated, notShown } = seatGc2p(goal, snap.pool);
+  const tracking = report === "gc2p" ? await getCsnfTracking() : null;
+  const recs = report === "gc2p" && tracking && Object.keys(tracking.prospects).length ? await getCsnfRecords() : null;
+  const { chart, seated, notShown, removed } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recs?.index, tracking, snap.pool));
+  const stOf = (id: number) => tracking?.prospects[String(id)];
+  const lastAct = (id: number) => (tracking?.activity ?? []).filter((a) => a.cptid === id && a.kind !== "Committee update").sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at))[0];
   const goalTxt = formatCompactDollars(goal);
   const short = "CSNF";
   registerBrandFonts();
@@ -202,18 +208,27 @@ export async function GET(req: NextRequest) {
   const capTxt = (p: (typeof seated)[number]["people"][number]) => p.capacity || "Not screened";
   const histTxt = (p: (typeof seated)[number]["people"][number]) =>
     p.lifetime > 0 ? `${usd(p.lifetime)} lifetime in ${n0(p.gifts)} gift${p.gifts === 1 ? "" : "s"}; largest ${usd(p.largest)}; last ${p.last || "n/a"}` : "Non-donor";
-  const noteTxt = (p: (typeof seated)[number]["people"][number]) =>
-    p.basis.startsWith("Capacity") ? "Seated at low end of DonorSearch capacity." : "Not screened; seated at largest gift.";
+  const noteTxt = (p: (typeof seated)[number]["people"][number]) => {
+    const a = lastAct(p.cptid);
+    const basis = p.basis === "Committee" ? "Placed at this level by the committee." : p.basis.startsWith("Capacity") ? "Seated at low end of DonorSearch capacity." : "Not screened; seated at largest gift.";
+    const reason = stOf(p.cptid)?.reason;
+    return [a ? `${a.date} ${a.kind}: ${a.note}` : reason || basis, tracking?.pirs[String(p.cptid)] ? "PIR on file." : ""].filter(Boolean).join(" ");
+  };
+  const statusTxt = (id: number) => stOf(id)?.status ?? "Unassigned";
+  const solTxt = (id: number) => stOf(id)?.solicitor ?? "";
   const insights = [
     `${covered.length} of ${seated.length} levels have a full ${GC2P_RATIO}-to-1 prospect pool${covered.length ? ` (${covered.map((x) => formatCompactDollars(x.level)).join(", ")})` : ""}.`,
     short2.length ? `${needed - identified} more prospects are needed: ${short2.map((x) => `${formatCompactDollars(x.level)} short ${x.need - x.people.length}`).join("; ")}.` : "Every level shown is fully covered.",
     `${n0(snap.pool.length)} records in the CSNF file rate at $50,000 or more; ${n0(identified)} are seated here.`,
-    `Committed gifts and solicitor assignments are not in this data yet. Review with the campaign team before sharing.`,
+    removed.committed + removed.disqualified > 0
+      ? `Committee updates applied: ${removed.committed} committed and ${removed.disqualified} disqualified prospects are off the chart.`
+      : `No committee updates entered yet; statuses and solicitors fill in as the committee updates the portal.`,
   ];
   const seatingNotes: [string, string][] = [
     ["Individuals:", " the low end of their DonorSearch wealth-screening capacity. Within a level, prospects with the strongest CSNF giving history are seated first; the rest move down a level."],
     ["Not screened:", " records without a DonorSearch rating are seated at their largest gift to CSNF."],
-    ["Not on this chart:", " gift levels under $50K."],
+    ["Committee placements:", " prospects the committee assigns to a gift level are seated there first."],
+    ["Not on this chart:", " gifts already committed, prospects disqualified by the committee, and gift levels under $50K."],
   ];
 
   if (format === "xlsx") {
@@ -227,7 +242,7 @@ export async function GET(req: NextRequest) {
       sections: [
         ...seated.map((x) => ({
           heading: `${formatDollars(x.level)} · ${x.row.gifts} gift${x.row.gifts === 1 ? "" : "s"} needed · ${x.people.length} identified / ${x.need} needed`,
-          rows: x.people.map((p) => [x.level, p.name, p.cptid, "Unassigned", "", p.ds, capTxt(p), p.lifetime, p.largest, p.last, x.level, noteTxt(p)] as (string | number | null)[]),
+          rows: x.people.map((p) => [x.level, p.name, p.cptid, statusTxt(p.cptid), solTxt(p.cptid), p.ds, capTxt(p), p.lifetime, p.largest, p.last, x.level, noteTxt(p)] as (string | number | null)[]),
         })),
         {
           heading: "Pipeline totals",
@@ -320,7 +335,7 @@ export async function GET(req: NextRequest) {
 
         <View break>
           <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 18 }}>Prospects by gift level</Text>
-          <Text style={{ fontSize: 8, opacity: 0.7, marginTop: 3, marginBottom: 6 }}>Ask amount equals the gift level. Status and solicitor are blank until the campaign committee assigns them.</Text>
+          <Text style={{ fontSize: 8, opacity: 0.7, marginTop: 3, marginBottom: 6 }}>Ask amount equals the gift level. Status, solicitor and notes come from committee updates entered in the CSN Foundation Data Portal.</Text>
         </View>
         {seated.map((x) => (
           <View key={x.level} style={{ marginBottom: 10 }}>
@@ -341,9 +356,9 @@ export async function GET(req: NextRequest) {
                   <Text style={{ fontSize: 6.2, color: BRASS, fontWeight: 700, marginTop: 1 }}>CPTID {p.cptid}</Text>
                 </View>
                 <View style={{ width: pc[1], padding: 4 }}>
-                  <Text style={{ fontSize: 6, fontWeight: 700, borderWidth: 0.6, borderColor: LINE, borderRadius: 6, paddingVertical: 1.5, paddingHorizontal: 4, textAlign: "center", opacity: 0.75 }}>UNASSIGNED</Text>
+                  <Text style={{ fontSize: 6, fontWeight: 700, borderWidth: 0.6, borderColor: LINE, borderRadius: 6, paddingVertical: 1.5, paddingHorizontal: 4, textAlign: "center", opacity: 0.75 }}>{statusTxt(p.cptid).toUpperCase()}</Text>
                 </View>
-                <Text style={{ width: pc[2], fontSize: 7.4, padding: 4 }}>—</Text>
+                <Text style={{ width: pc[2], fontSize: 7.4, padding: 4 }}>{solTxt(p.cptid) || "—"}</Text>
                 <Text style={{ width: pc[3], fontSize: 7.4, padding: 4, color: BRASS }}>{p.ds || "—"}</Text>
                 <Text style={{ width: pc[4], fontSize: 7.4, padding: 4 }}>{capTxt(p)}</Text>
                 <Text style={{ width: pc[5], fontSize: 7.4, padding: 4 }}>{histTxt(p)}</Text>

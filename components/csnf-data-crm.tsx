@@ -1,8 +1,9 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { Search, X, Download, FileSpreadsheet } from "lucide-react";
+import { Search, X, Download, FileSpreadsheet, FileText } from "lucide-react";
 import type { DonorRecord, IndexRow } from "@/lib/csnf-data-store";
+import { ACTIVITY_KINDS, EMPTY_TRACKING, PROSPECT_STATUSES, type CsnfTracking } from "@/lib/csnf-tracking-types";
 
 export const usd = (n: number, d = 0) =>
   (n || 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: d, minimumFractionDigits: d });
@@ -49,8 +50,8 @@ export function DownloadButtons({ get, small, label }: { get: () => ExportPayloa
 }
 
 // ---------- index + record context ----------
-interface Ctx { index: IndexRow[] | null; loading: boolean; open: (cptid: number) => void; drill: (title: string, sub: string, rows: IndexRow[]) => void }
-const CrmCtx = createContext<Ctx>({ index: null, loading: true, open: () => {}, drill: () => {} });
+interface Ctx { index: IndexRow[] | null; loading: boolean; open: (cptid: number) => void; drill: (title: string, sub: string, rows: IndexRow[]) => void; tracking: CsnfTracking; setTracking: (t: CsnfTracking) => void }
+const CrmCtx = createContext<Ctx>({ index: null, loading: true, open: () => {}, drill: () => {}, tracking: EMPTY_TRACKING, setTracking: () => {} });
 export const useCrm = () => useContext(CrmCtx);
 
 export function CrmProvider({ children }: { children: React.ReactNode }) {
@@ -58,10 +59,12 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [recId, setRecId] = useState<number | null>(null);
   const [drillState, setDrill] = useState<{ title: string; sub: string; rows: IndexRow[] } | null>(null);
+  const [tracking, setTracking] = useState<CsnfTracking>(EMPTY_TRACKING);
   useEffect(() => {
+    fetch("/api/csnf-data-tracking", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((t) => t && setTracking(t));
     fetch("/api/csnf-data-records").then((r) => (r.ok ? r.json() : null)).then((d) => setIndex(d?.index ?? null)).finally(() => setLoading(false));
   }, []);
-  const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }) }), [index, loading]);
+  const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking]);
   return (
     <CrmCtx.Provider value={ctx}>
       {children}
@@ -210,7 +213,9 @@ function Sec({ title, children }: { title: string; children: React.ReactNode }) 
   );
 }
 
-export function recordPayload(r: DonorRecord): ExportPayload {
+export function recordPayload(r: DonorRecord, t?: CsnfTracking): ExportPayload {
+  const st = t?.prospects[String(r.cptid)];
+  const acts = (t?.activity ?? []).filter((a) => a.cptid === r.cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
   const c = r.contact ?? {};
   const prof: (string | number | null)[][] = [
     ["CPTID", String(r.cptid), "", "", "", ""], ["Type", r.kind ?? "", "", "", "", ""],
@@ -226,6 +231,7 @@ export function recordPayload(r: DonorRecord): ExportPayload {
     cols: [{ label: "Date" }, { label: "Amount", kind: "usd" }, { label: "Stage" }, { label: "Type" }, { label: "Campaign" }, { label: "Allocation" }],
     sections: [
       { heading: "Profile", rows: prof.filter((x) => x[1]) },
+      ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
       { heading: `Gift history (${r.gifts?.length ?? 0})`, rows: (r.gifts ?? []).map((g) => [g.date ?? "", g.amount, g.stage ?? "", g.type ?? "", g.campaign ?? "", g.allocation ?? ""]) },
     ],
     notes: [...(r.calls ?? []).map((x) => `Call ${x.date}: ${x.result}${x.reason ? ` (${x.reason})` : ""}. ${x.comments ?? ""}`), ...(r.notes ?? []).map((n) => `Interest: ${n}`)],
@@ -233,6 +239,7 @@ export function recordPayload(r: DonorRecord): ExportPayload {
 }
 
 function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
+  const { tracking } = useCrm();
   const [r, setR] = useState<DonorRecord | null>(null);
   const [err, setErr] = useState(false);
   useEffect(() => {
@@ -251,8 +258,15 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         {(r.flags ?? []).map((f) => <span key={f} className="rounded-full bg-[rgb(var(--brass))]/15 px-2.5 py-0.5 text-xs text-[rgb(var(--navy))]">{f}</span>)}
         {(r.board ?? []).some((b) => b.active) && <span className="rounded-full bg-[rgb(var(--navy))] px-2.5 py-0.5 text-xs text-white">Board member</span>}
         {(r.calling ?? []).length > 0 && <span className="rounded-full bg-[rgb(var(--navy))]/10 px-2.5 py-0.5 text-xs">Sent to calling</span>}
-        <DownloadButtons get={() => recordPayload(r)} small />
+        {tracking.pirs[String(r.cptid)] && (
+          <a href={tracking.pirs[String(r.cptid)].url} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--brass))] px-3 py-1 text-xs font-medium text-[rgb(var(--navy))]">
+            <FileText className="h-3.5 w-3.5" />View PIR
+          </a>
+        )}
+        {tracking.prospects[String(r.cptid)] && <span className="rounded-full border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium">{tracking.prospects[String(r.cptid)].status}</span>}
+        <DownloadButtons get={() => recordPayload(r, tracking)} small />
       </div>
+      <TrackingPanel cptid={r.cptid} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         {[["Lifetime giving", usd(s.lifetime)], ["Gifts", String(s.gifts)], ["Largest gift", usd(s.largest)], ["Years giving", String(s.years)], ["Last gift", s.last || "None"]].map(([k, v]) => (
           <div key={k} className="rounded-xl border border-[rgb(var(--line))] p-3">
@@ -313,5 +327,92 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         </Sec>
       </div>
     </Modal>
+  );
+}
+
+// ---------- committee tracking + activity history ----------
+const inputCls = "w-full rounded-md border border-[rgb(var(--line))] px-2.5 py-1.5 text-sm";
+function useByName() {
+  const [by, setBy] = useState("");
+  useEffect(() => { setBy(localStorage.getItem("csnf-by") ?? ""); }, []);
+  return [by, (v: string) => { setBy(v); localStorage.setItem("csnf-by", v); }] as const;
+}
+function TrackingPanel({ cptid }: { cptid: number }) {
+  const { tracking, setTracking } = useCrm();
+  const cur = tracking.prospects[String(cptid)];
+  const acts = tracking.activity.filter((a) => a.cptid === cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
+  const [by, setBy] = useByName();
+  const [status, setStatus] = useState<string>(cur?.status ?? "Active");
+  const [level, setLevel] = useState(cur?.level ? String(cur.level) : "");
+  const [solicitor, setSolicitor] = useState(cur?.solicitor ?? "");
+  const [reason, setReason] = useState(cur?.reason ?? "");
+  const [kind, setKind] = useState<string>("Visit");
+  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState("");
+  const post = async (body: Record<string, unknown>, which: string) => {
+    setBusy(which); setMsg("");
+    try {
+      const res = await fetch("/api/csnf-data-tracking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, cptid, by }) });
+      const j = await res.json();
+      if (!res.ok) { setMsg(j.error ?? "Could not save"); return false; }
+      setTracking(j); setMsg("Saved"); return true;
+    } finally { setBusy(null); }
+  };
+  return (
+    <div className="mb-4 rounded-xl border-2 border-[rgb(var(--brass))]/50 bg-[rgb(var(--paper))] p-4">
+      <div className="mb-3 flex flex-wrap items-center gap-3">
+        <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-[rgb(var(--brass))]">Campaign tracking</h4>
+        {cur && <span className="text-xs text-[rgb(var(--ink))]/60">Last updated {cur.updatedAt.slice(0, 10)} by {cur.by}</span>}
+        <label className="ml-auto flex items-center gap-2 text-xs">Your name
+          <input value={by} onChange={(e) => setBy(e.target.value)} placeholder="Required to save" className="w-44 rounded-md border border-[rgb(var(--line))] px-2 py-1 text-sm" />
+        </label>
+      </div>
+      <div className="grid gap-4 md:grid-cols-2">
+        <div className="space-y-2 rounded-lg bg-white p-3">
+          <p className="text-sm font-semibold text-[rgb(var(--navy))]">Committee update</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs">Status
+              <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputCls}>{PROSPECT_STATUSES.map((s) => <option key={s}>{s}</option>)}</select>
+            </label>
+            <label className="text-xs">Gift level (GC2P)
+              <input value={level} onChange={(e) => setLevel(e.target.value.replace(/[^\d]/g, ""))} placeholder="Auto from capacity" className={inputCls} />
+            </label>
+            <label className="col-span-2 text-xs">Primary solicitor / connection
+              <input value={solicitor} onChange={(e) => setSolicitor(e.target.value)} className={inputCls} />
+            </label>
+            <label className="col-span-2 text-xs">{status === "Disqualified" ? "Reason (e.g. said no)" : "Reason / note"}
+              <input value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} />
+            </label>
+          </div>
+          <button disabled={!!busy} onClick={() => post({ type: "status", status, level, solicitor, reason }, "status")} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
+          <p className="text-[11px] text-[rgb(var(--ink))]/55">Disqualified and Committed prospects drop off the GC2P. A gift level places the prospect at that level on the GC2P, even if they were not in the screened pool.</p>
+        </div>
+        <div className="space-y-2 rounded-lg bg-white p-3">
+          <p className="text-sm font-semibold text-[rgb(var(--navy))]">Log a contact or visit</p>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="text-xs">Type<select value={kind} onChange={(e) => setKind(e.target.value)} className={inputCls}>{ACTIVITY_KINDS.map((s) => <option key={s}>{s}</option>)}</select></label>
+            <label className="text-xs">Date<input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></label>
+            <label className="col-span-2 text-xs">Notes<textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={inputCls} /></label>
+          </div>
+          <button disabled={!!busy} onClick={async () => { if (await post({ type: "activity", kind, date, note }, "act")) setNote(""); }} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "act" ? "Saving..." : "Add to history"}</button>
+        </div>
+      </div>
+      {msg && <p className={`mt-2 text-sm ${msg === "Saved" ? "text-green-700" : "text-red-700"}`}>{msg}</p>}
+      <div className="mt-3 rounded-lg bg-white p-3">
+        <p className="mb-2 text-sm font-semibold text-[rgb(var(--navy))]">History ({acts.length})</p>
+        {acts.length === 0 ? <p className="text-sm text-[rgb(var(--ink))]/55">No contacts or committee updates logged yet.</p> : (
+          <ol className="max-h-64 space-y-2 overflow-auto">
+            {acts.map((a) => (
+              <li key={a.id} className="border-l-2 border-[rgb(var(--brass))] pl-3 text-sm">
+                <p className="text-xs text-[rgb(var(--ink))]/60"><span className="font-semibold text-[rgb(var(--navy))]">{a.date}</span> · {a.kind} · {a.by}</p>
+                <p className="whitespace-pre-wrap">{a.note}</p>
+              </li>
+            ))}
+          </ol>
+        )}
+      </div>
+    </div>
   );
 }

@@ -6,7 +6,7 @@ import {
 } from "recharts";
 import type { CsnfSnapshot, Person } from "@/lib/csnf-data-store";
 import { formatDollars } from "@/lib/gift-chart";
-import { seatGc2p } from "@/lib/csnf-gc2p";
+import { extrasFromIndex, seatGc2p } from "@/lib/csnf-gc2p";
 import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadUrl, useCrm, type ExportKind } from "@/components/csnf-data-crm";
 import type { IndexRow } from "@/lib/csnf-data-store";
 
@@ -323,7 +323,9 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
   const [goalText, setGoalText] = useState("10000000");
   const [busy, setBusy] = useState<string | null>(null);
   const goal = Math.min(500_000_000, Math.max(100_000, Number(goalText.replace(/[^\d]/g, "")) || 0));
-  const { chart, seated, notShown } = useMemo(() => seatGc2p(goal, d.pool), [goal, d.pool]);
+  const { index, tracking } = useCrm();
+  const { chart, seated, notShown, removed } = useMemo(() => seatGc2p(goal, d.pool, tracking, extrasFromIndex(index, tracking, d.pool)), [goal, d.pool, index, tracking]);
+  const stOf = (id: number) => tracking.prospects[String(id)];
   const shownValue = goal - notShown;
   const reportDownload = async (report: "gc" | "gc2p", format: "pdf" | "docx" | "xlsx") => {
     setBusy(report + format);
@@ -377,7 +379,7 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
         />
       </Card>
       <Card>
-        <H sub={`GC2P house rules: levels of $50,000 and up only (${formatDollars(goal - shownValue)} in smaller levels not shown), 3 prospects per gift. Individuals are rated at the low end of their DonorSearch capacity band; unscreened records fall back to their largest gift. When a level has more candidates than it needs, the strongest giving history stays and the rest move down. Committed gifts and solicitor assignments are not in this data yet, so review before sharing.`}>
+        <H sub={`GC2P house rules: levels of $50,000 and up only (${formatDollars(goal - shownValue)} in smaller levels not shown), 3 prospects per gift. Individuals are rated at the low end of their DonorSearch capacity band; unscreened records fall back to their largest gift. When a level has more candidates than it needs, the strongest giving history stays and the rest move down. Committee updates come first: ${removed.disqualified} disqualified and ${removed.committed} committed prospects are off the chart, and anyone placed at a gift level is seated there. Open any prospect to enter a status, solicitor, gift level or contact.`}>
           Gift chart to prospects
         </H>
         <div className="mb-4 space-y-1.5">
@@ -402,9 +404,12 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
                 <Table
                   csvName={`GC2P ${formatDollars(x.level)} Level`}
                   exportSub={`${formatDollars(goal)} goal`}
-                  rows={x.people as never}
+                  rows={x.people.map((p) => ({ ...p, status: stOf(p.cptid)?.status ?? "Unassigned", solicitor: stOf(p.cptid)?.solicitor ?? "", pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
                   cols={[
                     { key: "name", label: "Prospect" },
+                    { key: "status", label: "Status" },
+                    { key: "solicitor", label: "Solicitor" },
+                    { key: "pir", label: "PIR" },
                     { key: "rating", label: "Rated At", fmt: (v: unknown) => usd(v as number), right: true },
                     { key: "basis", label: "Basis" },
                     { key: "ds", label: "DS" },
