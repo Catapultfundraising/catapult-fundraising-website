@@ -255,7 +255,7 @@ export async function GET(req: NextRequest) {
       notes: [
         `Gift levels shown: ${shownGifts} gifts of $50K+ for ${usd(shownValue)}. Not shown: ${usd(notShown)} in levels under $50K.`,
         ...seatingNotes.map(([a, b]) => a + b),
-        `Source: CSNF database and DonorSearch screening, data as of ${snap.asOf}.`,
+        `Data as of ${snap.asOf}.`,
       ],
     });
     return new NextResponse(new Uint8Array(buf), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${file}.xlsx"` } });
@@ -335,7 +335,7 @@ export async function GET(req: NextRequest) {
 
         <View break>
           <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 18 }}>Prospects by gift level</Text>
-          <Text style={{ fontSize: 8, opacity: 0.7, marginTop: 3, marginBottom: 6 }}>Ask amount equals the gift level. Status, solicitor and notes come from committee updates entered in the CSN Foundation Data Portal.</Text>
+          <Text style={{ fontSize: 8, opacity: 0.7, marginTop: 3, marginBottom: 6 }}>Ask amount equals the gift level. Status, solicitor and notes reflect the latest committee updates.</Text>
         </View>
         {seated.map((x) => (
           <View key={x.level} style={{ marginBottom: 10 }}>

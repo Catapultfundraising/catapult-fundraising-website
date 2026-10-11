@@ -38,7 +38,7 @@ export function DownloadButtons({ get, small, label }: { get: () => ExportPayloa
   };
   const cls = `inline-flex items-center gap-1.5 rounded-md px-3 ${small ? "py-1" : "py-1.5"} text-xs font-medium disabled:opacity-60`;
   return (
-    <span className="ml-auto flex gap-2">
+    <span className="ml-auto flex shrink-0 flex-wrap gap-2">
       <button onClick={() => run("pdf")} disabled={!!busy} className={`${cls} bg-[rgb(var(--navy))] text-white`}>
         <Download className="h-3.5 w-3.5" />{busy === "pdf" ? "Building..." : `${label ?? ""}PDF`}
       </button>
@@ -153,7 +153,7 @@ export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: numbe
 function DrillModal({ title, sub, rows, onClose }: { title: string; sub: string; rows: IndexRow[]; onClose: () => void }) {
   return (
     <Modal title={title} sub={`${rows.length.toLocaleString()} records · ${sub}`} onClose={onClose} wide>
-      <div className="mb-3 flex"><DownloadButtons get={() => indexPayload(title, sub, rows)} /></div>
+      <div className="mb-3 flex flex-wrap"><DownloadButtons get={() => indexPayload(title, sub, rows)} /></div>
       <PeopleTable rows={rows} />
     </Modal>
   );

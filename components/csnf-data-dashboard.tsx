@@ -24,7 +24,7 @@ const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-[rgb(var(--line))] bg-white p-5 ${className}`}>{children}</div>;
+  return <div className={`min-w-0 max-w-full rounded-xl border border-[rgb(var(--line))] bg-white p-4 sm:p-5 ${className}`}>{children}</div>;
 }
 function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
   return (
@@ -64,12 +64,12 @@ function Table<T extends Record<string, unknown>>({
   }, [rows, q, sort]);
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2">
+      <div className="mb-2 flex flex-wrap items-center gap-2">
         <input
           value={q}
           onChange={(e) => setQ(e.target.value)}
           placeholder="Search..."
-          className="w-64 rounded-md border border-[rgb(var(--line))] px-3 py-1.5 text-sm"
+          className="w-full min-w-0 rounded-md sm:w-64 border border-[rgb(var(--line))] px-3 py-1.5 text-sm"
         />
         <span className="text-xs text-[rgb(var(--ink))]/55">{num(shown.length)} rows</span>
         {csvName && (
@@ -341,8 +341,8 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
             <input value={goalText} onChange={(e) => setGoalText(e.target.value)} className="mt-1 block w-48 rounded-md border border-[rgb(var(--line))] px-3 py-2 font-display text-xl" />
           </div>
           <p className="text-sm text-[rgb(var(--ink))]/60">{formatDollars(goal)} · Catapult house shape (round levels, about 20% lead gift, top 10 gifts carry 60%+, 3 prospects per gift)</p>
-          <div className="ml-auto flex flex-col gap-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-2 sm:ml-auto">
+            <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => reportDownload("gc", "pdf")} disabled={!!busy} className="rounded-md bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
               {busy === "gcpdf" ? "Building..." : "Gift Chart PDF"}
             </button>
@@ -350,7 +350,7 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
               {busy === "gcdocx" ? "Building..." : "Word"}
             </button>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => reportDownload("gc2p", "pdf")} disabled={!!busy} className="rounded-md bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
               {busy === "gc2ppdf" ? "Building..." : "GC2P PDF"}
             </button>
@@ -513,7 +513,7 @@ function Calling({ d }: { d: CsnfSnapshot }) {
   return (
     <div className="space-y-6">
       <Card>
-        <H sub="Records sent to VanillaSoft each week, by feasibility study tier">Weekly calling batches</H>
+        <H sub="Records sent for appointments each week, by feasibility study tier">Weekly calling batches</H>
         <div className="h-64">
           <ResponsiveContainer>
             <BarChart data={d.batches.map((b) => ({ batch: b.batch, ...b.tiers }))}>
@@ -613,7 +613,7 @@ export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">CSN Foundation Data Portal · Prepared by Catapult Fundraising</p>
             <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
-            <p className="mt-1 text-sm text-white/70">Data as of {data.asOf} · Source: {data.source}</p>
+            <p className="mt-1 text-sm text-white/70">Data as of {data.asOf}</p>
           </div>
           <DonorSearch dark />
         </div>
