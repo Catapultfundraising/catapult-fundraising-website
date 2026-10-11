@@ -9,7 +9,7 @@ function ResearchLoginForm() {
   const searchParams = useSearchParams();
   const redirectTo = searchParams.get("redirect") || "/research";
   // The CSNF data portal shares this password but must read as its own portal.
-  const isCsnf = redirectTo.startsWith("/research/csnf-data");
+  const isCsnf = (redirectTo.startsWith("/research/csnf-data") || redirectTo.toLowerCase().startsWith("/csnf/data-dashboard"));
 
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
