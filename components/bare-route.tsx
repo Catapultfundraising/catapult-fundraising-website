@@ -10,7 +10,7 @@ const BARE_ROUTES = ["/csnf", "/csnfvip"];
 
 export function BareRoute({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  if (BARE_ROUTES.some((route) => pathname === route || pathname.startsWith(`${route}/`))) {
+  if (BARE_ROUTES.some((route) => (pathname === route || pathname.startsWith(`${route}/`)) && !pathname.includes("/data-dashboard"))) {
     return null;
   }
   return <>{children}</>;

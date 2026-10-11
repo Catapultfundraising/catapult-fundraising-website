@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     <Document title={title} author="Catapult Fundraising">
       <Page size="LETTER" orientation={landscape ? "landscape" : "portrait"} style={bs.page}>
         <BrandHeader client={CLIENT} />
-        <Text style={bs.eyebrow}>CSN Foundation Data Portal</Text>
+        <Text style={bs.eyebrow}>CSN Foundation</Text>
         <Text style={bs.title}>{title}</Text>
         <Text style={bs.meta}>{subtitle} · {total.toLocaleString("en-US")} rows</Text>
         <View style={{ marginTop: 10 }}>
