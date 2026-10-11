@@ -325,9 +325,10 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
   const goal = Math.min(500_000_000, Math.max(100_000, Number(goalText.replace(/[^\d]/g, "")) || 0));
   const { chart, seated, notShown } = useMemo(() => seatGc2p(goal, d.pool), [goal, d.pool]);
   const shownValue = goal - notShown;
-  const fullDownload = async (format: "pdf" | "xlsx") => {
-    setBusy(format);
-    try { await downloadUrl(`/api/csnf-data-gift-chart-pdf?goal=${goal}&format=${format}`, `CSNF Gift Chart and GC2P.${format}`); } finally { setBusy(null); }
+  const reportDownload = async (report: "gc" | "gc2p", format: "pdf" | "docx" | "xlsx") => {
+    setBusy(report + format);
+    const names = { gc: "CSNF Gift Chart", gc2p: "CSNF Gift Chart to Prospects" };
+    try { await downloadUrl(`/api/csnf-data-reports?report=${report}&goal=${goal}&format=${format}`, `${names[report]}.${format}`); } finally { setBusy(null); }
   };
   return (
     <div className="space-y-6">
@@ -338,13 +339,23 @@ function GiftChartTab({ d }: { d: CsnfSnapshot }) {
             <input value={goalText} onChange={(e) => setGoalText(e.target.value)} className="mt-1 block w-48 rounded-md border border-[rgb(var(--line))] px-3 py-2 font-display text-xl" />
           </div>
           <p className="text-sm text-[rgb(var(--ink))]/60">{formatDollars(goal)} · Catapult house shape (round levels, about 20% lead gift, top 10 gifts carry 60%+, 3 prospects per gift)</p>
-          <div className="ml-auto flex gap-2">
-            <button onClick={() => fullDownload("pdf")} disabled={!!busy} className="rounded-md bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
-              {busy === "pdf" ? "Building PDF..." : "Download full Gift Chart + GC2P PDF"}
+          <div className="ml-auto flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+            <button onClick={() => reportDownload("gc", "pdf")} disabled={!!busy} className="rounded-md bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+              {busy === "gcpdf" ? "Building..." : "Gift Chart PDF"}
             </button>
-            <button onClick={() => fullDownload("xlsx")} disabled={!!busy} className="rounded-md border border-[rgb(var(--brass))] px-4 py-2 text-sm font-medium text-[rgb(var(--navy))] disabled:opacity-60">
-              {busy === "xlsx" ? "Building..." : "Excel"}
+            <button onClick={() => reportDownload("gc", "docx")} disabled={!!busy} className="rounded-md border border-[rgb(var(--brass))] px-3 py-2 text-sm font-medium text-[rgb(var(--navy))] disabled:opacity-60">
+              {busy === "gcdocx" ? "Building..." : "Word"}
             </button>
+            </div>
+            <div className="flex items-center gap-2">
+            <button onClick={() => reportDownload("gc2p", "pdf")} disabled={!!busy} className="rounded-md bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-60">
+              {busy === "gc2ppdf" ? "Building..." : "GC2P PDF"}
+            </button>
+            <button onClick={() => reportDownload("gc2p", "xlsx")} disabled={!!busy} className="rounded-md border border-[rgb(var(--brass))] px-3 py-2 text-sm font-medium text-[rgb(var(--navy))] disabled:opacity-60">
+              {busy === "gc2pxlsx" ? "Building..." : "Excel"}
+            </button>
+            </div>
           </div>
         </div>
       </Card>
