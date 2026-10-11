@@ -307,6 +307,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
           {!r.board?.length && !r.committees?.length && !r.calling?.length && !r.calls?.length && !r.notes?.length && !r.alumni && <p className="text-sm text-[rgb(var(--ink))]/55">None on file.</p>}
         </Sec>
       </div>
+      <SurveyPanel cptid={r.cptid} name={r.name} />
       <div className="mt-4">
         <Sec title={`Gift history (${r.gifts?.length ?? 0})`}>
           <div className="max-h-[360px] overflow-auto">
@@ -413,6 +414,33 @@ function TrackingPanel({ cptid }: { cptid: number }) {
           </ol>
         )}
       </div>
+    </div>
+  );
+}
+
+type Interview = { name: string; tier: string; interviewee: string; interviewType: string; updated: string; answers: { q: string; question: string; answer: string; comments: string }[] };
+function SurveyPanel({ cptid, name }: { cptid: number; name: string }) {
+  const [list, setList] = useState<Interview[] | null>(null);
+  useEffect(() => {
+    fetch(`/api/csnf-data-survey?id=${cptid}&name=${encodeURIComponent(name)}`).then((x) => (x.ok ? x.json() : { interviews: [] })).then((d) => setList(d.interviews ?? [])).catch(() => setList([]));
+  }, [cptid, name]);
+  if (!list || !list.length) return null;
+  return (
+    <div className="mt-4">
+      {list.map((iv, i) => (
+        <Sec key={i} title={`Feasibility study interview${list.length > 1 ? ` (${iv.name})` : ""}`}>
+          <p className="mb-2 text-xs text-[rgb(var(--ink))]/55">{[iv.interviewee && `Interviewee: ${iv.interviewee}`, iv.interviewType, iv.tier && `Tier ${iv.tier}`, iv.updated && `Updated ${iv.updated.slice(0, 10)}`].filter(Boolean).join(" · ")}</p>
+          <div className="divide-y divide-[rgb(var(--line))]/60">
+            {iv.answers.map((a) => (
+              <div key={a.q} className="py-2 text-sm">
+                <p className="text-[rgb(var(--ink))]/60"><span className="font-semibold">Q{a.q}.</span> {a.question}</p>
+                {a.answer && <p className="mt-0.5 font-medium text-[rgb(var(--navy))]">{a.answer}</p>}
+                {a.comments && <p className="mt-0.5 break-words text-[rgb(var(--navy))]/80">{a.comments}</p>}
+              </div>
+            ))}
+          </div>
+        </Sec>
+      ))}
     </div>
   );
 }
