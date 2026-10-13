@@ -95,6 +95,20 @@ export function SiteHeader() {
   // Client data portals (e.g. /research/csnf-data) are client-facing tools:
   // no site menu or "Start a Conversation" CTA, and the client's logo sits
   // where the CTA normally lives.
+  const isJagPortal = /^\/jag\/data-dashboard(\/login)?\/?$/i.test(pathname) || pathname.startsWith("/research/jag-data");
+  if (isJagPortal) {
+    return (
+      <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-1.5 lg:px-10">
+          <span aria-label="Catapult Fundraising" className="relative z-10 -my-9 flex shrink-0 items-center py-1 sm:-my-11 lg:-my-12 cursor-default">
+            {logoImage}
+          </span>
+          <Image src="/clients/jobs-for-nevada-grads.png" alt="Jobs for Nevada's Graduates (JAG Nevada)" width={974} height={596} className="h-12 w-auto object-contain sm:h-14" priority />
+        </div>
+      </header>
+    );
+  }
+
   if (pathname.startsWith("/research/csnf-data") || /\/data-dashboard\/?$/i.test(pathname)) {
     return (
       <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">

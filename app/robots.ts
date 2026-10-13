@@ -22,6 +22,7 @@ const DISALLOWED_INTERNAL_TOOLS = [
   // own noindex tag in app/csnf/page.tsx is the primary mechanism.
   "/csnf",
   "/csnfvip",
+  "/jag/",
 ];
 
 export default function robots(): MetadataRoute.Robots {

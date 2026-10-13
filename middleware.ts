@@ -1,3 +1,4 @@
+import { isJagCookieValid, JAG_DATA_COOKIE } from "@/lib/jag-data-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 const GATES = [
@@ -117,6 +118,17 @@ export async function middleware(req: NextRequest) {
   }
   if (dash) {
     const client = dash[1].toLowerCase();
+    if (client === "jag") {
+      // JAG data portal: its own password (JAG_DATA_PASSWORD) and cookie.
+      // Catapult staff with the research cookie get in too.
+      const jagOk = await isJagCookieValid(req.cookies.get(JAG_DATA_COOKIE)?.value);
+      const rc = req.cookies.get("catapult_research_auth")?.value;
+      const rExp = rc ? await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET") : "";
+      if (jagOk || (rc && rExp && rc === rExp)) {
+        return NextResponse.rewrite(new URL("/research/jag-data", req.url));
+      }
+      return NextResponse.redirect(new URL("/jag/data-dashboard/login", req.url));
+    }
     const cookie = req.cookies.get("catapult_research_auth")?.value;
     const expected = await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET");
     if (cookie && expected && cookie === expected) {
