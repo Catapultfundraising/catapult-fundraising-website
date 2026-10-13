@@ -1,5 +1,6 @@
 {
   "crons": [
-    { "path": "/api/portal-sync?project=csnf", "schedule": "0 15 * * *" }
+    { "path": "/api/portal-sync?project=csnf", "schedule": "0 15 * * *" },
+    { "path": "/api/portal-data-refresh?client=all", "schedule": "0 13 * * 1" }
   ]
 }
