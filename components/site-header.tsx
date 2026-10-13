@@ -68,6 +68,8 @@ export function SiteHeader() {
   // Everywhere else it flips: visitors get a Home link back, and clients who
   // want the portal use the footer link or the mobile menu.
   const isHomePage = pathname === "/";
+  // Client study trackers also carry the Catapult Engage logo (Anthony 10/13/26).
+  const isStudyTracker = /^\/(jag|csnf)-dashboard(\/|$)/i.test(pathname);
 
   const logoImage = (
     <Image
@@ -128,10 +130,10 @@ export function SiteHeader() {
         ) : (
           <Link
             href="/"
-            className="relative z-10 mr-auto -my-9 flex shrink-0 items-center py-1 sm:-my-11 lg:mr-0 lg:-my-12"
+            className={isStudyTracker ? "relative z-10 mr-auto flex shrink-0 items-center py-2 lg:mr-0" : "relative z-10 mr-auto -my-9 flex shrink-0 items-center py-1 sm:-my-11 lg:mr-0 lg:-my-12"}
             onClick={() => setOpen(false)}
           >
-            {logoImage}
+            {isStudyTracker ? portalLogo : logoImage}
           </Link>
         )}
 
