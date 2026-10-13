@@ -92,6 +92,13 @@ export function SiteHeader() {
     />
   );
 
+  // Client data dashboards carry the Catapult Engage logo instead of the
+  // regular Catapult Fundraising logo (Anthony 10/13/26). Only these portals
+  // and the Engage app use it; the regular logo stays everywhere else.
+  const portalLogo = (
+    <Image src="/engage/engage-logo.png" alt="Catapult Engage" width={1114} height={373} className="h-12 w-auto object-contain sm:h-14" priority />
+  );
+
   // Client data portals (e.g. /research/csnf-data) are client-facing tools:
   // no site menu or "Start a Conversation" CTA, and the client's logo sits
   // where the CTA normally lives.
@@ -99,8 +106,8 @@ export function SiteHeader() {
     return (
       <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-1.5 lg:px-10">
-          <span aria-label="Catapult Fundraising" className="relative z-10 -my-9 flex shrink-0 items-center py-1 sm:-my-11 lg:-my-12 cursor-default">
-            {logoImage}
+          <span aria-label="Catapult Engage" className="flex shrink-0 items-center py-2 cursor-default">
+            {portalLogo}
           </span>
           <Image src="/csnf/csnf-logo.png" alt="College of Southern Nevada Foundation" width={553} height={283} className="h-14 w-auto object-contain sm:h-16" priority />
         </div>
