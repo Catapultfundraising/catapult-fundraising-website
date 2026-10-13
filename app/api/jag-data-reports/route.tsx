@@ -59,7 +59,8 @@ export async function GET(req: NextRequest) {
   const { chart, seated, notShown, removed } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recs?.index, tracking, snap.pool));
   const stOf = (id: number) => tracking?.prospects[String(id)];
   const lastAct = (id: number) => (tracking?.activity ?? []).filter((a) => a.cptid === id && a.kind !== "Committee update").sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at))[0];
-  const goalTxt = formatCompactDollars(goal);
+  // Exact compact goal ($1.75M, not the shared helper's rounded $1.8M).
+  const goalTxt = goal >= 1e6 ? `$${parseFloat((goal / 1e6).toFixed(2))}M` : formatCompactDollars(goal);
   const short = "JAG Nevada";
   registerBrandFonts();
   const { renderToBuffer } = await import("@react-pdf/renderer");
@@ -238,7 +239,7 @@ export async function GET(req: NextRequest) {
       { label: "Last Gift" }, { label: "Ask", kind: "usd" as const }, { label: "Notes" },
     ];
     const buf = await buildBrandedXlsx({
-      title: `Gift Chart to Prospects, ${goalTxt} Capital Campaign`, subtitle: `${snap.client} · Prepared ${preparedOn()} · Confidential`, client: snap.client, cols,
+      title: `Gift Chart to Prospects, ${goalTxt} Campaign`, subtitle: `${snap.client} · Prepared ${preparedOn()} · Confidential`, client: snap.client, cols,
       sections: [
         ...seated.map((x) => ({
           heading: `${formatDollars(x.level)} · ${x.row.gifts} gift${x.row.gifts === 1 ? "" : "s"} needed · ${x.people.length} identified / ${x.need} needed`,
@@ -276,7 +277,7 @@ export async function GET(req: NextRequest) {
     <Document title={file} author="Catapult Fundraising">
       <Page size="LETTER" orientation="landscape" style={bs.page}>
         <TopBar right1={`Prepared for ${snap.client}`} right2={`${preparedOn()} · Confidential`} />
-        <Text style={{ fontSize: 7.5, fontWeight: 700, color: BRASS, letterSpacing: 1.3, textTransform: "uppercase" }}>{goalTxt} Capital Campaign</Text>
+        <Text style={{ fontSize: 7.5, fontWeight: 700, color: BRASS, letterSpacing: 1.3, textTransform: "uppercase" }}>{goalTxt} Campaign</Text>
         <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 22, marginTop: 3 }}>Gift Chart to Prospects</Text>
         <Text style={{ fontSize: 8.5, opacity: 0.8, marginTop: 5, lineHeight: 1.4, width: LW * 0.72 }}>
           Each gift level of $50K and above from the {goalTxt} Catapult gift chart, with the best-fit prospects for each gift. Prospects are drawn from the JAG campaign database and DonorSearch wealth screening (data as of {snap.asOf}).
