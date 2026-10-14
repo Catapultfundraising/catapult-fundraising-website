@@ -1,5 +1,6 @@
 import { isJagCookieValid, JAG_DATA_COOKIE } from "@/lib/jag-data-auth";
 import { isPvasCookieValid, PVAS_DATA_COOKIE } from "@/lib/pvas-data-auth";
+import { isWcbhcCookieValid, WCBHC_DATA_COOKIE } from "@/lib/wcbhc-data-auth";
 import { isCsnfCookieValid, CSNF_DATA_COOKIE } from "@/lib/csnf-data-auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -140,6 +141,16 @@ export async function middleware(req: NextRequest) {
         return NextResponse.rewrite(new URL("/research/pvas-data", req.url));
       }
       return NextResponse.redirect(new URL("/pvas/data-dashboard/login", req.url));
+    }
+    if (client === "wcbhc") {
+      // WCBHC data portal: its own password (WCBHC_DATA_PASSWORD) and cookie.
+      const wcbhcOk = await isWcbhcCookieValid(req.cookies.get(WCBHC_DATA_COOKIE)?.value);
+      const rc = req.cookies.get("catapult_research_auth")?.value;
+      const rExp = rc ? await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET") : "";
+      if (wcbhcOk || (rc && rExp && rc === rExp)) {
+        return NextResponse.rewrite(new URL("/research/wcbhc-data", req.url));
+      }
+      return NextResponse.redirect(new URL("/wcbhc/data-dashboard/login", req.url));
     }
     if (client === "csnf") {
       // CSNF data portal: its own password (CSNF_DATA_PASSWORD) and cookie.
