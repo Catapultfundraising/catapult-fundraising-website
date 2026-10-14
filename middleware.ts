@@ -1,4 +1,5 @@
 import { isJagCookieValid, JAG_DATA_COOKIE } from "@/lib/jag-data-auth";
+import { isPvasCookieValid, PVAS_DATA_COOKIE } from "@/lib/pvas-data-auth";
 import { NextRequest, NextResponse } from "next/server";
 
 const GATES = [
@@ -128,6 +129,16 @@ export async function middleware(req: NextRequest) {
         return NextResponse.rewrite(new URL("/research/jag-data", req.url));
       }
       return NextResponse.redirect(new URL("/jag/data-dashboard/login", req.url));
+    }
+    if (client === "pvas") {
+      // PVAS data portal: its own password (PVAS_DATA_PASSWORD) and cookie.
+      const pvasOk = await isPvasCookieValid(req.cookies.get(PVAS_DATA_COOKIE)?.value);
+      const rc = req.cookies.get("catapult_research_auth")?.value;
+      const rExp = rc ? await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET") : "";
+      if (pvasOk || (rc && rExp && rc === rExp)) {
+        return NextResponse.rewrite(new URL("/research/pvas-data", req.url));
+      }
+      return NextResponse.redirect(new URL("/pvas/data-dashboard/login", req.url));
     }
     const cookie = req.cookies.get("catapult_research_auth")?.value;
     const expected = await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET");

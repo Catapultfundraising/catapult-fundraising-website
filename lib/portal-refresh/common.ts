@@ -198,12 +198,16 @@ export const builtAt = () =>
   new Intl.DateTimeFormat("sv-SE", { timeZone: "America/Los_Angeles", dateStyle: "short", timeStyle: "short" }).format(new Date());
 
 /** Latest Access->Azure load date for a schema, used as the "Data as of" label. */
-export async function loadedAsOf(schema: "csnf" | "jag"): Promise<string> {
-  const r = await rows(`SELECT MAX(loaded_at) AS d FROM ${schema}._load_log`);
-  return pdate(r[0]?.d) ?? isoToday();
+export async function loadedAsOf(schema: "csnf" | "jag" | "pvas"): Promise<string> {
+  try {
+    const r = await rows(`SELECT MAX(loaded_at) AS d FROM ${schema}._load_log`);
+    return pdate(r[0]?.d) ?? isoToday();
+  } catch {
+    return isoToday(); // schema without a load log (pvas)
+  }
 }
 
-export async function pirLinks(schema: "csnf" | "jag"): Promise<Record<string, { name: string; url: string }>> {
+export async function pirLinks(schema: "csnf" | "jag" | "pvas"): Promise<Record<string, { name: string; url: string }>> {
   const out: Record<string, { name: string; url: string }> = {};
   for (const r of await rows(`SELECT cptid, sharepoint_url, file_name FROM ${schema}.pir_links ORDER BY cptid`)) {
     const url = s(r.sharepoint_url);
