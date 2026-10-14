@@ -80,7 +80,7 @@ export function CampaignDonors() {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-[rgb(var(--navy))]">Campaign donors by gift-chart level</h2>
-            <p className="text-sm text-[rgb(var(--ink))]/65">Gifts and pledges from client uploads and portal entries. Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
+            <p className="text-sm text-[rgb(var(--ink))]/65">Campaign gifts and pledges from the client database (weekly refresh), client uploads and portal entries. Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
           </div>
           <label className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">Campaign goal
             <input className={`${input} mt-1 w-40`} value={goalText} onChange={(e) => setGoalText(e.target.value)} />
@@ -128,7 +128,7 @@ export function CampaignDonors() {
           <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><th className={th}>Date</th><th className={th}>Donor</th><th className={th}>Type</th><th className={`${th} text-right`}>Amount</th><th className={th}>Source</th><th className={th}>Note</th></tr></thead>
             <tbody>{[...state.gifts].reverse().map((g) => (
               <tr key={g.id} className="border-b border-[rgb(var(--line))]"><td className={td}>{g.gift_date ?? ""}</td><td className={td}>{g.donor_name}{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
-                <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{usd(Number(g.amount))}</td><td className={td}>{g.source === "upload" ? "Client file" : "Portal entry"}</td><td className={td}>{g.note ?? ""}</td></tr>
+                <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{usd(Number(g.amount))}</td><td className={td}>{g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry"}</td><td className={td}>{g.note ?? ""}</td></tr>
             ))}</tbody></table>
           {!state.gifts.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No campaign gifts or pledges recorded yet.</p>}
         </div>
