@@ -70,19 +70,19 @@ export const DECKS: Deck[] = [
       {
         name: "Individual Prospect",
         description:
-          "Wealth and giving capacity, real estate and stock holdings, giving history, biographical detail, and contact information for a single donor.",
+          "Separate income, net worth, liquidity, and five-year capacity estimates, plus family and biography, education, real estate, boards, giving history, and the donor's relationship to the client.",
         href: "/decks/capital-campaign/samples/individual-prospect-profile.pdf",
       },
       {
         name: "Corporate Prospect",
         description:
-          "Company overview, revenue, giving history to the client, leadership, and the sponsorship or partnership angle to work.",
+          "Company operations and revenue, leadership, giving priorities and channels, how decisions get made and when, and the giving history and approach to work.",
         href: "/decks/capital-campaign/samples/corporate-prospect-profile.pdf",
       },
       {
         name: "Foundation Prospect",
         description:
-          "Foundation overview, EIN, grantmaking priorities, trustees and executives, and how the client fits the funding focus.",
+          "Three years of financials, leadership, eligibility and limitations, deadlines, the full application process, and selected grants, with how the client fits.",
         href: "/decks/capital-campaign/samples/foundation-prospect-profile.pdf",
       },
     ],
