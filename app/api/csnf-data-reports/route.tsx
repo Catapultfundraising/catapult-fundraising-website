@@ -3,7 +3,7 @@ import { Document, Page, View, Text, Image } from "@react-pdf/renderer";
 import {
   AlignmentType, BorderStyle, Document as DocxDocument, ImageRun, Packer, Paragraph, ShadingType, Table, TableCell, TableRow, TextRun, WidthType,
 } from "docx";
-import { isResearchAuthed } from "@/lib/research-auth";
+import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
 import { getCsnfSnapshot } from "@/lib/csnf-data-store";
 import { extrasFromIndex, seatGc2p, GC2P_RATIO, GC2P_MIN_LEVEL } from "@/lib/csnf-gc2p";
 import { getCsnfRecords } from "@/lib/csnf-data-store";
@@ -46,7 +46,7 @@ function TopBar({ right1, right2 }: { right1: string; right2: string }) {
 }
 
 export async function GET(req: NextRequest) {
-  if (!(await isResearchAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isCsnfDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const sp = req.nextUrl.searchParams;
   const report = sp.get("report") === "gc2p" ? "gc2p" : "gc";
   const format = sp.get("format") ?? "pdf";

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, View, Text } from "@react-pdf/renderer";
-import { isResearchAuthed } from "@/lib/research-auth";
+import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
 import { BrandFooter, BrandHeader, bs, preparedOn, registerBrandFonts } from "@/lib/csnf-brand-pdf";
 import { buildBrandedXlsx, type ExportCol, type ExportSection } from "@/lib/csnf-brand-xlsx";
 
@@ -22,7 +22,7 @@ function fmt(v: string | number | null, kind?: string) {
 // Branded PDF/Excel for any table on the CSNF data portal.
 // Body: { format: "pdf"|"xlsx", title, subtitle?, cols: ExportCol[], sections: ExportSection[], notes?: string[] }
 export async function POST(req: NextRequest) {
-  if (!(await isResearchAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isCsnfDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[] };
   const title = String(b.title || "CSNF Report").slice(0, 120);
   const subtitle = `${b.subtitle ? b.subtitle + " · " : ""}${CLIENT} · Prepared ${preparedOn()}`;

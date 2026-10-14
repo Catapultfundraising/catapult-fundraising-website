@@ -132,7 +132,7 @@ export function SiteHeader() {
     );
   }
 
-  if (pathname.startsWith("/research/csnf-data") || /\/data-dashboard\/?$/i.test(pathname)) {
+  if (pathname.startsWith("/research/csnf-data") || /\/data-dashboard(\/login)?\/?$/i.test(pathname)) {
     return (
       <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-1.5 lg:px-10">

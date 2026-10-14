@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { isResearchAuthed } from "@/lib/research-auth";
+import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
 import { getCsnfTracking, saveCsnfTracking } from "@/lib/csnf-tracking";
 import { PROSPECT_STATUSES, type ProspectStatus } from "@/lib/csnf-tracking-types";
 
@@ -7,7 +7,7 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  if (!(await isResearchAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isCsnfDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   return NextResponse.json(await getCsnfTracking(), { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -17,7 +17,7 @@ const clean = (v: unknown, max = 2000) => String(v ?? "").trim().slice(0, max);
 //      { type: "activity", cptid, date, kind, note, by }
 // Every status change is also written to the activity history, never overwritten.
 export async function POST(req: NextRequest) {
-  if (!(await isResearchAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (!(await isCsnfDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const b = await req.json().catch(() => null);
   const cptid = Number(b?.cptid);
   const by = clean(b?.by, 80);
