@@ -118,6 +118,20 @@ export function SiteHeader() {
     );
   }
 
+  // PVAS portal: Engage logo, client name as a wordmark (no PVAS logo file on hand yet).
+  if (/^\/pvas\/data-dashboard(\/login)?\/?$/i.test(pathname) || pathname.startsWith("/research/pvas-data")) {
+    return (
+      <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-1.5 lg:px-10">
+          <span aria-label="Catapult Engage" className="flex shrink-0 items-center py-2 cursor-default">
+            {portalLogo}
+          </span>
+          <span className="text-right font-display text-lg leading-tight text-[rgb(var(--navy))] sm:text-xl">Palm Valley<br className="sm:hidden" /> Animal Society</span>
+        </div>
+      </header>
+    );
+  }
+
   if (pathname.startsWith("/research/csnf-data") || /\/data-dashboard\/?$/i.test(pathname)) {
     return (
       <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">

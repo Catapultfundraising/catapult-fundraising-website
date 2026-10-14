@@ -7,6 +7,9 @@ import { JAG_PIRS_PATH } from "@/lib/jag-tracking";
 import { closePool } from "@/lib/portal-refresh/common";
 import { buildCsnf } from "@/lib/portal-refresh/csnf";
 import { buildJag } from "@/lib/portal-refresh/jag";
+import { buildPvas } from "@/lib/portal-refresh/pvas";
+import { PVAS_DATA_PATH, PVAS_RECORDS_PATH } from "@/lib/pvas-data-store";
+import { PVAS_PIRS_PATH } from "@/lib/pvas-tracking";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -17,7 +20,7 @@ export const preferredRegion = "iad1";
 // ---------------------------------------------------------------------------
 // Weekly Azure SQL -> data-portal refresh (replaces Viktor's Access-file scripts).
 //
-//   GET|POST /api/portal-data-refresh?client=all|csnf|jag[&dry=1]
+//   GET|POST /api/portal-data-refresh?client=all|csnf|jag|pvas[&dry=1]
 //
 // Auth: Authorization: Bearer $CRON_SECRET (Vercel cron sends this on GET).
 // Reads Azure SQL (env AZURE_SQL_SERVER/DB/USER/PASSWORD, read-only login
@@ -29,6 +32,7 @@ export const preferredRegion = "iad1";
 const TARGETS = {
   csnf: { build: buildCsnf, paths: { snapshot: CSNF_DATA_PATH, records: CSNF_RECORDS_PATH, pirs: CSNF_PIRS_PATH } },
   jag: { build: buildJag, paths: { snapshot: JAG_DATA_PATH, records: JAG_RECORDS_PATH, pirs: JAG_PIRS_PATH } },
+  pvas: { build: buildPvas, paths: { snapshot: PVAS_DATA_PATH, records: PVAS_RECORDS_PATH, pirs: PVAS_PIRS_PATH } },
 } as const;
 type Client = keyof typeof TARGETS;
 
@@ -40,8 +44,8 @@ async function run(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const which = p.get("client") ?? "all";
   const dry = p.get("dry") === "1";
-  const clients: Client[] = which === "all" ? ["csnf", "jag"] : which in TARGETS ? [which as Client] : [];
-  if (!clients.length) return NextResponse.json({ error: "client must be all|csnf|jag" }, { status: 400 });
+  const clients: Client[] = which === "all" ? ["csnf", "jag", "pvas"] : which in TARGETS ? [which as Client] : [];
+  if (!clients.length) return NextResponse.json({ error: "client must be all|csnf|jag|pvas" }, { status: 400 });
 
   const results: Record<string, unknown> = {};
   let failed = false;
