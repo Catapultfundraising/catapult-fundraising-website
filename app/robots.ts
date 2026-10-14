@@ -26,6 +26,8 @@ const DISALLOWED_INTERNAL_TOOLS = [
   "/pvas/",
   "/wcbhc/",
   "/baq/",
+  // Referral-partner signup pages (QR codes at partner webinars).
+  "/partners/",
 ];
 
 export default function robots(): MetadataRoute.Robots {
