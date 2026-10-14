@@ -24,6 +24,7 @@ const DISALLOWED_INTERNAL_TOOLS = [
   "/csnfvip",
   "/jag/",
   "/pvas/",
+  "/wcbhc/",
 ];
 
 export default function robots(): MetadataRoute.Robots {
