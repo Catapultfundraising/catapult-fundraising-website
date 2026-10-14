@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { PortalV2Provider, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
 } from "recharts";
@@ -20,7 +21,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -622,6 +623,7 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
   const [tab, setTab] = useState<Tab>("Overview");
   return (
     <CrmProvider>
+    <PortalV2Provider client="pvas">
     <main className="min-h-screen bg-[rgb(var(--paper))]">
       <header className="bg-[rgb(var(--navy))] px-6 py-8 text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4">
@@ -648,7 +650,9 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
         {tab === "Donor Lookup" && <Lookup d={data} />}
-        {tab === "Overview" && <Overview d={data} />}
+        {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
+        {tab === "Campaign Donors" && <CampaignDonors />}
+        {tab === "Add + Upload" && <AddAndUpload />}
         {tab === "Gift Pyramid" && <Pyramid d={data} />}
         {tab === "Gift Chart + GC2P" && <GiftChartTab d={data} />}
         {tab === "Prospects" && <Prospects d={data} />}
@@ -661,6 +665,7 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
         </p>
       </div>
     </main>
+    </PortalV2Provider>
     </CrmProvider>
   );
 }

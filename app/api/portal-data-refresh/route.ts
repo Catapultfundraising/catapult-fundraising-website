@@ -14,6 +14,8 @@ import { buildWcbhc } from "@/lib/portal-refresh/wcbhc";
 import { WCBHC_DATA_PATH, WCBHC_RECORDS_PATH } from "@/lib/wcbhc-data-store";
 import { WCBHC_PIRS_PATH } from "@/lib/wcbhc-tracking";
 import { buildBaq } from "@/lib/portal-refresh/baq";
+import { buildIds } from "@/lib/portal-refresh/ids";
+import { idsPath } from "@/lib/portal-v2/clients";
 import { BAQ_DATA_PATH, BAQ_RECORDS_PATH } from "@/lib/baq-data-store";
 import { BAQ_PIRS_PATH } from "@/lib/baq-tracking";
 
@@ -77,6 +79,11 @@ async function run(req: NextRequest) {
           await put(P.records, JSON.stringify(records), opts);
           // Keep the existing PIR blob if the table is empty (PIR matching is still run by Viktor).
           if (Object.keys(pirs).length) await put(P.pirs, JSON.stringify(pirs), opts);
+          // Portal v2 match index (client ID <-> CPTID). Non-fatal: the portal falls back to records.json.
+          try {
+            const ids = await buildIds(c);
+            if (ids.length) await put(idsPath(c), JSON.stringify(ids), opts);
+          } catch { /* keep the previous ids.json */ }
         }
         results[c] = { ok: true, saved: !dry, ...summary };
       } catch (e) {
