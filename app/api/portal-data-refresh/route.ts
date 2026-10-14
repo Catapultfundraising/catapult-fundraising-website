@@ -55,6 +55,7 @@ async function run(req: NextRequest) {
   const clients: Client[] = which === "all" ? ["csnf", "jag", "pvas", "wcbhc", "baq"] : which in TARGETS ? [which as Client] : [];
   if (!clients.length) return NextResponse.json({ error: "client must be all|csnf|jag|pvas|wcbhc|baq" }, { status: 400 });
 
+  const NO_GIVING_CLIENTS = new Set<string>(["baq"]);
   const results: Record<string, unknown> = {};
   let failed = false;
   try {
@@ -67,7 +68,8 @@ async function run(req: NextRequest) {
           pool: snapshot.pool.length, highWealth: snapshot.highWealthCount,
         };
         // Guard: never overwrite a live portal with an empty build (e.g. a half-finished reload).
-        if (!snapshot.kpi.gifts || !records.index.length) throw new Error(`empty build: ${JSON.stringify(summary)}`);
+        // Community campaigns with no prior donors (BAQ) legitimately have zero gifts.
+        if ((!snapshot.kpi.gifts && !NO_GIVING_CLIENTS.has(c)) || !records.index.length) throw new Error(`empty build: ${JSON.stringify(summary)}`);
         if (!dry) {
           const opts = { access: "private" as const, contentType: "application/json", addRandomSuffix: false, allowOverwrite: true };
           const P = TARGETS[c].paths;
