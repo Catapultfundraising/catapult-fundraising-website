@@ -9,8 +9,10 @@ import { getPvasRecords } from "@/lib/pvas-data-store";
 import { getCsnfRecords } from "@/lib/csnf-data-store";
 import { getJagRecords } from "@/lib/jag-data-store";
 import { getWcbhcRecords } from "@/lib/wcbhc-data-store";
-import { getBaqRecords } from "@/lib/baq-data-store";
-import { PORTAL_V2, idsPath, type PortalClient, type PortalState } from "@/lib/portal-v2/clients";
+import { getBaqRecords, getBaqSnapshot } from "@/lib/baq-data-store";
+import { getPvasSnapshot } from "@/lib/pvas-data-store";
+import { getWcbhcSnapshot } from "@/lib/wcbhc-data-store";
+import { PORTAL_V2, idsPath, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
 import { buildMatcher, diffRow, nameKey, parseClientFile, type Known } from "@/lib/portal-v2/match";
 
 // Portal v2 server side. Reads (match index) happen here; every Azure SQL write is
@@ -63,6 +65,59 @@ async function knownRecords(client: PortalClient, state: PortalState) {
   return { known: [...known, ...extra], floor, skip, idsLoaded: !!ids };
 }
 
+// ---- Campaign gifts already in the client database (weekly snapshot) ----
+// Only gifts/pledges coded to the CURRENT capital campaign count. CSNF (only the older
+// Henderson Health Sciences campaign is coded) and JAG (no campaign coding yet) have none.
+type SnapGiving = {
+  transactions: { cptid: number | null; name: string; date: string; amount: number; campaign: string; fund: string; status: string; dedication: string }[];
+  pledges: { cptid: number | null; name: string; pledged: string; amount: number; campaign: string; status: string; frequency: string; expected: string }[];
+};
+type SnapLike = { givebutter?: SnapGiving; committed?: { cptid: number; name: string }[]; portfolio?: { cptid: number; name: string }[] } | null;
+const DB_CAMPAIGN: Partial<Record<PortalClient, { load: () => Promise<SnapLike>; campaign: (c: string) => boolean; label: string }>> = {
+  // PVAS: One Shelter. One Future. pledges/gifts recorded in Givebutter (other Givebutter activity is separate and excluded).
+  pvas: { load: getPvasSnapshot as () => Promise<SnapLike>, campaign: (c) => c.trim() === "One Shelter. One Future.", label: "Givebutter" },
+  // WCBHC: $12M Capital Campaign giving history + committee pledges.
+  wcbhc: { load: getWcbhcSnapshot as () => Promise<SnapLike>, campaign: () => true, label: "Client database" },
+  // BAQ: community campaign, nothing on file yet; picks up automatically once the database has campaign gifts.
+  baq: { load: getBaqSnapshot as () => Promise<SnapLike>, campaign: () => true, label: "Client database" },
+};
+const BAD_STATUS = /refund|disput|fail|cancel|void|declin/i;
+
+export async function dbCampaignGifts(client: PortalClient): Promise<PortalGift[]> {
+  const cfg = DB_CAMPAIGN[client];
+  if (!cfg) return [];
+  const snap = await cfg.load().catch(() => null);
+  const gb = snap?.givebutter;
+  if (!gb) return [];
+  // Proxy contacts ("City of McAllen Proxy") resolve to the org's own record when the name matches exactly.
+  const byName = new Map<string, number>();
+  for (const p of [...(snap?.committed ?? []), ...(snap?.portfolio ?? [])]) if (p.cptid && p.cptid < PLACEHOLDER_CPTID && !byName.has(nameKey(p.name))) byName.set(nameKey(p.name), p.cptid);
+  const resolve = (cptid: number | null, name: string) => {
+    if (cptid && cptid < PLACEHOLDER_CPTID) return { cptid, name };
+    const clean = name.replace(/\s+proxy$/i, "").trim();
+    return { cptid: byName.get(nameKey(clean)) ?? null, name: clean || name };
+  };
+  const out: PortalGift[] = [];
+  let id = -1;
+  for (const t of gb.transactions ?? []) {
+    if (!cfg.campaign(t.campaign || "") || BAD_STATUS.test(t.status || "") || !(Number(t.amount) > 0)) continue;
+    const r = resolve(t.cptid, t.name);
+    out.push({ id: id--, cptid: r.cptid, client_id: null, donor_name: r.name, kind: "gift", amount: Number(t.amount), gift_date: t.date || null,
+      note: [t.fund, t.dedication].filter(Boolean).join(" · ") || null, source: "database", batch_id: null, created_by: cfg.label, created_at: "" });
+  }
+  for (const p of gb.pledges ?? []) {
+    if (!cfg.campaign(p.campaign || "") || BAD_STATUS.test(p.status || "") || !(Number(p.amount) > 0)) continue;
+    const r = resolve(p.cptid, p.name);
+    out.push({ id: id--, cptid: r.cptid, client_id: null, donor_name: r.name, kind: "pledge", amount: Number(p.amount), gift_date: p.pledged || null,
+      note: [p.status && p.status[0].toUpperCase() + p.status.slice(1), p.frequency].filter(Boolean).join(" · ") || null, source: "database", batch_id: null, created_by: cfg.label, created_at: "" });
+  }
+  return out;
+}
+async function withDbGifts(client: PortalClient, state: PortalState): Promise<PortalState> {
+  const db = await dbCampaignGifts(client);
+  return { ...state, gifts: [...db, ...state.gifts] };
+}
+
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const txt = (v: unknown, n = 300) => (v === null || v === undefined ? "" : String(v).trim().slice(0, n));
 
@@ -108,9 +163,10 @@ export function portalV2Route(client: PortalClient) {
     if (!(await AUTH[client](req))) return bad("unauthorized", 401);
     try {
       const state = await engage<PortalState>(client, "state");
-      return NextResponse.json({ ...state, goal: cfg.goal, configured: true });
+      return NextResponse.json({ ...(await withDbGifts(client, state)), goal: cfg.goal, configured: true });
     } catch (e) {
-      return NextResponse.json({ prospects: [], gifts: [], updates: [], batches: [], goal: cfg.goal, configured: false, error: (e as Error).message });
+      const gifts = await dbCampaignGifts(client).catch(() => []);
+      return NextResponse.json({ prospects: [], gifts, updates: [], batches: [], goal: cfg.goal, configured: false, error: (e as Error).message });
     }
   }
   async function POST(req: NextRequest) {
@@ -123,7 +179,8 @@ export function portalV2Route(client: PortalClient) {
         if (!(file instanceof File)) return bad("file required");
         if (file.size > 15_000_000) return bad("file too large (15MB max)", 413);
         if (!/\.(xlsx|xls|csv)$/i.test(file.name)) return bad("upload an .xlsx, .xls or .csv file");
-        const state = await engage<PortalState>(client, "state");
+        // Database campaign gifts join the duplicate check so a client file can't count them twice.
+        const state = await withDbGifts(client, await engage<PortalState>(client, "state"));
         const p = await preview(client, Buffer.from(await file.arrayBuffer()), state);
         if (fd.get("confirm") !== "1") return NextResponse.json({ preview: true, fileName: file.name, ...p });
         if (!p.newRows.length && !p.changed.length && !p.gifts.length) return NextResponse.json({ applied: false, message: "Nothing to apply" });
