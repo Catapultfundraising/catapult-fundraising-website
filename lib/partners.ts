@@ -31,7 +31,7 @@ export const PARTNERS: Partner[] = [
     slug: "afpnj-middle-market",
     name: "AFP-NJ Middle Market webinar",
     firm: "AFP New Jersey",
-    hubspotValue: "",
+    hubspotValue: "afpnj_middle_market",
     assignOwnerId: "36164952",
     notify: ["anthonya@catapultfr.com"],
     leadSource: "AFP-NJ Pre-Conference Webinar: Unlocking the Middle",
