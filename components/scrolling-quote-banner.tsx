@@ -38,10 +38,10 @@ export function ScrollingQuoteBanner() {
                 <ClientLogo logo={t.logo} maxH={170} maxW={300} eager />
               </div>
             )}
-            <blockquote className="relative text-[15px] leading-relaxed text-[rgb(var(--ink))]/75">
+            <blockquote className="relative text-[15px] leading-relaxed text-[rgb(var(--ink))]/90">
               &ldquo;{t.excerpt}&rdquo;
             </blockquote>
-            <figcaption className="relative mt-4 text-sm text-[rgb(var(--ink))]/55">
+            <figcaption className="relative mt-4 text-sm text-[rgb(var(--ink))]/70">
               <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
               <br />
               {t.org}

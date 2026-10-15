@@ -9,7 +9,7 @@ export function TestimonialQuote({ t, compact = false }: { t: Testimonial; compa
     <figure className="relative flow-root">
       {t.logo && (
         <div className={`float-left mb-3 mt-1 ${compact ? "mr-5" : "mr-7"}`}>
-          <ClientLogo logo={t.logo} maxH={compact ? 44 : 56} maxW={compact ? 110 : 150} />
+          <ClientLogo logo={t.logo} maxH={compact ? 64 : 84} maxW={compact ? 160 : 220} />
         </div>
       )}
       <blockquote
