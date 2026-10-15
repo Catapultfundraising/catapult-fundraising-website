@@ -17,20 +17,28 @@ function esc(v: string) {
   return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-type Fields = { name: string; email: string; org: string; title: string; utm: string };
+type Fields = { name: string; email: string; org: string; title: string; utm: string; interests: string[] };
 
-async function syncHubSpot(token: string, f: Fields, partnerValue: string, partnerName: string) {
+async function syncHubSpot(
+  token: string,
+  f: Fields,
+  partnerValue: string,
+  partnerName: string,
+  leadSource?: string,
+  assignOwnerId?: string,
+) {
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
   const parts = f.name.trim().split(/\s+/);
   const firstname = parts.shift() || "";
   const lastname = parts.join(" ");
   const noteBody = [
-    `Referral partner signup: ${partnerName} (catapultfr.com/partners page)`,
+    `${leadSource ? `Event signup: ${leadSource}` : `Referral partner signup: ${partnerName}`} (catapultfr.com/partners page)`,
     "",
     `Name: ${f.name}`,
     `Email: ${f.email}`,
     f.org ? `Organization: ${f.org}` : "",
     f.title ? `Title: ${f.title}` : "",
+    f.interests.length ? `Requested service information: ${f.interests.join(", ")}` : "",
     f.utm ? `Tracking: ${f.utm}` : "",
   ]
     .filter(Boolean)
@@ -48,6 +56,7 @@ async function syncHubSpot(token: string, f: Fields, partnerValue: string, partn
         company: f.org,
         jobtitle: f.title,
         lifecyclestage: "lead",
+        ...(assignOwnerId ? { hubspot_owner_id: assignOwnerId } : {}),
       },
     }),
   });
@@ -66,10 +75,15 @@ async function syncHubSpot(token: string, f: Fields, partnerValue: string, partn
     { headers },
   );
   const ex: Record<string, string | null> = cur.ok ? (await cur.json()).properties ?? {} : {};
-  const partners = new Set((ex.referral_partner || "").split(";").filter(Boolean));
-  partners.add(partnerValue);
-  const props: Record<string, string> = { referral_partner: Array.from(partners).join(";") };
-  if (cur.ok && !ex.hubspot_owner_id) props.hubspot_owner_id = LEAD_OWNER_ID;
+  const props: Record<string, string> = {};
+  if (partnerValue) {
+    const partners = new Set((ex.referral_partner || "").split(";").filter(Boolean));
+    partners.add(partnerValue);
+    props.referral_partner = Array.from(partners).join(";");
+  }
+  if (assignOwnerId || (cur.ok && !ex.hubspot_owner_id)) {
+    props.hubspot_owner_id = assignOwnerId || LEAD_OWNER_ID;
+  }
   if (cur.ok && !ex.hs_lead_status) props.hs_lead_status = "NEW";
 
   const [patch] = await Promise.all([
@@ -98,6 +112,7 @@ async function notify(to: string[], f: Fields, partnerName: string) {
     ["Organization", f.org],
     ["Title", f.title],
     ["Referred by", partnerName],
+    ["Interested services", f.interests.join(", ")],
   ];
   const html = `<h2>New signup from ${esc(partnerName)}'s webinar</h2>
 <table cellpadding="6" style="border-collapse:collapse">${rows
@@ -140,6 +155,12 @@ export async function POST(req: NextRequest) {
     org: String(body.org || "").trim(),
     title: String(body.title || "").trim(),
     utm: String(body.utm || "").slice(0, 300),
+    interests: Array.isArray(body.interests)
+      ? body.interests
+          .filter((value): value is string => typeof value === "string")
+          .filter((value) => partner.serviceChoices?.includes(value))
+          .slice(0, partner.serviceChoices?.length ?? 0)
+      : [],
   };
   if (!f.name || !EMAIL_RE.test(f.email)) {
     return NextResponse.json({ error: "Please enter your name and a valid email." }, { status: 400 });
@@ -148,7 +169,14 @@ export async function POST(req: NextRequest) {
   const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
   const [hubspotSynced, emailSent] = await Promise.all([
     token
-      ? syncHubSpot(token, f, partner.hubspotValue, partner.name).catch((e) => {
+      ? syncHubSpot(
+          token,
+          f,
+          partner.hubspotValue,
+          partner.name,
+          partner.leadSource,
+          partner.assignOwnerId,
+        ).catch((e) => {
           console.error("Partner lead HubSpot threw:", e);
           return false;
         })
