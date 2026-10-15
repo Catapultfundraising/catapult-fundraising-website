@@ -2,17 +2,18 @@ import type { Testimonial } from "@/lib/testimonials";
 import { ClientLogo } from "@/components/client-logo";
 
 // One full client quote as shown on the service pages and /results: the quote,
-// the attribution, and the client's logo inside the quote card, top-right.
+// the attribution, and the client's logo floated left with the quote text
+// wrapping around it (no card).
 export function TestimonialQuote({ t, compact = false }: { t: Testimonial; compact?: boolean }) {
   return (
-    <figure className={`relative rounded-2xl border border-[rgb(var(--line))] bg-white ${compact ? "p-6" : "p-8 sm:p-10"}`}>
+    <figure className="relative flow-root">
       {t.logo && (
-        <div className="mb-4 flex justify-end sm:absolute sm:right-8 sm:top-8 sm:mb-0">
+        <div className={`float-left mb-3 mt-1 ${compact ? "mr-5" : "mr-7"}`}>
           <ClientLogo logo={t.logo} maxH={compact ? 44 : 56} maxW={compact ? 110 : 150} />
         </div>
       )}
       <blockquote
-        className={`space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))] ${t.logo ? (compact ? "sm:pr-32" : "sm:pr-44") : ""}`}
+        className="space-y-4 font-display text-[25px] leading-snug text-[rgb(var(--navy))]"
       >
         {t.quote.map((para, i) => (
           <p key={i}>

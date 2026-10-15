@@ -34,7 +34,7 @@ export function ScrollingQuoteBanner() {
             className="relative flex w-[380px] shrink-0 flex-col justify-between rounded-2xl border border-[rgb(var(--line))] bg-white p-6"
           >
             {t.logo && (
-              <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-2xl opacity-[0.08] grayscale">
+              <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-2xl opacity-[0.12]">
                 <ClientLogo logo={t.logo} maxH={170} maxW={300} eager />
               </div>
             )}
