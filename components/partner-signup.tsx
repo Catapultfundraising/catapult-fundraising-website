@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, CalendarDays, CheckCircle, AlertCircle, BookOpen, Wrench } from "lucide-react";
+import { ArrowRight, CalendarDays, CheckCircle, AlertCircle, BookOpen, Wrench, Download } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { trackLeadSubmission } from "@/lib/analytics";
@@ -22,6 +22,8 @@ export function PartnerSignup(props: {
   bookingUrl: string;
   articles: ArticleCard[];
   tools: ToolCard[];
+  serviceChoices?: string[];
+  deck?: { href: string; title: string; description: string };
 }) {
   const storageKey = `catapult-partner-${props.partnerSlug}`;
   const [unlocked, setUnlocked] = useState(false);
@@ -50,6 +52,7 @@ export function PartnerSignup(props: {
           org: fd.get("org"),
           title: fd.get("title"),
           company: fd.get("company"),
+          interests: fd.getAll("interests"),
           utm,
           startedAt,
         }),
@@ -80,15 +83,18 @@ export function PartnerSignup(props: {
     return (
       <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[1fr_1.1fr]">
         <div className="space-y-5">
-          <h2 className="font-display text-3xl text-[rgb(var(--navy))]">What you get</h2>
+          <h2 className="font-display text-3xl text-[rgb(var(--navy))]">Your webinar resources</h2>
           <ul className="space-y-4 text-[rgb(var(--ink))]/80">
-            <li className="flex gap-3"><BookOpen className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />Our full library of practical fundraising articles on capital campaigns, planned giving, mid-level and annual giving.</li>
-            <li className="flex gap-3"><Wrench className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />Free planning tools: the Gift Chart Calculator, Campaign Readiness Report Card and Donor Loyalty Report Card.</li>
-            <li className="flex gap-3"><CalendarDays className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />A no-cost conversation with Anthony Alonso, President and CEO, about your program.</li>
+            {props.deck && <li className="flex gap-3"><Download className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />A downloadable PDF of the webinar presentation.</li>}
+            <li className="flex gap-3"><Wrench className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />Free tools for campaign planning, readiness, and donor loyalty.</li>
+            <li className="flex gap-3"><BookOpen className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />A focused reading list on mid-level donors, annual giving, and legacy giving.</li>
           </ul>
+          <a href={props.bookingUrl} target="_blank" rel="noopener noreferrer" className={GOLD_BTN}>
+            <CalendarDays className="h-5 w-5" /> Meet with Anthony
+          </a>
         </div>
         <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border border-[rgb(var(--line))] bg-white p-8">
-          <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Get free access</h2>
+          <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Get the slides and resources</h2>
           {error && (
             <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
               <AlertCircle className="h-4 w-4 shrink-0" /> {error}
@@ -98,6 +104,26 @@ export function PartnerSignup(props: {
           <div className="space-y-2"><Label htmlFor="email">Work email *</Label><Input id="email" name="email" type="email" required className={FIELD_CLASS} /></div>
           <div className="space-y-2"><Label htmlFor="org">Organization</Label><Input id="org" name="org" className={FIELD_CLASS} /></div>
           <div className="space-y-2"><Label htmlFor="title">Title</Label><Input id="title" name="title" className={FIELD_CLASS} /></div>
+          {props.serviceChoices && props.serviceChoices.length > 0 && (
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-semibold text-[rgb(var(--navy))]">
+                Would you like more information about any of our services? <span className="font-normal text-[rgb(var(--ink))]/60">(optional)</span>
+              </legend>
+              <div className="grid gap-2 sm:grid-cols-2">
+                {props.serviceChoices.map((service) => (
+                  <label key={service} className="flex cursor-pointer items-start gap-2 text-sm text-[rgb(var(--ink))]/80">
+                    <input
+                      type="checkbox"
+                      name="interests"
+                      value={service}
+                      className="mt-1 accent-[rgb(var(--brass))]"
+                    />
+                    <span>{service}</span>
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <input type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
           <button type="submit" disabled={busy} className={`${GOLD_BTN} w-full`}>
             {busy ? "Submitting..." : "Get access"} <ArrowRight className="h-5 w-5" />
@@ -114,6 +140,19 @@ export function PartnerSignup(props: {
         <CheckCircle className="h-10 w-10 text-[rgb(var(--brass))]" />
         <h2 className="font-display text-3xl text-[rgb(var(--navy))]">You&apos;re in. Welcome!</h2>
         <p className="max-w-xl text-[rgb(var(--ink))]/70">Everything below is yours to use. When you&apos;re ready to talk about your own program, grab a time on Anthony&apos;s calendar.</p>
+        {props.deck && (
+          <div className="w-full max-w-2xl rounded-2xl border border-[rgb(var(--line))] bg-white p-8 text-left">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+              <div>
+                <h3 className="font-display text-xl text-[rgb(var(--navy))]">{props.deck.title}</h3>
+                <p className="mt-2 text-sm text-[rgb(var(--ink))]/70">{props.deck.description}</p>
+              </div>
+              <a href={props.deck.href} download className={`${GOLD_BTN} shrink-0`}>
+                <Download className="h-5 w-5" /> Download PDF
+              </a>
+            </div>
+          </div>
+        )}
         {bookBtn}
       </div>
 
