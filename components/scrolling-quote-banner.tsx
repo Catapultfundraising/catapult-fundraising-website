@@ -34,16 +34,14 @@ export function ScrollingQuoteBanner() {
             className="relative flex w-[380px] shrink-0 flex-col justify-between rounded-2xl border border-[rgb(var(--line))] bg-white p-6"
           >
             {t.logo && (
-              <div className="absolute right-5 top-5">
-                <ClientLogo logo={t.logo} maxH={40} maxW={124} eager />
+              <div aria-hidden className="pointer-events-none absolute inset-0 flex items-center justify-center overflow-hidden rounded-2xl opacity-[0.08] grayscale">
+                <ClientLogo logo={t.logo} maxH={170} maxW={300} eager />
               </div>
             )}
-            <blockquote
-              className={`text-[15px] leading-relaxed text-[rgb(var(--ink))]/75 ${t.logo ? "pr-32" : ""}`}
-            >
+            <blockquote className="relative text-[15px] leading-relaxed text-[rgb(var(--ink))]/75">
               &ldquo;{t.excerpt}&rdquo;
             </blockquote>
-            <figcaption className="mt-4 text-sm text-[rgb(var(--ink))]/55">
+            <figcaption className="relative mt-4 text-sm text-[rgb(var(--ink))]/55">
               <span className="font-semibold text-[rgb(var(--navy))]">{t.name}</span>
               <br />
               {t.org}
