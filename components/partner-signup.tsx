@@ -24,7 +24,10 @@ export function PartnerSignup(props: {
   tools: ToolCard[];
   serviceChoices?: string[];
   deck?: { href: string; title: string; description: string };
+  eventWord?: string;
+  readingList?: string;
 }) {
+  const eventWord = props.eventWord ?? "webinar";
   const storageKey = `catapult-partner-${props.partnerSlug}`;
   const [unlocked, setUnlocked] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -83,11 +86,11 @@ export function PartnerSignup(props: {
     return (
       <div className="mx-auto grid max-w-5xl gap-10 lg:grid-cols-[1fr_1.1fr]">
         <div className="space-y-5">
-          <h2 className="font-display text-3xl text-[rgb(var(--navy))]">Your webinar resources</h2>
+          <h2 className="font-display text-3xl text-[rgb(var(--navy))]">Your {eventWord} resources</h2>
           <ul className="space-y-4 text-[rgb(var(--ink))]/80">
-            {props.deck && <li className="flex gap-3"><Download className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />A downloadable PDF of the webinar presentation.</li>}
+            {props.deck && <li className="flex gap-3"><Download className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />A downloadable PDF of the {eventWord} presentation.</li>}
             <li className="flex gap-3"><Wrench className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />Free tools for campaign planning, readiness, and donor loyalty.</li>
-            <li className="flex gap-3"><BookOpen className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />A focused reading list on mid-level donors, annual giving, and legacy giving.</li>
+            <li className="flex gap-3"><BookOpen className="mt-1 h-5 w-5 shrink-0 text-[rgb(var(--brass))]" />{props.readingList ?? "A focused reading list on mid-level donors, annual giving, and legacy giving."}</li>
           </ul>
           <a href={props.bookingUrl} target="_blank" rel="noopener noreferrer" className={GOLD_BTN}>
             <CalendarDays className="h-5 w-5" /> Meet with Anthony
