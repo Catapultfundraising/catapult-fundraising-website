@@ -52,6 +52,31 @@ export const PARTNERS: Partner[] = [
         "Download the presentation PDF from Anthony's AFP-NJ Middle Market webinar.",
     },
   },
+  {
+    slug: "philly-pg-day",
+    name: "Philadelphia Planned Giving Day",
+    firm: "Philadelphia Planned Giving Day",
+    hubspotValue: "",
+    assignOwnerId: "36164952",
+    notify: ["anthonya@catapultfr.com", "gwenp@catapultfr.com"],
+    leadSource: "Philly PG Day: Legacy Giving as the Catalyst in Fundraising Strategies (Gwen Paxon)",
+    intro:
+      "Thanks for joining Gwen Paxon's session at Philadelphia Planned Giving Day. Leave your details for free access to the slides, our planned giving articles, and free tools. You can also tell us which services you'd like to hear more about.",
+    serviceChoices: [
+      "Legacy Call / Planned Giving",
+      "Mid-Level Donor Engagement",
+      "Annual Fund Calling",
+      "Capital Campaigns",
+      "Feasibility Studies",
+      "Board Development",
+    ],
+    deck: {
+      href: "/downloads/legacy-giving-catalyst-philly-pg-day.pdf",
+      title: "Legacy Giving as the Catalyst: presentation slides",
+      description:
+        "Download the presentation PDF from Gwen Paxon's Philadelphia Planned Giving Day session.",
+    },
+  },
 ];
 
 export function getPartner(slug: string): Partner | undefined {
