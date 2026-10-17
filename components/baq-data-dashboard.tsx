@@ -8,6 +8,8 @@ import {
 import type { BaqSnapshot, Person } from "@/lib/baq-data-store";
 import { formatDollars } from "@/lib/gift-chart";
 import { extrasFromIndex, seatGc2p } from "@/lib/baq-gc2p";
+import { BoardReviewAdmin } from "@/components/board-review/admin";
+import { useBoardReviewStaff } from "@/components/board-review/staff-tab";
 import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadUrl, useCrm, type ExportKind } from "@/components/baq-data-crm";
 import type { IndexRow } from "@/lib/baq-data-store";
 
@@ -628,7 +630,8 @@ function Givebutter({ d }: { d: BaqSnapshot }) {
 }
 
 export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
-  const [tab, setTab] = useState<Tab>("Overview");
+  const [tab, setTab] = useState<Tab | "Board Review">("Overview");
+  const staff = useBoardReviewStaff("baq");
   return (
     <CrmProvider>
     <PortalV2Provider client="baq">
@@ -645,7 +648,7 @@ export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
       </header>
       <nav className="sticky top-0 z-10 border-b border-[rgb(var(--line))] bg-white">
         <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6">
-          {TABS.map((t) => (
+          {([...TABS, ...(staff ? (["Board Review"] as const) : [])] as (Tab | "Board Review")[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -658,6 +661,7 @@ export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
         {tab === "Donor Lookup" && <Lookup d={data} />}
+        {staff && tab === "Board Review" && <BoardReviewAdmin client="baq" />}
         {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
         {tab === "Campaign Donors" && <CampaignDonors />}
         {tab === "Add + Upload" && <AddAndUpload />}
