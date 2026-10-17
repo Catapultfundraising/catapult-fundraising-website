@@ -11,11 +11,13 @@ import { ServiceProof, ServiceFaq } from "@/components/service-proof";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Mid-Level Donor Program Consulting",
+  title: "Mid-Level Donor Program & Donor Engagement",
   description:
     "A mid-level donor program that thanks, qualifies and upgrades the donors between your annual fund and major gifts, and builds your next major gift pipeline.",
   keywords: [
     "mid-level donor program",
+    "donor engagement",
+    "donor engagement strategies",
     "mid level donor programs",
     "mid-level giving",
     "mid-level donors",
@@ -96,6 +98,11 @@ const FAQS = [
       "A mid-level donor program is a dedicated plan for donors between your annual fund and major gift levels. Instead of mass appeals, these donors get personal attention: a letter from leadership, a real conversation about what they care about, a tailored ask, and stewardship that makes them feel like insiders. Catapult runs this through an assigned Engagement Officer who manages the group like a major gift portfolio.",
   },
   {
+    question: "What does good donor engagement look like for mid-level donors?",
+    answer:
+      "Treat them the way a major gift officer would. One engagement officer owns the relationship all year, so the donor hears the same voice every time. Before anyone asks for an upgrade, the donor gets five to seven touches: a thank-you call with no ask, a birthday call, a gift-anniversary call, a handwritten note, event invitations and an impact update. Then the ask comes, built on that donor's history.",
+  },
+  {
     question: "What gift range counts as mid-level?",
     answer:
       "There's no single standard. Many organizations use something like $1,000 to $10,000 a year, and smaller shops may start at $250 or $500. We set the range from your own file by looking at where giving clusters, who is already in a major gift portfolio, and who has capacity to give more than they do today.",
@@ -167,7 +174,7 @@ export default function DonorEngagementPage() {
       />
       <PageHero
         eyebrowInHeading
-        eyebrow="Mid-Level Donor Program"
+        eyebrow="Mid-Level Donor Program & Donor Engagement"
         title="Your mid-level donors are your next major donors. Most of them are still getting form letters."
         description="A dedicated Engagement Officer treats every qualifying donor like a portfolio assignment, building the relationship before the ask and reporting results daily."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f814dca4-4b83-4023-925a-9a7274bbf2d2.jpeg"

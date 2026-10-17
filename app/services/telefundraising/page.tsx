@@ -10,11 +10,14 @@ import { ServiceProof, ServiceFaq } from "@/components/service-proof";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Telefundraising & Phone Fundraising for Nonprofits",
+  title: "Telefundraising, Phonathon & Phone Fundraising",
   description:
     "Telefundraising done the right way: experienced callers, personalized asks and pre-call letters that renew, upgrade and win back annual fund donors.",
   keywords: [
     "telefundraising",
+    "phonathon",
+    "university phonathon",
+    "fundraising call center",
     "phone fundraising",
     "telefundraising company",
     "phone fundraising company for nonprofits",
@@ -103,6 +106,11 @@ const FAQS = [
       "Fewer people pick up the first time, which is why we plan multiple, differentiated attempts per donor (typically 3 to 15+) at different times of day, with text, email and voicemail around the calls. The pre-call letter matters too. A donor who knows the call is coming is far more likely to answer and give.",
   },
   {
+    question: "Is the phonathon dead?",
+    answer:
+      "No, but the old model is struggling. In the 1990s, roughly 90% of the people a phonathon called picked up. Today it's closer to half, and a room full of new callers working through a long list can't fix that. What still works: a peer letter before the call, experienced callers who read the donor's record before they dial, asks built from each donor's own history, and enough attempts spread over weeks or months to actually reach people.",
+  },
+  {
     question: "Is it better to outsource our phonathon than to use student callers?",
     answer:
       "Student callers can be great for some institutions, but turnover is constant and every year starts over. In one example, a private college in New York was raising about $80,000 a year with an on-campus student program. In its first fall with Catapult, the program raised $277,554, and the partnership passed $523,000 over three calling programs at about 25 cents per dollar raised. We're also happy to work alongside a student program and take the segments that need a more experienced voice, such as lapsed donors, upgrades and leadership-level annual donors.",
@@ -169,7 +177,7 @@ export default function AnnualFundPage() {
       />
       <PageHero
         eyebrowInHeading
-        eyebrow="Telefundraising & Phone Fundraising"
+        eyebrow="Telefundraising & Outsourced Phonathon"
         title="The phone still works when you use it the right way."
         description="AF Connect is our annual fund calling program. It pairs experienced callers with personal pre-call letters and asks built from each donor's own giving history, to renew, upgrade and win back the donors who matter most."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/513c85b8-7588-44b1-9dcb-41e3cf4f486e.jpeg"
@@ -204,6 +212,10 @@ export default function AnnualFundPage() {
           {
             title: "A private college in New York: from students to specialists",
             body: "The college had been raising about $80,000 a year with student callers. Our first fall program pledged $277,554 from 650 donors at a 61% pledge rate. Across three programs, the partnership raised more than $523,000 at about 25 cents per dollar.",
+          },
+          {
+            title: "University of Maryland Global Campus: new donors from a cold file",
+            body: "UMGC relaunched its annual giving calling program with us in FY24. In FY26 the program raised $238,754 in pledges, and 1,107 people who had never given made their first gift.",
           },
           {
             title: "A treatment center partner of more than 20 years",
