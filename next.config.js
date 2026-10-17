@@ -36,6 +36,12 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      // Referral tracking link (code-only; key kept internally)
+      {
+        source: "/r/4827",
+        destination: "/?utm_source=referral&utm_medium=social&utm_campaign=4827",
+        permanent: false,
+      },
       {
         source: "/specialolympicsindiana",
         destination: "/insights/case-studies/af-connect-special-olympics-indiana",
