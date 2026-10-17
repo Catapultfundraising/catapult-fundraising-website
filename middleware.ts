@@ -1,3 +1,9 @@
+import { isJagDataAuthed as brJag } from "@/lib/jag-data-auth";
+import { isCsnfDataAuthed as brCsnf } from "@/lib/csnf-data-auth";
+import { isPvasDataAuthed as brPvas } from "@/lib/pvas-data-auth";
+import { isWcbhcDataAuthed as brWcbhc } from "@/lib/wcbhc-data-auth";
+import { isBaqDataAuthed as brBaq } from "@/lib/baq-data-auth";
+const BR_DASH: Record<string, (r: NextRequest) => Promise<boolean>> = { jag: brJag, csnf: brCsnf, pvas: brPvas, wcbhc: brWcbhc, baq: brBaq };
 import { isJagCookieValid, JAG_DATA_COOKIE } from "@/lib/jag-data-auth";
 import { isPvasCookieValid, PVAS_DATA_COOKIE } from "@/lib/pvas-data-auth";
 import { isWcbhcCookieValid, WCBHC_DATA_COOKIE } from "@/lib/wcbhc-data-auth";
@@ -122,11 +128,8 @@ export async function middleware(req: NextRequest) {
   if (br) {
     const client = br[1].toLowerCase();
     if (br[2].toLowerCase() === "board-review") {
-      const rc = req.cookies.get("catapult_research_auth")?.value;
-      const rExp = rc ? await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET") : "";
-      if (rc && rExp && rc === rExp) return NextResponse.next();
-      const loginUrl = new URL("/research/login", req.url);
-      loginUrl.searchParams.set("redirect", `/${client}/data-dashboard/board-review`);
+      if (await BR_DASH[client](req)) return NextResponse.next();
+      const loginUrl = new URL(`/${client}/data-dashboard/login`, req.url);
       return NextResponse.redirect(loginUrl);
     }
     if (br[3]) return NextResponse.next();
