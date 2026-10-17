@@ -573,7 +573,7 @@ export function DonorLoyaltyAssessment() {
                   Book a 20-minute call
                 </a>
                 <Link
-                  href="/services/legacy-giving"
+                  href="/services/planned-giving"
                   className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--paper))]/30 px-7 py-3.5 text-sm font-semibold text-[rgb(var(--paper))] transition-colors hover:border-[rgb(var(--brass))]"
                 >
                   How a legacy program works

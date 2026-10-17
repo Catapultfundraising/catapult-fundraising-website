@@ -221,6 +221,10 @@ export default function GrowingYourLegacySocietyPost() {
           .
         </p>
 
+        <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          If you&rsquo;re ready to start asking, here&rsquo;s how our <Link href="/services/planned-giving" className="font-semibold text-[rgb(var(--navy))] underline">planned giving consulting and Legacy Call program</Link> works.
+        </p>
+
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Ready to find out how many legacy prospects are already sitting in your database?{" "}
           <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">

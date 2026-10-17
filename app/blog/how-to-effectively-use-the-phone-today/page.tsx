@@ -155,6 +155,10 @@ export default function HowToEffectivelyUseThePhoneTodayPost() {
           size.&rdquo;
         </blockquote>
 
+        <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          See how we put this to work in our <Link href="/services/telefundraising" className="font-semibold text-[rgb(var(--navy))] underline">telefundraising and annual fund calling program</Link>, including results from colleges, nonprofits and health organizations.
+        </p>
+
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Curious what a personalized, letter-first calling program could do for your annual
           fund or legacy giving pipeline?{" "}

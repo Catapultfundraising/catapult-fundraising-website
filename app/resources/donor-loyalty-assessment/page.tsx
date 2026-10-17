@@ -132,14 +132,14 @@ export default function DonorLoyaltyAssessmentPage() {
             giving, and calling a mid-level donor to listen usually produces a larger gift in the same
             year. Read more about how a{" "}
             <Link
-              href="/services/legacy-giving"
+              href="/services/planned-giving"
               className="underline decoration-[rgb(var(--brass))]/40 decoration-2 underline-offset-4 hover:decoration-[rgb(var(--brass))]"
             >
               legacy program
             </Link>{" "}
             and{" "}
             <Link
-              href="/services/donor-engagement"
+              href="/services/mid-level-donor-program"
               className="underline decoration-[rgb(var(--brass))]/40 decoration-2 underline-offset-4 hover:decoration-[rgb(var(--brass))]"
             >
               donor engagement
@@ -164,8 +164,8 @@ export default function DonorLoyaltyAssessmentPage() {
           </p>
           <ul className="mt-3 space-y-2">
             {[
-              { href: "/services/legacy-giving", label: "How a legacy giving program works" },
-              { href: "/services/donor-engagement", label: "How donor engagement works" },
+              { href: "/services/planned-giving", label: "How a legacy giving program works" },
+              { href: "/services/mid-level-donor-program", label: "How donor engagement works" },
               {
                 href: "/resources/campaign-readiness-assessment",
                 label: "Grade your capital campaign readiness",

@@ -226,7 +226,7 @@ export default function CgaWebinarPage() {
             </Link>{" "}
             or read about our{" "}
             <Link
-              href="/services/legacy-giving"
+              href="/services/planned-giving"
               className="font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))] underline-offset-4"
             >
               legacy giving work

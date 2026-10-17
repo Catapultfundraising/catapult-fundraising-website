@@ -54,13 +54,13 @@ const ABOUT_FAQS = [
     question: "Does Catapult help with annual fund and mid-level donor programs, not just capital campaigns?",
     answer:
       "Yes. Alongside capital campaigns, Catapult runs annual fund calling and an 8-stage mid-level donor engagement program that upgrades donors already giving above entry-level amounts, building a qualified pipeline of future major gift prospects.",
-    link: { href: "/services/donor-engagement", label: "Learn about donor engagement" },
+    link: { href: "/services/mid-level-donor-program", label: "Learn about donor engagement" },
   },
   {
     question: "What is Catapult's Legacy Call program?",
     answer:
       "Legacy Call is Catapult's planned giving outreach program, designed to proactively identify bequests, beneficiary designations, and other deferred gifts from an organization's most loyal, longest-tenured donors, a segment most campaigns never fully engage.",
-    link: { href: "/services/legacy-giving", label: "Explore legacy giving services" },
+    link: { href: "/services/planned-giving", label: "Explore legacy giving services" },
   },
   {
     question: "Which industries and nonprofit sectors does Catapult serve?",

@@ -49,7 +49,7 @@ export const DECKS: Deck[] = [
       "Our planned giving qualification program. Trained officers call your longtime donors, uncover who already has you in their will and who is open to it, and hand your team qualified legacy conversations instead of a mailing list.",
     slideCount: 5,
     quoteService: "legacy-giving",
-    serviceHref: "/services/legacy-giving",
+    serviceHref: "/services/planned-giving",
   },
   {
     slug: "capital-campaign",
@@ -95,7 +95,7 @@ export const DECKS: Deck[] = [
       "A turnkey annual giving program: multi-channel outreach, experienced and educated engagement officers, weekly reporting on pledged revenue and collected cash, and bi-weekly calls to review results and set strategy.",
     slideCount: 5,
     quoteService: "annual-fund",
-    serviceHref: "/services/annual-fund",
+    serviceHref: "/services/telefundraising",
   },
   {
     slug: "mid-level-engagement",
@@ -105,7 +105,7 @@ export const DECKS: Deck[] = [
       "A seven stage donor journey built for the giving level most organizations neglect. Personal contact, weekly online reporting, and bi-weekly strategy meetings that turn steady mid-level givers into major gift prospects.",
     slideCount: 5,
     quoteService: "donor-engagement",
-    serviceHref: "/services/donor-engagement",
+    serviceHref: "/services/mid-level-donor-program",
   },
   {
     slug: "board-development",

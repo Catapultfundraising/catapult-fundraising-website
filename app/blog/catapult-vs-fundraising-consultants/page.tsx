@@ -185,11 +185,11 @@ export default function CatapultVsCompetitorsPost() {
             public-phase calling
           </Link>
           ,{" "}
-          <Link href="/services/donor-engagement" className="font-semibold text-[rgb(var(--navy))] underline">
+          <Link href="/services/mid-level-donor-program" className="font-semibold text-[rgb(var(--navy))] underline">
             mid-level donor engagement
           </Link>
           , and{" "}
-          <Link href="/services/legacy-giving" className="font-semibold text-[rgb(var(--navy))] underline">
+          <Link href="/services/planned-giving" className="font-semibold text-[rgb(var(--navy))] underline">
             legacy giving
           </Link>{" "}
           outreach that plan calls for. There is no hand-off between vendors, no lost institutional knowledge, and no

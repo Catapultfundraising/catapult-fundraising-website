@@ -6,15 +6,21 @@ import { LoyaltyCalloutCard } from "@/components/tool-callout";
 import { Landmark } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
 import { TestimonialQuote } from "@/components/testimonial-quote";
+import { ServiceProof, ServiceFaq } from "@/components/service-proof";
 import { WebinarCallout } from "@/components/webinar-callout";
 
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Legacy & Planned Giving Programs",
+  title: "Planned Giving Consulting & Legacy Call Programs",
   description:
-    "Catapult's Legacy Call program uncovers bequests and deferred gifts from loyal donors, a segment most campaigns never fully engage.",
+    "Start, grow or reignite your planned giving program. Legacy Call finds and confirms bequests and other planned gifts from your most loyal donors.",
   keywords: [
+    "planned giving consultant",
+    "planned giving consulting",
+    "how to start a planned giving program",
+    "planned giving program",
+    "legacy society",
     "legacy giving consultant",
     "planned giving program",
     "Legacy Call",
@@ -34,7 +40,7 @@ export const metadata = {
     "estate and will bequest planning",
     "national planned giving consultant",
   ],
-  alternates: { canonical: "/services/legacy-giving" },
+  alternates: { canonical: "/services/planned-giving" },
 };
 
 const SECTIONS = [
@@ -64,6 +70,19 @@ const SECTIONS = [
     ],
   },
   {
+    title: "Start, Grow or Reignite a Planned Giving Program",
+    description:
+      "Some clients come to us with no planned giving program at all. Others have a legacy society that stopped growing years ago. Either way, we start with the same question: who in your file has the loyalty, affinity and life stage to leave a gift, and has anyone asked them? From there we build what you need around it.",
+    bullets: [
+      "Readiness review of your donor file, materials and past planned giving efforts",
+      "Gift acceptance policy, ways-to-give, gift commitment forms and recognition plan",
+      "A planned giving case statement and donor cultivation kit",
+      "Website and marketing messaging for planned gifts",
+      "Prospect portfolios, ask strategy and coaching for staff, board and volunteers",
+      "Best practices for stewarding donors and processing gifts after a donor passes",
+    ],
+  },
+  {
     title: "Built to Extend Your Existing Team",
     description:
       "Our Gift Planning Specialists don't replace your development office. They extend it, confirming intentions your team is already working and surfacing new ones your team hasn't found yet.",
@@ -71,6 +90,21 @@ const SECTIONS = [
 ];
 
 const FAQS = [
+  {
+    question: "How do you start a planned giving program?",
+    answer:
+      "Start with your loyal donors, not a brochure. Find the people who have given consistently for years, put basic infrastructure in place (a gift acceptance policy, simple ways-to-give language and a way to recognize legacy donors), then start asking. Most organizations wait too long because they think they need everything perfect first. In practice, the conversations come first and the infrastructure grows with them.",
+  },
+  {
+    question: "Who are the best planned giving prospects?",
+    answer:
+      "Loyalty is the strongest signal. Donors who have given for many years, even at modest levels, are often your best legacy prospects. We also look at affinity, life stage and wealth capacity. Many planned gift donors don't have the capacity for a large gift today but can make a much larger gift through their estate.",
+  },
+  {
+    question: "Can a small shop run a planned giving program?",
+    answer:
+      "Yes. PBS KVIE described itself as a small shop that needed help connecting with planned giving donors. Through Legacy Call, the station closed $4.62 million in planned gifts, secured 63 planned gifts and added 106 donors to its pipeline.",
+  },
   {
     question: "What is Legacy Call?",
     answer:
@@ -103,9 +137,9 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Service",
-      name: "Legacy & Planned Giving (Legacy Call)",
-      serviceType: "Nonprofit planned giving and legacy gift program",
-      url: `${SITE_URL}/services/legacy-giving`,
+      name: "Planned Giving Consulting & Legacy Call",
+      serviceType: "Nonprofit planned giving consulting and legacy gift program",
+      url: `${SITE_URL}/services/planned-giving`,
       provider: { "@type": "ProfessionalService", name: "Catapult Fundraising", url: SITE_URL },
       areaServed: { "@type": "Country", name: "United States" },
       description:
@@ -123,7 +157,7 @@ const jsonLd = {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-        { "@type": "ListItem", position: 2, name: "Legacy & Planned Giving", item: `${SITE_URL}/services/legacy-giving` },
+        { "@type": "ListItem", position: 2, name: "Planned Giving", item: `${SITE_URL}/services/planned-giving` },
       ],
     },
   ],
@@ -138,7 +172,7 @@ export default function LegacyGivingPage() {
       />
       <PageHero
         eyebrowInHeading
-        eyebrow="Legacy & Planned Giving Programs"
+        eyebrow="Planned Giving Consulting & Legacy Programs"
         title="Your most loyal donors are ready for a legacy conversation. Legacy Call finds them."
         description="A full-service, two-tier planned giving methodology, not a single survey, that uncovers bequests and deferred gifts most capital campaigns leave on the table."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a0d01eb-79d6-4dfe-b7ce-54b1b8418ee0.png"
@@ -157,6 +191,27 @@ export default function LegacyGivingPage() {
           "Seamless hand-off to your planned giving team",
         ]}
       />
+      <ServiceProof
+        heading="Planned gifts our clients have closed and confirmed."
+        stats={[
+          { value: "$4.62M", label: "In planned gifts closed for PBS KVIE" },
+          { value: "63", label: "Planned gifts secured for PBS KVIE, plus 106 donors added to the pipeline" },
+          { value: "$4.89M", label: "In confirmed planned gifts from 500 loyal donors at a Northeast university" },
+          { value: "50", label: "Confirmed planned gifts in that 500-donor program" },
+        ]}
+        stories={[
+          {
+            title: "PBS KVIE: a small shop builds a legacy pipeline",
+            body: "We reviewed the database, selected loyal donors and called them to say thank you and identify planned giving interest. Our planned giving consultants then followed up to educate donors and discuss commitments. The program closed $4.62 million in planned gifts.",
+            href: "/insights/case-studies/legacy-call-pbs-kvie",
+          },
+          {
+            title: "A Northeast university: 500 donors, 50 confirmed gifts",
+            body: "Of 500 loyal donors contacted, 116 expressed planned giving interest and 50 confirmed planned gifts totaling $4,894,000. We also identified another $328,500 in gift potential.",
+            href: "/insights/case-studies/legacy-call-northeast-university",
+          },
+        ]}
+      />
       <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
         <div className="mx-auto max-w-4xl px-6 lg:px-10">
           <p className="font-display text-xl uppercase tracking-[0.25em] text-[rgb(var(--brass))] sm:text-[22.5px]">
@@ -173,6 +228,8 @@ export default function LegacyGivingPage() {
       <section className="mx-auto max-w-4xl px-6 lg:px-10">
         <LoyaltyCalloutCard note="Before you build a legacy program, find out how many loyal donors you actually have. Our free report card grades your legacy readiness, shows what a pool that size is worth on average, and tells you where to start. Estimates are welcome." />
       </section>
+
+      <ServiceFaq heading="Planned giving questions." faqs={FAQS} />
 
       <WebinarCallout lead="Ready to start the gift annuity conversation with your loyal donors? Join our free live webinar with Endowment Partners." />
       <RelatedReading

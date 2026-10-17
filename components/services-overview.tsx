@@ -16,7 +16,7 @@ const SERVICES = [
     title: "Legacy & Planned Giving",
     description:
       "Legacy Call identifies and closes bequests, beneficiary designations, and other deferred gifts from your most loyal, longest-tenured donors.",
-    href: "/services/legacy-giving",
+    href: "/services/planned-giving",
   },
   {
     icon: Users2,
@@ -24,7 +24,7 @@ const SERVICES = [
     title: "Mid-Level Donor Engagement",
     description:
       "An 8-stage, relationship-first program that upgrades mid-level donors and builds a qualified pipeline for future major gifts.",
-    href: "/services/donor-engagement",
+    href: "/services/mid-level-donor-program",
   },
   {
     icon: Phone,
@@ -32,7 +32,7 @@ const SERVICES = [
     title: "Annual Fund Calling",
     description:
       "Trained Engagement Officers treat every prospect like a major donor-in-waiting, with segmented outreach, personalized asks, and digital stewardship included.",
-    href: "/services/annual-fund",
+    href: "/services/telefundraising",
   },
 ];
 
