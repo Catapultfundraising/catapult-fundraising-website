@@ -1,20 +1,13 @@
 import { NextRequest } from "next/server";
-import { isResearchAuthed } from "@/lib/research-auth";
+import { isBoardReviewStaff } from "@/lib/board-review/staff";
 import { BR_MEMBER_COOKIE, verifyMemberToken } from "@/lib/board-review/auth";
 import { getMembers, getState, type BrMember } from "@/lib/board-review/store";
 import { isBrClient, type BrClient, type BrEntry, type BrMemberPublic } from "@/lib/board-review/config";
 
-/** Catapult staff only: the research cookie (or X-Research-Key). Client dashboard passwords do NOT qualify. */
+/** Catapult employees with that client's dashboard login, or Viktor. Not the research login. */
 export async function catapultClient(req: NextRequest, c: string | null): Promise<BrClient | null> {
   if (!c || !isBrClient(c)) return null;
-  return (await isCatapultStaff(req)) ? c : null;
-}
-
-/** Research cookie / research key, or Viktor's Bearer CRON_SECRET. Never a client dashboard password. */
-export async function isCatapultStaff(req: NextRequest): Promise<boolean> {
-  const cron = process.env.CRON_SECRET;
-  if (cron && req.headers.get("authorization") === `Bearer ${cron}`) return true;
-  return isResearchAuthed(req);
+  return (await isBoardReviewStaff(req, c)) ? c : null;
 }
 
 /** A signed-in board member, re-checked against the saved member list. */

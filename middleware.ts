@@ -1,4 +1,4 @@
-import { isResearchAuthed as brStaff } from "@/lib/research-auth";
+import { isBoardReviewStaff } from "@/lib/board-review/staff";
 import { isJagCookieValid, JAG_DATA_COOKIE } from "@/lib/jag-data-auth";
 import { isPvasCookieValid, PVAS_DATA_COOKIE } from "@/lib/pvas-data-auth";
 import { isWcbhcCookieValid, WCBHC_DATA_COOKIE } from "@/lib/wcbhc-data-auth";
@@ -116,14 +116,14 @@ export async function middleware(req: NextRequest) {
   }
 
   // Board Prospect Review. /{client}/data-dashboard/board-review = Catapult setup + results
-  // (research cookie only; client dashboard passwords do NOT open it).
+  // (employee {CLIENT}D2026!@ dashboard login only; research login does NOT open it).
   // /{client}/data-dashboard/review = board/committee member form (member cookie for THAT client).
   // Members only ever get the member cookie, so every other dashboard page and API stays closed to them.
   const br = pathname.match(/^\/(jag|csnf|pvas|wcbhc|baq)\/data-dashboard\/(board-review|review)(\/login)?\/?$/i);
   if (br) {
     const client = br[1].toLowerCase();
     if (br[2].toLowerCase() === "board-review") {
-      if (await brStaff(req)) return NextResponse.next();
+      if (await isBoardReviewStaff(req, client)) return NextResponse.next();
       const loginUrl = new URL(`/${client}/data-dashboard/login`, req.url);
       return NextResponse.redirect(loginUrl);
     }
