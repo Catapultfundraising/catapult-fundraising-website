@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { catapultClient, sortEntries, allResponses } from "@/lib/board-review/server";
-import { getList, getMembers } from "@/lib/board-review/store";
+import { catapultClient, sortEntries, adminState } from "@/lib/board-review/server";
 import { buildBrandedXlsx } from "@/lib/jag-brand-xlsx";
 import { BR_CHOICE_SHORT, BR_CLIENT_NAMES } from "@/lib/board-review/config";
 
@@ -10,8 +9,7 @@ export const dynamic = "force-dynamic";
 export async function GET(req: NextRequest) {
   const c = await catapultClient(req, req.nextUrl.searchParams.get("client"));
   if (!c) return NextResponse.json({ error: "Catapult staff login required" }, { status: 401 });
-  const [list, members] = await Promise.all([getList(c), getMembers(c)]);
-  const answers = await allResponses(c, members);
+  const { list, members, answers } = await adminState(c);
   const entries = sortEntries(list?.entries ?? []);
   const cols = [{ label: "Prospect" }, { label: "City" }, { label: "State" }, { label: "CPTID", kind: "num" as const },
     { label: "A" , kind: "num" as const }, { label: "B", kind: "num" as const }, { label: "C", kind: "num" as const }, { label: "D", kind: "num" as const },

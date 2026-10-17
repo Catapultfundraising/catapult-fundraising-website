@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { catapultClient, publicMember, sortEntries, allResponses } from "@/lib/board-review/server";
-import { getList, saveList, getMembers, saveMembers, deleteResponses, type BrMember } from "@/lib/board-review/store";
+import { catapultClient, publicMember, sortEntries, adminState } from "@/lib/board-review/server";
+import { getList, saveList, getMembers, addMember, setPassword, removeMember, queueInvites, importFromBlob, inviteLog } from "@/lib/board-review/store";
 import { getPool, applyFilters, toEntry, matchUpload, isAssigned } from "@/lib/board-review/source";
 import { generatePassword, hashPassword } from "@/lib/board-review/auth";
-import type { BrFilters } from "@/lib/board-review/config";
+import { BR_CLIENT_NAMES, type BrClient, type BrFilters } from "@/lib/board-review/config";
 
 // Catapult-only setup + results API for the board Prospect Review.
 export const dynamic = "force-dynamic";
@@ -13,12 +13,13 @@ const deny = () => NextResponse.json({ error: "Catapult staff login required" },
 export async function GET(req: NextRequest) {
   const c = await catapultClient(req, req.nextUrl.searchParams.get("client"));
   if (!c) return deny();
-  const [list, members] = await Promise.all([getList(c), getMembers(c)]);
-  const answers = await allResponses(c, members);
+  let st = await adminState(c);
+  // First open after the move to SQL: copy the old Blob data in once.
+  if (!st.list && !st.members.length) { const r = await importFromBlob(c).catch(() => null); if (r && !("skipped" in r) && (r.list || r.members)) st = await adminState(c); }
   return NextResponse.json({
-    list: list ? { ...list, entries: sortEntries(list.entries) } : null,
-    members: members.map((m) => publicMember(m, Object.values(answers[m.id] ?? {}).filter((a) => a.choice).length)),
-    answers,
+    list: st.list ? { ...st.list, entries: sortEntries(st.list.entries) } : null,
+    members: st.members.map((m) => publicMember(m)),
+    answers: st.answers,
   });
 }
 
@@ -70,27 +71,44 @@ export async function POST(req: NextRequest) {
     const name = String(body.name ?? "").trim(), email = String(body.email ?? "").trim().toLowerCase();
     if (!name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return NextResponse.json({ error: "Name and a valid email are required" }, { status: 400 });
     const members = await getMembers(c);
-    if (members.some((m) => m.email === email)) return NextResponse.json({ error: "That email is already invited for this client" }, { status: 400 });
+    if (members.some((m) => m.email === email)) return NextResponse.json({ error: "That email is already on the member list for this client" }, { status: 400 });
     const password = generatePassword();
     const { salt, hash } = await hashPassword(password);
-    const m: BrMember = { id: crypto.randomUUID().replace(/-/g, "").slice(0, 12), name: name.slice(0, 120), email, role: String(body.role ?? "").slice(0, 80), salt, hash, version: 1, invitedAt: new Date().toISOString() };
-    await saveMembers(c, [...members, m]);
-    return NextResponse.json({ ok: true, member: publicMember(m, 0), password });
+    const m = { id: crypto.randomUUID().replace(/-/g, "").slice(0, 12), name: name.slice(0, 120), email, role: String(body.role ?? "").slice(0, 80), salt, hash, version: 1 };
+    await addMember(c, m);
+    return NextResponse.json({ ok: true, member: publicMember({ ...m, invitedAt: "" }, 0), password });
   }
   if (op === "reset") {
-    const members = await getMembers(c);
-    const m = members.find((x) => x.id === body.id);
+    const m = (await getMembers(c)).find((x) => x.id === body.id);
     if (!m) return NextResponse.json({ error: "Member not found" }, { status: 404 });
     const password = generatePassword();
-    Object.assign(m, await hashPassword(password), { version: m.version + 1 });
-    await saveMembers(c, members);
+    const { salt, hash } = await hashPassword(password);
+    await setPassword(c, m.id, salt, hash, true);
     return NextResponse.json({ ok: true, password });
   }
   if (op === "remove") {
-    const members = await getMembers(c);
-    await saveMembers(c, members.filter((x) => x.id !== body.id));
-    if (body.deleteAnswers) await deleteResponses(c, String(body.id));
+    await removeMember(c, String(body.id), !!body.deleteAnswers);
     return NextResponse.json({ ok: true });
   }
+  // Email invites. These only QUEUE rows (engage.ratings_invites); Viktor's mail cron sends them from Jackie's
+  // Outlook every few hours, then marks them sent (that sets invitedAt and dueDate = +14 days).
+  //   send:      ids = [memberId]                    -> invite (or resend if they were invited before)
+  //   sendNew:   everyone never invited and not already queued
+  //   resendNon: invited members whose window has ended without rating every prospect
+  if (op === "send" || op === "sendNew" || op === "resendNon") {
+    const [members, list] = await Promise.all([getMembers(c), getList(c)]);
+    const total = list?.entries.length ?? 0;
+    if (!total) return NextResponse.json({ error: "Save a review list before sending invites" }, { status: 400 });
+    const now = Date.now();
+    const pick = op === "send" ? members.filter((m) => (body.ids ?? []).includes(m.id))
+      : op === "sendNew" ? members.filter((m) => !m.invitedAt && !m.queued)
+      : members.filter((m) => m.invitedAt && !m.queued && m.dueDate && Date.parse(m.dueDate) <= now && (m.answered ?? 0) < total);
+    const items = await Promise.all(pick.map(async (m) => { const password = generatePassword(); return { memberId: m.id, kind: (m.invitedAt ? "resend" : "invite") as "invite" | "resend", password, ...(await hashPassword(password)) }; }));
+    if (!items.length) return NextResponse.json({ ok: true, queued: 0 });
+    const r = await queueInvites(c, items, BR_CLIENT_NAMES[c as BrClient], `${req.nextUrl.origin}/${c}/data-dashboard/review/login`, String(body.by ?? "dashboard"));
+    return NextResponse.json({ ok: true, queued: r.queued });
+  }
+  if (op === "log") return NextResponse.json({ log: await inviteLog(c) });
+  if (op === "migrate") return NextResponse.json(await importFromBlob(c, !!body.force));
   return NextResponse.json({ error: "Unknown op" }, { status: 400 });
 }

@@ -25,7 +25,13 @@ export const BR_CHOICE_SHORT: Record<string, string> = { A: "A", B: "B", C: "C",
 /** One prospect on the shared review list. Only name, city and state are ever shown to members. */
 export interface BrEntry { cptid: number; name: string; sortKey: string; city: string; state: string }
 export interface BrList { name: string; entries: BrEntry[]; updatedAt: string; source: string }
-export interface BrMemberPublic { id: string; name: string; email: string; role: string; invitedAt: string; lastSeen?: string; answered?: number }
+export interface BrMemberPublic {
+  id: string; name: string; email: string; role: string; lastSeen?: string; answered?: number;
+  /** Last invite email sent (Viktor marks it), due date = invitedAt + 14 days, day-5 reminder sent, queued email kind if one is waiting. */
+  invitedAt: string; dueDate?: string; reminderSentAt?: string; inviteCount?: number; queued?: string;
+}
+export const BR_WINDOW_DAYS = 14;
+export const BR_REMIND_AFTER_DAYS = 5;
 export interface BrAnswer { choice: BrChoice | ""; other?: string; at: string }
 export interface BrResponses { memberId: string; answers: Record<string, BrAnswer>; updatedAt: string }
 
