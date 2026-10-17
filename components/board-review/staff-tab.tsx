@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 
-// True only when the viewer has the Catapult research cookie.
+// True only when the viewer has an employee dashboard login for that client.
 export function useBoardReviewStaff(client: string) {
   const [staff, setStaff] = useState(false);
   useEffect(() => {
