@@ -104,6 +104,20 @@ export function SiteHeader() {
   // Client data portals (e.g. /research/csnf-data) are client-facing tools:
   // no site menu or "Start a Conversation" CTA, and the client's logo sits
   // where the CTA normally lives.
+  // Board Prospect Review pages (Catapult setup + member form): Engage logo, client name wordmark.
+  const brMatch = pathname.match(/^\/(jag|csnf|pvas|wcbhc|baq)\/data-dashboard\/(board-review|review)/i);
+  if (brMatch) {
+    const names: Record<string, string> = { jag: "JAG Nevada", csnf: "College of Southern Nevada Foundation", pvas: "Palm Valley Animal Society", wcbhc: "Washoe Children\u2019s Behavioral Health Center", baq: "Boerne Aquaplex" };
+    return (
+      <header className="sticky top-0 z-50 border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]/90 backdrop-blur-md">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-4 px-6 py-1.5 lg:px-10">
+          <span aria-label="Catapult Engage" className="flex shrink-0 items-center py-2 cursor-default">{portalLogo}</span>
+          <span className="text-right font-display text-lg leading-tight text-[rgb(var(--navy))] sm:text-xl">{names[brMatch[1].toLowerCase()]}</span>
+        </div>
+      </header>
+    );
+  }
+
   const isJagPortal = /^\/jag\/data-dashboard(\/login)?\/?$/i.test(pathname) || pathname.startsWith("/research/jag-data");
   if (isJagPortal) {
     return (

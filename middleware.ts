@@ -3,6 +3,7 @@ import { isPvasCookieValid, PVAS_DATA_COOKIE } from "@/lib/pvas-data-auth";
 import { isWcbhcCookieValid, WCBHC_DATA_COOKIE } from "@/lib/wcbhc-data-auth";
 import { isBaqCookieValid, BAQ_DATA_COOKIE } from "@/lib/baq-data-auth";
 import { isCsnfCookieValid, CSNF_DATA_COOKIE } from "@/lib/csnf-data-auth";
+import { BR_MEMBER_COOKIE, verifyMemberToken } from "@/lib/board-review/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 const GATES = [
@@ -111,6 +112,35 @@ export async function middleware(req: NextRequest) {
     const httpsUrl = new URL(req.url);
     httpsUrl.protocol = "https:";
     return NextResponse.redirect(httpsUrl, 308);
+  }
+
+  // Board Prospect Review. /{client}/data-dashboard/board-review = Catapult setup + results
+  // (research cookie only; client dashboard passwords do NOT open it).
+  // /{client}/data-dashboard/review = board/committee member form (member cookie for THAT client).
+  // Members only ever get the member cookie, so every other dashboard page and API stays closed to them.
+  const br = pathname.match(/^\/(jag|csnf|pvas|wcbhc|baq)\/data-dashboard\/(board-review|review)(\/login)?\/?$/i);
+  if (br) {
+    const client = br[1].toLowerCase();
+    if (br[2].toLowerCase() === "board-review") {
+      const rc = req.cookies.get("catapult_research_auth")?.value;
+      const rExp = rc ? await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET") : "";
+      if (rc && rExp && rc === rExp) return NextResponse.next();
+      const loginUrl = new URL("/research/login", req.url);
+      loginUrl.searchParams.set("redirect", `/${client}/data-dashboard/board-review`);
+      return NextResponse.redirect(loginUrl);
+    }
+    if (br[3]) return NextResponse.next();
+    const t = await verifyMemberToken(req.cookies.get(BR_MEMBER_COOKIE)?.value);
+    if (t && t.client === client) return NextResponse.next();
+    return NextResponse.redirect(new URL(`/${client}/data-dashboard/review/login`, req.url));
+  }
+  // Belt and braces: a board member session can never call dashboard data APIs or the
+  // board-review admin API (each API also checks its own auth).
+  if (/^\/api\/([a-z]+-data-|board-review\/admin|portal-)/.test(pathname) && !pathname.endsWith("-data-login") && req.cookies.get(BR_MEMBER_COOKIE)?.value) {
+    const rc = req.cookies.get("catapult_research_auth")?.value;
+    const rExp = rc ? await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET") : "";
+    const staff = (rc && rExp && rc === rExp) || req.headers.get("authorization") || [JAG_DATA_COOKIE, PVAS_DATA_COOKIE, WCBHC_DATA_COOKIE, BAQ_DATA_COOKIE, CSNF_DATA_COOKIE].some((n) => req.cookies.get(n));
+    if (!staff) return NextResponse.json({ error: "Not available for board review logins" }, { status: 403 });
   }
 
   // Client data portals live at /{client}/data-dashboard (e.g. /csnf/data-dashboard),
