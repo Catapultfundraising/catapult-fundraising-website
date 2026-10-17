@@ -108,9 +108,11 @@ export default function DonorEngagementStrategiesMidLevelDonorsPost() {
         <p className={P}>Don&rsquo;t start with a dollar band you read somewhere. For one organization, mid-level is the $1,000 donor. For another, it&rsquo;s $5,000. Here&rsquo;s the definition I use: anyone who gives more than the average gift to your annual fund but isn&rsquo;t assigned to a major gift officer.</p>
         <p className={P}>Then look inside that group. Some are ready for an upgrade. Some are your loyal core who&rsquo;ve given for years. Some are at risk and quietly slipping away. Each needs a slightly different plan.</p>
         <h2 className={H2}>Treat them like major gift prospects</h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80"><div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl"><Image src="/blog/donor-engagement-strategies-mid-level-donors/major-gift-mindset.png" alt="One officer per donor, thank before you ask, same voice all year" fill className="object-cover" sizes="(min-width: 768px) 320px, 100vw" /></div></div>
         <p className={P}>Here&rsquo;s the question I ask every development team: what would you do if a major gift officer were working your mid-level donors? You&rsquo;d assign one person to each donor. You&rsquo;d thank them before you asked again. You&rsquo;d learn what they care about. And you&rsquo;d make an ask that fit.</p>
         <p className={P}>That&rsquo;s the whole idea. In our programs, the same engagement officer stays with each donor for the entire year. There&rsquo;s no handoff to a different caller. The donor hears the same voice, and that officer becomes the major gift officer for the mid-level journey, carrying a portfolio of roughly 300 to 500 donors.</p>
         <h2 className={H2}>The touches that matter</h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80"><div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl"><Image src="/blog/donor-engagement-strategies-mid-level-donors/touches.png" alt="Six touches with no ask" fill className="object-cover" sizes="(min-width: 768px) 320px, 100vw" /></div></div>
         <p className={P}>Before anyone asks for an upgrade, give each donor at least five to seven touches during the year. Our programs use seven to eight. None of these include an ask.</p>
         <ul className="mt-4 list-disc space-y-3 pl-5 marker:text-[rgb(var(--brass))]">
           <li className={LI}>A thank-you call. No ask, no strings attached. Just thank you.</li>
@@ -126,6 +128,7 @@ export default function DonorEngagementStrategiesMidLevelDonorsPost() {
         <p className={P}>Make the ask specific to the donor, and make it easy to say yes to a bigger number. Someone who gave $1,000 might be asked to consider $4,000, paid in quarterly installments over the year. If they come back at half of that, you&rsquo;ve still doubled their giving.</p>
         <p className="mt-6 rounded-2xl border border-[rgb(var(--line))] bg-white px-6 py-5 font-display text-xl text-[rgb(var(--navy))]">$1,000 donor → $4,000 ask in quarterly installments → $2,000 gift = 100% upgrade</p>
         <h2 className={H2}>Listen for the signals</h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80"><div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl"><Image src="/blog/donor-engagement-strategies-mid-level-donors/signals.png" alt="Four signals a mid-level donor is ready for a bigger conversation" fill className="object-cover" sizes="(min-width: 768px) 320px, 100vw" /></div></div>
         <p className={P}>Good engagement isn&rsquo;t only about giving more. It&rsquo;s about learning who&rsquo;s ready for a bigger conversation. Pay attention when a donor:</p>
         <ul className="mt-4 list-disc space-y-3 pl-5 marker:text-[rgb(var(--brass))]">
           <li className={LI}>Pays a pledge early or in full</li>
@@ -135,6 +138,7 @@ export default function DonorEngagementStrategiesMidLevelDonorsPost() {
         </ul>
         <p className={P}>Even a $100 gift from a donor-advised fund tells you that donor has assets to give from. That donor has raised their hand. When those signals show up, make a warm handoff to your major gift officer. Never a cold transfer. One mid-level handoff in our programs turned into a $2.15 million gift.</p>
         <h2 className={H2}>What the results look like</h2>
+        <div className="mb-6 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80"><div className="relative aspect-[3/2] w-full overflow-hidden rounded-2xl"><Image src="/blog/donor-engagement-strategies-mid-level-donors/lift.png" alt="39% average first-year lift vs 1% to 10% in general calling" fill className="object-cover" sizes="(min-width: 768px) 320px, 100vw" /></div></div>
         <p className={P}>Across our client programs, mid-level donors increase their giving by an average of 39% in the first year, and some clients have seen giving more than double. Compare that with the 1% to 10% lift we typically see when mid-level donors are simply lumped into a general annual fund calling program.</p>
         <blockquote className="mt-8 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">Donor loyalty isn&rsquo;t about the donor being loyal to us. It&rsquo;s about us being loyal to the donor.</blockquote>
         <h2 className={H2}>Where to start</h2>
