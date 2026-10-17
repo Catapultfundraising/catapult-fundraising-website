@@ -618,7 +618,7 @@ function Feasibility({ d }: { d: JagSnapshot }) {
 }
 
 export function JagDataDashboard({ data }: { data: JagSnapshot }) {
-  const [tab, setTab] = useState<Tab | "Board Review">("Overview");
+  const [tab, setTab] = useState<Tab | "Prospect Ratings">("Overview");
   const staff = useBoardReviewStaff("jag");
   return (
     <CrmProvider>
@@ -636,7 +636,7 @@ export function JagDataDashboard({ data }: { data: JagSnapshot }) {
       </header>
       <nav className="sticky top-0 z-10 border-b border-[rgb(var(--line))] bg-white">
         <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6">
-          {([...TABS, ...(staff ? (["Board Review"] as const) : [])] as (Tab | "Board Review")[]).map((t) => (
+          {([...TABS, ...(staff ? (["Prospect Ratings"] as const) : [])] as (Tab | "Prospect Ratings")[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -649,7 +649,7 @@ export function JagDataDashboard({ data }: { data: JagSnapshot }) {
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
         {tab === "Donor Lookup" && <Lookup d={data} />}
-        {staff && tab === "Board Review" && <BoardReviewAdmin client="jag" />}
+        {staff && tab === "Prospect Ratings" && <BoardReviewAdmin client="jag" />}
         {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
         {tab === "Campaign Donors" && <CampaignDonors />}
         {tab === "Add + Upload" && <AddAndUpload />}

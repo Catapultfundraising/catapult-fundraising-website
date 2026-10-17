@@ -607,7 +607,7 @@ function Alumni({ d }: { d: CsnfSnapshot }) {
 }
 
 export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
-  const [tab, setTab] = useState<Tab | "Board Review">("Overview");
+  const [tab, setTab] = useState<Tab | "Prospect Ratings">("Overview");
   const staff = useBoardReviewStaff("csnf");
   return (
     <CrmProvider>
@@ -625,7 +625,7 @@ export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
       </header>
       <nav className="sticky top-0 z-10 border-b border-[rgb(var(--line))] bg-white">
         <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6">
-          {([...TABS, ...(staff ? (["Board Review"] as const) : [])] as (Tab | "Board Review")[]).map((t) => (
+          {([...TABS, ...(staff ? (["Prospect Ratings"] as const) : [])] as (Tab | "Prospect Ratings")[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -638,7 +638,7 @@ export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
         {tab === "Donor Lookup" && <Lookup d={data} />}
-        {staff && tab === "Board Review" && <BoardReviewAdmin client="csnf" />}
+        {staff && tab === "Prospect Ratings" && <BoardReviewAdmin client="csnf" />}
         {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
         {tab === "Campaign Donors" && <CampaignDonors />}
         {tab === "Add + Upload" && <AddAndUpload />}
