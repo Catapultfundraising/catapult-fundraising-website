@@ -195,9 +195,7 @@ async function sendEmailNotification(fields: {
     console.error("Failed to build Excel workbook for /submit notification:", err);
   }
 
-  // Same constraint as /api/contact: Resend's sandbox sender can only deliver
-  // to the address the Resend account was signed up with, so only the first
-  // LEAD_EMAILS address is used here.
+  // Sent from the verified catapultfr.com Resend domain to every LEAD_EMAILS address.
   const res = await fetch("https://api.resend.com/emails", {
     method: "POST",
     headers: {
@@ -205,8 +203,8 @@ async function sendEmailNotification(fields: {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      from: "Catapult Fundraising Website <onboarding@resend.dev>",
-      to: [LEAD_EMAILS[0]],
+      from: "Catapult Fundraising Website <website@catapultfr.com>",
+      to: LEAD_EMAILS,
       reply_to: fields.email,
       subject: `New Prospect Research Intake — ${fields.orgName}`,
       html,
