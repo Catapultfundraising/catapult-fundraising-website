@@ -511,6 +511,10 @@ export default function LapsedDonorReactivationPost() {
           reactivation and upgrade opportunities, develop donor communication strategies and execute
           calling programs designed to strengthen donor relationships and generate revenue.
         </p>
+        <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          Our <Link href="/services/telefundraising" className="font-semibold text-[rgb(var(--navy))] underline">telefundraising program</Link> is built for exactly this kind of win-back calling, and the donors who come back at higher levels are often a fit for a <Link href="/services/mid-level-donor-program" className="font-semibold text-[rgb(var(--navy))] underline">mid-level donor program</Link>.
+        </p>
+
         <p className={P}>
           If you are wondering what is actually sitting inside your donor database,{" "}
           <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">

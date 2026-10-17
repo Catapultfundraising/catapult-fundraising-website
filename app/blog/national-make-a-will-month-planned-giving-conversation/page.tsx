@@ -344,6 +344,10 @@ export default function NationalMakeAWillMonthPost() {
           The donors who love you most are usually just waiting to be asked.
         </p>
 
+        <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          Want help having these conversations at scale? Learn about our <Link href="/services/planned-giving" className="font-semibold text-[rgb(var(--navy))] underline">planned giving program</Link>.
+        </p>
+
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           Catapult Fundraising helps nonprofits launch and scale planned giving programs through a
           proven two-tier calling model. If you&rsquo;d like to talk about what a legacy giving

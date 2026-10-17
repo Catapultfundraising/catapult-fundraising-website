@@ -43,6 +43,21 @@ const nextConfig = {
         permanent: false,
       },
       {
+        source: "/services/annual-fund",
+        destination: "/services/telefundraising",
+        permanent: true,
+      },
+      {
+        source: "/services/donor-engagement",
+        destination: "/services/mid-level-donor-program",
+        permanent: true,
+      },
+      {
+        source: "/services/legacy-giving",
+        destination: "/services/planned-giving",
+        permanent: true,
+      },
+      {
         source: "/specialolympicsindiana",
         destination: "/insights/case-studies/af-connect-special-olympics-indiana",
         permanent: true,
@@ -54,7 +69,7 @@ const nextConfig = {
       },
       {
         source: "/callcentermanager",
-        destination: "/services/annual-fund",
+        destination: "/services/telefundraising",
         permanent: true,
       },
       {
@@ -64,12 +79,12 @@ const nextConfig = {
       },
       {
         source: "/legacycall",
-        destination: "/services/legacy-giving",
+        destination: "/services/planned-giving",
         permanent: true,
       },
       {
         source: "/legacy-call",
-        destination: "/services/legacy-giving",
+        destination: "/services/planned-giving",
         permanent: true,
       },
       {
@@ -79,7 +94,7 @@ const nextConfig = {
       },
       {
         source: "/annualfundconnect",
-        destination: "/services/annual-fund",
+        destination: "/services/telefundraising",
         permanent: true,
       },
       {
@@ -99,7 +114,7 @@ const nextConfig = {
       },
       {
         source: "/donorengagement",
-        destination: "/services/donor-engagement",
+        destination: "/services/mid-level-donor-program",
         permanent: true,
       },
       {

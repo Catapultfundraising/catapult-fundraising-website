@@ -44,9 +44,9 @@ export function SiteFooter() {
             <li><Link href="/services/capital-campaign/social-service" className="hover:text-[rgb(var(--paper))]">Social Service Organizations</Link></li>
             <li><Link href="/services/capital-campaign/healthcare" className="hover:text-[rgb(var(--paper))]">Healthcare Organizations</Link></li>
             <li><Link href="/services/feasibility-study" className="hover:text-[rgb(var(--paper))]">Feasibility Studies</Link></li>
-            <li><Link href="/services/legacy-giving" className="hover:text-[rgb(var(--paper))]">Legacy &amp; Planned Giving</Link></li>
-            <li><Link href="/services/donor-engagement" className="hover:text-[rgb(var(--paper))]">Mid-Level Donor Engagement</Link></li>
-            <li><Link href="/services/annual-fund" className="hover:text-[rgb(var(--paper))]">Annual Fund Calling</Link></li>
+            <li><Link href="/services/planned-giving" className="hover:text-[rgb(var(--paper))]">Legacy &amp; Planned Giving</Link></li>
+            <li><Link href="/services/mid-level-donor-program" className="hover:text-[rgb(var(--paper))]">Mid-Level Donor Engagement</Link></li>
+            <li><Link href="/services/telefundraising" className="hover:text-[rgb(var(--paper))]">Telefundraising &amp; Annual Fund</Link></li>
             <li><Link href="/services/board-development" className="hover:text-[rgb(var(--paper))]">Board Development</Link></li>
             <li><Link href="/about" className="hover:text-[rgb(var(--paper))]">About Catapult</Link></li>
           </ul>

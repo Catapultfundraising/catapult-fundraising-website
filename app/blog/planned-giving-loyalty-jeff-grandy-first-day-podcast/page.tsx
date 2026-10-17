@@ -364,7 +364,7 @@ export default function JeffGrandyFirstDayPodcastPost() {
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
           If ten calls a month is not going to get you through a file of a thousand loyal donors,
           that is the gap our{" "}
-          <Link href="/services/legacy-giving" className="font-semibold text-[rgb(var(--navy))] underline">
+          <Link href="/services/planned-giving" className="font-semibold text-[rgb(var(--navy))] underline">
             Legacy Call program
           </Link>{" "}
           was built to close: a two-tier calling model that qualifies loyal donors and hands genuine

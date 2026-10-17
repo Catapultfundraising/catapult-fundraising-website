@@ -183,7 +183,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
       { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
     ],
   },
@@ -767,9 +767,9 @@ export const ANSWERS: Answer[] = [
       },
     ],
     related: [
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
       { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
-      { label: "Annual Fund Calling (AF Connect)", href: "/services/annual-fund" },
+      { label: "Annual Fund Calling (AF Connect)", href: "/services/telefundraising" },
     ],
   },
 
@@ -789,7 +789,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Hidden Major Gift Potential in a Performing Arts Organization's Donor Base", href: "/insights/case-studies/engaging-hidden-donor-potential-performing-arts-organization" },
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
       { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
     ],
   },
@@ -857,7 +857,7 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "How Do You Cultivate Major Donors?", href: "/answers/how-do-you-cultivate-major-donors" },
       { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
       { label: "Key Steps for Soliciting Major Donors", href: "/blog/key-steps-for-soliciting-major-donors" },
     ],
   },
@@ -872,7 +872,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Seven Touchpoints for Donor Loyalty Between Asks", href: "/blog/seven-touchpoints-donor-loyalty-between-asks" },
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
     ],
   },
   {
@@ -894,7 +894,7 @@ export const ANSWERS: Answer[] = [
     slug: "what-is-a-mid-level-donor-program",
     primaryService: {
       label: "Mid-level donor engagement",
-      href: "/services/donor-engagement",
+      href: "/services/mid-level-donor-program",
       blurb: "Catapult's 8-stage Donor Engagement program assigns an Engagement Officer to your mid-level donors and builds a qualified major gift pipeline.",
     },
     pillar: "Donor Acquisition & Retention",
@@ -939,7 +939,7 @@ export const ANSWERS: Answer[] = [
       },
     ],
     related: [
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
       { label: "Free Donor Loyalty Assessment", href: "/resources/donor-loyalty-assessment" },
       { label: "Major Gift Officer vs. Donor Engagement Program", href: "/answers/major-gift-officer-vs-donor-engagement-program" },
       { label: "How Can Nonprofits Increase Average Gift Size?", href: "/answers/how-can-nonprofits-increase-average-gift-size" },
@@ -957,7 +957,7 @@ export const ANSWERS: Answer[] = [
       "In practice, the two work together rather than compete: Donor Engagement's 8-stage methodology surfaces and warms the next generation of major gift prospects, so the major gift officer's pipeline stays full instead of shrinking to only the donors already known.",
     ],
     related: [
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
       { label: "Mid-Level Donor Engagement for a Faith-Based Organization", href: "/insights/case-studies/mid-level-donor-engagement-faith-based-organization" },
     ],
   },
@@ -1022,8 +1022,8 @@ export const ANSWERS: Answer[] = [
       "Speed of stewardship matters as much as the ask itself. AF Connect sends thank-you letters within 24-48 hours of contact, since a fast, genuine thank-you measurably improves the odds of the next gift.",
     ],
     related: [
-      { label: "Annual Fund Calling (AF Connect)", href: "/services/annual-fund" },
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Annual Fund Calling (AF Connect)", href: "/services/telefundraising" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
     ],
   },
 
@@ -1042,7 +1042,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Mid-Level Donor Engagement for a Faith-Based Organization", href: "/insights/case-studies/mid-level-donor-engagement-faith-based-organization" },
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
     ],
   },
   {
@@ -1057,7 +1057,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Seven Touchpoints for Donor Loyalty Between Asks", href: "/blog/seven-touchpoints-donor-loyalty-between-asks" },
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
     ],
   },
   {
@@ -1071,7 +1071,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "Seven Touchpoints for Donor Loyalty Between Asks", href: "/blog/seven-touchpoints-donor-loyalty-between-asks" },
-      { label: "Annual Fund Calling (AF Connect)", href: "/services/annual-fund" },
+      { label: "Annual Fund Calling (AF Connect)", href: "/services/telefundraising" },
     ],
   },
   {
@@ -1086,7 +1086,7 @@ export const ANSWERS: Answer[] = [
     ],
     related: [
       { label: "AF Connect — Special Olympics of Indiana", href: "/insights/case-studies/af-connect-special-olympics-indiana" },
-      { label: "Mid-Level Donor Engagement", href: "/services/donor-engagement" },
+      { label: "Mid-Level Donor Engagement", href: "/services/mid-level-donor-program" },
     ],
   },
 
@@ -1104,7 +1104,7 @@ export const ANSWERS: Answer[] = [
       "A new planned giving program doesn't need to build all of this internally on day one, it needs the qualifying conversations to start, since 41% of planned giving donors give 10+ consecutive years and are already more receptive than most organizations assume.",
     ],
     related: [
-      { label: "Legacy & Planned Giving Programs", href: "/services/legacy-giving" },
+      { label: "Legacy & Planned Giving Programs", href: "/services/planned-giving" },
       { label: "Growing Your Legacy Society — Why Aren't We Asking?", href: "/blog/growing-your-legacy-society-why-arent-we-asking" },
       { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
     ],
@@ -1138,7 +1138,7 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "Legacy Calls — The Hill School", href: "/insights/case-studies/legacy-calls-hill-school" },
       { label: "Loyalty, Not Wealth: Jeff Grandy on Finding Your Next Legacy Donor", href: "/blog/planned-giving-loyalty-jeff-grandy-first-day-podcast" },
-      { label: "Legacy & Planned Giving Programs", href: "/services/legacy-giving" },
+      { label: "Legacy & Planned Giving Programs", href: "/services/planned-giving" },
     ],
   },
 
@@ -1156,7 +1156,7 @@ export const ANSWERS: Answer[] = [
       "Results back the approach: an AF Connect program for Special Olympics of Indiana achieved an 85% pledge rate with lapsed donors, nearly double the 45% industry average, while lifting average gift size by 39%.",
     ],
     related: [
-      { label: "Annual Fund Calling (AF Connect)", href: "/services/annual-fund" },
+      { label: "Annual Fund Calling (AF Connect)", href: "/services/telefundraising" },
       { label: "AF Connect — Special Olympics of Indiana", href: "/insights/case-studies/af-connect-special-olympics-indiana" },
     ],
   },
@@ -1171,7 +1171,7 @@ export const ANSWERS: Answer[] = [
       "Consistent fulfillment closes the loop: thank-you letters within 24-48 hours, and dedicated fulfillment services to maximize collection of pledged dollars, since a pledge that's never collected doesn't help the annual fund total.",
     ],
     related: [
-      { label: "Annual Fund Calling (AF Connect)", href: "/services/annual-fund" },
+      { label: "Annual Fund Calling (AF Connect)", href: "/services/telefundraising" },
       { label: "How to Effectively Use the Phone Today", href: "/blog/how-to-effectively-use-the-phone-today" },
     ],
   },

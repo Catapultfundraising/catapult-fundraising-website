@@ -9,10 +9,14 @@ const SITE_URL = "https://www.catapultfr.com";
 const SLUG = "growing-your-legacy-society-why-arent-we-asking";
 
 export const metadata = {
-  title: "Growing Your Legacy Society",
+  title: "Growing Your Legacy Society: A Legacy Giving Guide",
   description:
     "Anthony Alonso on who your best legacy giving prospects really are, and the two-step call process that closes bequests.",
   keywords: [
+    "legacy society",
+    "legacy giving",
+    "legacy giving program",
+    "bequest giving",
     "legacy society growth",
     "planned giving prospects",
     "legacy call program",
@@ -35,7 +39,7 @@ const jsonLd = {
   "@type": "BlogPosting",
   headline: "Growing Your Legacy Society: Why Aren't We Asking?",
   datePublished: "2026-08-12",
-  dateModified: "2026-08-12",
+  dateModified: "2026-10-17",
   description:
     "Who your best legacy giving prospects really are, the two-step call process that closes bequests, and why loyalty beats wealth every time.",
   author: {
@@ -219,6 +223,43 @@ export default function GrowingYourLegacySocietyPost() {
             Loyalty, Not Wealth: Finding Your Next Legacy Donor
           </Link>
           .
+        </p>
+
+        <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
+          What happens after someone joins your legacy society
+        </h2>
+        <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          About 20 to 25 percent of the loyal donors we call already have the organization in their
+          will. The organization just didn&rsquo;t know. Finding them is the first win. What you do
+          next decides whether that gift is still there when the estate is settled.
+        </p>
+        <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          When a donor tells us they&rsquo;ve included you, we ask for a simple will confirmation
+          form or a copy of the page that names you. About half the time we get it. The other half
+          will confirm the gift but keep the amount private, and that&rsquo;s fine. Some answers
+          take time: &ldquo;Let me talk to my attorney,&rdquo; or &ldquo;Let me talk to my financial
+          advisor.&rdquo; Our planned giving specialists keep that conversation going, sometimes
+          for up to two years.
+        </p>
+        <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          Then we hand those donors back to you, and stewardship begins. Your legacy society should
+          not be a list in a drawer. Give each member five to seven real touches a year:
+        </p>
+        <ul className="mt-4 list-disc space-y-3 pl-5 marker:text-[rgb(var(--brass))]">
+          <li className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">A thank-you call with no ask attached</li>
+          <li className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">A birthday call or card</li>
+          <li className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">A handwritten note, a real one</li>
+          <li className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">An invitation to a legacy society luncheon or event</li>
+          <li className="text-lg leading-relaxed text-[rgb(var(--ink))]/70">An update on the work their future gift will carry forward</li>
+        </ul>
+        <p className="mt-4 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          Donor loyalty isn&rsquo;t about the donor being loyal to us. It&rsquo;s about us being
+          loyal to the donor. Legacy society members who feel that loyalty tend to give more
+          while they&rsquo;re living, too.
+        </p>
+
+        <p className="mt-8 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
+          If you&rsquo;re ready to begin asking, start with <Link href="/blog/how-to-start-a-planned-giving-program" className="font-semibold text-[rgb(var(--navy))] underline">how to start a planned giving program</Link>, or see how our <Link href="/services/planned-giving" className="font-semibold text-[rgb(var(--navy))] underline">planned giving consulting and Legacy Call program</Link> works.
         </p>
 
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">

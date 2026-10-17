@@ -449,7 +449,7 @@ const jsonLd = {
         itemOffered: {
           "@type": "Service",
           name: "Legacy & Planned Giving",
-          url: `${SITE_URL}/services/legacy-giving`,
+          url: `${SITE_URL}/services/planned-giving`,
           description:
             "Legacy Call identifies and closes bequests, beneficiary designations, and other deferred gifts from loyal, long-tenured donors.",
         },
@@ -459,7 +459,7 @@ const jsonLd = {
         itemOffered: {
           "@type": "Service",
           name: "Mid-Level Donor Engagement",
-          url: `${SITE_URL}/services/donor-engagement`,
+          url: `${SITE_URL}/services/mid-level-donor-program`,
           description:
             "An 8-stage, relationship-first program that upgrades mid-level donors and builds a qualified major gift pipeline.",
         },
@@ -469,7 +469,7 @@ const jsonLd = {
         itemOffered: {
           "@type": "Service",
           name: "Annual Fund Calling",
-          url: `${SITE_URL}/services/annual-fund`,
+          url: `${SITE_URL}/services/telefundraising`,
           description:
             "Trained Engagement Officers deliver segmented outreach, personalized asks, and digital stewardship for annual fund programs.",
         },

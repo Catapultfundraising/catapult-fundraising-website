@@ -126,11 +126,11 @@ export default function BestPracticesPost() {
             capital campaigns
           </Link>
           ,{" "}
-          <Link href="/services/donor-engagement" className="font-semibold text-[rgb(var(--navy))] underline">
+          <Link href="/services/mid-level-donor-program" className="font-semibold text-[rgb(var(--navy))] underline">
             mid-level donor engagement
           </Link>
           , and{" "}
-          <Link href="/services/legacy-giving" className="font-semibold text-[rgb(var(--navy))] underline">
+          <Link href="/services/planned-giving" className="font-semibold text-[rgb(var(--navy))] underline">
             legacy giving
           </Link>{" "}
           programs nationwide.

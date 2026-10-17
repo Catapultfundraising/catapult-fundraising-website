@@ -6,14 +6,22 @@ import { LoyaltyCalloutCard } from "@/components/tool-callout";
 import { Users2 } from "lucide-react";
 import { testimonialsFor } from "@/lib/testimonials";
 import { TestimonialQuote } from "@/components/testimonial-quote";
+import { ServiceProof, ServiceFaq } from "@/components/service-proof";
 
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Mid-Level Donor Engagement Program",
+  title: "Mid-Level Donor Program & Donor Engagement",
   description:
-    "A multi-channel Donor Engagement program that upgrades mid-level donors, deepens retention, and builds a qualified major-gift pipeline.",
+    "A mid-level donor program that thanks, qualifies and upgrades the donors between your annual fund and major gifts, and builds your next major gift pipeline.",
   keywords: [
+    "mid-level donor program",
+    "donor engagement",
+    "donor engagement strategies",
+    "mid level donor programs",
+    "mid-level giving",
+    "mid-level donors",
+    "mid-level giving society",
     "mid-level donor engagement",
     "donor engagement officer program",
     "major gift pipeline",
@@ -34,10 +42,15 @@ export const metadata = {
     "donor pyramid",
     "national donor engagement consultant",
   ],
-  alternates: { canonical: "/services/donor-engagement" },
+  alternates: { canonical: "/services/mid-level-donor-program" },
 };
 
 const SECTIONS = [
+  {
+    title: "Who Your Mid-Level Donors Are",
+    description:
+      "Most organizations define mid-level donors as those giving roughly $1,000 to $10,000 a year, though the right range depends on your file. They give more than the average annual fund donor, often for years, but they aren't in anyone's portfolio. They get the same appeal as a $50 donor and rarely get a personal thank-you. That's the gap. These donors already show loyalty and affinity for your mission, and many of your future major and planned gifts are sitting in this group.",
+  },
   {
     title: "Built for the Donors Between Annual Fund and Major Gifts",
     description:
@@ -80,29 +93,44 @@ const SECTIONS = [
 
 const FAQS = [
   {
-    question: "What is mid-level donor engagement?",
+    question: "What is a mid-level donor program?",
     answer:
-      "Mid-level donor engagement is a fundraising program for donors between annual fund and major gift status, too significant for a form letter but not yet assigned a major gift officer. Catapult's program assigns a dedicated Engagement Officer to build the relationship before asking for the next gift.",
+      "A mid-level donor program is a dedicated plan for donors between your annual fund and major gift levels. Instead of mass appeals, these donors get personal attention: a letter from leadership, a real conversation about what they care about, a tailored ask, and stewardship that makes them feel like insiders. Catapult runs this through an assigned Engagement Officer who manages the group like a major gift portfolio.",
   },
   {
-    question: "How many stages does Catapult's Donor Engagement program have?",
+    question: "What does good donor engagement look like for mid-level donors?",
     answer:
-      "The program moves donors through 8 stages: identification and prioritization, list review and approval, a leadership introduction letter, a qualification call, a pre-call letter, the gift phase, fulfillment and reporting, and ongoing stewardship.",
+      "Treat them the way a major gift officer would. One engagement officer owns the relationship all year, so the donor hears the same voice every time. Before anyone asks for an upgrade, the donor gets five to seven touches: a thank-you call with no ask, a birthday call, a gift-anniversary call, a handwritten note, event invitations and an impact update. Then the ask comes, built on that donor's history.",
   },
   {
-    question: "What results does mid-level donor engagement typically produce?",
+    question: "What gift range counts as mid-level?",
     answer:
-      "Clients typically see 20-30% average gift growth at renewal and up to a 100% increase in meaningful donor engagement compared to mail-only outreach, while building a qualified pipeline of future major gift prospects.",
+      "There's no single standard. Many organizations use something like $1,000 to $10,000 a year, and smaller shops may start at $250 or $500. We set the range from your own file by looking at where giving clusters, who is already in a major gift portfolio, and who has capacity to give more than they do today.",
   },
   {
-    question: "How is Donor Engagement different from assigning a major gift officer?",
+    question: "Why focus on mid-level donors?",
     answer:
-      "A major gift officer typically manages a portfolio of already-identified major donors. Catapult's Donor Engagement program works one tier below that, identifying and cultivating mid-level donors who aren't yet qualified for major gift portfolios, so your major gift team receives a pipeline of warmed, qualified prospects.",
+      "They're often the most overlooked people in the database. They're loyal and engaged, and many of them have more capacity than their gifts suggest. Wealth ratings alone miss a lot of them. When you thank them personally and ask them to take the next step, they renew and upgrade. They also become the pipeline your major gift officers need.",
   },
   {
-    question: "How much does the Donor Engagement program cost?",
+    question: "How does Catapult's mid-level program work?",
     answer:
-      "Pricing depends on the size of the donor segment engaged, the number of Engagement Officer touchpoints, and program length. Catapult builds a customized proposal after reviewing your donor file and goals.",
+      "It moves donors through 8 stages: identification and prioritization, list review with your team, a leadership introduction letter, a qualification conversation, a pre-call letter previewing the ask, the gift conversation, fulfillment and daily reporting, and ongoing stewardship touchpoints such as thank-you calls, handwritten notes and special-occasion calls.",
+  },
+  {
+    question: "Should we start a mid-level giving society?",
+    answer:
+      "Often, yes. A named giving society gives mid-level donors something to join and gives you a reason to recognize them. In one faith-based program, we invited donors to join, renew or upgrade within a recognition society. Lapsed donors responded at a 32% higher rate than the organization's historical benchmark.",
+  },
+  {
+    question: "How is this different from assigning a major gift officer?",
+    answer:
+      "Major gift officers manage a small portfolio of donors who are already qualified. Our program works one tier below that. It reaches hundreds of mid-level donors personally, finds out who is ready for more, and passes warm, qualified prospects to your major gift team.",
+  },
+  {
+    question: "What does a mid-level donor program cost?",
+    answer:
+      "It depends on how many donors are engaged, the number of touchpoints and how long the program runs. We build a custom proposal after reviewing your donor file and goals.",
   },
 ];
 
@@ -111,9 +139,9 @@ const jsonLd = {
   "@graph": [
     {
       "@type": "Service",
-      name: "Mid-Level Donor Engagement",
-      serviceType: "Nonprofit mid-level donor engagement program",
-      url: `${SITE_URL}/services/donor-engagement`,
+      name: "Mid-Level Donor Program",
+      serviceType: "Nonprofit mid-level donor program and engagement",
+      url: `${SITE_URL}/services/mid-level-donor-program`,
       provider: { "@type": "ProfessionalService", name: "Catapult Fundraising", url: SITE_URL },
       areaServed: { "@type": "Country", name: "United States" },
       description:
@@ -131,7 +159,7 @@ const jsonLd = {
       "@type": "BreadcrumbList",
       itemListElement: [
         { "@type": "ListItem", position: 1, name: "Home", item: SITE_URL },
-        { "@type": "ListItem", position: 2, name: "Mid-Level Donor Engagement", item: `${SITE_URL}/services/donor-engagement` },
+        { "@type": "ListItem", position: 2, name: "Mid-Level Donor Program", item: `${SITE_URL}/services/mid-level-donor-program` },
       ],
     },
   ],
@@ -146,8 +174,8 @@ export default function DonorEngagementPage() {
       />
       <PageHero
         eyebrowInHeading
-        eyebrow="Mid-Level Donor Engagement Program"
-        title="Turn your best-kept fundraising secret — mid-level donors — into your next major gift pipeline."
+        eyebrow="Mid-Level Donor Program & Donor Engagement"
+        title="Your mid-level donors are your next major donors. Most of them are still getting form letters."
         description="A dedicated Engagement Officer treats every qualifying donor like a portfolio assignment, building the relationship before the ask and reporting results daily."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f814dca4-4b83-4023-925a-9a7274bbf2d2.jpeg"
       />
@@ -163,6 +191,26 @@ export default function DonorEngagementPage() {
           "Cost-effective, scalable relationship building",
           "Daily reporting through an online portal",
           "Flexible, phased engagement design",
+        ]}
+      />
+      <ServiceProof
+        heading="What happens when mid-level donors get real attention."
+        stats={[
+          { value: "32%", label: "Higher response rate from lapsed mid-level donors vs. the organization's benchmark" },
+          { value: "57%", label: "Of donors reached qualified for additional stewardship" },
+          { value: "9%", label: "Qualified for a major gift appointment" },
+          { value: "3", label: "Segments: reactivate, renew and upgrade" },
+        ]}
+        stories={[
+          {
+            title: "A faith-based organization builds a major gift pipeline",
+            body: "We split the file into three groups. Lapsed $500 donors were invited back, $1,000 donors were invited to renew, and donors under $2,500 with more capacity were invited to upgrade. Each donor got a letter or email, then a thank-you call and a personal invitation into a recognition society. Lapsed donors responded 32% above benchmark, and 9% of those reached were ready for a major gift conversation.",
+            href: "/insights/case-studies/mid-level-donor-engagement-faith-based-organization",
+          },
+          {
+            title: "Why it works",
+            body: "Mid-level donors have already shown loyalty and affinity. What most of them haven't had is a personal conversation. A letter from leadership, a call that starts with thank you, and an ask matched to their history usually tell you more about a donor in ten minutes than a wealth screen will.",
+          },
         ]}
       />
       <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
@@ -182,8 +230,10 @@ export default function DonorEngagementPage() {
         <LoyaltyCalloutCard note="Not sure whether to start with mid-level engagement or a legacy program? Our free report card grades both tracks from sixteen questions and tells you which one your file is pointing at." />
       </section>
 
+      <ServiceFaq heading="Mid-level donor program questions." faqs={FAQS} />
+
       <RelatedReading
-        heading="Mid-level donor engagement guidance."
+        heading="Mid-level donor program guidance."
         service="donor-engagement"
         pillars={["Donor Acquisition & Retention", "Major Gifts"]}
         answerSlugs={[
