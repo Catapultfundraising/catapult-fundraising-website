@@ -1,6 +1,10 @@
 {
   "crons": [
     { "path": "/api/portal-sync?project=csnf", "schedule": "0 15 * * *" },
-    { "path": "/api/portal-data-refresh?client=all", "schedule": "0 13 * * 1" }
+    { "path": "/api/portal-data-refresh?client=jag", "schedule": "0 13 * * 1" },
+    { "path": "/api/portal-data-refresh?client=csnf", "schedule": "10 13 * * 1" },
+    { "path": "/api/portal-data-refresh?client=pvas", "schedule": "20 13 * * 1" },
+    { "path": "/api/portal-data-refresh?client=wcbhc", "schedule": "30 13 * * 1" },
+    { "path": "/api/portal-data-refresh?client=baq", "schedule": "40 13 * * 1" }
   ]
 }
