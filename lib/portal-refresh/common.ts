@@ -53,7 +53,41 @@ export async function closePool() {
   }
 }
 
+// The website project has no static IP, so Azure rejects it (40615). By default every refresh query is
+// sent to Catapult Engage's read feed (/api/portal-read, static IPs). PORTAL_SQL_DIRECT=1 = connect directly.
+function engageReadUrl(): string {
+  const u = process.env.ENGAGE_READ_URL || (process.env.ENGAGE_PORTAL_URL ? process.env.ENGAGE_PORTAL_URL.replace(/\/api\/portal-v2\/?$/, "/api/portal-read") : "");
+  return u || "https://engage.catapultfr.com/api/portal-read";
+}
+
+const ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(\.\d+)?Z$/;
+async function rowsViaEngage(query: string): Promise<Row[]> {
+  const secret = process.env.PORTAL_WRITE_SECRET;
+  if (!secret) throw new Error("PORTAL_WRITE_SECRET not set (needed for the Engage read feed)");
+  let last: unknown;
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch(engageReadUrl(), {
+        method: "POST", cache: "no-store",
+        headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+        body: JSON.stringify({ query }),
+      });
+      const j = (await r.json().catch(() => ({}))) as { rows?: Row[]; error?: string };
+      if (!r.ok || !Array.isArray(j.rows)) throw new Error(`Engage read feed ${r.status}: ${j.error ?? "no rows"}`);
+      // JSON turns SQL dates into ISO strings; restore Date objects so the builders behave as with mssql.
+      for (const row of j.rows) for (const k in row) { const v = row[k]; if (typeof v === "string" && ISO.test(v)) row[k] = new Date(v); }
+      return j.rows;
+    } catch (e) {
+      last = e;
+      if (/40[01]|400/.test(String(e))) break;
+      await new Promise((res) => setTimeout(res, 3000 * (i + 1)));
+    }
+  }
+  throw last;
+}
+
 export async function rows(query: string): Promise<Row[]> {
+  if (process.env.PORTAL_SQL_DIRECT !== "1") return rowsViaEngage(query);
   const pool = await azurePool();
   const r = await pool.request().query(query);
   return r.recordset as Row[];
