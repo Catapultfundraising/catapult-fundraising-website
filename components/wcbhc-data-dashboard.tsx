@@ -648,7 +648,7 @@ export function WcbhcDataDashboard({ data }: { data: WcbhcSnapshot }) {
       </header>
       <nav className="sticky top-0 z-10 border-b border-[rgb(var(--line))] bg-white">
         <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6">
-          {([...TABS, ..."Prospect Ratings" as const] as (Tab | "Prospect Ratings")[]).map((t) => (
+          {([...TABS, "Prospect Ratings"] as (Tab | "Prospect Ratings")[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
