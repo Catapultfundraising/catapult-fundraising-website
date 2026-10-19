@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { isResearchAuthed } from "@/lib/research-auth";
 import { isJagCookieValid, JAG_DATA_COOKIE } from "@/lib/jag-data-auth";
 import { isCsnfCookieValid, CSNF_DATA_COOKIE } from "@/lib/csnf-data-auth";
 import { isPvasCookieValid, PVAS_DATA_COOKIE } from "@/lib/pvas-data-auth";
@@ -20,5 +21,7 @@ export async function isBoardReviewStaff(req: NextRequest, client: string): Prom
   const cron = process.env.CRON_SECRET;
   if (cron && req.headers.get("authorization") === `Bearer ${cron}`) return true;
   const f = CHECK[client.toLowerCase()];
-  return f ? f(req) : false;
+  if (f && (await f(req))) return true;
+  // Any Catapult staff login (research portal) counts too, so employees never sign in twice.
+  return client.toLowerCase() in CHECK ? isResearchAuthed(req) : false;
 }

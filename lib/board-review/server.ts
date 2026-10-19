@@ -4,7 +4,7 @@ import { BR_MEMBER_COOKIE, verifyMemberToken } from "@/lib/board-review/auth";
 import { getMembers, getState, type BrMember } from "@/lib/board-review/store";
 import { isBrClient, type BrClient, type BrEntry, type BrMemberPublic } from "@/lib/board-review/config";
 
-/** Catapult employees with that client's dashboard login, or Viktor. Not the research login. */
+/** Catapult employees with that client's dashboard login, research (staff) login, or Viktor. */
 export async function catapultClient(req: NextRequest, c: string | null): Promise<BrClient | null> {
   if (!c || !isBrClient(c)) return null;
   return (await isBoardReviewStaff(req, c)) ? c : null;
