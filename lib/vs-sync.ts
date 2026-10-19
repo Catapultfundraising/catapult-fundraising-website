@@ -358,7 +358,12 @@ export async function buildPortalDataFromVanillaSoft(
       declined.push({ name: nameOf(id), org: orgOf(id), reason: declineReason(outcome.comment, fieldReason) });
     } else if (outcome?.status === "deceased") {
       deceased.push({ name: nameOf(id), reason: "Passed Away" });
-    } else if (outcome?.status === "rescheduled") {
+    } else if (
+      outcome?.status === "rescheduled" &&
+      !(scheduledAt && new Date(scheduledAt) >= asOf && new Date(scheduledAt) > new Date(outcome.lastDate) && lastBooking.get(id) !== "callback")
+    ) {
+      // A "to be rescheduled" code is superseded once a new interview is booked
+      // on a future date (Jose Solorio, CSNF, Oct 2026); then he falls through to Scheduled.
       toBeRescheduled.push({ name: nameOf(id), org: orgOf(id) });
     } else if (scheduledAt && new Date(scheduledAt) >= asOf && lastBooking.get(id) !== "callback") {
       scheduledInterviews.push({ name: nameOf(id), org: orgOf(id), date: formatDate(scheduledAt) });
