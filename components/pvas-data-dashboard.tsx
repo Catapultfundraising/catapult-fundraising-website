@@ -9,7 +9,7 @@ import type { PvasSnapshot, Person } from "@/lib/pvas-data-store";
 import { formatDollars } from "@/lib/gift-chart";
 import { extrasFromIndex, seatGc2p } from "@/lib/pvas-gc2p";
 import { BoardReviewAdmin } from "@/components/board-review/admin";
-import { useBoardReviewStaff } from "@/components/board-review/staff-tab";
+import { useBoardReviewStaff, StaffSignIn } from "@/components/board-review/staff-tab";
 import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadUrl, useCrm, type ExportKind } from "@/components/pvas-data-crm";
 import type { IndexRow } from "@/lib/pvas-data-store";
 
@@ -640,7 +640,7 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
       </header>
       <nav className="sticky top-0 z-10 border-b border-[rgb(var(--line))] bg-white">
         <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6">
-          {([...TABS, ...(staff ? (["Prospect Ratings"] as const) : [])] as (Tab | "Prospect Ratings")[]).map((t) => (
+          {([...TABS, ..."Prospect Ratings" as const] as (Tab | "Prospect Ratings")[]).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
@@ -653,7 +653,7 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
         {tab === "Donor Lookup" && <Lookup d={data} />}
-        {staff && tab === "Prospect Ratings" && <BoardReviewAdmin client="pvas" />}
+        {tab === "Prospect Ratings" && (staff ? <BoardReviewAdmin client="pvas" /> : <StaffSignIn client="pvas" />)}
         {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
         {tab === "Campaign Donors" && <CampaignDonors />}
         {tab === "Add + Upload" && <AddAndUpload />}
