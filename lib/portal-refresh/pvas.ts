@@ -231,6 +231,6 @@ export async function buildPvas() {
       last: sm.last, years: sm.years, band: sm.band, ds: d["DS Rating"] || s(port.get(c)?.DS_Rating), capacity: cap || (Object.keys(d).length ? "Unrated" : ""), capMin: capmin(cap) });
   }
   index.sort((a, b) => (b.lifetime as number) - (a.lifetime as number));
-  const records = { asOf, index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
+  const records = { asOf: builtAt(), index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
   return { snapshot, records, pirs: await pirLinks("pvas") };
 }

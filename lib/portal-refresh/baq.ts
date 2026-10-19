@@ -243,7 +243,7 @@ export async function buildBaq() {
       last: sm.last, years: sm.years, band: sm.band, ds: d["DS Rating"] || "", capacity: cap || (Object.keys(d).length ? "Unrated" : ""), capMin: capmin(cap) });
   }
   index.sort((a, b) => (b.lifetime as number) - (a.lifetime as number));
-  const records = { asOf, index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
+  const records = { asOf: builtAt(), index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
   // House style: no em-dashes in client-facing text (some Access notes contain them).
   const clean = <T,>(v: T): T => JSON.parse(JSON.stringify(v).replace(/ \u2014 |\u2014/g, (m) => (m.length > 1 ? ", " : "-")));
   return { snapshot: clean(snapshot), records: clean(records), pirs: clean(await pirLinks("baq")) };

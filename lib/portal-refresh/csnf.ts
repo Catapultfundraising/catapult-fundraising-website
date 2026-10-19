@@ -234,7 +234,7 @@ export async function buildCsnf() {
       ds: d["DS Rating"] ?? "", capacity: cap || (Object.keys(d).length ? "Unrated" : ""), capMin: capmin(cap) });
   }
   index.sort((a, b) => (b.lifetime as number) - (a.lifetime as number));
-  const records = { asOf, index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
+  const records = { asOf: builtAt(), index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
 
   // Fill blank batch names from the records index (as build_snap did).
   for (const b of batches) for (const p of b.people) if (!p.name && p.cptid !== null) p.name = R.get(p.cptid)?.name ?? "";
