@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { AskAmountPanel } from "@/components/ask-amount-panel";
 import { Search, X, Download, FileSpreadsheet, FileText } from "lucide-react";
 import type { DonorRecord, IndexRow } from "@/lib/jag-data-store";
 import { ACTIVITY_KINDS, EMPTY_TRACKING, PROSPECT_STATUSES, type JagTracking } from "@/lib/jag-tracking-types";
@@ -267,6 +268,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         <DownloadButtons get={() => recordPayload(r, tracking)} small />
       </div>
       <TrackingPanel cptid={r.cptid} />
+      <AskAmountPanel client="jag" cptid={r.cptid} base={((r as { portfolio?: { ask?: number } }).portfolio?.ask) || (r.board ?? []).find((b) => b.active && b.ask)?.ask || 0} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         {[["Lifetime giving", usd(s.lifetime)], ["Gifts", String(s.gifts)], ["Largest gift", usd(s.largest)], ["Years giving", String(s.years)], ["Last gift", s.last || "None"]].map(([k, v]) => (
           <div key={k} className="rounded-xl border border-[rgb(var(--line))] p-3">
