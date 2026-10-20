@@ -5,9 +5,56 @@ import { BR_CHOICES, type BrClient } from "@/lib/board-review/config";
 
 type Entry = { cptid: number; name: string; city: string; state: string };
 type Ans = { choice: string; other?: string };
+type Sugg = { name: string; city: string; state: string };
+const EMPTY_S = { name: "", city: "", state: "", phone: "", how: "" };
+
+function SuggestProspects({ initial }: { initial: Sugg[] }) {
+  const [list, setList] = useState<Sugg[]>(initial);
+  const [f, setF] = useState(EMPTY_S);
+  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const inp = "w-full rounded-md border border-[rgb(var(--line))] px-3 py-2 text-sm outline-none focus:border-[#B28C46]";
+  const save = async () => {
+    if (!f.name.trim()) { setMsg("Please enter a name."); return; }
+    setBusy(true); setMsg("");
+    try {
+      const r = await fetch("/api/board-review/member", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ suggest: f }) });
+      const j = await r.json().catch(() => ({}));
+      if (!r.ok) throw new Error(j.error || "Could not save. Please try again.");
+      setList((l) => [...l, j.suggestion]); setF(EMPTY_S); setMsg(`Thank you. ${j.suggestion.name} was added.`);
+    } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+  };
+  const fld = (k: keyof typeof EMPTY_S, label: string, ph = "") => (
+    <label className="block text-sm text-[#0E1E31]"><span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#0E1E31]/60">{label}</span>
+      <input className={inp} placeholder={ph} value={f[k]} onChange={(e) => setF({ ...f, [k]: e.target.value })} /></label>
+  );
+  return (
+    <section className="rounded-xl border-2 border-[#B28C46]/60 bg-white p-6 shadow-sm">
+      <h2 className="font-display text-xl text-[#0E1E31]">Who else should we be talking to?</h2>
+      <p className="mt-1 text-sm text-[#0E1E31]/75">If you know someone who is not on this list and could be a good prospect, add them here. Only the name is required. Add as many as you like.</p>
+      <div className="mt-4 grid gap-3 md:grid-cols-6">
+        <div className="md:col-span-6">{fld("name", "Name *", "First and last name")}</div>
+        <div className="md:col-span-2">{fld("city", "City")}</div>
+        <div className="md:col-span-1">{fld("state", "State")}</div>
+        <div className="md:col-span-3">{fld("phone", "Cell phone")}</div>
+        <label className="block text-sm text-[#0E1E31] md:col-span-6"><span className="mb-1 block text-xs font-medium uppercase tracking-wide text-[#0E1E31]/60">How do you know them?</span>
+          <textarea className={inp + " min-h-[80px]"} value={f.how} onChange={(e) => setF({ ...f, how: e.target.value })} placeholder="e.g. neighbor, serve together on another board, longtime client" /></label>
+      </div>
+      <div className="mt-3 flex flex-wrap items-center gap-3">
+        <button className="rounded-md bg-[#0E1E31] px-4 py-2 text-sm font-medium text-white disabled:opacity-50" disabled={busy} onClick={save}>{busy ? "Saving..." : "Add prospect"}</button>
+        {msg && <span className="text-sm text-[#0E1E31]/80">{msg}</span>}
+      </div>
+      {!!list.length && (
+        <div className="mt-5 border-t border-[rgb(var(--line))] pt-4">
+          <p className="text-xs font-medium uppercase tracking-wide text-[#0E1E31]/60">You have suggested</p>
+          <ul className="mt-2 space-y-1 text-sm text-[#0E1E31]">{list.map((x, i) => <li key={i}>{x.name}{(x.city || x.state) && <span className="text-[#0E1E31]/60"> · {[x.city, x.state].filter(Boolean).join(", ")}</span>}</li>)}</ul>
+        </div>
+      )}
+    </section>
+  );
+}
 
 export function BoardReviewMember({ client }: { client: BrClient }) {
-  const [data, setData] = useState<{ clientName: string; member: { name: string }; entries: Entry[] } | null>(null);
+  const [data, setData] = useState<{ clientName: string; member: { name: string }; entries: Entry[]; suggestions?: Sugg[] } | null>(null);
   const [answers, setAnswers] = useState<Record<string, Ans>>({});
   const [status, setStatus] = useState("");
   const pending = useRef<Record<string, Ans>>({});
@@ -101,6 +148,7 @@ export function BoardReviewMember({ client }: { client: BrClient }) {
             </section>
           );
         })}
+        <SuggestProspects initial={data.suggestions ?? []} />
       </div>
     </main>
   );

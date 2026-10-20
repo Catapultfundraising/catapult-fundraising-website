@@ -18,19 +18,40 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   return <label className="block text-xs font-semibold uppercase tracking-wide text-[#0E1E31]/70">{label}<div className="mt-1 font-normal normal-case tracking-normal">{children}</div></label>;
 }
 
+type Suggestion = { cptid: number; name: string; city: string; state: string; phone: string; note: string; by: string; at: string };
+function Suggestions({ items }: { items: Suggestion[] }) {
+  return (
+    <div className={card + " mt-6"}>
+      <h2 className="font-display text-xl text-[#0E1E31]">Prospects suggested by members ({items.length})</h2>
+      <p className="text-sm text-[#0E1E31]/70">Added from the bottom of the member review page. Each one is saved to the client data with its own CPTID and is never overwritten by the weekly refresh.</p>
+      {!items.length ? <p className="mt-3 text-sm">No suggestions yet.</p> : (
+        <div className="mt-4 overflow-auto"><table className="w-full text-sm">
+          <thead className="bg-[#0E1E31] text-left text-xs text-white"><tr><th className="p-2">Name</th><th className="p-2">City, State</th><th className="p-2">Cell</th><th className="p-2">Suggested by</th><th className="p-2">How they know them</th><th className="p-2">CPTID</th></tr></thead>
+          <tbody>{items.map((s, i) => { const how = s.note.match(/How they know them: (.*?)(?: \| Possible duplicate|$)/)?.[1] ?? ""; const dup = s.note.match(/Possible duplicate of (.*)$/)?.[1];
+            return (<tr key={s.cptid} className={i % 2 ? "bg-[#F1ECE0]/60" : "bg-white"}>
+              <td className="p-2 font-medium text-[#0E1E31]">{s.name}{dup && <div className="text-xs font-normal text-amber-700">Possible duplicate: {dup}</div>}</td>
+              <td className="p-2">{[s.city, s.state].filter(Boolean).join(", ")}</td><td className="p-2">{s.phone}</td>
+              <td className="p-2">{s.by}<div className="text-xs text-[#0E1E31]/50">{new Date(s.at).toLocaleDateString()}</div></td><td className="p-2">{how}</td><td className="p-2">{s.cptid}</td></tr>); })}</tbody>
+        </table></div>
+      )}
+    </div>
+  );
+}
+
 export function BoardReviewAdmin({ client }: { client: BrClient }) {
   const [tab, setTab] = useState<Tab>("Build list");
   const [list, setList] = useState<BrList | null>(null);
   const [members, setMembers] = useState<BrMemberPublic[]>([]);
   const [answers, setAnswers] = useState<Record<string, Record<string, BrAnswer>>>({});
   const [msg, setMsg] = useState("");
+  const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [settings, setSettings] = useState<BrSettings>({ windowDays: 14, fixedDue: null, remindAfterDays: 5 });
 
   const load = useCallback(async () => {
     const r = await fetch(`${API}?client=${client}`, { cache: "no-store" });
     if (!r.ok) { setMsg("Catapult staff login required."); return; }
     const j = await r.json();
-    setList(j.list); setMembers(j.members); setAnswers(j.answers); if (j.settings) setSettings(j.settings);
+    setList(j.list); setMembers(j.members); setAnswers(j.answers); if (j.settings) setSettings(j.settings); setSuggestions(j.suggestions ?? []);
   }, [client]);
   useEffect(() => { load(); }, [load]);
 
@@ -66,6 +87,7 @@ export function BoardReviewAdmin({ client }: { client: BrClient }) {
         {tab === "Review list" && <ListView list={list} post={post} onChange={setList} />}
         {tab === "Members" && <Members client={client} settings={settings} members={members} total={list?.entries.length ?? 0} post={post} reload={load} />}
         {tab === "Results" && <Results client={client} list={list} members={members} answers={answers} reload={load} />}
+        {tab === "Results" && <Suggestions items={suggestions} />}
       </div>
     </main>
   );

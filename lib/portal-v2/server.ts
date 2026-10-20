@@ -70,6 +70,22 @@ export async function portalProspects(client: PortalClient): Promise<PortalState
   try { return (await engage<PortalState>(client, "state")).prospects ?? []; } catch { return []; }
 }
 
+/** Board/committee member suggestion from the Prospect Ratings page. Saved as a portal-added prospect (Engage SQL,
+ *  next CPTID) so it joins the client data and the Monday refresh never overwrites it. Possible duplicates are
+ *  still saved (members cannot resolve them) and flagged in the note for Catapult staff. */
+export const BOARD_SUGGEST_PREFIX = "Board member: ";
+export async function addBoardSuggestion(client: PortalClient, memberName: string, s: { name: string; city: string; state: string; phone: string; how: string }) {
+  const state = await engage<PortalState>(client, "state");
+  const { known, floor, skip } = await knownRecords(client, state);
+  const parts = s.name.trim().split(/\s+/);
+  const prospect = { clientId: "", firstName: parts.length > 1 ? parts.slice(0, -1).join(" ") : "", lastName: parts.length > 1 ? parts[parts.length - 1] : "", fullName: s.name.trim(), orgName: "", address1: "",
+    city: s.city, state: s.state, zip: "", email: "", phone: s.phone, note: "" };
+  const dups = buildMatcher(known).similar(prospect).slice(0, 3);
+  const dupNote = dups.length ? ` | Possible duplicate of ${dups.map((k) => `CPTID ${k.cptid} ${k.name}`).join("; ")}` : "";
+  prospect.note = `Suggested by ${memberName} (Prospect Ratings).${s.how ? ` How they know them: ${s.how}` : ""}${dupNote}`.slice(0, 1000);
+  return engage<{ cptid: number }>(client, "addProspect", { floor, skip, prospect, by: `${BOARD_SUGGEST_PREFIX}${memberName}`.slice(0, 200) });
+}
+
 // ---- Campaign gifts already in the client database (weekly snapshot) ----
 // Only gifts/pledges coded to the CURRENT capital campaign count. CSNF (only the older
 // Henderson Health Sciences campaign is coded) and JAG (no campaign coding yet) have none.
