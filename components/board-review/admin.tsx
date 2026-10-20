@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { BR_CHOICE_SHORT, BR_CLIENT_NAMES, BR_REMIND_AFTER_DAYS, type BrAnswer, type BrClient, type BrEntry, type BrFilters, type BrList, type BrMemberPublic, type BrPoolRow } from "@/lib/board-review/config";
+import { BR_CHOICE_SHORT, BR_CLIENT_NAMES, type BrSettings, type BrAnswer, type BrClient, type BrEntry, type BrFilters, type BrList, type BrMemberPublic, type BrPoolRow } from "@/lib/board-review/config";
 
 const API = "/api/board-review/admin";
 const usd = (n: number) => (n ? `$${Math.round(n).toLocaleString()}` : "");
@@ -24,12 +24,13 @@ export function BoardReviewAdmin({ client }: { client: BrClient }) {
   const [members, setMembers] = useState<BrMemberPublic[]>([]);
   const [answers, setAnswers] = useState<Record<string, Record<string, BrAnswer>>>({});
   const [msg, setMsg] = useState("");
+  const [settings, setSettings] = useState<BrSettings>({ windowDays: 14, fixedDue: null, remindAfterDays: 5 });
 
   const load = useCallback(async () => {
     const r = await fetch(`${API}?client=${client}`, { cache: "no-store" });
     if (!r.ok) { setMsg("Catapult staff login required."); return; }
     const j = await r.json();
-    setList(j.list); setMembers(j.members); setAnswers(j.answers);
+    setList(j.list); setMembers(j.members); setAnswers(j.answers); if (j.settings) setSettings(j.settings);
   }, [client]);
   useEffect(() => { load(); }, [load]);
 
@@ -63,7 +64,7 @@ export function BoardReviewAdmin({ client }: { client: BrClient }) {
         {msg && <p className="rounded-md bg-red-50 p-3 text-sm text-red-700">{msg}</p>}
         {tab === "Build list" && <Build client={client} list={list} post={post} onSaved={(l) => { setList(l); setTab("Review list"); }} />}
         {tab === "Review list" && <ListView list={list} post={post} onChange={setList} />}
-        {tab === "Members" && <Members client={client} members={members} total={list?.entries.length ?? 0} post={post} reload={load} />}
+        {tab === "Members" && <Members client={client} settings={settings} members={members} total={list?.entries.length ?? 0} post={post} reload={load} />}
         {tab === "Results" && <Results client={client} list={list} members={members} answers={answers} reload={load} />}
       </div>
     </main>
@@ -227,7 +228,41 @@ function ListView({ list, post, onChange }: { list: BrList | null; post: Post; o
 
 const day = (d?: string) => (d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", timeZone: "America/Los_Angeles" }) : "");
 
-function Members({ client, members, total, post, reload }: { client: BrClient; members: BrMemberPublic[]; total: number; post: Post; reload: () => void }) {
+function DueSettings({ settings, post, reload }: { settings: BrSettings; post: Post; reload: () => void }) {
+  const [mode, setMode] = useState<"days" | "date">(settings.fixedDue ? "date" : "days");
+  const [days, setDays] = useState(String(settings.windowDays)), [date, setDate] = useState(settings.fixedDue ?? ""), [remind, setRemind] = useState(String(settings.remindAfterDays));
+  const [note, setNote] = useState("");
+  useEffect(() => { setMode(settings.fixedDue ? "date" : "days"); setDays(String(settings.windowDays)); setDate(settings.fixedDue ?? ""); setRemind(String(settings.remindAfterDays)); }, [settings]);
+  const save = async () => {
+    setNote("");
+    try {
+      if (mode === "date" && !date) throw new Error("Pick a due date");
+      const j = await post({ op: "saveSettings", settings: { windowDays: Number(days) || 14, fixedDue: mode === "date" ? date : null, remindAfterDays: Number(remind) || 5 } });
+      setNote(`Saved. Reminder goes ${(j.settings as BrSettings).remindAfterDays} days after the invite.`); reload();
+    } catch (e) { setNote((e as Error).message); }
+  };
+  return (
+    <div className={card}>
+      <h2 className="font-display text-xl text-[#0E1E31]">Due date and reminder</h2>
+      <p className="mt-1 text-xs text-[#0E1E31]/60">The invite email tells members this date. It applies to invites sent from now on; people already invited keep the date their email gave them.</p>
+      <div className="mt-4 flex flex-wrap items-end gap-4 text-sm">
+        <label className="flex items-center gap-2"><input type="radio" checked={mode === "days"} onChange={() => setMode("days")} /> Due
+          <select className={`${input} w-auto`} value={["7", "10", "14", "21", "30"].includes(days) ? days : "custom"} onChange={(e) => e.target.value !== "custom" && setDays(e.target.value)} onFocus={() => setMode("days")}>
+            {["7", "10", "14", "21", "30"].map((d) => <option key={d} value={d}>{d} days</option>)}{!["7", "10", "14", "21", "30"].includes(days) && <option value="custom">{days} days</option>}
+          </select> after the invite</label>
+        <label className="flex items-center gap-2"><input type="radio" checked={mode === "date"} onChange={() => setMode("date")} /> Due on a set date
+          <input type="date" className={`${input} w-auto`} value={date} onChange={(e) => { setDate(e.target.value); setMode("date"); }} /></label>
+        <label className="flex items-center gap-2">Reminder
+          <input type="number" min={1} max={60} className={`${input} w-20`} value={remind} onChange={(e) => setRemind(e.target.value)} /> days after the invite</label>
+        <button className={btn} onClick={save}>Save</button>
+      </div>
+      <p className="mt-2 text-xs text-[#0E1E31]/60">Tip: for a 7-day window, a reminder at day 3 or 4 works well. A set date is used only while it is still ahead; after it passes, new invites fall back to the day count.</p>
+      {note && <p className="mt-2 rounded-md bg-[#F1ECE0] p-2 text-sm text-[#0E1E31]">{note}</p>}
+    </div>
+  );
+}
+
+function Members({ client, settings, members, total, post, reload }: { client: BrClient; settings: BrSettings; members: BrMemberPublic[]; total: number; post: Post; reload: () => void }) {
   const [note, setNote] = useState("");
   const send = async (body: Record<string, unknown>, what: string) => {
     setErr(""); setNote("");
@@ -235,6 +270,8 @@ function Members({ client, members, total, post, reload }: { client: BrClient; m
     catch (e) { setErr((e as Error).message); }
   };
   const now = Date.now();
+  const fixedAhead = !!settings.fixedDue && Date.parse(`${settings.fixedDue}T23:59:00-07:00`) > now;
+  const dueLabel = fixedAhead ? `by ${new Date(`${settings.fixedDue}T12:00:00`).toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" })}` : `in ${settings.windowDays} days`;
   const done = (m: BrMemberPublic) => total > 0 && (m.answered ?? 0) >= total;
   const notInvited = members.filter((m) => !m.invitedAt && !m.queued);
   const overdue = members.filter((m) => m.invitedAt && !m.queued && m.dueDate && Date.parse(m.dueDate) <= now && !done(m));
@@ -249,6 +286,7 @@ function Members({ client, members, total, post, reload }: { client: BrClient; m
   };
   return (
     <>
+      <DueSettings settings={settings} post={post} reload={reload} />
       <div className={card}>
         <h2 className="font-display text-xl text-[#0E1E31]">Invite a board or committee member</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
@@ -257,7 +295,7 @@ function Members({ client, members, total, post, reload }: { client: BrClient; m
           <Field label="Role (optional)"><input className={input} placeholder="Board member, Campaign committee" value={role} onChange={(e) => setRole(e.target.value)} /></Field>
         </div>
         <button className={`${btn} mt-4`} onClick={invite}>Add member</button>
-        <p className="mt-2 text-xs text-[#0E1E31]/60">Adding a member does not email them. Use Send invite below: the email comes from Jackie with the sign-in link, their email, a password and the instructions, due back in 14 days.</p>
+        <p className="mt-2 text-xs text-[#0E1E31]/60">Adding a member does not email them. Use Send invite below: the email comes from Jackie with the sign-in link, their email, a password and the instructions, due back {dueLabel}.</p>
         {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
         {shown && (
           <div className="mt-4 rounded-md border border-[#B28C46] bg-[#F1ECE0] p-4 text-sm text-[#0E1E31]">
@@ -271,13 +309,13 @@ function Members({ client, members, total, post, reload }: { client: BrClient; m
           <h2 className="font-display text-xl text-[#0E1E31]">Members</h2>
           <div className="flex flex-wrap gap-2">
             <button className={btn} disabled={!notInvited.length || !total} onClick={() => confirm(`Email invites from Jackie to ${notInvited.length} member(s) not yet invited?`) && send({ op: "sendNew" }, "invite(s)")}>Send to all not yet invited ({notInvited.length})</button>
-            {overdue.length > 0 && <button className={btn2} onClick={() => confirm(`Resend the invite to ${overdue.length} member(s) who have not finished? They get a new password and a new due date 14 days out.`) && send({ op: "resendNon" }, "resend(s)")}>Resend to non-respondents ({overdue.length})</button>}
+            {overdue.length > 0 && <button className={btn2} onClick={() => confirm(`Resend the invite to ${overdue.length} member(s) who have not finished? They get a new password and a new due date (${dueLabel}).`) && send({ op: "resendNon" }, "resend(s)")}>Resend to non-respondents ({overdue.length})</button>}
             <button className={btn2} onClick={reload}>Refresh</button>
           </div>
         </div>
         {!total && <p className="mt-2 text-sm text-red-600">Save a review list before sending invites.</p>}
         {note && <p className="mt-2 rounded-md bg-[#F1ECE0] p-2 text-sm text-[#0E1E31]">{note}</p>}
-        <p className="mt-1 text-xs text-[#0E1E31]/60">A reminder goes out automatically {BR_REMIND_AFTER_DAYS} days after the invite to anyone who has not rated every prospect (once per invite).</p>
+        <p className="mt-1 text-xs text-[#0E1E31]/60">A reminder goes out automatically {settings.remindAfterDays} days after the invite to anyone who has not rated every prospect (once per invite).</p>
         {!members.length ? <p className="mt-2 text-sm">No members yet.</p> : (
           <table className="mt-3 w-full text-sm">
             <thead className="bg-[#0E1E31] text-left text-xs text-white"><tr><th className="p-2">Name</th><th className="p-2">Email</th><th className="p-2">Role</th><th className="p-2">Progress</th><th className="p-2">Invite</th><th className="p-2">Reminder</th><th className="p-2">Due</th><th className="p-2">Last visit</th><th /></tr></thead>
@@ -286,7 +324,7 @@ function Members({ client, members, total, post, reload }: { client: BrClient; m
                 <td className="p-2 font-medium">{m.name}</td><td className="p-2">{m.email}</td><td className="p-2">{m.role}</td>
                 <td className="p-2 whitespace-nowrap">{done(m) ? <b className="text-green-700">Done</b> : null} rated {m.answered ?? 0} of {total}</td>
                 <td className="p-2 whitespace-nowrap">{m.queued && m.queued !== "reminder" ? <span className="text-[#B28C46]">Queued</span> : m.invitedAt ? `Sent ${day(m.invitedAt)}${(m.inviteCount ?? 0) > 1 ? ` (x${m.inviteCount})` : ""}` : <span className="text-[#0E1E31]/50">Not invited</span>}</td>
-                <td className="p-2 whitespace-nowrap">{m.queued === "reminder" ? <span className="text-[#B28C46]">Queued</span> : m.reminderSentAt ? `Sent ${day(m.reminderSentAt)}` : m.invitedAt ? (done(m) ? "Not needed" : `Due ${day(new Date(Date.parse(m.invitedAt) + BR_REMIND_AFTER_DAYS * 86400_000).toISOString())}`) : ""}</td>
+                <td className="p-2 whitespace-nowrap">{m.queued === "reminder" ? <span className="text-[#B28C46]">Queued</span> : m.reminderSentAt ? `Sent ${day(m.reminderSentAt)}` : m.invitedAt ? (done(m) ? "Not needed" : `Due ${day(new Date(Date.parse(m.invitedAt) + settings.remindAfterDays * 86400_000).toISOString())}`) : ""}</td>
                 <td className="p-2 whitespace-nowrap">{m.dueDate ? <span className={!done(m) && Date.parse(m.dueDate) <= now ? "font-semibold text-red-600" : ""}>{day(m.dueDate)}{!done(m) && Date.parse(m.dueDate) <= now ? " (past)" : ""}</span> : ""}</td>
                 <td className="p-2">{m.lastSeen ? new Date(m.lastSeen).toLocaleString() : "Not yet"}</td>
                 <td className="space-x-3 whitespace-nowrap p-2 text-right text-xs">

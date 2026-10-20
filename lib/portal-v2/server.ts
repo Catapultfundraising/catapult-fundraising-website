@@ -238,6 +238,15 @@ export function portalV2Route(client: PortalClient) {
           updates: [{ cptid, field: "ask", oldValue: String(current), newValue: String(amount) }], summary: { askEdit: true, cptid, from: current, to: amount } });
         return NextResponse.json({ edited: true, ask: amount, oldAsk: current, by });
       }
+      if (b.op === "editProspect") {
+        const cptid = Number(b.cptid), pr = b.prospect ?? {};
+        if (!(cptid > 0)) return bad("cptid required");
+        const prospect: Record<string, string> = {};
+        const lim: Record<string, number> = { clientId: 100, firstName: 100, lastName: 100, fullName: 300, orgName: 300, address1: 300, city: 100, state: 50, zip: 20, email: 200, phone: 50, note: 1000 };
+        for (const k of Object.keys(lim)) if (pr[k] !== undefined) prospect[k] = txt(pr[k], lim[k]);
+        if (prospect.fullName !== undefined && !prospect.fullName) return bad("Name is required");
+        return NextResponse.json(await engage(client, "editProspect", { cptid, prospect, by }));
+      }
       if (b.op === "undo") return NextResponse.json(await engage(client, "undoBatch", { batchId: Number(b.batchId), by }));
       return bad("unknown op");
     } catch (e) {
