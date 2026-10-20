@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useUrlState } from "@/lib/use-url-state";
+import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
 import { PortalV2Provider, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
@@ -29,7 +31,14 @@ type Tab = (typeof TABS)[number];
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`min-w-0 max-w-full rounded-xl border border-[rgb(var(--line))] bg-white p-4 sm:p-5 ${className}`}>{children}</div>;
 }
-function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
+function Stat({ label, value, note, onClick }: { label: string; value: string; note?: string; onClick?: () => void }) {
+  if (onClick) return (
+    <button type="button" onClick={onClick} className="min-w-0 max-w-full rounded-xl border border-[rgb(var(--line))] bg-white p-4 py-4 text-left hover:border-[rgb(var(--brass))] hover:bg-[rgb(var(--brass))]/5 sm:p-5" title="Click to see the list">
+      <p className="font-display text-2xl text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40">{value}</p>
+      <p className="text-[11px] uppercase tracking-wider text-[rgb(var(--ink))]/55">{label}</p>
+      {note && <p className="mt-1 text-[11px] text-[rgb(var(--ink))]/50">{note}</p>}
+    </button>
+  );
   return (
     <Card className="py-4">
       <p className="font-display text-2xl text-[rgb(var(--navy))]">{value}</p>
@@ -48,21 +57,33 @@ function H({ children, sub }: { children: React.ReactNode; sub?: string }) {
 }
 
 function Table<T extends Record<string, unknown>>({
-  rows, cols, csvName, exportSub,
+  rows, cols, csvName, exportSub, rowClick,
 }: {
   rows: T[];
+  /** Aggregate rows (year, type, level, solicitor...): click opens the list of people behind the row. */
+  rowClick?: (r: T) => void;
   cols: { key: keyof T; label: string; fmt?: (v: T[keyof T], r: T) => string; right?: boolean }[];
   /** Report title for the branded PDF/Excel download. */
   csvName?: string;
   exportSub?: string;
 }) {
   const { open } = useCrm();
+  const nav = useRecordNav();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ k: keyof T; dir: 1 | -1 } | null>(null);
+  const NAME_KEYS = ["name", "donor", "prospect", "donor_name", "full_name"];
+  const nameOf = (r: T) => { for (const k of NAME_KEYS) if (typeof r[k] === "string" && r[k]) return r[k] as string; return ""; };
+  const clickOf = (r: T): (() => void) | undefined => {
+    if (rowClick) return () => rowClick(r);
+    const id = Number(r.cptid);
+    if (Number.isInteger(id) && id > 0) return () => open(id);
+    const n = nameOf(r);
+    return n && nav ? () => nav.openName(n, null) : undefined;
+  };
   const shown = useMemo(() => {
     let r = rows;
     if (q) r = r.filter((x) => JSON.stringify(x).toLowerCase().includes(q.toLowerCase()));
-    if (sort) r = [...r].sort((a, b) => (a[sort.k] > b[sort.k] ? 1 : a[sort.k] < b[sort.k] ? -1 : 0) * sort.dir);
+    if (sort) r = [...r].sort((a, b) => cmpValues(a[sort.k], b[sort.k]) * sort.dir);
     return r;
   }, [rows, q, sort]);
   return (
@@ -93,10 +114,11 @@ function Table<T extends Record<string, unknown>>({
               {cols.map((c) => (
                 <th
                   key={String(c.key)}
-                  onClick={() => setSort({ k: c.key, dir: sort?.k === c.key && sort.dir === -1 ? 1 : -1 })}
+                  onClick={() => setSort({ k: c.key, dir: sort?.k === c.key ? (sort.dir === 1 ? -1 : 1) : 1 })}
+                  title="Click to sort"
                   className={`cursor-pointer whitespace-nowrap px-3 py-2 ${c.right ? "text-right" : ""}`}
                 >
-                  {c.label}
+                  {c.label}{sort?.k === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
                 </th>
               ))}
             </tr>
@@ -105,11 +127,11 @@ function Table<T extends Record<string, unknown>>({
             {shown.map((r, i) => (
               <tr
                 key={i}
-                onClick={typeof r.cptid === "number" ? () => open(r.cptid as number) : undefined}
-                className={`${i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"} ${typeof r.cptid === "number" ? "cursor-pointer hover:bg-[rgb(var(--brass))]/10" : ""}`}
+                onClick={clickOf(r)}
+                className={`${i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"} ${clickOf(r) ? "cursor-pointer hover:bg-[rgb(var(--brass))]/10" : ""}`}
               >
-                {cols.map((c) => (
-                  <td key={String(c.key)} className={`whitespace-nowrap px-3 py-1.5 ${c.right ? "text-right tabular-nums" : ""}`}>
+                {cols.map((c, ci) => (
+                  <td key={String(c.key)} className={`whitespace-nowrap px-3 py-1.5 ${c.right ? "text-right tabular-nums" : ""} ${(NAME_KEYS.includes(String(c.key)) || (rowClick && ci === 0)) && clickOf(r) ? "font-medium text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40" : ""}`}>
                     {c.fmt ? c.fmt(r[c.key], r) : String(r[c.key] ?? "")}
                   </td>
                 ))}
@@ -152,14 +174,17 @@ const personCols: { key: keyof Person; label: string; fmt?: (v: never) => string
 ];
 
 function Overview({ d }: { d: BaqSnapshot }) {
+  const nav = useRecordNav();
+  const go = useDrill();
+  const yr = (v: unknown) => nav?.drillQuery(`Donors who gave in ${v}`, "Every donor with a gift in this year", "year", String(v));
   const recent = d.fys.slice(-10);
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Lifetime giving" value={short(d.kpi.total)} note="No gift history in the BAQ database yet" />
-        <Stat label="Gifts" value={num(d.kpi.gifts)} note={`Avg ${usd(d.kpi.avg)}`} />
-        <Stat label="Donors with gifts" value={num(d.kpi.donors)} />
-        <Stat label="Screened (DonorSearch)" value={num(d.health.dsScreened)} />
+        <Stat label="Gifts" value={num(d.kpi.gifts)} note={`Avg ${usd(d.kpi.avg)}`} onClick={() => go("Donors with gifts", "Every donor with at least one gift", (r) => r.gifts > 0)} />
+        <Stat label="Donors with gifts" value={num(d.kpi.donors)} onClick={() => go("Donors with gifts", "Every donor with lifetime giving", (r) => r.lifetime > 0)} />
+        <Stat label="Screened (DonorSearch)" value={num(d.health.dsScreened)} onClick={() => go("Screened (DonorSearch)", "Records with a DonorSearch rating or capacity", (r) => !!(r.ds || r.capacity))} />
       </div>
       <Card>
         <H sub="Calendar years. Bars = dollars.">Giving by year</H>
@@ -170,7 +195,7 @@ function Overview({ d }: { d: BaqSnapshot }) {
               <XAxis dataKey="fy" />
               <YAxis tickFormatter={short} />
               <Tooltip formatter={(v: number) => usd(v)} />
-              <Bar dataKey="total" fill={NAVY} name="Dollars" />
+              <Bar dataKey="total" fill={NAVY} name="Dollars" cursor="pointer" onClick={(e: { fy?: unknown; payload?: { fy: unknown } }) => yr(e.payload?.fy ?? e.fy)} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -180,7 +205,7 @@ function Overview({ d }: { d: BaqSnapshot }) {
           <H sub="Donors per calendar year">Donor count</H>
           <div className="h-64">
             <ResponsiveContainer>
-              <LineChart data={recent}>
+              <LineChart data={recent} onClick={(st: { activeLabel?: unknown } | null) => st?.activeLabel !== undefined && yr(st.activeLabel)} style={{ cursor: "pointer" }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="fy" />
                 <YAxis />
@@ -194,7 +219,7 @@ function Overview({ d }: { d: BaqSnapshot }) {
           <H sub="Share of last year's donors who gave again">Donor retention</H>
           <div className="h-64">
             <ResponsiveContainer>
-              <BarChart data={d.retention.slice(-10)}>
+              <BarChart data={d.retention.slice(-10)} onClick={(st: { activeLabel?: unknown } | null) => st?.activeLabel !== undefined && nav?.drillQuery(`Retained donors, ${st.activeLabel}`, "Gave this year and the year before", "retained", String(st.activeLabel))} style={{ cursor: "pointer" }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="fy" />
                 <YAxis unit="%" />
@@ -210,6 +235,7 @@ function Overview({ d }: { d: BaqSnapshot }) {
         <H>Recent years</H>
         <Table
           csvName="Giving by Year"
+          rowClick={(r: { fy: unknown }) => yr(r.fy)}
           rows={[...recent].reverse().map((f) => {
             const r = d.retention.find((x) => x.fy === f.fy);
             return { ...f, retention: r ? r.rate : 0, newDonors: r ? r.new : 0 };
@@ -227,6 +253,7 @@ function Overview({ d }: { d: BaqSnapshot }) {
         <H sub="Lifetime giving by donor type">Giving by donor type</H>
         <Table
           csvName="Giving by Donor Type"
+          rowClick={(r: { stage: unknown }) => nav?.drillQuery(String(r.stage), "Donors with gifts of this type", "stage", String(r.stage))}
           rows={d.stages}
           cols={[
             { key: "stage", label: "Donor Type" },
@@ -239,6 +266,11 @@ function Overview({ d }: { d: BaqSnapshot }) {
   );
 }
 
+/** List the people behind an aggregate (rows with a CPTID). */
+function useIds() {
+  const nav = useRecordNav();
+  return (title: string, sub: string, rows: { cptid?: number | null }[]) => nav?.drillIds(title, sub, rows.map((r) => Number(r.cptid)).filter((n) => n > 0));
+}
 function useDrill() {
   const { index, drill, loading } = useCrm();
   return (title: string, sub: string, f: (r: IndexRow) => boolean) => {
@@ -326,7 +358,18 @@ function GiftChartTab({ d }: { d: BaqSnapshot }) {
   const [busy, setBusy] = useState<string | null>(null);
   const goal = Math.min(500_000_000, Math.max(100_000, Number(goalText.replace(/[^\d]/g, "")) || 0));
   const { index, tracking } = useCrm();
-  const { chart, seated, removed } = useMemo(() => seatGc2p(goal, d.pool, tracking, extrasFromIndex(index, tracking, d.pool)), [goal, d.pool, index, tracking]);
+  const { chart, seated, removed, below, belowLevel } = useMemo(() => seatGc2p(goal, d.pool, tracking, extrasFromIndex(index, tracking, d.pool)), [goal, d.pool, index, tracking]);
+  const nav = useRecordNav();
+  const seatList = (level: number | null) => {
+    if (level === null) { nav?.drillIds(`Below ${formatDollars(belowLevel)}`, "Prospects whose amount is under the lowest level shown", below.map((p) => p.cptid)); return; }
+    const x = seated.find((y) => y.level === level);
+    if (x) nav?.drillIds(`${formatDollars(level)} level`, `${x.people.length} prospects seated at this level`, x.people.map((p) => p.cptid));
+    else {
+      // Level not seated on the GC2P (under the lowest level shown): list the prospects whose amount falls in this band.
+      const higher = chart.rows.map((r) => r.level).filter((l): l is number => l !== null && l > level).sort((p, q) => p - q)[0] ?? Infinity;
+      nav?.drillIds(`${formatDollars(level)} level`, "Prospects whose amount falls in this band", below.filter((p) => (p.ask || p.rating || 0) >= level && (p.ask || p.rating || 0) < higher).map((p) => p.cptid));
+    }
+  };
   const stOf = (id: number) => tracking.prospects[String(id)];
   const reportDownload = async (report: "gc" | "gc2p", format: "pdf" | "docx" | "xlsx") => {
     setBusy(report + format);
@@ -366,10 +409,11 @@ function GiftChartTab({ d }: { d: BaqSnapshot }) {
         <H sub={goal === 25_000_000 ? "Suggested $25M campaign gift chart" : "Suggested gift chart"}>Gift chart</H>
         <Table
           rows={chart.rows.map((r) => ({
-            gifts: r.gifts ?? "Many", level: r.level === null ? `Under ${formatDollars(r.under ?? 0)}` : formatDollars(r.level),
+            lvl: r.level, gifts: r.gifts ?? "Many", level: r.level === null ? `Under ${formatDollars(r.under ?? 0)}` : formatDollars(r.level),
             value: r.value, cumulative: r.cumulative, prospects: r.prospects ?? "", share: Math.round(r.shareOfGoal * 1000) / 10,
           }))}
           csvName={`Gift Chart ${formatDollars(goal)}`}
+          rowClick={(r: { lvl: number | null }) => seatList(r.lvl)}
           cols={[
             { key: "gifts", label: "Gifts" }, { key: "level", label: "Gift Level" },
             { key: "value", label: "Value", fmt: (v) => usd(v as number), right: true },
@@ -385,7 +429,7 @@ function GiftChartTab({ d }: { d: BaqSnapshot }) {
         </H>
         <div className="mb-4 space-y-1.5">
           {seated.map((x) => (
-            <div key={x.level} className="grid grid-cols-[110px_1fr_140px] items-center gap-3 text-sm">
+            <div key={x.level} onClick={() => seatList(x.level)} title="Click to list the prospects" className="grid cursor-pointer grid-cols-[110px_1fr_140px] items-center gap-3 rounded text-sm hover:bg-[rgb(var(--brass))]/10">
               <span className="font-medium">{formatDollars(x.level)}</span>
               <div className="h-5 rounded bg-[rgb(var(--paper))]">
                 <div className="h-5 rounded" style={{ width: `${Math.min(100, (x.people.length / x.need) * 100)}%`, background: x.people.length >= x.need ? NAVY : GOLD }} />
@@ -393,6 +437,13 @@ function GiftChartTab({ d }: { d: BaqSnapshot }) {
               <span className="text-right tabular-nums">{x.people.length} of {x.need} identified</span>
             </div>
           ))}
+          {below.length > 0 && (
+            <div onClick={() => seatList(null)} title="Click to list the prospects" className="grid cursor-pointer grid-cols-[110px_1fr_140px] items-center gap-3 rounded border-t border-[rgb(var(--line))] pt-1.5 text-sm hover:bg-[rgb(var(--brass))]/10">
+              <span className="font-medium">Below {formatDollars(belowLevel)}</span>
+              <span className="text-xs text-[rgb(var(--ink))]/60">{usd(below.reduce((a, p) => a + (p.ask || p.rating || 0), 0))} total</span>
+              <span className="text-right tabular-nums">{below.length} prospect{below.length === 1 ? "" : "s"}</span>
+            </div>
+          )}
         </div>
         <p className="mb-4 text-xs text-[rgb(var(--ink))]/55">Click any prospect to open the full donor record. Use the download buttons at the top for the complete branded PDF with every section.</p>
         <div className="space-y-5">
@@ -405,10 +456,10 @@ function GiftChartTab({ d }: { d: BaqSnapshot }) {
                 <Table
                   csvName={`GC2P ${formatDollars(x.level)} Level`}
                   exportSub={`${formatDollars(goal)} goal`}
-                  rows={x.people.map((p) => ({ ...p, solicitor: stOf(p.cptid)?.solicitor || p.solicitor, status: stOf(p.cptid)?.status ?? p.status ?? "", pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
+                  rows={x.people.map((p) => ({ ...p, solicitor2: stOf(p.cptid)?.solicitor2 ?? "", solicitor: stOf(p.cptid)?.solicitor || p.solicitor, status: stOf(p.cptid)?.status ?? p.status ?? "", pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
                   cols={[
                     { key: "name", label: "Prospect" },
-                    { key: "solicitor", label: "Committee Solicitor / Connection" },
+                    { key: "solicitor", label: "Committee Solicitor / Connection" }, { key: "solicitor2", label: "Secondary Solicitor" },
                     { key: "status", label: "Status" },
                     { key: "pir", label: "PIR" },
                     { key: "donorType", label: "Type" },
@@ -421,6 +472,24 @@ function GiftChartTab({ d }: { d: BaqSnapshot }) {
               )}
             </div>
           ))}
+          {below.length > 0 && (
+            <div>
+              <p className="mb-1 font-display text-lg text-[rgb(var(--navy))]">Below {formatDollars(belowLevel)} · {below.length} prospect{below.length === 1 ? "" : "s"} · {usd(below.reduce((a, p) => a + (p.ask || p.rating || 0), 0))}</p>
+              <Table
+                csvName={`GC2P Below ${formatDollars(belowLevel)}`}
+                exportSub={`${formatDollars(goal)} goal`}
+                rows={below.map((p) => ({ ...p, amount: p.ask || p.rating || 0 })) as never}
+                cols={[
+                  { key: "name", label: "Prospect" },
+                  { key: "amount", label: "Ask / Rating", fmt: (v: unknown) => usd(v as number), right: true },
+                  { key: "ds", label: "DS" },
+                  { key: "lifetime", label: "Lifetime", fmt: (v: unknown) => usd(v as number), right: true },
+                  { key: "largest", label: "Largest Gift", fmt: (v: unknown) => usd(v as number), right: true },
+                  { key: "last", label: "Last Gift" },
+                ] as never}
+              />
+            </div>
+          )}
         </div>
       </Card>
     </div>
@@ -478,13 +547,14 @@ function Board({ d }: { d: BaqSnapshot }) {
   const ask = active.reduce((s, b) => s + b.ask, 0);
   const got = active.reduce((s, b) => s + b.get, 0);
   const giving = active.filter((b) => b.lifetime > 0).length;
+  const ids = useIds();
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Committee members" value={num(active.length)} />
-        <Stat label="Pledged (incl. verbal)" value={usd(ask)} />
-        <Stat label="Gifts received" value={usd(got)} />
-        <Stat label="Members who have given or pledged" value={`${active.filter((b) => b.ask > 0 || b.get > 0).length} of ${active.length}`} note={`${giving} with gifts on file`} />
+        <Stat label="Committee members" value={num(active.length)} onClick={() => ids('Committee members', "", active)} />
+        <Stat label="Pledged (incl. verbal)" value={usd(ask)} onClick={() => ids('Members with an ask or pledge', "", active.filter((b) => b.ask > 0))} />
+        <Stat label="Gifts received" value={usd(got)} onClick={() => ids('Members with gifts', "", active.filter((b) => b.get > 0))} />
+        <Stat label="Members who have given or pledged" value={`${active.filter((b) => b.ask > 0 || b.get > 0).length} of ${active.length}`} note={`${giving} with gifts on file`} onClick={() => ids('Members who have given', "", active.filter((b) => b.lifetime > 0 || b.ask > 0 || b.get > 0))} />
       </div>
       <Card>
         <H sub="Campaign committee and board members, with any pledges and gifts on file">Committee giving</H>
@@ -510,30 +580,33 @@ function Board({ d }: { d: BaqSnapshot }) {
 
 function Health({ d }: { d: BaqSnapshot }) {
   const h = d.health;
+  const nav = useRecordNav();
+  const go = useDrill();
+  const has = (k: string) => () => nav?.drillQuery(`Records with ${k}`, `Constituents with a ${k} on file`, "has", k);
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Individual records" value={num(h.records)} />
-        <Stat label="With address" value={pct(h.address, h.records)} note={num(h.address)} />
-        <Stat label="With phone" value={pct(h.phone, h.records)} note={num(h.phone)} />
-        <Stat label="With email" value={pct(h.email, h.records)} note={num(h.email)} />
-        <Stat label="Organizations" value={num(h.orgs)} />
+        <Stat label="Individual records" value={num(h.records)} onClick={() => go("Individual records", "Individual constituents", (r) => !/org|foundation|corp|business|church|trust/i.test(r.kind ?? ""))} />
+        <Stat label="With address" value={pct(h.address, h.records)} note={num(h.address)} onClick={has("address")} />
+        <Stat label="With phone" value={pct(h.phone, h.records)} note={num(h.phone)} onClick={has("phone")} />
+        <Stat label="With email" value={pct(h.email, h.records)} note={num(h.email)} onClick={has("email")} />
+        <Stat label="Organizations" value={num(h.orgs)} onClick={() => go("Organizations", "Organization records", (r) => /org|foundation|corp|business|church|trust/i.test(r.kind ?? ""))} />
         <Stat label="Flagged duplicates" value={num(h.duplicates)} />
         <Stat label="Accounts with 2+ CPTIDs" value={num(h.multiCptAccounts)} />
-        <Stat label="DonorSearch screened" value={pct(h.dsScreened, h.constituents)} note={`${num(h.dsScreened)} of ${num(h.constituents)}`} />
+        <Stat label="DonorSearch screened" value={pct(h.dsScreened, h.constituents)} note={`${num(h.dsScreened)} of ${num(h.constituents)}`} onClick={() => go("DonorSearch screened", "Records with a DonorSearch rating or capacity", (r) => !!(r.ds || r.capacity))} />
       </div>
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <H>Donor type</H>
-          <Table csvName="Donor Types" rows={d.donorType.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Donor Type" }, { key: "count", label: "Records", right: true }]} />
+          <Table rowClick={(r: { type: unknown }) => nav?.drillQuery(String(r.type), "Donor Types", "attr", String(r.type))} csvName="Donor Types" rows={d.donorType.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Donor Type" }, { key: "count", label: "Records", right: true }]} />
         </Card>
         <Card>
           <H>Affiliation flags</H>
-          <Table csvName="Affiliation Flags" rows={Object.entries(d.flags).map(([k, n]) => ({ flag: k, count: n }))} cols={[{ key: "flag", label: "Flag" }, { key: "count", label: "Records", right: true }]} />
+          <Table rowClick={(r: { flag: unknown }) => nav?.drillQuery(String(r.flag), "Affiliation Flags", "attr", String(r.flag))} csvName="Affiliation Flags" rows={Object.entries(d.flags).map(([k, n]) => ({ flag: k, count: n }))} cols={[{ key: "flag", label: "Flag" }, { key: "count", label: "Records", right: true }]} />
         </Card>
         <Card>
           <H>Organization types</H>
-          <Table csvName="Organization Types" rows={d.orgTypes.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Type" }, { key: "count", label: "Orgs", right: true }]} />
+          <Table rowClick={(r: { type: unknown }) => nav?.drillQuery(String(r.type), "Organization Types", "attr", String(r.type))} csvName="Organization Types" rows={d.orgTypes.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Type" }, { key: "count", label: "Orgs", right: true }]} />
         </Card>
       </div>
     </div>
@@ -547,30 +620,32 @@ function Portfolio({ d }: { d: BaqSnapshot }) {
     return { solicitor: s, prospects: ps.length, asks: ps.filter((p) => p.ask > 0).length, ask: ps.reduce((a, p) => a + p.ask, 0) };
   }).sort((a, b) => b.ask - a.ask);
   const cols = [
-    { key: "name", label: "Prospect" }, { key: "solicitor", label: "Committee Solicitor / Connection" },
+    { key: "name", label: "Prospect" }, { key: "solicitor", label: "Committee Solicitor / Connection" }, { key: "solicitor2", label: "Secondary Solicitor" },
     { key: "ask", label: "Gift Level", fmt: (v: unknown) => (v ? usd(v as number) : ""), right: true },
     { key: "priority", label: "Status" }, { key: "type", label: "Type" },
     { key: "lifetime", label: "Lifetime", fmt: (v: unknown) => usd(v as number), right: true },
     { key: "ds", label: "Wealth Rating" }, { key: "capacity", label: "Capacity / Grant Range" }, { key: "task", label: "Notes" },
   ];
+  const ids = useIds();
+  const { tracking } = useCrm();
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Seated prospects" value={num(d.portfolio.length)} />
-        <Stat label="With a solicitor or connection" value={num(d.portfolio.filter((p) => p.solicitor !== "Unassigned").length)} />
-        <Stat label="Identified, not yet rated" value={num(d.unrated?.length ?? 0)} />
-        <Stat label="Received, pledged or committed" value={num(d.committed.length)} note={short(d.committed.reduce((a, p) => a + p.ask, 0)) + " with amounts"} />
+        <Stat label="Seated prospects" value={num(d.portfolio.length)} onClick={() => ids('Campaign prospects', "", d.portfolio)} />
+        <Stat label="With a solicitor or connection" value={num(d.portfolio.filter((p) => p.solicitor !== "Unassigned").length)} onClick={() => ids('Prospects with a solicitor or connection', "", d.portfolio.filter((p) => p.solicitor !== "Unassigned"))} />
+        <Stat label="Identified, not yet rated" value={num(d.unrated?.length ?? 0)} onClick={() => ids('Identified, not yet rated', "", (d.unrated ?? []) as { cptid?: number }[])} />
+        <Stat label="Received, pledged or committed" value={num(d.committed.length)} note={short(d.committed.reduce((a, p) => a + p.ask, 0)) + " with amounts"} onClick={() => ids('Committed', "", d.committed)} />
       </div>
       <Card>
         <H sub="Seated prospects by committee solicitor or connection">Solicitor assignments</H>
-        <Table csvName="Prospects by Solicitor" rows={bySol} cols={[
+        <Table rowClick={(r: { solicitor: string }) => ids(`Solicitor: ${r.solicitor}`, "Prospects assigned to this solicitor", d.portfolio.filter((p) => p.solicitor === r.solicitor))} csvName="Prospects by Solicitor" rows={bySol} cols={[
           { key: "solicitor", label: "Solicitor / Connection" }, { key: "prospects", label: "Prospects", right: true },
           { key: "asks", label: "Seated", right: true }, { key: "ask", label: "Total of Gift Levels", fmt: (v) => usd(v as number), right: true },
         ]} />
       </Card>
       <Card>
         <H sub="Every prospect seated on the $25M gift chart, largest gift level first. Click a name to open the record.">Campaign prospects</H>
-        <Table csvName="Campaign Prospects" rows={d.portfolio as never} cols={cols as never} />
+        <Table csvName="Campaign Prospects" rows={d.portfolio.map((p) => ({ ...p, solicitor2: tracking.prospects[String(p.cptid)]?.solicitor2 ?? "" })) as never} cols={cols as never} />
       </Card>
       {!!d.unrated?.length && (
         <Card>
@@ -590,6 +665,7 @@ function Portfolio({ d }: { d: BaqSnapshot }) {
 
 function Givebutter({ d }: { d: BaqSnapshot }) {
   const g = d.givebutter;
+  const ids = useIds();
   return (
     <div className="space-y-6">
       <Card className="border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5">
@@ -598,14 +674,14 @@ function Givebutter({ d }: { d: BaqSnapshot }) {
         </p>
       </Card>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Campaign gifts" value={num(g.txCount)} note={`${num(g.txDonors)} donors`} />
-        <Stat label="Campaign gift dollars" value={usd(g.txTotal)} />
-        <Stat label="Committee pledges" value={num(g.pledgeCount)} />
-        <Stat label="Pledged" value={usd(g.pledgeTotal)} />
+        <Stat label="Campaign gifts" value={num(g.txCount)} note={`${num(g.txDonors)} donors`} onClick={() => ids('Gift donors', "", g.transactions as { cptid?: number | null }[])} />
+        <Stat label="Campaign gift dollars" value={usd(g.txTotal)} onClick={() => ids('Gift donors', "", g.transactions as { cptid?: number | null }[])} />
+        <Stat label="Committee pledges" value={num(g.pledgeCount)} onClick={() => ids('Pledges', "", g.pledges as { cptid?: number | null }[])} />
+        <Stat label="Pledged" value={usd(g.pledgeTotal)} onClick={() => ids('Pledges', "", g.pledges as { cptid?: number | null }[])} />
       </div>
       <Card>
         <H sub="Campaign gifts by payment type">Gifts by type</H>
-        <Table csvName="Campaign Gifts by Type" rows={g.byCampaign} cols={[
+        <Table rowClick={(r: { campaign: string }) => ids(r.campaign, "Donors with gifts in this group", (g.transactions as { cptid?: number | null; campaign?: string }[]).filter((t) => (t.campaign || "General") === r.campaign))} csvName="Campaign Gifts by Type" rows={g.byCampaign} cols={[
           { key: "campaign", label: "Type" }, { key: "gifts", label: "Gifts", right: true },
           { key: "total", label: "Dollars", fmt: (v) => usd(v as number), right: true },
         ]} />
@@ -632,7 +708,7 @@ function Givebutter({ d }: { d: BaqSnapshot }) {
 }
 
 export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
-  const [tab, setTab] = useState<Tab | "Prospect Ratings">("Overview");
+  const [tab, setTab] = useUrlState<Tab | "Prospect Ratings">("tab", "Overview", [...TABS, "Prospect Ratings"]);
   const staff = useBoardReviewStaff("baq");
   return (
     <CrmProvider>
@@ -662,6 +738,7 @@ export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
         </div>
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
+        <SafeBoundary key={tab} label={`The ${tab} tab`}>
         {tab === "Donor Lookup" && <Lookup d={data} />}
         {tab === "Prospect Ratings" && (staff ? <BoardReviewAdmin client="baq" /> : <StaffSignIn client="baq" />)}
         {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
@@ -674,6 +751,7 @@ export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
         {tab === "Campaign Prospects" && <Portfolio d={data} />}
         {tab === "Database Health" && <Health d={data} />}
         {tab === "Campaign Gifts" && <Givebutter d={data} />}
+        </SafeBoundary>
         <p className="mt-10 text-xs text-[rgb(var(--ink))]/50">
           Built {data.builtAt}. Lifetime totals include all gifts recorded in the BAQ database.
         </p>

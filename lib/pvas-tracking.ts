@@ -33,8 +33,8 @@ export async function writeJson(path: string, data: unknown) {
 
 export async function getPvasTracking(): Promise<PvasTracking> {
   const [t, pirs] = await Promise.all([readJson<Omit<PvasTracking, "pirs">>(PVAS_TRACKING_PATH), readJson<PvasTracking["pirs"]>(PVAS_PIRS_PATH)]);
-  return { prospects: t?.prospects ?? EMPTY_TRACKING.prospects, activity: t?.activity ?? [], pirs: pirs ?? {} };
+  return { prospects: t?.prospects ?? EMPTY_TRACKING.prospects, activity: t?.activity ?? [], removed: t?.removed ?? [], pirs: pirs ?? {} };
 }
 export async function savePvasTracking(t: PvasTracking) {
-  await writeJson(PVAS_TRACKING_PATH, { prospects: t.prospects, activity: t.activity });
+  await writeJson(PVAS_TRACKING_PATH, { prospects: t.prospects, activity: t.activity, removed: t.removed ?? [] });
 }

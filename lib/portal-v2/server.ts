@@ -28,8 +28,10 @@ const RECORDS: Record<PortalClient, () => Promise<{ index: { cptid: number; name
 // CPTIDs at or above this are placeholders in client data (PVAS has a 999999); they never set the next id.
 const PLACEHOLDER_CPTID = 900_000;
 
+const ENGAGE_V2_PREVIEW = "https://catapult-calling-git-portal-gift-edit-void-wwwcatapultfrcom.vercel.app/api/portal-v2";
 async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
-  const url = process.env.ENGAGE_PORTAL_URL, secret = process.env.PORTAL_WRITE_SECRET;
+  // Preview deploys of this branch talk to the Engage branch preview (same SQL database) until Engage PR #7 is merged.
+  const url = process.env.ENGAGE_PORTAL_URL_OVERRIDE || (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/dashboard-10-fixes" ? ENGAGE_V2_PREVIEW : process.env.ENGAGE_PORTAL_URL), secret = process.env.PORTAL_WRITE_SECRET;
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
   const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
   const j = await r.json().catch(() => ({ error: `engage ${r.status}` }));
@@ -55,7 +57,7 @@ async function knownRecords(client: PortalClient, state: PortalState) {
   const extra: Known[] = [];
   for (const r of rec?.index ?? []) if (!byCpt.has(r.cptid)) byCpt.set(r.cptid, { cptid: r.cptid, clientId: "", name: r.name, address: "", city: r.city ?? "", zip: "" });
   for (const p of state.prospects) byCpt.set(p.cptid, { cptid: p.cptid, clientId: p.client_id ?? "", name: p.full_name, address: p.address1 ?? "", city: p.city ?? "", zip: p.zip ?? "", email: p.email ?? "", phone: p.phone ?? "" });
-  for (const u of state.updates) { const k = byCpt.get(u.cptid); if (k) (k as unknown as Record<string, string>)[u.field === "client_id" ? "clientId" : u.field] = u.new_value ?? ""; }
+  for (const u of state.updates) { if (u.field === "solicitor2" || u.field === "ask") continue; const k = byCpt.get(u.cptid); if (k) (k as unknown as Record<string, string>)[u.field === "client_id" ? "clientId" : u.field] = u.new_value ?? ""; }
   // Extra client-id rows (one CPTID with several client ids) still match on id.
   for (const k of ids ?? []) if (k.clientId && byCpt.get(k.cptid)?.clientId !== k.clientId) extra.push(k);
   const known = [...byCpt.values()];
@@ -166,9 +168,86 @@ function stewardshipWins(client: PortalClient, snap: SnapLike, items: PortalGift
   return [...out, ...rest];
 }
 
+/** Stable key per database gift so a dashboard correction/void (saved in Engage SQL) re-applies after every refresh. */
+function keyDbGifts(items: PortalGift[]): PortalGift[] {
+  const seen = new Map<string, number>();
+  return items.map((g) => {
+    const base = `db|${g.created_by ?? ""}|${g.cptid ?? nameKey(g.donor_name)}|${g.kind}|${g.gift_date ?? ""}`;
+    const n = (seen.get(base) ?? 0) + 1; seen.set(base, n);
+    return { ...g, key: n > 1 ? `${base}#${n}` : base };
+  });
+}
+/** Database gifts with the latest dashboard correction applied; voided ones dropped. The refreshed data itself is never changed. */
+function applyOverrides(items: PortalGift[], overrides: PortalState["giftOverrides"]): PortalGift[] {
+  const by = new Map((overrides ?? []).map((o) => [o.gift_key, o]));
+  const out: PortalGift[] = [];
+  for (const g of items) {
+    const o = g.key ? by.get(g.key) : undefined;
+    if (!o) { out.push(g); continue; }
+    if (o.voided) continue;
+    out.push({ ...g, cptid: o.cptid ?? g.cptid, donor_name: o.donor_name || g.donor_name, kind: o.kind || g.kind, amount: o.amount != null ? Number(o.amount) : g.amount,
+      gift_date: o.gift_date ?? g.gift_date, note: o.note ?? g.note, corrected: { by: o.created_by, at: o.created_at, from: g.amount } });
+  }
+  return out;
+}
 async function withDbGifts(client: PortalClient, state: PortalState): Promise<PortalState> {
-  const db = await dbCampaignGifts(client);
+  const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client)), state.giftOverrides);
   return { ...state, gifts: [...db, ...state.gifts] };
+}
+
+/** Name match against everything on file (records index, ids.json, portal prospects): exact name key first, then
+ *  every word of the typed name (2+ letters) present. Used before a gift is recorded without a CPTID. */
+export async function matchDonorName(client: PortalClient, name: string, state?: PortalState) {
+  const st = state ?? await engage<PortalState>(client, "state");
+  const { known } = await knownRecords(client, st);
+  const nk = nameKey(name);
+  const words = name.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length >= 2 && !["mr", "mrs", "ms", "dr", "and", "the"].includes(w));
+  if (!nk) return [];
+  const seen = new Set<number>(); const exact: Known[] = [], partial: Known[] = [];
+  for (const k of known) {
+    if (seen.has(k.cptid) || !k.name) continue;
+    const kk = nameKey(k.name), low = k.name.toLowerCase();
+    if (kk === nk) { exact.push(k); seen.add(k.cptid); }
+    else if (words.length && words.every((w) => low.includes(w))) { partial.push(k); seen.add(k.cptid); }
+  }
+  // Last name alone also catches "Nicholas & Mariana Arredondo" vs "Nick Arredondo".
+  if (!exact.length && !partial.length && words.length) {
+    const last = words[words.length - 1];
+    for (const k of known) if (!seen.has(k.cptid) && k.name && new RegExp(`\\b${last}\\b`, "i").test(k.name)) { partial.push(k); seen.add(k.cptid); }
+  }
+  return [...exact, ...partial].slice(0, 15).map((k) => ({ cptid: k.cptid, name: k.name, city: k.city, address: [k.address, k.city, k.zip].filter(Boolean).join(", "), exact: nameKey(k.name) === nk }));
+}
+
+/** Audit trail in Engage SQL for dashboard history-note changes (best effort: never blocks the save). */
+export async function logHistoryAudit(client: PortalClient, a: { cptid: number; action: string; oldValue?: string | null; newValue?: string | null; by: string }) {
+  try { await engage(client, "logActivity", { cptid: a.cptid, action: a.action, oldValue: a.oldValue ?? null, newValue: a.newValue ?? null, by: a.by }); } catch { /* audit only */ }
+}
+
+/** Secondary solicitor: dashboard-origin data saved in Engage SQL (portal_updates field "solicitor2"); the refresh never writes it. */
+export async function secondarySolicitors(client: PortalClient): Promise<Record<string, string>> {
+  try {
+    const st = await engage<PortalState>(client, "state");
+    const out: Record<string, string> = {};
+    for (const u of st.updates) if (u.field === "solicitor2") out[String(u.cptid)] = u.new_value ?? "";
+    return out;
+  } catch { return {}; }
+}
+export async function saveSecondarySolicitor(client: PortalClient, cptid: number, oldValue: string, newValue: string, by: string) {
+  await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Secondary solicitor (CPTID ${cptid})`, by, newRows: [], gifts: [],
+    updates: [{ cptid, field: "solicitor2", oldValue: oldValue || null, newValue: newValue || "" }], summary: { solicitor2: true, cptid, from: oldValue, to: newValue } });
+}
+
+/** MM/DD/YYYY or YYYY-MM-DD -> YYYY-MM-DD, or null when it is not a real calendar date. */
+export function parseUsDate(v: unknown): string | null {
+  const t = String(v ?? "").trim();
+  let y: number, m: number, d: number;
+  let x = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  if (x) { y = +x[1]; m = +x[2]; d = +x[3]; }
+  else { x = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t); if (!x) return null; m = +x[1]; d = +x[2]; y = +x[3]; }
+  if (y < 1900 || y > 2100 || m < 1 || m > 12 || d < 1) return null;
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null;
+  return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
@@ -268,7 +347,35 @@ export function portalV2Route(client: PortalClient) {
         const amount = Number(String(g.amount ?? "").replace(/[$,\s]/g, ""));
         if (!txt(g.donorName) || !(amount > 0) || !["gift", "pledge"].includes(g.kind)) return bad("Donor, type and amount are required");
         const cptid = Number(g.cptid) || null;
-        return NextResponse.json(await engage(client, "addGift", { by, gift: { cptid, clientId: txt(g.clientId, 100), donorName: txt(g.donorName), kind: g.kind, amount, date: txt(g.date, 10) || null, note: txt(g.note, 1000) } }));
+        const date = txt(g.date, 10) ? parseUsDate(g.date) : null;
+        if (txt(g.date, 20) && !date) return bad("Use MM/DD/YYYY for the date");
+        // No CPTID: show name matches first so the gift attaches to the existing donor instead of creating a second one.
+        if (!cptid && !b.confirmNew) {
+          const matches = await matchDonorName(client, txt(g.donorName));
+          if (matches.length) return NextResponse.json({ matches });
+        }
+        return NextResponse.json(await engage(client, "addGift", { by, gift: { cptid, clientId: txt(g.clientId, 100), donorName: txt(g.donorName), kind: g.kind, amount, date, note: txt(g.note, 1000) } }));
+      }
+      if (b.op === "matchDonor") return NextResponse.json({ matches: await matchDonorName(client, txt(b.name)) });
+      if (b.op === "editGift" || b.op === "voidGift") {
+        const g = b.gift ?? {};
+        const id = Number(g.id);
+        // Database rows carry a key; anything else must be a positive SQL id.
+        const key = id > 0 ? undefined : txt(g.key, 400);
+        if (!(id > 0) && !key) return bad("gift id required");
+        const cptid = g.cptid === undefined || g.cptid === "" ? undefined : (Number(g.cptid) || null);
+        const original = g.original && typeof g.original === "object" ? { amount: Number(g.original.amount) || 0, kind: txt(g.original.kind, 10), date: txt(g.original.date, 10), name: txt(g.original.name), cptid: Number(g.original.cptid) || null } : null;
+        if (b.op === "voidGift") {
+          const reason = txt(b.reason, 500);
+          if (!reason) return bad("Please enter a reason for voiding");
+          return NextResponse.json(await engage(client, "voidGift", { by, reason, gift: { id: id > 0 ? id : undefined, key, cptid: cptid ?? original?.cptid ?? null, donorName: txt(g.donorName) || original?.name, original } }));
+        }
+        const amount = g.amount === undefined ? undefined : Number(String(g.amount).replace(/[$,\s]/g, ""));
+        if (amount !== undefined && !(amount > 0)) return bad("Enter an amount greater than $0");
+        if (g.kind !== undefined && !["gift", "pledge"].includes(g.kind)) return bad("Type must be gift or pledge");
+        let date: string | null | undefined = undefined;
+        if (g.date !== undefined) { date = txt(g.date, 20) ? parseUsDate(g.date) : null; if (txt(g.date, 20) && !date) return bad("Use MM/DD/YYYY for the date"); }
+        return NextResponse.json(await engage(client, "editGift", { by, gift: { id: id > 0 ? id : undefined, key, cptid, donorName: g.donorName === undefined ? undefined : txt(g.donorName), kind: g.kind, amount, date, note: g.note === undefined ? undefined : txt(g.note, 1000), original } }));
       }
       if (b.op === "getAsk" || b.op === "setAsk") {
         const cptid = Number(b.cptid);

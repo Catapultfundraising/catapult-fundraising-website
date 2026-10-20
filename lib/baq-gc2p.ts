@@ -57,7 +57,7 @@ export function extrasFromIndex(index: IndexRow[] | null | undefined, t: BaqTrac
     });
 }
 
-export function seatGc2p(goal: number, pool: PoolPerson[], t?: BaqTracking | null, extras: PoolPerson[] = []): { chart: GiftChart; seated: SeatedLevel[]; notShown: number; removed: { committed: number; disqualified: number } } {
+export function seatGc2p(goal: number, pool: PoolPerson[], t?: BaqTracking | null, extras: PoolPerson[] = []): { chart: GiftChart; seated: SeatedLevel[]; notShown: number; removed: { committed: number; disqualified: number }; below: PoolPerson[]; belowLevel: number } {
   const chart = baqChart(goal);
   const st = t?.prospects ?? {};
   const all = [...pool, ...extras].filter((p) => !OFF.has(st[p.cptid]?.status ?? ""));
@@ -77,7 +77,12 @@ export function seatGc2p(goal: number, pool: PoolPerson[], t?: BaqTracking | nul
     const people = all.filter((p) => seatOf(p) === level).sort((a, b) => rank(a) - rank(b) || b.lifetime - a.lifetime);
     return { row: r, level, need: (r.gifts as number) * GC2P_RATIO, people };
   });
+  // Prospects whose amount (pinned level, ask or rating) is under the lowest level shown: listed on a final "Below $X" row, never dropped.
+  const belowLevel = Math.min(...seated.map((x) => x.level));
+  const seatedIds = new Set(seated.flatMap((x) => x.people.map((p) => p.cptid)));
+  const amountOf = (p: PoolPerson) => Number(st[p.cptid]?.level || (p as { ask?: number }).ask || p.rating || 0);
+  const below = all.filter((p) => !seatedIds.has(p.cptid) && amountOf(p) > 0 && amountOf(p) < belowLevel).sort((a, b) => amountOf(b) - amountOf(a) || b.lifetime - a.lifetime);
   const notShown = goal - seated.reduce((s, x) => s + x.row.value, 0);
   const vals = Object.values(st);
-  return { chart, seated, notShown, removed: { committed: vals.filter((s) => s.status === "Committed").length, disqualified: vals.filter((s) => s.status === "Disqualified").length } };
+  return { chart, seated, notShown, removed: { committed: vals.filter((s) => s.status === "Committed").length, disqualified: vals.filter((s) => s.status === "Disqualified").length }, below, belowLevel };
 }

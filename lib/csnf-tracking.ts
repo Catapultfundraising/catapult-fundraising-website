@@ -33,8 +33,8 @@ export async function writeJson(path: string, data: unknown) {
 
 export async function getCsnfTracking(): Promise<CsnfTracking> {
   const [t, pirs] = await Promise.all([readJson<Omit<CsnfTracking, "pirs">>(CSNF_TRACKING_PATH), readJson<CsnfTracking["pirs"]>(CSNF_PIRS_PATH)]);
-  return { prospects: t?.prospects ?? EMPTY_TRACKING.prospects, activity: t?.activity ?? [], pirs: pirs ?? {} };
+  return { prospects: t?.prospects ?? EMPTY_TRACKING.prospects, activity: t?.activity ?? [], removed: t?.removed ?? [], pirs: pirs ?? {} };
 }
 export async function saveCsnfTracking(t: CsnfTracking) {
-  await writeJson(CSNF_TRACKING_PATH, { prospects: t.prospects, activity: t.activity });
+  await writeJson(CSNF_TRACKING_PATH, { prospects: t.prospects, activity: t.activity, removed: t.removed ?? [] });
 }

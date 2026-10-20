@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { safeSheetName, xmlSafe, finalizeXlsx } from "@/lib/jag-brand-xlsx";
 import { LOGO_URL, LOGO_ASPECT } from "@/lib/csnf-brand-pdf";
 import { FIRM_EMAIL, FIRM_PHONE } from "@/lib/constants";
 
@@ -23,7 +24,7 @@ export async function buildBrandedXlsx(opts: {
 }): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Catapult Fundraising";
-  const ws = wb.addWorksheet(opts.title.slice(0, 31).replace(/[\\/?*[\]:]/g, " "), { views: [{ state: "frozen", ySplit: 5, showGridLines: false }] });
+  const ws = wb.addWorksheet(safeSheetName(opts.title), { views: [{ state: "frozen", ySplit: 5, showGridLines: false }] });
   const n = Math.max(opts.cols.length, 4);
   const img = await logo();
   ws.getRow(1).height = 40;
@@ -64,7 +65,7 @@ export async function buildBrandedXlsx(opts: {
     for (const row of s.rows) {
       opts.cols.forEach((col, i) => {
         const cell = ws.getCell(r, i + 1);
-        cell.value = row[i] ?? "";
+        cell.value = xmlSafe(row[i] ?? "") as string | number;
         const f = FMT[col.kind ?? "text"];
         if (f && typeof row[i] === "number") cell.numFmt = f;
         if (band % 2) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CREAM } };
@@ -83,5 +84,5 @@ export async function buildBrandedXlsx(opts: {
     ws.getColumn(i + 1).width = Math.min(48, Math.max(10, w + 2));
   });
   ws.pageSetup = { orientation: opts.cols.length > 6 ? "landscape" : "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "5:5" };
-  return Buffer.from(await wb.xlsx.writeBuffer());
+  return finalizeXlsx(await wb.xlsx.writeBuffer());
 }

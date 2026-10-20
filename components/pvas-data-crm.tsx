@@ -1,6 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { RecordNav, SafeBoundary, cmpValues, useSort, SortTh, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
+import { useUrlId } from "@/lib/use-url-state";
 import { AskAmountPanel } from "@/components/ask-amount-panel";
 import { Search, X, Download, FileSpreadsheet, FileText } from "lucide-react";
 import type { DonorRecord, IndexRow } from "@/lib/pvas-data-store";
@@ -58,19 +60,49 @@ export const useCrm = () => useContext(CrmCtx);
 export function CrmProvider({ children }: { children: React.ReactNode }) {
   const [index, setIndex] = useState<IndexRow[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [recId, setRecId] = useState<number | null>(null);
+  const [recId, setRecId] = useUrlId("rec");
   const [drillState, setDrill] = useState<{ title: string; sub: string; rows: IndexRow[] } | null>(null);
   const [tracking, setTracking] = useState<PvasTracking>(EMPTY_TRACKING);
   useEffect(() => {
     fetch("/api/pvas-data-tracking", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((t) => t && setTracking(t));
     fetch("/api/pvas-data-records").then((r) => (r.ok ? r.json() : null)).then((d) => setIndex(d?.index ?? null)).finally(() => setLoading(false));
   }, []);
-  const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking]);
+  const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking, setRecId]);
+  const [pick, setPick] = useState<{ name: string; rows: IndexRow[] } | null>(null);
+  const openName = useCallback((name: string, cptid?: number | null) => {
+    if (cptid && cptid > 0) { setRecId(cptid); return; }
+    const k = normName(name);
+    const hits = (index ?? []).filter((r) => normName(r.name) === k);
+    if (hits.length === 1) { setRecId(hits[0].cptid); return; }
+    const words = name.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 1 && w !== "and");
+    const loose = hits.length ? hits : (index ?? []).filter((r) => words.length > 0 && words.every((w) => r.name.toLowerCase().includes(w)));
+    setPick({ name, rows: loose });
+  }, [index, setRecId]);
+  const nav = useMemo<RecordNavCtx>(() => ({
+    open: setRecId, openName,
+    drillIds: (title, sub, ids) => { const set = new Set(ids); setDrill({ title, sub, rows: (index ?? []).filter((r) => set.has(r.cptid)) }); },
+    drillQuery: (title, sub, kind, value) => {
+      fetch(`/api/pvas-data-records?drill=${encodeURIComponent(kind)}&v=${encodeURIComponent(String(value))}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : Promise.reject())).then((j: { cptids: number[] }) => { const set = new Set(j.cptids); setDrill({ title, sub, rows: (index ?? []).filter((r) => set.has(r.cptid)) }); })
+        .catch(() => alert("Could not load that list. Please try again."));
+    },
+  }), [index, openName, setRecId]);
   return (
     <CrmCtx.Provider value={ctx}>
+    <RecordNav.Provider value={nav}>
       {children}
       {drillState && <DrillModal {...drillState} onClose={() => setDrill(null)} />}
-      {recId !== null && <RecordModal cptid={recId} onClose={() => setRecId(null)} />}
+      {pick && (
+        <Modal title={pick.rows.length ? `Which ${pick.name}?` : "No matching record"} sub={pick.rows.length ? "Several records match this name. Pick one to open it." : undefined} onClose={() => setPick(null)}>
+          {pick.rows.length ? <div onClick={() => setPick(null)}><PeopleTable rows={pick.rows} /></div> : <p className="text-sm">No donor record matches &ldquo;{pick.name}&rdquo; yet. It may be a new name entered on the dashboard; add it on the Add + Upload tab or attach a CPTID.</p>}
+        </Modal>
+      )}
+      {recId !== null && (
+        <SafeBoundary label="This record" onReset={() => setRecId(recId)}>
+          <RecordModal cptid={recId} onClose={() => setRecId(null)} />
+        </SafeBoundary>
+      )}
+    </RecordNav.Provider>
     </CrmCtx.Provider>
   );
 }
@@ -117,7 +149,7 @@ export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: numbe
   const shown = useMemo(() => {
     const ql = q.toLowerCase();
     const r = q ? rows.filter((x) => `${x.name} ${x.city ?? ""} ${x.cptid}`.toLowerCase().includes(ql)) : rows;
-    return [...r].sort((a, b) => ((a[sort.k] ?? "") > (b[sort.k] ?? "") ? 1 : (a[sort.k] ?? "") < (b[sort.k] ?? "") ? -1 : 0) * sort.dir);
+    return [...r].sort((a, b) => cmpValues(a[sort.k], b[sort.k]) * sort.dir);
   }, [rows, q, sort]);
   return (
     <div>
@@ -130,7 +162,7 @@ export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: numbe
           <thead className="sticky top-0 bg-[rgb(var(--navy))] text-left text-xs uppercase tracking-wider text-white">
             <tr>
               {indexCols.map((c) => (
-                <th key={c.key} onClick={() => setSort({ k: c.key, dir: sort.k === c.key && sort.dir === -1 ? 1 : -1 })} className={`cursor-pointer whitespace-nowrap px-3 py-2 ${c.kind ? "text-right" : ""}`}>{c.label}</th>
+                <th key={c.key} onClick={() => setSort({ k: c.key, dir: sort.k === c.key ? (sort.dir === 1 ? -1 : 1) : (c.kind ? -1 : 1) })} title="Click to sort" className={`cursor-pointer whitespace-nowrap px-3 py-2 ${c.kind ? "text-right" : ""}`}>{c.label}{sort.k === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}</th>
               ))}
             </tr>
           </thead>
@@ -232,7 +264,7 @@ export function recordPayload(r: DonorRecord, t?: PvasTracking): ExportPayload {
     cols: [{ label: "Year" }, { label: "Amount", kind: "usd" }, { label: "" }, { label: "" }, { label: "" }, { label: "" }],
     sections: [
       { heading: "Profile", rows: prof.filter((x) => x[1]) },
-      ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
+      ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}${st.solicitor2 ? `, secondary solicitor ${st.solicitor2}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
       { heading: `Giving by calendar year (${r.gifts?.length ?? 0})`, rows: (r.gifts ?? []).map((g) => [g.date ?? "", g.amount, "", "", "", ""]) },
     ],
     notes: [...(r.calls ?? []).map((x) => `Call ${x.date}: ${x.result}${x.reason ? ` (${x.reason})` : ""}. ${x.comments ?? ""}`), ...(r.notes ?? []).map((n) => `Note: ${n}`)],
@@ -243,6 +275,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
   const { tracking } = useCrm();
   const [r, setR] = useState<DonorRecord | null>(null);
   const [err, setErr] = useState(false);
+  const gso = useSort(r?.gifts ?? [], (g, k) => (g as unknown as Record<string, unknown>)[k]);
   useEffect(() => {
     setR(null); setErr(false);
     fetch(`/api/pvas-data-records?id=${cptid}`).then((x) => (x.ok ? x.json() : Promise.reject())).then(setR).catch(() => setErr(true));
@@ -263,6 +296,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
             <FileText className="h-3.5 w-3.5" />View PIR
           </a>
         )}
+        {tracking.prospects[String(r.cptid)]?.solicitor2 && <span className="rounded-full bg-[rgb(var(--paper))] px-2.5 py-0.5 text-xs">Secondary solicitor: {tracking.prospects[String(r.cptid)].solicitor2}</span>}
         {tracking.prospects[String(r.cptid)] && <span className="rounded-full border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium">{tracking.prospects[String(r.cptid)].status}</span>}
         <DownloadButtons get={() => recordPayload(r, tracking)} small />
       </div>
@@ -322,10 +356,10 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
           <div className="max-h-[360px] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-[rgb(var(--navy))] text-left text-xs uppercase text-white">
-                <tr><th className="px-3 py-2">Year</th><th className="px-3 py-2 text-right">Amount</th></tr>
+                <tr><SortTh s={gso} k="date" label="Year" className="px-3 py-2" /><SortTh s={gso} k="amount" label="Amount" className="px-3 py-2 text-right" /></tr>
               </thead>
               <tbody>
-                {(r.gifts ?? []).map((g, i) => (
+                {gso.sorted.map((g, i) => (
                   <tr key={i} className={i % 2 ? "bg-[rgb(var(--paper))]" : ""}>
                     <td className="px-3 py-1.5">{g.date}</td><td className="px-3 py-1.5 text-right tabular-nums">{usd(g.amount, 2)}</td>
                   </tr>
@@ -354,9 +388,10 @@ function TrackingPanel({ cptid }: { cptid: number }) {
   const [status, setStatus] = useState<string>(cur?.status ?? "Active");
   const [level, setLevel] = useState(cur?.level ? String(cur.level) : "");
   const [solicitor, setSolicitor] = useState(cur?.solicitor ?? "");
+  const [solicitor2, setSolicitor2] = useState(cur?.solicitor2 ?? "");
   const [reason, setReason] = useState(cur?.reason ?? "");
   const [kind, setKind] = useState<string>("Visit");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayUs());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
@@ -364,10 +399,10 @@ function TrackingPanel({ cptid }: { cptid: number }) {
     setBusy(which); setMsg("");
     try {
       const res = await fetch("/api/pvas-data-tracking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, cptid, by }) });
-      const j = await res.json();
+      const j = await res.json().catch(() => ({ error: `Could not save (error ${res.status})` }));
       if (!res.ok) { setMsg(j.error ?? "Could not save"); return false; }
       setTracking(j); setMsg("Saved"); return true;
-    } finally { setBusy(null); }
+    } catch { setMsg("Could not save. Check your connection and try again."); return false; } finally { setBusy(null); }
   };
   return (
     <div className="mb-4 rounded-xl border-2 border-[rgb(var(--brass))]/50 bg-[rgb(var(--paper))] p-4">
@@ -391,36 +426,30 @@ function TrackingPanel({ cptid }: { cptid: number }) {
             <label className="col-span-2 text-xs">Primary solicitor / connection
               <input value={solicitor} onChange={(e) => setSolicitor(e.target.value)} className={inputCls} />
             </label>
+            <label className="col-span-2 text-xs">Secondary solicitor
+              <input value={solicitor2} onChange={(e) => setSolicitor2(e.target.value)} className={inputCls} />
+            </label>
             <label className="col-span-2 text-xs">{status === "Disqualified" ? "Reason (e.g. said no)" : "Reason / note"}
               <input value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} />
             </label>
           </div>
-          <button disabled={!!busy} onClick={() => post({ type: "status", status, level, solicitor, reason }, "status")} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
+          <button disabled={!!busy} onClick={() => post({ type: "status", status, level, solicitor, solicitor2, reason }, "status")} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
           <p className="text-[11px] text-[rgb(var(--ink))]/55">Disqualified and Committed prospects drop off the GC2P. A gift level places the prospect at that level on the GC2P, even if they are not in the campaign portfolio.</p>
         </div>
         <div className="space-y-2 rounded-lg bg-white p-3">
           <p className="text-sm font-semibold text-[rgb(var(--navy))]">Log a contact or visit</p>
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs">Type<select value={kind} onChange={(e) => setKind(e.target.value)} className={inputCls}>{ACTIVITY_KINDS.map((s) => <option key={s}>{s}</option>)}</select></label>
-            <label className="text-xs">Date<input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></label>
+            <label className="text-xs">Date<DateInput value={date} onChange={setDate} className={inputCls} required /></label>
             <label className="col-span-2 text-xs">Notes<textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={inputCls} /></label>
           </div>
-          <button disabled={!!busy} onClick={async () => { if (await post({ type: "activity", kind, date, note }, "act")) setNote(""); }} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "act" ? "Saving..." : "Add to history"}</button>
+          <button disabled={!!busy} onClick={async () => { if (!parseUsDateClient(date)) { setMsg("Use MM/DD/YYYY for the date"); return; } if (await post({ type: "activity", kind, date, note }, "act")) setNote(""); }} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "act" ? "Saving..." : "Add to history"}</button>
         </div>
       </div>
       {msg && <p className={`mt-2 text-sm ${msg === "Saved" ? "text-green-700" : "text-red-700"}`}>{msg}</p>}
       <div className="mt-3 rounded-lg bg-white p-3">
         <p className="mb-2 text-sm font-semibold text-[rgb(var(--navy))]">History ({acts.length})</p>
-        {acts.length === 0 ? <p className="text-sm text-[rgb(var(--ink))]/55">No contacts or committee updates logged yet.</p> : (
-          <ol className="max-h-64 space-y-2 overflow-auto">
-            {acts.map((a) => (
-              <li key={a.id} className="border-l-2 border-[rgb(var(--brass))] pl-3 text-sm">
-                <p className="text-xs text-[rgb(var(--ink))]/60"><span className="font-semibold text-[rgb(var(--navy))]">{a.date}</span> · {a.kind} · {a.by}</p>
-                <p className="whitespace-pre-wrap">{a.note}</p>
-              </li>
-            ))}
-          </ol>
-        )}
+        <HistoryList items={acts} kinds={ACTIVITY_KINDS} post={post} busy={busy} />
       </div>
     </div>
   );
