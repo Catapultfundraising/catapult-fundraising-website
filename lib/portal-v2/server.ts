@@ -217,6 +217,22 @@ export function portalV2Route(client: PortalClient) {
         const cptid = Number(g.cptid) || null;
         return NextResponse.json(await engage(client, "addGift", { by, gift: { cptid, clientId: txt(g.clientId, 100), donorName: txt(g.donorName), kind: g.kind, amount, date: txt(g.date, 10) || null, note: txt(g.note, 1000) } }));
       }
+      if (b.op === "getAsk" || b.op === "setAsk") {
+        const cptid = Number(b.cptid);
+        if (!(cptid > 0)) return bad("cptid required");
+        const state = await engage<PortalState>(client, "state");
+        const edits = (state.updates as unknown as { cptid: number; field: string; old_value: string | null; new_value: string | null; created_by?: string; created_at?: string }[])
+          .filter((u) => Number(u.cptid) === cptid && u.field === "ask");
+        const last = edits[edits.length - 1];
+        if (b.op === "getAsk") return NextResponse.json({ edited: !!last, ask: last ? Number(last.new_value) || 0 : null, oldAsk: last ? Number(last.old_value) || 0 : null, by: last?.created_by ?? "", at: last?.created_at ?? "" });
+        const amount = Number(String(b.amount ?? "").replace(/[$,\s]/g, ""));
+        if (!(amount >= 0) || !Number.isFinite(amount)) return bad("Enter a dollar amount");
+        const current = last ? Number(last.new_value) || 0 : Number(b.current) || 0;
+        if (amount === current) return NextResponse.json({ edited: !!last, ask: current, oldAsk: last ? Number(last.old_value) || 0 : null, unchanged: true });
+        await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Ask amount edit (CPTID ${cptid})`, by, newRows: [], gifts: [],
+          updates: [{ cptid, field: "ask", oldValue: String(current), newValue: String(amount) }], summary: { askEdit: true, cptid, from: current, to: amount } });
+        return NextResponse.json({ edited: true, ask: amount, oldAsk: current, by });
+      }
       if (b.op === "undo") return NextResponse.json(await engage(client, "undoBatch", { batchId: Number(b.batchId), by }));
       return bad("unknown op");
     } catch (e) {
