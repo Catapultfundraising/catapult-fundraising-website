@@ -126,3 +126,29 @@ export function HistoryList({ items, kinds, post, busy }: {
     </ol>
   );
 }
+
+// ---------- sorting (every table: click a header to sort, click again to reverse) ----------
+export function cmpValues(a: unknown, b: unknown): number {
+  const na = typeof a === "number" ? a : null, nb = typeof b === "number" ? b : null;
+  if (na !== null && nb !== null) return na - nb;
+  const ea = a === null || a === undefined || a === "", eb = b === null || b === undefined || b === "";
+  if (ea || eb) return ea && eb ? 0 : ea ? 1 : -1;
+  const sa = String(a), sb = String(b);
+  const da = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(sa) ? sa.replace(/^(\d+)\/(\d+)\/(\d{4})$/, (_, m, d, y) => `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`) : sa;
+  const db = /^\d{1,2}\/\d{1,2}\/\d{4}$/.test(sb) ? sb.replace(/^(\d+)\/(\d+)\/(\d{4})$/, (_, m, d, y) => `${y}-${m.padStart(2, "0")}-${d.padStart(2, "0")}`) : sb;
+  const money = (x: string) => (/^-?\$?[\d,]+(\.\d+)?$/.test(x) ? Number(x.replace(/[$,]/g, "")) : null);
+  const ma = money(da), mb = money(db);
+  if (ma !== null && mb !== null) return ma - mb;
+  return da.localeCompare(db, undefined, { numeric: true, sensitivity: "base" });
+}
+export function useSort<T>(rows: T[], get: (r: T, k: string) => unknown, initial?: { k: string; dir: 1 | -1 }) {
+  const [sort, setSort] = useState<{ k: string; dir: 1 | -1 } | null>(initial ?? null);
+  const sorted = sort ? [...rows].sort((a, b) => cmpValues(get(a, sort.k), get(b, sort.k)) * sort.dir) : rows;
+  const toggle = (k: string) => setSort((s) => (s?.k === k ? { k, dir: s.dir === 1 ? -1 : 1 } : { k, dir: 1 }));
+  const arrow = (k: string) => (sort?.k === k ? (sort.dir === 1 ? " ▲" : " ▼") : "");
+  return { sorted, toggle, arrow, sort };
+}
+/** Sortable header cell. */
+export function SortTh({ k, label, s, className = "" }: { k: string; label: ReactNode; s: { toggle: (k: string) => void; arrow: (k: string) => string }; className?: string }) {
+  return <th onClick={() => s.toggle(k)} title="Click to sort" className={`cursor-pointer select-none whitespace-nowrap ${className}`}>{label}{s.arrow(k)}</th>;
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { PROSPECT_STATUSES, ACTIVITY_KINDS, type ProspectStatus, type PvasTracking as Tracking } from "@/lib/pvas-tracking-types";
-import { logHistoryAudit, parseUsDate } from "@/lib/portal-v2/server";
+import { logHistoryAudit, parseUsDate, secondarySolicitors, saveSecondarySolicitor } from "@/lib/portal-v2/server";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 
 // Shared committee-tracking API for all five data dashboards (tracking shapes are identical per client).
@@ -11,9 +11,18 @@ import type { PortalClient } from "@/lib/portal-v2/clients";
 // Every status change is also written to the activity history. Every history add/edit/delete is mirrored to the Engage SQL audit log.
 export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, get: () => Promise<Tracking>, save: (t: Tracking) => Promise<void>) {
   const clean = (v: unknown, max = 2000) => String(v ?? "").trim().slice(0, max);
+  // SQL is the source of truth for the secondary solicitor; merge it into the tracking view.
+  async function withSecondary(t: Tracking): Promise<Tracking> {
+    const sec = await secondarySolicitors(client);
+    for (const [id, v] of Object.entries(sec)) {
+      if (t.prospects[id]) t.prospects[id] = { ...t.prospects[id], solicitor2: v || undefined };
+      else if (v) t.prospects[id] = { status: "Active", solicitor2: v, updatedAt: "", by: "" };
+    }
+    return t;
+  }
   async function GET(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    return NextResponse.json(await get(), { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(await withSecondary(await get()), { headers: { "Cache-Control": "no-store" } });
   }
   async function POST(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -32,11 +41,18 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
       if (!PROSPECT_STATUSES.includes(status)) return NextResponse.json({ error: "bad status" }, { status: 400 });
       const level = Number(b.level) > 0 ? Math.round(Number(b.level)) : undefined;
       const prev = t.prospects[cptid];
-      const st = { status, level, solicitor: clean(b.solicitor, 120) || undefined, reason: clean(b.reason, 500) || undefined, updatedAt: now, by };
+      const solicitor2 = clean(b.solicitor2, 120);
+      const prev2 = (await secondarySolicitors(client))[String(cptid)] ?? prev?.solicitor2 ?? "";
+      const st = { status, level, solicitor: clean(b.solicitor, 120) || undefined, solicitor2: solicitor2 || undefined, reason: clean(b.reason, 500) || undefined, updatedAt: now, by };
+      if (b.solicitor2 !== undefined && solicitor2 !== prev2) {
+        try { await saveSecondarySolicitor(client, cptid, prev2, solicitor2, by); }
+        catch (e) { return NextResponse.json({ error: `Could not save the secondary solicitor: ${(e as Error).message}` }, { status: 500 }); }
+      }
       t.prospects[cptid] = st;
       const parts = [`Status: ${prev?.status ?? "none"} → ${status}`];
       if (level !== prev?.level) parts.push(`Gift level: ${level ? `$${level.toLocaleString("en-US")}` : "auto"}`);
       if (st.solicitor !== prev?.solicitor) parts.push(`Solicitor: ${st.solicitor ?? "none"}`);
+      if ((st.solicitor2 ?? "") !== prev2) parts.push(`Secondary solicitor: ${st.solicitor2 ?? "none"}`);
       if (st.reason) parts.push(`Reason: ${st.reason}`);
       t.activity.push({ id, cptid, date: now.slice(0, 10), kind: "Committee update", note: parts.join(" · "), by, at: now });
       audit = { action: "status", newValue: parts.join(" · ") };
@@ -72,7 +88,7 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
     }
     await save(t);
     if (audit) await logHistoryAudit(client, { cptid, by, ...audit });
-    return NextResponse.json(t);
+    return NextResponse.json(await withSecondary(t));
   }
   return { GET, POST };
 }

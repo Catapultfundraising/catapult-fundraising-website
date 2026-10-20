@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { RecordNav, SafeBoundary, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
+import { RecordNav, SafeBoundary, cmpValues, useSort, SortTh, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
 import { useUrlId } from "@/lib/use-url-state";
 import { AskAmountPanel } from "@/components/ask-amount-panel";
 import { Search, X, Download, FileSpreadsheet, FileText } from "lucide-react";
@@ -149,7 +149,7 @@ export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: numbe
   const shown = useMemo(() => {
     const ql = q.toLowerCase();
     const r = q ? rows.filter((x) => `${x.name} ${x.city ?? ""} ${x.cptid}`.toLowerCase().includes(ql)) : rows;
-    return [...r].sort((a, b) => ((a[sort.k] ?? "") > (b[sort.k] ?? "") ? 1 : (a[sort.k] ?? "") < (b[sort.k] ?? "") ? -1 : 0) * sort.dir);
+    return [...r].sort((a, b) => cmpValues(a[sort.k], b[sort.k]) * sort.dir);
   }, [rows, q, sort]);
   return (
     <div>
@@ -162,7 +162,7 @@ export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: numbe
           <thead className="sticky top-0 bg-[rgb(var(--navy))] text-left text-xs uppercase tracking-wider text-white">
             <tr>
               {indexCols.map((c) => (
-                <th key={c.key} onClick={() => setSort({ k: c.key, dir: sort.k === c.key && sort.dir === -1 ? 1 : -1 })} className={`cursor-pointer whitespace-nowrap px-3 py-2 ${c.kind ? "text-right" : ""}`}>{c.label}</th>
+                <th key={c.key} onClick={() => setSort({ k: c.key, dir: sort.k === c.key ? (sort.dir === 1 ? -1 : 1) : (c.kind ? -1 : 1) })} title="Click to sort" className={`cursor-pointer whitespace-nowrap px-3 py-2 ${c.kind ? "text-right" : ""}`}>{c.label}{sort.k === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}</th>
               ))}
             </tr>
           </thead>
@@ -264,7 +264,7 @@ export function recordPayload(r: DonorRecord, t?: BaqTracking): ExportPayload {
     cols: [{ label: "Year" }, { label: "Amount", kind: "usd" }, { label: "" }, { label: "" }, { label: "" }, { label: "" }],
     sections: [
       { heading: "Profile", rows: prof.filter((x) => x[1]) },
-      ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
+      ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}${st.solicitor2 ? `, secondary solicitor ${st.solicitor2}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
       { heading: `Giving by calendar year (${r.gifts?.length ?? 0})`, rows: (r.gifts ?? []).map((g) => [g.date ?? "", g.amount, "", "", "", ""]) },
     ],
     notes: [...(r.calls ?? []).map((x) => `Call ${x.date}: ${x.result}${x.reason ? ` (${x.reason})` : ""}. ${x.comments ?? ""}`), ...(r.notes ?? []).map((n) => `Note: ${n}`)],
@@ -275,6 +275,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
   const { tracking } = useCrm();
   const [r, setR] = useState<DonorRecord | null>(null);
   const [err, setErr] = useState(false);
+  const gso = useSort(r?.gifts ?? [], (g, k) => (g as unknown as Record<string, unknown>)[k]);
   useEffect(() => {
     setR(null); setErr(false);
     fetch(`/api/baq-data-records?id=${cptid}`).then((x) => (x.ok ? x.json() : Promise.reject())).then(setR).catch(() => setErr(true));
@@ -295,6 +296,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
             <FileText className="h-3.5 w-3.5" />View PIR
           </a>
         )}
+        {tracking.prospects[String(r.cptid)]?.solicitor2 && <span className="rounded-full bg-[rgb(var(--paper))] px-2.5 py-0.5 text-xs">Secondary solicitor: {tracking.prospects[String(r.cptid)].solicitor2}</span>}
         {tracking.prospects[String(r.cptid)] && <span className="rounded-full border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium">{tracking.prospects[String(r.cptid)].status}</span>}
         <DownloadButtons get={() => recordPayload(r, tracking)} small />
       </div>
@@ -347,10 +349,10 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
           <div className="max-h-[360px] overflow-auto">
             <table className="w-full text-sm">
               <thead className="sticky top-0 bg-[rgb(var(--navy))] text-left text-xs uppercase text-white">
-                <tr><th className="px-3 py-2">Date</th><th className="px-3 py-2">Campaign</th><th className="px-3 py-2 text-right">Amount</th></tr>
+                <tr><SortTh s={gso} k="date" label="Date" className="px-3 py-2" /><SortTh s={gso} k="stage" label="Campaign" className="px-3 py-2" /><SortTh s={gso} k="amount" label="Amount" className="px-3 py-2 text-right" /></tr>
               </thead>
               <tbody>
-                {(r.gifts ?? []).map((g, i) => (
+                {gso.sorted.map((g, i) => (
                   <tr key={i} className={i % 2 ? "bg-[rgb(var(--paper))]" : ""}>
                     <td className="px-3 py-1.5">{g.date || "Undated"}</td><td className="px-3 py-1.5">{g.stage}</td><td className="px-3 py-1.5 text-right tabular-nums">{usd(g.amount, 2)}</td>
                   </tr>
@@ -379,6 +381,7 @@ function TrackingPanel({ cptid }: { cptid: number }) {
   const [status, setStatus] = useState<string>(cur?.status ?? "Active");
   const [level, setLevel] = useState(cur?.level ? String(cur.level) : "");
   const [solicitor, setSolicitor] = useState(cur?.solicitor ?? "");
+  const [solicitor2, setSolicitor2] = useState(cur?.solicitor2 ?? "");
   const [reason, setReason] = useState(cur?.reason ?? "");
   const [kind, setKind] = useState<string>("Visit");
   const [date, setDate] = useState(todayUs());
@@ -416,11 +419,14 @@ function TrackingPanel({ cptid }: { cptid: number }) {
             <label className="col-span-2 text-xs">Primary solicitor / connection
               <input value={solicitor} onChange={(e) => setSolicitor(e.target.value)} className={inputCls} />
             </label>
+            <label className="col-span-2 text-xs">Secondary solicitor
+              <input value={solicitor2} onChange={(e) => setSolicitor2(e.target.value)} className={inputCls} />
+            </label>
             <label className="col-span-2 text-xs">{status === "Disqualified" ? "Reason (e.g. said no)" : "Reason / note"}
               <input value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} />
             </label>
           </div>
-          <button disabled={!!busy} onClick={() => post({ type: "status", status, level, solicitor, reason }, "status")} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
+          <button disabled={!!busy} onClick={() => post({ type: "status", status, level, solicitor, solicitor2, reason }, "status")} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
           <p className="text-[11px] text-[rgb(var(--ink))]/55">Disqualified and Committed prospects drop off the GC2P. A gift level places the prospect at that level on the GC2P, even if they are not in the campaign portfolio.</p>
         </div>
         <div className="space-y-2 rounded-lg bg-white p-3">

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
-import { SafeBoundary, NameLink, useRecordNav } from "@/components/dashboard-shared";
+import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
 import { PortalV2Provider, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
@@ -83,7 +83,7 @@ function Table<T extends Record<string, unknown>>({
   const shown = useMemo(() => {
     let r = rows;
     if (q) r = r.filter((x) => JSON.stringify(x).toLowerCase().includes(q.toLowerCase()));
-    if (sort) r = [...r].sort((a, b) => (a[sort.k] > b[sort.k] ? 1 : a[sort.k] < b[sort.k] ? -1 : 0) * sort.dir);
+    if (sort) r = [...r].sort((a, b) => cmpValues(a[sort.k], b[sort.k]) * sort.dir);
     return r;
   }, [rows, q, sort]);
   return (
@@ -114,10 +114,11 @@ function Table<T extends Record<string, unknown>>({
               {cols.map((c) => (
                 <th
                   key={String(c.key)}
-                  onClick={() => setSort({ k: c.key, dir: sort?.k === c.key && sort.dir === -1 ? 1 : -1 })}
+                  onClick={() => setSort({ k: c.key, dir: sort?.k === c.key ? (sort.dir === 1 ? -1 : 1) : 1 })}
+                  title="Click to sort"
                   className={`cursor-pointer whitespace-nowrap px-3 py-2 ${c.right ? "text-right" : ""}`}
                 >
-                  {c.label}
+                  {c.label}{sort?.k === c.key ? (sort.dir === 1 ? " ▲" : " ▼") : ""}
                 </th>
               ))}
             </tr>
@@ -456,10 +457,10 @@ function GiftChartTab({ d }: { d: PvasSnapshot }) {
                 <Table
                   csvName={`GC2P ${formatDollars(x.level)} Level`}
                   exportSub={`${formatDollars(goal)} goal`}
-                  rows={x.people.map((p) => ({ ...p, status: stOf(p.cptid)?.status ?? "Unassigned", solicitor: stOf(p.cptid)?.solicitor || p.solicitor, pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
+                  rows={x.people.map((p) => ({ ...p, solicitor2: stOf(p.cptid)?.solicitor2 ?? "", status: stOf(p.cptid)?.status ?? "Unassigned", solicitor: stOf(p.cptid)?.solicitor || p.solicitor, pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
                   cols={[
                     { key: "name", label: "Prospect" },
-                    { key: "solicitor", label: "Primary Solicitor" },
+                    { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
                     { key: "pir", label: "PIR" },
                     { key: "ask", label: "Ask Amount", fmt: (v: unknown) => usd(v as number), right: true },
                     { key: "donorType", label: "Donor Type" },
@@ -621,13 +622,14 @@ function Portfolio({ d }: { d: PvasSnapshot }) {
     return { solicitor: s, prospects: ps.length, asks: ps.filter((p) => p.ask > 0).length, ask: ps.reduce((a, p) => a + p.ask, 0) };
   }).sort((a, b) => b.ask - a.ask);
   const cols = [
-    { key: "name", label: "Prospect" }, { key: "solicitor", label: "Primary Solicitor" },
+    { key: "name", label: "Prospect" }, { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
     { key: "ask", label: "Campaign Ask", fmt: (v: unknown) => (v ? usd(v as number) : ""), right: true },
     { key: "priority", label: "2026 Priority" }, { key: "type", label: "Type" }, { key: "donorType", label: "Donor Type" },
     { key: "lifetime", label: "Lifetime", fmt: (v: unknown) => usd(v as number), right: true },
     { key: "ds", label: "DS" }, { key: "capacity", label: "Capacity" }, { key: "task", label: "Task" },
   ];
   const ids = useIds();
+  const { tracking } = useCrm();
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -645,7 +647,7 @@ function Portfolio({ d }: { d: PvasSnapshot }) {
       </Card>
       <Card>
         <H sub="Every prospect in the campaign portfolio, largest Campaign Ask first. Click a name to open the record.">Campaign portfolio</H>
-        <Table csvName="Campaign Portfolio" rows={d.portfolio as never} cols={cols as never} />
+        <Table csvName="Campaign Portfolio" rows={d.portfolio.map((p) => ({ ...p, solicitor2: tracking.prospects[String(p.cptid)]?.solicitor2 ?? "" })) as never} cols={cols as never} />
       </Card>
     </div>
   );

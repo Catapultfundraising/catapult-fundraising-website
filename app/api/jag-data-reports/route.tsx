@@ -216,7 +216,7 @@ export async function GET(req: NextRequest) {
     return [a ? `${a.date} ${a.kind}: ${a.note}` : reason || basis, tracking?.pirs[String(p.cptid)] ? "PIR on file." : ""].filter(Boolean).join(" ");
   };
   const statusTxt = (id: number) => stOf(id)?.status ?? "Unassigned";
-  const solTxt = (id: number) => stOf(id)?.solicitor ?? "";
+  const solTxt = (id: number) => { const a = stOf(id)?.solicitor ?? ""; const b = stOf(id)?.solicitor2; return b ? `${a}${a ? " / " : ""}2nd: ${b}` : a; };
   const insights = [
     `${covered.length} of ${seated.length} levels have a full ${GC2P_RATIO}-to-1 prospect pool${covered.length ? ` (${covered.map((x) => formatCompactDollars(x.level)).join(", ")})` : ""}.`,
     short2.length ? `${needed - identified} more prospects are needed: ${short2.map((x) => `${formatCompactDollars(x.level)} short ${x.need - x.people.length}`).join("; ")}.` : "Every level shown is fully covered.",

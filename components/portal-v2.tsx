@@ -2,7 +2,7 @@
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
-import { DateInput, NameLink, isoToUs, parseUsDateClient } from "@/components/dashboard-shared";
+import { DateInput, NameLink, isoToUs, parseUsDateClient, useSort, SortTh } from "@/components/dashboard-shared";
 
 // Portal v2 shared UI: campaign progress bar, Campaign Donors (gift-chart levels),
 // Add Prospect, manual gift/pledge entry, bulk client-file upload with preview, audit log + undo.
@@ -142,6 +142,7 @@ function AllGifts() {
   const [mode, setMode] = useState<{ id: string; kind: "edit" | "void" } | null>(null);
   const [f, setF] = useState({ amount: "", kind: "pledge", date: "", note: "", reason: "" });
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const gso = useSort([...(state?.gifts ?? [])].reverse().map((g) => ({ ...g, amount: Number(g.amount), src: g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry" })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   if (!state) return null;
   const start = (g: PortalGift, kind: "edit" | "void") => { setMsg(""); setMode({ id: giftId(g), kind }); setF({ amount: String(Number(g.amount)), kind: g.kind, date: isoToUs(g.gift_date), note: g.note ?? "", reason: "" }); };
   const base = (g: PortalGift) => ({ id: Number(g.id) > 0 ? Number(g.id) : undefined, key: Number(g.id) > 0 ? undefined : g.key, cptid: g.cptid, donorName: g.donor_name,
@@ -174,8 +175,8 @@ function AllGifts() {
       <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh.</p>
       {msg && <p className="mt-2 text-sm">{msg}</p>}
       <div className="mt-3 max-h-[560px] overflow-auto">
-        <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><th className={th}>Date</th><th className={th}>Donor</th><th className={th}>Type</th><th className={`${th} text-right`}>Amount</th><th className={th}>Source</th><th className={th}>Note</th><th className={th} /></tr></thead>
-          <tbody>{[...state.gifts].reverse().map((g) => (
+        <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={gso} k="gift_date" label="Date" className={th} /><SortTh s={gso} k="donor_name" label="Donor" className={th} /><SortTh s={gso} k="kind" label="Type" className={th} /><SortTh s={gso} k="amount" label="Amount" className={`${th} text-right`} /><SortTh s={gso} k="src" label="Source" className={th} /><SortTh s={gso} k="note" label="Note" className={th} /><th className={th} /></tr></thead>
+          <tbody>{gso.sorted.map((g) => (
             <Fragment key={giftId(g)}>
               <tr className="border-b border-[rgb(var(--line))]"><td className={td}>{isoToUs(g.gift_date)}</td><td className={td}><NameLink name={g.donor_name} cptid={g.cptid} />{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
                 <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{usd(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usd(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
@@ -354,6 +355,7 @@ export function AuditLog() {
   const { client, state, reload } = useV2();
   const [by] = useBy();
   const [busy, setBusy] = useState<number | null>(null); const [msg, setMsg] = useState("");
+  const aso = useSort(state?.batches ?? [], (r, k) => (r as unknown as Record<string, unknown>)[k]);
   const undo = async (id: number) => {
     if (!confirm(`Undo batch ${id}? Every record, change and gift it added will be removed from the portal (kept in the audit log).`)) return;
     setBusy(id); setMsg("");
@@ -364,8 +366,8 @@ export function AuditLog() {
     <div className={card}>
       <h3 className="font-display text-lg text-[rgb(var(--navy))]">Change log</h3>
       <div className="mt-3 max-h-[420px] overflow-auto">
-        <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><th className={th}>When</th><th className={th}>What</th><th className={th}>By</th><th className={`${th} text-right`}>New</th><th className={`${th} text-right`}>Changed</th><th className={`${th} text-right`}>Gifts</th><th className={th} /></tr></thead>
-          <tbody>{state.batches.map((b) => (
+        <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={aso} k="created_at" label="When" className={th} /><SortTh s={aso} k="file_name" label="What" className={th} /><SortTh s={aso} k="created_by" label="By" className={th} /><SortTh s={aso} k="new_rows" label="New" className={`${th} text-right`} /><SortTh s={aso} k="changed_rows" label="Changed" className={`${th} text-right`} /><SortTh s={aso} k="gift_rows" label="Gifts" className={`${th} text-right`} /><th className={th} /></tr></thead>
+          <tbody>{aso.sorted.map((b) => (
             <tr key={b.id} className={`border-b border-[rgb(var(--line))] ${b.undone_at ? "text-[rgb(var(--ink))]/40 line-through" : ""}`}>
               <td className={td}>{new Date(b.created_at).toLocaleString()}</td><td className={td}>{b.kind === "upload" ? `File: ${b.file_name}` : b.kind === "edit" ? `Change: ${b.file_name}` : `Entry: ${b.file_name}`}</td><td className={td}>{b.created_by}</td>
               <td className={`${td} text-right`}>{b.new_rows}</td><td className={`${td} text-right`}>{b.changed_rows}</td><td className={`${td} text-right`}>{b.gift_rows}</td>
@@ -410,6 +412,7 @@ function EditPortalProspect({ p, onDone }: { p: PortalState["prospects"][number]
 export function AddAndUpload() {
   const { state } = useV2();
   const [editing, setEditing] = useState<number | null>(null);
+  const pso = useSort([...(state?.prospects ?? [])].reverse().map((p) => ({ ...p, addr: [p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ") })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   return (
     <div className="space-y-6">
       <AddProspect />
@@ -419,7 +422,7 @@ export function AddAndUpload() {
         <div className={card}>
           <h3 className="font-display text-lg text-[rgb(var(--navy))]">Prospects added in the portal ({state.prospects.length})</h3>
           <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Click Edit to fix a name, address or contact detail. Changes are logged in the audit log.</p>
-          <div className="mt-3 max-h-[520px] overflow-auto"><table className="w-full"><tbody>{[...state.prospects].reverse().map((p) => (
+          <div className="mt-3 max-h-[520px] overflow-auto"><table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={pso} k="cptid" label="CPTID" className={th} /><SortTh s={pso} k="full_name" label="Name" className={th} /><SortTh s={pso} k="client_id" label="Client ID" className={th} /><SortTh s={pso} k="addr" label="Address" className={th} /><SortTh s={pso} k="source" label="Source" className={th} /><th className={th} /></tr></thead><tbody>{pso.sorted.map((p) => (
             <Fragment key={p.id}>
               <tr className="border-b border-[rgb(var(--line))]"><td className={td}>CPTID {p.cptid}</td><td className={td}><NameLink name={p.full_name} cptid={p.cptid} /></td><td className={td}>{p.client_id ?? ""}</td><td className={td}>{[p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ")}</td><td className={td}>{p.source === "upload" ? "Client file" : "Portal entry"}</td>
                 <td className={`${td} text-right`}><button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => setEditing(editing === p.cptid ? null : p.cptid)}>{editing === p.cptid ? "Close" : "Edit"}</button></td></tr>

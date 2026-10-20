@@ -57,7 +57,7 @@ async function knownRecords(client: PortalClient, state: PortalState) {
   const extra: Known[] = [];
   for (const r of rec?.index ?? []) if (!byCpt.has(r.cptid)) byCpt.set(r.cptid, { cptid: r.cptid, clientId: "", name: r.name, address: "", city: r.city ?? "", zip: "" });
   for (const p of state.prospects) byCpt.set(p.cptid, { cptid: p.cptid, clientId: p.client_id ?? "", name: p.full_name, address: p.address1 ?? "", city: p.city ?? "", zip: p.zip ?? "", email: p.email ?? "", phone: p.phone ?? "" });
-  for (const u of state.updates) { const k = byCpt.get(u.cptid); if (k) (k as unknown as Record<string, string>)[u.field === "client_id" ? "clientId" : u.field] = u.new_value ?? ""; }
+  for (const u of state.updates) { if (u.field === "solicitor2" || u.field === "ask") continue; const k = byCpt.get(u.cptid); if (k) (k as unknown as Record<string, string>)[u.field === "client_id" ? "clientId" : u.field] = u.new_value ?? ""; }
   // Extra client-id rows (one CPTID with several client ids) still match on id.
   for (const k of ids ?? []) if (k.clientId && byCpt.get(k.cptid)?.clientId !== k.clientId) extra.push(k);
   const known = [...byCpt.values()];
@@ -221,6 +221,20 @@ export async function matchDonorName(client: PortalClient, name: string, state?:
 /** Audit trail in Engage SQL for dashboard history-note changes (best effort: never blocks the save). */
 export async function logHistoryAudit(client: PortalClient, a: { cptid: number; action: string; oldValue?: string | null; newValue?: string | null; by: string }) {
   try { await engage(client, "logActivity", { cptid: a.cptid, action: a.action, oldValue: a.oldValue ?? null, newValue: a.newValue ?? null, by: a.by }); } catch { /* audit only */ }
+}
+
+/** Secondary solicitor: dashboard-origin data saved in Engage SQL (portal_updates field "solicitor2"); the refresh never writes it. */
+export async function secondarySolicitors(client: PortalClient): Promise<Record<string, string>> {
+  try {
+    const st = await engage<PortalState>(client, "state");
+    const out: Record<string, string> = {};
+    for (const u of st.updates) if (u.field === "solicitor2") out[String(u.cptid)] = u.new_value ?? "";
+    return out;
+  } catch { return {}; }
+}
+export async function saveSecondarySolicitor(client: PortalClient, cptid: number, oldValue: string, newValue: string, by: string) {
+  await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Secondary solicitor (CPTID ${cptid})`, by, newRows: [], gifts: [],
+    updates: [{ cptid, field: "solicitor2", oldValue: oldValue || null, newValue: newValue || "" }], summary: { solicitor2: true, cptid, from: oldValue, to: newValue } });
 }
 
 /** MM/DD/YYYY or YYYY-MM-DD -> YYYY-MM-DD, or null when it is not a real calendar date. */

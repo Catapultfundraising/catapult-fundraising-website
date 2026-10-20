@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
+import { useSort, SortTh } from "@/components/dashboard-shared";
 import { BR_CHOICE_SHORT, BR_CLIENT_NAMES, type BrSettings, type BrAnswer, type BrClient, type BrEntry, type BrFilters, type BrList, type BrMemberPublic, type BrPoolRow } from "@/lib/board-review/config";
 
 const API = "/api/board-review/admin";
@@ -21,14 +22,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 type Suggestion = { cptid: number; name: string; city: string; state: string; phone: string; note: string; by: string; at: string };
 function Suggestions({ items }: { items: Suggestion[] }) {
+  const so = useSort(items, (r, k) => (r as unknown as Record<string, unknown>)[k]);
   return (
     <div className={card + " mt-6"}>
       <h2 className="font-display text-xl text-[#0E1E31]">Prospects suggested by members ({items.length})</h2>
       <p className="text-sm text-[#0E1E31]/70">Added from the bottom of the member review page. Each one is saved to the client data with its own CPTID and is never overwritten by the weekly refresh.</p>
       {!items.length ? <p className="mt-3 text-sm">No suggestions yet.</p> : (
         <div className="mt-4 overflow-auto"><table className="w-full text-sm">
-          <thead className="bg-[#0E1E31] text-left text-xs text-white"><tr><th className="p-2">Name</th><th className="p-2">City, State</th><th className="p-2">Cell</th><th className="p-2">Suggested by</th><th className="p-2">How they know them</th><th className="p-2">CPTID</th></tr></thead>
-          <tbody>{items.map((s, i) => { const how = s.note.match(/How they know them: (.*?)(?: \| Possible duplicate|$)/)?.[1] ?? ""; const dup = s.note.match(/Possible duplicate of (.*)$/)?.[1];
+          <thead className="bg-[#0E1E31] text-left text-xs text-white"><tr><SortTh s={so} k="name" label="Name" className="p-2" /><SortTh s={so} k="city" label="City, State" className="p-2" /><SortTh s={so} k="phone" label="Cell" className="p-2" /><SortTh s={so} k="by" label="Suggested by" className="p-2" /><SortTh s={so} k="note" label="How they know them" className="p-2" /><SortTh s={so} k="cptid" label="CPTID" className="p-2" /></tr></thead>
+          <tbody>{so.sorted.map((s, i) => { const how = s.note.match(/How they know them: (.*?)(?: \| Possible duplicate|$)/)?.[1] ?? ""; const dup = s.note.match(/Possible duplicate of (.*)$/)?.[1];
             return (<tr key={s.cptid} className={i % 2 ? "bg-[#F1ECE0]/60" : "bg-white"}>
               <td className="p-2 font-medium text-[#0E1E31]">{s.name}{dup && <div className="text-xs font-normal text-amber-700">Possible duplicate: {dup}</div>}</td>
               <td className="p-2">{[s.city, s.state].filter(Boolean).join(", ")}</td><td className="p-2">{s.phone}</td>
@@ -111,6 +113,7 @@ type Post = (b: Record<string, unknown>) => Promise<Record<string, unknown>>;
 function Build({ client, list, post, onSaved }: { client: BrClient; list: BrList | null; post: Post; onSaved: (l: BrList) => void }) {
   const [f, setF] = useState<BrFilters>({ assigned: "any", donor: "any", kind: "any", sort: "capacity" });
   const [rows, setRows] = useState<Row[] | null>(null);
+  const so = useSort(rows ?? [], (r, k) => (r as unknown as Record<string, unknown>)[k]);
   const [meta, setMeta] = useState<{ total: number; count: number; ds: string[]; statuses: string[] }>({ total: 0, count: 0, ds: [], statuses: [] });
   const [picked, setPicked] = useState<Set<number>>(new Set());
   const [name, setName] = useState(list?.name ?? "Board Prospect Review");
@@ -191,12 +194,12 @@ function Build({ client, list, post, onSaved }: { client: BrClient; list: BrList
                 <thead className="sticky top-0 bg-[#0E1E31] text-left text-xs text-white">
                   <tr>
                     <th className="p-2"><input type="checkbox" checked={picked.size === rows.length && rows.length > 0} onChange={(e) => setPicked(e.target.checked ? new Set(rows.map((r) => r.cptid)) : new Set())} /></th>
-                    <th className="p-2">Name</th><th className="p-2">City</th><th className="p-2">State</th><th className="p-2">Rating</th><th className="p-2 text-right">Capacity</th>
-                    <th className="p-2 text-right">Lifetime</th><th className="p-2 text-right">Last gift</th><th className="p-2">Last date</th><th className="p-2">Solicitor</th>
+                    <SortTh s={so} k="name" label="Name" className="p-2" /><SortTh s={so} k="city" label="City" className="p-2" /><SortTh s={so} k="state" label="State" className="p-2" /><SortTh s={so} k="ds" label="Rating" className="p-2" /><SortTh s={so} k="capMin" label="Capacity" className="p-2 text-right" />
+                    <SortTh s={so} k="lifetime" label="Lifetime" className="p-2 text-right" /><SortTh s={so} k="lastAmt" label="Last gift" className="p-2 text-right" /><SortTh s={so} k="lastDate" label="Last date" className="p-2" /><SortTh s={so} k="solicitor" label="Solicitor" className="p-2" />
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r, i) => (
+                  {so.sorted.map((r, i) => (
                     <tr key={r.cptid} className={i % 2 ? "bg-[#F1ECE0]/60" : ""}>
                       <td className="p-2"><input type="checkbox" checked={picked.has(r.cptid)} onChange={(e) => { const s = new Set(picked); if (e.target.checked) s.add(r.cptid); else s.delete(r.cptid); setPicked(s); }} /></td>
                       <td className="p-2 font-medium text-[#0E1E31]">{r.name}</td><td className="p-2">{r.city}</td><td className="p-2">{r.state}</td><td className="p-2">{r.ds}</td>
@@ -243,14 +246,15 @@ function Build({ client, list, post, onSaved }: { client: BrClient; list: BrList
 }
 
 function ListView({ list, post, onChange }: { list: BrList | null; post: Post; onChange: (l: BrList) => void }) {
+  const so = useSort(list?.entries ?? [], (r, k) => (r as unknown as Record<string, unknown>)[k]);
   if (!list || !list.entries.length) return <div className={card}>No review list saved yet. Build one on the Build list tab.</div>;
   return (
     <div className={card}>
       <h2 className="font-display text-xl text-[#0E1E31]">{list.name}</h2>
       <p className="text-sm text-[#0E1E31]/70">{list.entries.length} prospects · last saved {new Date(list.updatedAt).toLocaleString()} · {list.source}. Members see these in this order (last name), with city and state only.</p>
       <table className="mt-4 w-full text-sm">
-        <thead className="bg-[#0E1E31] text-left text-xs text-white"><tr><th className="p-2">Prospect</th><th className="p-2">City</th><th className="p-2">State</th><th className="p-2">CPTID</th><th /></tr></thead>
-        <tbody>{list.entries.map((e, i) => (
+        <thead className="bg-[#0E1E31] text-left text-xs text-white"><tr><SortTh s={so} k="sortKey" label="Prospect" className="p-2" /><SortTh s={so} k="city" label="City" className="p-2" /><SortTh s={so} k="state" label="State" className="p-2" /><SortTh s={so} k="cptid" label="CPTID" className="p-2" /><th /></tr></thead>
+        <tbody>{so.sorted.map((e, i) => (
           <tr key={e.cptid} className={i % 2 ? "bg-[#F1ECE0]/60" : ""}>
             <td className="p-2 font-medium text-[#0E1E31]">{e.name}</td><td className="p-2">{e.city}</td><td className="p-2">{e.state}</td><td className="p-2">{e.cptid}</td>
             <td className="p-2 text-right"><button className="text-xs text-red-600 hover:underline" onClick={async () => { const j = await post({ op: "removeEntry", cptid: e.cptid }); onChange(j.list as BrList); }}>Remove</button></td>
@@ -340,6 +344,7 @@ function MemberUpload({ members, post, reload }: { members: BrMemberPublic[]; po
 }
 
 function Members({ client, settings, members, total, post, reload }: { client: BrClient; settings: BrSettings; members: BrMemberPublic[]; total: number; post: Post; reload: () => void }) {
+  const mso = useSort(members, (r, k) => (r as unknown as Record<string, unknown>)[k]);
   const [note, setNote] = useState("");
   const send = async (body: Record<string, unknown>, what: string) => {
     setErr(""); setNote("");
@@ -396,8 +401,8 @@ function Members({ client, settings, members, total, post, reload }: { client: B
         <p className="mt-1 text-xs text-[#0E1E31]/60">A reminder goes out automatically {settings.remindAfterDays} days after the invite to anyone who has not rated every prospect (once per invite).</p>
         {!members.length ? <p className="mt-2 text-sm">No members yet.</p> : (
           <table className="mt-3 w-full text-sm">
-            <thead className="bg-[#0E1E31] text-left text-xs text-white"><tr><th className="p-2">Name</th><th className="p-2">Email</th><th className="p-2">Role</th><th className="p-2">Progress</th><th className="p-2">Invite</th><th className="p-2">Reminder</th><th className="p-2">Due</th><th className="p-2">Last visit</th><th /></tr></thead>
-            <tbody>{members.map((m, i) => (
+            <thead className="bg-[#0E1E31] text-left text-xs text-white"><tr><SortTh s={mso} k="name" label="Name" className="p-2" /><SortTh s={mso} k="email" label="Email" className="p-2" /><SortTh s={mso} k="role" label="Role" className="p-2" /><SortTh s={mso} k="answered" label="Progress" className="p-2" /><SortTh s={mso} k="invitedAt" label="Invite" className="p-2" /><SortTh s={mso} k="reminderSentAt" label="Reminder" className="p-2" /><SortTh s={mso} k="dueDate" label="Due" className="p-2" /><SortTh s={mso} k="lastSeen" label="Last visit" className="p-2" /><th /></tr></thead>
+            <tbody>{mso.sorted.map((m, i) => (
               <tr key={m.id} className={i % 2 ? "bg-[#F1ECE0]/60" : ""}>
                 <td className="p-2 font-medium">{m.name}</td><td className="p-2">{m.email}</td><td className="p-2">{m.role}</td>
                 <td className="p-2 whitespace-nowrap">{done(m) ? <b className="text-green-700">Done</b> : null} rated {m.answered ?? 0} of {total}</td>
@@ -420,8 +425,9 @@ function Members({ client, settings, members, total, post, reload }: { client: B
 }
 
 function Results({ client, list, members, answers, reload }: { client: BrClient; list: BrList | null; members: BrMemberPublic[]; answers: Record<string, Record<string, BrAnswer>>; reload: () => void }) {
+  const rso = useSort((list?.entries ?? []) as BrEntry[], (e, k) => (k.startsWith("m:") ? (answers[k.slice(2)]?.[String(e.cptid)]?.choice || answers[k.slice(2)]?.[String(e.cptid)]?.other || "") : k === "city" ? [e.city, e.state].filter(Boolean).join(", ") : (e as unknown as Record<string, unknown>)[k]));
   const [only, setOnly] = useState<"all" | "answered" | "A">("all");
-  const entries = (list?.entries ?? []).filter((e) => {
+  const entries = rso.sorted.filter((e) => {
     const picks = members.map((m) => answers[m.id]?.[String(e.cptid)]?.choice).filter(Boolean);
     if (only === "answered") return picks.some((p) => p !== "D");
     if (only === "A") return picks.some((p) => p === "A" || p === "B");
@@ -447,7 +453,7 @@ function Results({ client, list, members, answers, reload }: { client: BrClient;
         <div className="mt-4 overflow-auto">
           <table className="w-full text-sm">
             <thead className="bg-[#0E1E31] text-left text-xs text-white">
-              <tr><th className="sticky left-0 bg-[#0E1E31] p-2">Prospect</th><th className="p-2">City, State</th>{members.map((m) => <th key={m.id} className="min-w-[140px] p-2">{m.name}</th>)}</tr>
+              <tr><SortTh s={rso} k="sortKey" label="Prospect" className="sticky left-0 bg-[#0E1E31] p-2" /><SortTh s={rso} k="city" label="City, State" className="p-2" />{members.map((m) => <SortTh key={m.id} s={rso} k={`m:${m.id}`} label={m.name} className="min-w-[140px] p-2" />)}</tr>
             </thead>
             <tbody>{entries.map((e, i) => (
               <tr key={e.cptid} className={i % 2 ? "bg-[#F1ECE0]/60" : "bg-white"}>

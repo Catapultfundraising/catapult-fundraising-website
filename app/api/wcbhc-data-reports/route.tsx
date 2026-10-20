@@ -222,7 +222,7 @@ export async function GET(req: NextRequest) {
   const askTxt = (p: (typeof seated)[number]["people"][number]) => stOf(p.cptid)?.status || p.status || "-";
   const idTxt = (id: number) => (id >= 900_000 ? "" : `CPTID ${id}`);
   const solOf = new Map(snap.pool.map((p) => [p.cptid, p.solicitor]));
-  const solTxt = (id: number) => stOf(id)?.solicitor || solOf.get(id) || "Unassigned";
+  const solTxt = (id: number) => { const a = stOf(id)?.solicitor || solOf.get(id) || "Unassigned"; const b = stOf(id)?.solicitor2; return b ? `${a}${a ? " / " : ""}2nd: ${b}` : a; };
   const insights = [
     `${covered.length} of ${seated.length} levels have a full ${GC2P_RATIO}-to-1 prospect pool${covered.length ? ` (${covered.map((x) => formatCompactDollars(x.level)).join(", ")})` : ""}.`,
     short2.length ? `${short2.reduce((a, x) => a + x.need - x.people.length, 0)} more prospects are needed: ${short2.map((x) => `${formatCompactDollars(x.level)} short ${x.need - x.people.length}`).join("; ")}.` : "Every level shown is fully covered.",
