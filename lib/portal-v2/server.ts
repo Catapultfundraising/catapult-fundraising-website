@@ -65,6 +65,11 @@ async function knownRecords(client: PortalClient, state: PortalState) {
   return { known: [...known, ...extra], floor, skip, idsLoaded: !!ids };
 }
 
+/** Prospects added through the portal (Engage SQL), for screens built on the records index. */
+export async function portalProspects(client: PortalClient): Promise<PortalState["prospects"]> {
+  try { return (await engage<PortalState>(client, "state")).prospects ?? []; } catch { return []; }
+}
+
 // ---- Campaign gifts already in the client database (weekly snapshot) ----
 // Only gifts/pledges coded to the CURRENT capital campaign count. CSNF (only the older
 // Henderson Health Sciences campaign is coded) and JAG (no campaign coding yet) have none.
