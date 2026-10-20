@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { safeSheetName, xmlSafe } from "@/lib/jag-brand-xlsx";
+import { safeSheetName, xmlSafe, finalizeXlsx } from "@/lib/jag-brand-xlsx";
 import { LOGO_URL, LOGO_ASPECT } from "@/lib/pvas-brand-pdf";
 import { FIRM_EMAIL, FIRM_PHONE } from "@/lib/constants";
 
@@ -84,5 +84,5 @@ export async function buildBrandedXlsx(opts: {
     ws.getColumn(i + 1).width = Math.min(48, Math.max(10, w + 2));
   });
   ws.pageSetup = { orientation: opts.cols.length > 6 ? "landscape" : "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "5:5" };
-  return Buffer.from(await wb.xlsx.writeBuffer());
+  return finalizeXlsx(await wb.xlsx.writeBuffer());
 }
