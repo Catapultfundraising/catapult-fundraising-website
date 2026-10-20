@@ -31,6 +31,8 @@ export interface BrMemberPublic {
   invitedAt: string; dueDate?: string; reminderSentAt?: string; inviteCount?: number; queued?: string;
 }
 export const BR_WINDOW_DAYS = 14;
+/** Per-client response window (Engage engage.ratings_settings). fixedDue (YYYY-MM-DD) wins while it is in the future. */
+export interface BrSettings { windowDays: number; fixedDue: string | null; remindAfterDays: number }
 export const BR_REMIND_AFTER_DAYS = 5;
 export interface BrAnswer { choice: BrChoice | ""; other?: string; at: string }
 export interface BrResponses { memberId: string; answers: Record<string, BrAnswer>; updatedAt: string }

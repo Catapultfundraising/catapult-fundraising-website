@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { catapultClient, publicMember, sortEntries, adminState } from "@/lib/board-review/server";
-import { getList, saveList, getMembers, addMember, setPassword, removeMember, queueInvites, importFromBlob, inviteLog } from "@/lib/board-review/store";
+import { getList, saveList, getMembers, addMember, setPassword, removeMember, queueInvites, importFromBlob, inviteLog, saveSettings } from "@/lib/board-review/store";
 import { getPool, applyFilters, toEntry, matchUpload, isAssigned } from "@/lib/board-review/source";
 import { generatePassword, hashPassword } from "@/lib/board-review/auth";
 import { BR_CLIENT_NAMES, type BrClient, type BrFilters } from "@/lib/board-review/config";
@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
     list: st.list ? { ...st.list, entries: sortEntries(st.list.entries) } : null,
     members: st.members.map((m) => publicMember(m)),
     answers: st.answers,
+    settings: st.settings,
   });
 }
 
@@ -108,6 +109,7 @@ export async function POST(req: NextRequest) {
     const r = await queueInvites(c, items, BR_CLIENT_NAMES[c as BrClient], `${req.nextUrl.origin}/${c}/data-dashboard/review/login`, String(body.by ?? "dashboard"));
     return NextResponse.json({ ok: true, queued: r.queued });
   }
+  if (op === "saveSettings") return NextResponse.json({ ok: true, settings: await saveSettings(c, body.settings ?? {}, String(body.by ?? "dashboard")) });
   if (op === "log") return NextResponse.json({ log: await inviteLog(c) });
   if (op === "migrate") return NextResponse.json(await importFromBlob(c, !!body.force));
   return NextResponse.json({ error: "Unknown op" }, { status: 400 });

@@ -27,5 +27,5 @@ export const sortEntries = (e: BrEntry[]) => [...e].sort((a, b) => a.sortKey.loc
 /** Everything for the staff screens in one SQL round trip. */
 export async function adminState(c: BrClient) {
   const s = await getState(c);
-  return { list: s.list, members: s.members, answers: s.answers ?? {} };
+  return { list: s.list, members: s.members, answers: s.answers ?? {}, settings: s.settings ?? { windowDays: 14, fixedDue: null, remindAfterDays: 5 } };
 }

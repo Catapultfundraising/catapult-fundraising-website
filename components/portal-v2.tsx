@@ -285,8 +285,38 @@ export function AuditLog() {
   );
 }
 
+const EDIT_FIELDS: [key: string, col: string, label: string][] = [["firstName", "first_name", "First name"], ["lastName", "last_name", "Last name"], ["fullName", "full_name", "Full name (shown everywhere)"], ["orgName", "org_name", "Organization"],
+  ["address1", "address1", "Address"], ["city", "city", "City"], ["state", "state", "State"], ["zip", "zip", "ZIP"], ["email", "email", "Email"], ["phone", "phone", "Phone"], ["clientId", "client_id", "Client ID"]];
+function EditPortalProspect({ p, onDone }: { p: PortalState["prospects"][number]; onDone: () => void }) {
+  const { client, reload } = useV2();
+  const [by] = useBy();
+  const [f, setF] = useState<Record<string, string>>(() => Object.fromEntries(EDIT_FIELDS.map(([k, col]) => [k, String((p as unknown as Record<string, unknown>)[col] ?? "")])));
+  const [busy, setBusy] = useState(false), [err, setErr] = useState("");
+  const set = (k: string, v: string) => setF((o) => {
+    const n = { ...o, [k]: v };
+    // Keep the full name in step with first/last when it was built from them.
+    if ((k === "firstName" || k === "lastName") && o.fullName === `${o.firstName} ${o.lastName}`.trim()) n.fullName = `${n.firstName} ${n.lastName}`.trim();
+    return n;
+  });
+  const save = async () => {
+    setBusy(true); setErr("");
+    try { await post(client, { op: "editProspect", cptid: p.cptid, prospect: f, by: by || "Catapult portal" }); await reload(); onDone(); }
+    catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+  };
+  return (
+    <tr className="border-b border-[rgb(var(--line))] bg-[rgb(var(--line))]/20"><td colSpan={6} className="px-3 py-3">
+      <div className="grid gap-3 sm:grid-cols-4">{EDIT_FIELDS.map(([k, , label]) => (
+        <label key={k} className={`text-xs ${k === "fullName" || k === "address1" ? "sm:col-span-2" : ""}`}>{label}<input className={input} value={f[k]} onChange={(e) => set(k, e.target.value)} /></label>
+      ))}</div>
+      <div className="mt-3 flex gap-2"><button className={btn} disabled={busy} onClick={save}>{busy ? "Saving..." : "Save changes"}</button><button className={btn2} onClick={onDone}>Cancel</button></div>
+      {err && <p className="mt-2 text-sm text-red-600">{err}</p>}
+    </td></tr>
+  );
+}
+
 export function AddAndUpload() {
   const { state } = useV2();
+  const [editing, setEditing] = useState<number | null>(null);
   return (
     <div className="space-y-6">
       <AddProspect />
@@ -295,8 +325,13 @@ export function AddAndUpload() {
       {state && state.prospects.length > 0 && (
         <div className={card}>
           <h3 className="font-display text-lg text-[rgb(var(--navy))]">Prospects added in the portal ({state.prospects.length})</h3>
-          <div className="mt-3 max-h-[420px] overflow-auto"><table className="w-full"><tbody>{[...state.prospects].reverse().map((p) => (
-            <tr key={p.id} className="border-b border-[rgb(var(--line))]"><td className={td}>CPTID {p.cptid}</td><td className={td}>{p.full_name}</td><td className={td}>{p.client_id ?? ""}</td><td className={td}>{[p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ")}</td><td className={td}>{p.source === "upload" ? "Client file" : "Portal entry"}</td></tr>
+          <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Click Edit to fix a name, address or contact detail. Changes are logged in the audit log.</p>
+          <div className="mt-3 max-h-[520px] overflow-auto"><table className="w-full"><tbody>{[...state.prospects].reverse().map((p) => (
+            <Fragment key={p.id}>
+              <tr className="border-b border-[rgb(var(--line))]"><td className={td}>CPTID {p.cptid}</td><td className={td}>{p.full_name}</td><td className={td}>{p.client_id ?? ""}</td><td className={td}>{[p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ")}</td><td className={td}>{p.source === "upload" ? "Client file" : "Portal entry"}</td>
+                <td className={`${td} text-right`}><button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => setEditing(editing === p.cptid ? null : p.cptid)}>{editing === p.cptid ? "Close" : "Edit"}</button></td></tr>
+              {editing === p.cptid && <EditPortalProspect p={p} onDone={() => setEditing(null)} />}
+            </Fragment>
           ))}</tbody></table></div>
         </div>
       )}

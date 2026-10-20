@@ -1,5 +1,5 @@
 import { get, put } from "@vercel/blob";
-import type { BrAnswer, BrClient, BrList, BrResponses } from "@/lib/board-review/config";
+import type { BrAnswer, BrClient, BrList, BrResponses, BrSettings } from "@/lib/board-review/config";
 
 // Prospect Ratings storage = Azure SQL (schema engage, tables ratings_*; every row keyed by client).
 // The website only has the read-only portal_reader login and no static IP, so every read and write
@@ -42,10 +42,11 @@ export async function getResponses(c: BrClient, id: string): Promise<BrResponses
 /** changes: cptid -> answer, or null to clear. */
 export const saveAnswers = (c: BrClient, memberId: string, changes: Record<string, BrAnswer | null>) => engage(c, "saveAnswers", { memberId, changes });
 export async function getState(c: BrClient) {
-  return engage<{ list: BrList | null; members: BrMember[]; answers: Record<string, Record<string, BrAnswer>> }>(c, "state");
+  return engage<{ list: BrList | null; members: BrMember[]; answers: Record<string, Record<string, BrAnswer>>; settings?: BrSettings }>(c, "state");
 }
 export const queueInvites = (c: BrClient, items: { memberId: string; kind: "invite" | "resend"; password: string; salt: string; hash: string }[], clientName: string, link: string, by: string) =>
   engage<{ queued: number }>(c, "queueInvites", { items, clientName, link, by });
+export const saveSettings = async (c: BrClient, settings: Partial<BrSettings>, by: string) => (await engage<{ settings: BrSettings }>(c, "saveSettings", { settings, by })).settings;
 export const inviteLog = async (c: BrClient) => (await engage<{ log: Record<string, unknown>[] }>(c, "inviteLog")).log;
 
 // ---------- one-time import of the old Blob JSON ----------
