@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useUrlState } from "@/lib/use-url-state";
 import { BR_CHOICE_SHORT, BR_CLIENT_NAMES, type BrSettings, type BrAnswer, type BrClient, type BrEntry, type BrFilters, type BrList, type BrMemberPublic, type BrPoolRow } from "@/lib/board-review/config";
 
 const API = "/api/board-review/admin";
@@ -39,7 +40,7 @@ function Suggestions({ items }: { items: Suggestion[] }) {
 }
 
 export function BoardReviewAdmin({ client }: { client: BrClient }) {
-  const [tab, setTab] = useState<Tab>("Build list");
+  const [tab, setTab] = useUrlState<Tab>("rtab", "Build list", TABS);
   const [list, setList] = useState<BrList | null>(null);
   const [members, setMembers] = useState<BrMemberPublic[]>([]);
   const [answers, setAnswers] = useState<Record<string, Record<string, BrAnswer>>>({});
@@ -88,6 +89,18 @@ export function BoardReviewAdmin({ client }: { client: BrClient }) {
         {tab === "Members" && <Members client={client} settings={settings} members={members} total={list?.entries.length ?? 0} post={post} reload={load} />}
         {tab === "Results" && <Results client={client} list={list} members={members} answers={answers} reload={load} />}
         {tab === "Results" && <Suggestions items={suggestions} />}
+        {tab === "Results" && (
+          <div className={card + " flex flex-wrap items-center justify-between gap-3"}>
+            <div>
+              <h2 className="font-display text-lg text-[#0E1E31]">Download all results</h2>
+              <p className="text-sm text-[#0E1E31]/70">Every rating, every member comment and every prospect members added, in one file.</p>
+            </div>
+            <div className="flex gap-2">
+              <a className={btn} href={`${API}/export?client=${client}&format=pdf`}>Download PDF</a>
+              <a className={btn2} href={`${API}/export?client=${client}`}>Download Excel</a>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
@@ -427,6 +440,7 @@ function Results({ client, list, members, answers, reload }: { client: BrClient;
           </select>
           <button className={btn2} onClick={reload}>Refresh</button>
           <a className={btn} href={`${API}/export?client=${client}`}>Export to Excel</a>
+          <a className={btn2} href={`${API}/export?client=${client}&format=pdf`}>PDF</a>
         </div>
       </div>
       {!members.length || !list ? <p className="mt-4 text-sm">Save a list and invite members to see results.</p> : (

@@ -1,6 +1,8 @@
 "use client";
 
-import { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { RecordNav, SafeBoundary, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
+import { useUrlId } from "@/lib/use-url-state";
 import { AskAmountPanel } from "@/components/ask-amount-panel";
 import { Search, X, Download, FileSpreadsheet, FileText } from "lucide-react";
 import type { DonorRecord, IndexRow } from "@/lib/pvas-data-store";
@@ -58,19 +60,49 @@ export const useCrm = () => useContext(CrmCtx);
 export function CrmProvider({ children }: { children: React.ReactNode }) {
   const [index, setIndex] = useState<IndexRow[] | null>(null);
   const [loading, setLoading] = useState(true);
-  const [recId, setRecId] = useState<number | null>(null);
+  const [recId, setRecId] = useUrlId("rec");
   const [drillState, setDrill] = useState<{ title: string; sub: string; rows: IndexRow[] } | null>(null);
   const [tracking, setTracking] = useState<PvasTracking>(EMPTY_TRACKING);
   useEffect(() => {
     fetch("/api/pvas-data-tracking", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((t) => t && setTracking(t));
     fetch("/api/pvas-data-records").then((r) => (r.ok ? r.json() : null)).then((d) => setIndex(d?.index ?? null)).finally(() => setLoading(false));
   }, []);
-  const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking]);
+  const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking, setRecId]);
+  const [pick, setPick] = useState<{ name: string; rows: IndexRow[] } | null>(null);
+  const openName = useCallback((name: string, cptid?: number | null) => {
+    if (cptid && cptid > 0) { setRecId(cptid); return; }
+    const k = normName(name);
+    const hits = (index ?? []).filter((r) => normName(r.name) === k);
+    if (hits.length === 1) { setRecId(hits[0].cptid); return; }
+    const words = name.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w.length > 1 && w !== "and");
+    const loose = hits.length ? hits : (index ?? []).filter((r) => words.length > 0 && words.every((w) => r.name.toLowerCase().includes(w)));
+    setPick({ name, rows: loose });
+  }, [index, setRecId]);
+  const nav = useMemo<RecordNavCtx>(() => ({
+    open: setRecId, openName,
+    drillIds: (title, sub, ids) => { const set = new Set(ids); setDrill({ title, sub, rows: (index ?? []).filter((r) => set.has(r.cptid)) }); },
+    drillQuery: (title, sub, kind, value) => {
+      fetch(`/api/pvas-data-records?drill=${encodeURIComponent(kind)}&v=${encodeURIComponent(String(value))}`, { cache: "no-store" })
+        .then((r) => (r.ok ? r.json() : Promise.reject())).then((j: { cptids: number[] }) => { const set = new Set(j.cptids); setDrill({ title, sub, rows: (index ?? []).filter((r) => set.has(r.cptid)) }); })
+        .catch(() => alert("Could not load that list. Please try again."));
+    },
+  }), [index, openName, setRecId]);
   return (
     <CrmCtx.Provider value={ctx}>
+    <RecordNav.Provider value={nav}>
       {children}
       {drillState && <DrillModal {...drillState} onClose={() => setDrill(null)} />}
-      {recId !== null && <RecordModal cptid={recId} onClose={() => setRecId(null)} />}
+      {pick && (
+        <Modal title={pick.rows.length ? `Which ${pick.name}?` : "No matching record"} sub={pick.rows.length ? "Several records match this name. Pick one to open it." : undefined} onClose={() => setPick(null)}>
+          {pick.rows.length ? <div onClick={() => setPick(null)}><PeopleTable rows={pick.rows} /></div> : <p className="text-sm">No donor record matches &ldquo;{pick.name}&rdquo; yet. It may be a new name entered on the dashboard; add it on the Add + Upload tab or attach a CPTID.</p>}
+        </Modal>
+      )}
+      {recId !== null && (
+        <SafeBoundary label="This record" onReset={() => setRecId(recId)}>
+          <RecordModal cptid={recId} onClose={() => setRecId(null)} />
+        </SafeBoundary>
+      )}
+    </RecordNav.Provider>
     </CrmCtx.Provider>
   );
 }
@@ -356,7 +388,7 @@ function TrackingPanel({ cptid }: { cptid: number }) {
   const [solicitor, setSolicitor] = useState(cur?.solicitor ?? "");
   const [reason, setReason] = useState(cur?.reason ?? "");
   const [kind, setKind] = useState<string>("Visit");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(todayUs());
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState("");
@@ -364,10 +396,10 @@ function TrackingPanel({ cptid }: { cptid: number }) {
     setBusy(which); setMsg("");
     try {
       const res = await fetch("/api/pvas-data-tracking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, cptid, by }) });
-      const j = await res.json();
+      const j = await res.json().catch(() => ({ error: `Could not save (error ${res.status})` }));
       if (!res.ok) { setMsg(j.error ?? "Could not save"); return false; }
       setTracking(j); setMsg("Saved"); return true;
-    } finally { setBusy(null); }
+    } catch { setMsg("Could not save. Check your connection and try again."); return false; } finally { setBusy(null); }
   };
   return (
     <div className="mb-4 rounded-xl border-2 border-[rgb(var(--brass))]/50 bg-[rgb(var(--paper))] p-4">
@@ -402,25 +434,16 @@ function TrackingPanel({ cptid }: { cptid: number }) {
           <p className="text-sm font-semibold text-[rgb(var(--navy))]">Log a contact or visit</p>
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs">Type<select value={kind} onChange={(e) => setKind(e.target.value)} className={inputCls}>{ACTIVITY_KINDS.map((s) => <option key={s}>{s}</option>)}</select></label>
-            <label className="text-xs">Date<input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} /></label>
+            <label className="text-xs">Date<DateInput value={date} onChange={setDate} className={inputCls} required /></label>
             <label className="col-span-2 text-xs">Notes<textarea value={note} onChange={(e) => setNote(e.target.value)} rows={3} className={inputCls} /></label>
           </div>
-          <button disabled={!!busy} onClick={async () => { if (await post({ type: "activity", kind, date, note }, "act")) setNote(""); }} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "act" ? "Saving..." : "Add to history"}</button>
+          <button disabled={!!busy} onClick={async () => { if (!parseUsDateClient(date)) { setMsg("Use MM/DD/YYYY for the date"); return; } if (await post({ type: "activity", kind, date, note }, "act")) setNote(""); }} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "act" ? "Saving..." : "Add to history"}</button>
         </div>
       </div>
       {msg && <p className={`mt-2 text-sm ${msg === "Saved" ? "text-green-700" : "text-red-700"}`}>{msg}</p>}
       <div className="mt-3 rounded-lg bg-white p-3">
         <p className="mb-2 text-sm font-semibold text-[rgb(var(--navy))]">History ({acts.length})</p>
-        {acts.length === 0 ? <p className="text-sm text-[rgb(var(--ink))]/55">No contacts or committee updates logged yet.</p> : (
-          <ol className="max-h-64 space-y-2 overflow-auto">
-            {acts.map((a) => (
-              <li key={a.id} className="border-l-2 border-[rgb(var(--brass))] pl-3 text-sm">
-                <p className="text-xs text-[rgb(var(--ink))]/60"><span className="font-semibold text-[rgb(var(--navy))]">{a.date}</span> · {a.kind} · {a.by}</p>
-                <p className="whitespace-pre-wrap">{a.note}</p>
-              </li>
-            ))}
-          </ol>
-        )}
+        <HistoryList items={acts} kinds={ACTIVITY_KINDS} post={post} busy={busy} />
       </div>
     </div>
   );

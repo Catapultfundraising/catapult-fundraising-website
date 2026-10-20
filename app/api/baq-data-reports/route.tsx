@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
   if (!snap) return NextResponse.json({ error: "no data" }, { status: 503 });
   const tracking = report === "gc2p" ? await getBaqTracking() : null;
   const recs = report === "gc2p" && tracking && Object.keys(tracking.prospects).length ? await getBaqRecords() : null;
-  const { chart, seated, notShown, removed } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recs?.index, tracking, snap.pool));
+  const { chart, seated, notShown, removed, below, belowLevel } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recs?.index, tracking, snap.pool));
   const stOf = (id: number) => tracking?.prospects[String(id)];
   const lastAct = (id: number) => (tracking?.activity ?? []).filter((a) => a.cptid === id && a.kind !== "Committee update").sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at))[0];
   // Exact compact goal ($1.75M, not the shared helper's rounded $1.8M).
@@ -251,9 +251,14 @@ export async function GET(req: NextRequest) {
           rows: x.people.map((p) => [x.level, p.name, p.donorType, askTxt(p), solTxt(p.cptid), p.wealth || p.ds || "", capTxt(p), histTxt(p), p.committedAmt || null, x.level, noteTxt(p)] as (string | number | null)[]),
         })),
         {
+          heading: `Below ${formatDollars(belowLevel)} · ${below.length} prospects · ${usd(below.reduce((a, p) => a + (p.ask || p.rating || 0), 0))}`,
+          rows: below.map((p) => [p.ask || p.rating || 0, p.name, p.cptid, solTxt(p.cptid), p.ds, capTxt(p), p.lifetime, p.largest, p.last, p.ask || p.rating || 0, noteTxt(p)] as (string | number | null)[]),
+        },
+        {
           heading: "Pipeline totals",
           rows: [
             ...seated.map((x) => [x.level, `${x.people.length} prospects`, null, null, null, null, null, null, null, levelAsk(x), null] as (string | number | null)[]),
+            [`Below ${formatDollars(belowLevel)}`, `${below.length} prospects`, null, null, null, null, null, null, null, below.reduce((a, p) => a + (p.ask || p.rating || 0), 0), null],
             ["Total pipeline", `${identified} prospects`, null, null, null, null, null, null, null, totalAsk, null],
           ],
         },
@@ -374,6 +379,21 @@ export async function GET(req: NextRequest) {
             {x.people.length === 0 && <Text style={{ fontSize: 7.5, opacity: 0.6, padding: 4 }}>No prospects are seated at this level yet.</Text>}
           </View>
         ))}
+        {below.length > 0 && (
+          <View style={{ marginBottom: 10 }}>
+            <View style={{ backgroundColor: "#0E1E31", paddingVertical: 6, paddingHorizontal: 8 }} wrap={false} minPresenceAhead={40}>
+              <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 13, color: "#FFF" }}>Below {formatDollars(belowLevel)} · {below.length} prospects · {usd(below.reduce((a, p) => a + (p.ask || p.rating || 0), 0))}</Text>
+            </View>
+            {below.map((p) => (
+              <View key={p.cptid} style={{ flexDirection: "row", borderBottomWidth: 0.6, borderBottomColor: LINE }} wrap={false}>
+                <Text style={{ width: "45%", fontSize: 7.6, padding: 3, fontWeight: 700 }}>{p.name}</Text>
+                <Text style={{ width: "15%", fontSize: 7.4, padding: 3 }}>CPTID {p.cptid}</Text>
+                <Text style={{ width: "20%", fontSize: 7.4, padding: 3, textAlign: "right" }}>{usd(p.ask || p.rating || 0)}</Text>
+                <Text style={{ width: "20%", fontSize: 7.4, padding: 3, textAlign: "right" }}>Lifetime {usd(p.lifetime)}</Text>
+              </View>
+            ))}
+          </View>
+        )}
         <View wrap={false} style={{ marginTop: 6 }}>
           <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Pipeline totals</Text>
           {seated.map((x) => (
@@ -383,6 +403,11 @@ export async function GET(req: NextRequest) {
               <Text style={{ width: 130, fontSize: 8, padding: 3, textAlign: "right" }}>{usd(levelAsk(x))}</Text>
             </View>
           ))}
+          <View style={{ flexDirection: "row", borderBottomWidth: 0.6, borderBottomColor: LINE, width: 360 }}>
+            <Text style={{ width: 120, fontSize: 8, padding: 3, fontWeight: 700 }}>Below {formatDollars(belowLevel)}</Text>
+            <Text style={{ width: 110, fontSize: 8, padding: 3, textAlign: "right" }}>{below.length} prospects</Text>
+            <Text style={{ width: 130, fontSize: 8, padding: 3, textAlign: "right" }}>{usd(below.reduce((a, p) => a + (p.ask || p.rating || 0), 0))}</Text>
+          </View>
           <View style={{ flexDirection: "row", borderTopWidth: 1.2, borderTopColor: NAVY, width: 360 }}>
             <Text style={{ width: 120, fontSize: 8.5, padding: 3, fontWeight: 700 }}>Total pipeline</Text>
             <Text style={{ width: 110, fontSize: 8.5, padding: 3, textAlign: "right", fontWeight: 700 }}>{identified} prospects</Text>

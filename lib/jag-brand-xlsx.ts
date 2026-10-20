@@ -18,12 +18,27 @@ async function logo(): Promise<Buffer | null> {
 
 // Branded workbook: logo, navy title bar, gold rule, navy header row,
 // cream banding, money formats, frozen header, tagline footer.
+/** Excel-safe sheet name: no \\ / ? * [ ] : or apostrophes (an apostrophe breaks the print-titles defined name and
+ *  makes Excel offer to "repair" the file), max 31 chars, never blank, unique within the workbook. */
+export function safeSheetName(name: string, taken: Set<string> = new Set()) {
+  const base = (name.replace(/[\\/?*[\]:'\u0000-\u001f]/g, " ").replace(/\s+/g, " ").trim() || "Sheet").slice(0, 31).trim();
+  let n = base, i = 2;
+  while (taken.has(n.toLowerCase())) { const suf = ` (${i++})`; n = base.slice(0, 31 - suf.length).trim() + suf; }
+  taken.add(n.toLowerCase());
+  return n;
+}
+/** Strip characters that are illegal in XML 1.0 (control chars, lone surrogates); they corrupt the shared strings part. */
+export const xmlSafe = (v: unknown) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "").replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "").slice(0, 32000) : v);
+
 export async function buildBrandedXlsx(opts: {
   title: string; subtitle: string; client: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[];
+  /** Extra plain sheets (navy header row, cream banding) after the main one. */
+  extraSheets?: { name: string; cols: ExportCol[]; rows: (string | number | null)[][] }[];
 }): Promise<Buffer> {
   const wb = new ExcelJS.Workbook();
   wb.creator = "Catapult Fundraising";
-  const ws = wb.addWorksheet(opts.title.slice(0, 31).replace(/[\\/?*[\]:]/g, " "), { views: [{ state: "frozen", ySplit: 5, showGridLines: false }] });
+  const taken = new Set<string>();
+  const ws = wb.addWorksheet(safeSheetName(opts.title, taken), { views: [{ state: "frozen", ySplit: 5, showGridLines: false }] });
   const n = Math.max(opts.cols.length, 4);
   const img = await logo();
   ws.getRow(1).height = 40;
@@ -34,7 +49,7 @@ export async function buildBrandedXlsx(opts: {
   const put = (r: number, text: string, font: Partial<ExcelJS.Font>, fill?: string, height?: number) => {
     ws.mergeCells(r, 1, r, n);
     const c = ws.getCell(r, 1);
-    c.value = text; c.font = { name: "Calibri", ...font };
+    c.value = xmlSafe(text) as string; c.font = { name: "Calibri", ...font };
     c.alignment = { vertical: "middle", wrapText: true };
     if (fill) c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: fill } };
     if (height) ws.getRow(r).height = height;
@@ -46,7 +61,7 @@ export async function buildBrandedXlsx(opts: {
   const head = ws.getRow(5);
   opts.cols.forEach((c, i) => {
     const cell = head.getCell(i + 1);
-    cell.value = c.label;
+    cell.value = xmlSafe(c.label) as string;
     cell.font = { bold: true, color: { argb: WHITE }, size: 10 };
     cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
     cell.alignment = { vertical: "middle", horizontal: c.kind && c.kind !== "text" ? "right" : "left", wrapText: true };
@@ -57,14 +72,14 @@ export async function buildBrandedXlsx(opts: {
     if (s.heading) {
       ws.mergeCells(r, 1, r, n);
       const c = ws.getCell(r, 1);
-      c.value = s.heading; c.font = { bold: true, size: 11, color: { argb: NAVY } };
+      c.value = xmlSafe(s.heading) as string; c.font = { bold: true, size: 11, color: { argb: NAVY } };
       c.fill = { type: "pattern", pattern: "solid", fgColor: { argb: BRASS } };
       ws.getRow(r).height = 20; r++; band = 0;
     }
     for (const row of s.rows) {
       opts.cols.forEach((col, i) => {
         const cell = ws.getCell(r, i + 1);
-        cell.value = row[i] ?? "";
+        cell.value = (xmlSafe(row[i] ?? "") as string | number);
         const f = FMT[col.kind ?? "text"];
         if (f && typeof row[i] === "number") cell.numFmt = f;
         if (band % 2) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CREAM } };
@@ -83,5 +98,24 @@ export async function buildBrandedXlsx(opts: {
     ws.getColumn(i + 1).width = Math.min(48, Math.max(10, w + 2));
   });
   ws.pageSetup = { orientation: opts.cols.length > 6 ? "landscape" : "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "5:5" };
+  for (const x of opts.extraSheets ?? []) {
+    const sh = wb.addWorksheet(safeSheetName(x.name, taken), { views: [{ state: "frozen", ySplit: 1, showGridLines: false }] });
+    const h = sh.getRow(1);
+    x.cols.forEach((c, i) => {
+      const cell = h.getCell(i + 1);
+      cell.value = xmlSafe(c.label) as string; cell.font = { bold: true, color: { argb: WHITE }, size: 10 };
+      cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: NAVY } };
+      cell.alignment = { vertical: "middle", wrapText: true };
+    });
+    h.height = 22;
+    x.rows.forEach((row, ri) => x.cols.forEach((col, i) => {
+      const cell = sh.getCell(ri + 2, i + 1);
+      cell.value = xmlSafe(row[i] ?? "") as string | number;
+      const f = FMT[col.kind ?? "text"]; if (f && typeof row[i] === "number") cell.numFmt = f;
+      if (ri % 2) cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: CREAM } };
+      cell.font = { size: 10, color: { argb: NAVY } }; cell.alignment = { vertical: "top", wrapText: true };
+    }));
+    x.cols.forEach((c, i) => { let w = c.label.length; for (const r of x.rows.slice(0, 400)) w = Math.max(w, String(r[i] ?? "").length); sh.getColumn(i + 1).width = Math.min(60, Math.max(10, w + 2)); });
+  }
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

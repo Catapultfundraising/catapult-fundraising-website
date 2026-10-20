@@ -1,7 +1,8 @@
 "use client";
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalState } from "@/lib/portal-v2/clients";
+import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
+import { DateInput, NameLink, isoToUs, parseUsDateClient } from "@/components/dashboard-shared";
 
 // Portal v2 shared UI: campaign progress bar, Campaign Donors (gift-chart levels),
 // Add Prospect, manual gift/pledge entry, bulk client-file upload with preview, audit log + undo.
@@ -80,7 +81,7 @@ export function CampaignDonors() {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-[rgb(var(--navy))]">Campaign donors by gift-chart level</h2>
-            <p className="text-sm text-[rgb(var(--ink))]/65">Campaign gifts and pledges from the client database (weekly refresh), client uploads and portal entries. Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
+            <p className="text-sm text-[rgb(var(--ink))]/65">Click a level to see every donor in it; click a name to open the record. Campaign gifts and pledges from the client database (weekly refresh), client uploads and portal entries. Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
           </div>
           <label className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">Campaign goal
             <input className={`${input} mt-1 w-40`} value={goalText} onChange={(e) => setGoalText(e.target.value)} />
@@ -102,17 +103,24 @@ export function CampaignDonors() {
                   </tr>
                   {open === l.level && l.donors.map((d) => (
                     <tr key={`${l.level}-${d.key}`} className="bg-[rgb(var(--paper))]/60 text-[rgb(var(--ink))]/80">
-                      <td className={`${td} pl-8`} colSpan={3}>{d.name}{d.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · CPTID {d.cptid}</span> : null}</td>
+                      <td className={`${td} pl-8`} colSpan={3}><NameLink name={d.name} cptid={d.cptid} />{d.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · CPTID {d.cptid}</span> : null}</td>
                       <td className={td} colSpan={2}>Pledged {usd(d.pledges)} · Given {usd(d.gifts)}</td>
                       <td className={`${td} text-right`} colSpan={2}>{usd(d.credit)}</td>
                     </tr>
                   ))}
                 </Fragment>
               ))}
-              <tr className="border-b border-[rgb(var(--line))]">
-                <td className={td}>Below chart levels</td><td className={`${td} text-right`}>—</td><td className={`${td} text-right`}>{c.below.length}</td><td className={td} />
+              <tr className="cursor-pointer border-b border-[rgb(var(--line))] hover:bg-[rgb(var(--paper))]" onClick={() => setOpen(open === -1 ? null : -1)}>
+                <td className={`${td} font-medium`}>Below {usd(Math.min(...c.levels.map((l) => l.level)))} {c.below.length > 0 && <span className="text-xs text-[rgb(var(--ink))]/50">{open === -1 ? "▾" : "▸"}</span>}</td><td className={`${td} text-right`}>—</td><td className={`${td} text-right`}>{c.below.length}</td><td className={td} />
                 <td className={td} /><td className={`${td} text-right`}>{usd(c.belowValue)}</td><td className={td} />
               </tr>
+              {open === -1 && c.below.map((d) => (
+                <tr key={`below-${d.key}`} className="bg-[rgb(var(--paper))]/60 text-[rgb(var(--ink))]/80">
+                  <td className={`${td} pl-8`} colSpan={3}><NameLink name={d.name} cptid={d.cptid} />{d.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · CPTID {d.cptid}</span> : null}</td>
+                  <td className={td} colSpan={2}>Pledged {usd(d.pledges)} · Given {usd(d.gifts)}</td>
+                  <td className={`${td} text-right`} colSpan={2}>{usd(d.credit)}</td>
+                </tr>
+              ))}
               <tr className="font-semibold">
                 <td className={td}>Total</td><td className={td} /><td className={`${td} text-right`}>{c.donors.length}</td><td className={td} />
                 <td className={`${td} text-right`}>{usd(goal)}</td><td className={`${td} text-right`}>{usd(c.raised)}</td><td className={`${td} text-right`}>{usd(Math.max(0, goal - c.raised))}</td>
@@ -122,17 +130,86 @@ export function CampaignDonors() {
         </div>
       </div>
       <GiftForm />
-      <div className={card}>
+      <AllGifts />
+    </div>
+  );
+}
+
+function giftId(g: PortalGift) { return Number(g.id) > 0 ? String(g.id) : g.key ?? String(g.id); }
+function AllGifts() {
+  const { client, state, reload } = useV2();
+  const [by, setBy] = useBy();
+  const [mode, setMode] = useState<{ id: string; kind: "edit" | "void" } | null>(null);
+  const [f, setF] = useState({ amount: "", kind: "pledge", date: "", note: "", reason: "" });
+  const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  if (!state) return null;
+  const start = (g: PortalGift, kind: "edit" | "void") => { setMsg(""); setMode({ id: giftId(g), kind }); setF({ amount: String(Number(g.amount)), kind: g.kind, date: isoToUs(g.gift_date), note: g.note ?? "", reason: "" }); };
+  const base = (g: PortalGift) => ({ id: Number(g.id) > 0 ? Number(g.id) : undefined, key: Number(g.id) > 0 ? undefined : g.key, cptid: g.cptid, donorName: g.donor_name,
+    original: { amount: Number(g.amount), kind: g.kind, date: g.gift_date, name: g.donor_name, cptid: g.cptid } });
+  const save = async (g: PortalGift) => {
+    if (!by.trim()) { setMsg("Enter your name first."); return; }
+    setBusy(true); setMsg("");
+    try {
+      if (mode?.kind === "void") {
+        if (!f.reason.trim()) { setMsg("Enter a reason for voiding."); return; }
+        await post(client, { op: "voidGift", by, reason: f.reason, gift: base(g) });
+        setMsg(`Voided. Reason, your name and the time are saved.`);
+      } else {
+        const d = parseUsDateClient(f.date);
+        if (d === null) { setMsg("Use MM/DD/YYYY for the date."); return; }
+        await post(client, { op: "editGift", by, gift: { ...base(g), amount: f.amount, kind: f.kind, date: f.date, note: f.note } });
+        setMsg("Saved. The existing record was updated.");
+      }
+      setMode(null); await reload();
+    } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+  };
+  const voided = state.voidedGifts ?? [];
+  const dbVoids = (state.giftOverrides ?? []).filter((o) => o.voided);
+  return (
+    <div className={card}>
+      <div className="flex flex-wrap items-end justify-between gap-2">
         <h3 className="font-display text-lg text-[rgb(var(--navy))]">All campaign gifts and pledges</h3>
-        <div className="mt-3 max-h-[480px] overflow-auto">
-          <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><th className={th}>Date</th><th className={th}>Donor</th><th className={th}>Type</th><th className={`${th} text-right`}>Amount</th><th className={th}>Source</th><th className={th}>Note</th></tr></thead>
-            <tbody>{[...state.gifts].reverse().map((g) => (
-              <tr key={g.id} className="border-b border-[rgb(var(--line))]"><td className={td}>{g.gift_date ?? ""}</td><td className={td}>{g.donor_name}{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
-                <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{usd(Number(g.amount))}</td><td className={td}>{g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry"}</td><td className={td}>{g.note ?? ""}</td></tr>
-            ))}</tbody></table>
-          {!state.gifts.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No campaign gifts or pledges recorded yet.</p>}
-        </div>
+        <label className="text-xs">Your name (required to edit or void)<input className={`${input} mt-1 w-56`} value={by} onChange={(e) => setBy(e.target.value)} /></label>
       </div>
+      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh.</p>
+      {msg && <p className="mt-2 text-sm">{msg}</p>}
+      <div className="mt-3 max-h-[560px] overflow-auto">
+        <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><th className={th}>Date</th><th className={th}>Donor</th><th className={th}>Type</th><th className={`${th} text-right`}>Amount</th><th className={th}>Source</th><th className={th}>Note</th><th className={th} /></tr></thead>
+          <tbody>{[...state.gifts].reverse().map((g) => (
+            <Fragment key={giftId(g)}>
+              <tr className="border-b border-[rgb(var(--line))]"><td className={td}>{isoToUs(g.gift_date)}</td><td className={td}><NameLink name={g.donor_name} cptid={g.cptid} />{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
+                <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{usd(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usd(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
+                <td className={td}>{g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry"}</td><td className={td}>{g.note ?? ""}</td>
+                <td className={`${td} whitespace-nowrap text-right`}>{(Number(g.id) > 0 || g.key) && <>
+                  <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => start(g, "edit")}>Edit</button>
+                  <button className="ml-3 text-xs font-semibold text-red-700 hover:underline" onClick={() => start(g, "void")}>Void</button></>}</td></tr>
+              {mode?.id === giftId(g) && (
+                <tr className="border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]"><td colSpan={7} className="px-3 py-3">
+                  {mode.kind === "edit" ? (
+                    <div className="grid gap-2 md:grid-cols-6">
+                      <label className="text-xs">Amount<input className={input} value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></label>
+                      <label className="text-xs">Type<select className={input} value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="pledge">Pledge</option><option value="gift">Gift</option></select></label>
+                      <label className="text-xs">Date<DateInput className={input} value={f.date} onChange={(v) => setF({ ...f, date: v })} /></label>
+                      <label className="text-xs md:col-span-3">Note<input className={input} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
+                    </div>
+                  ) : (
+                    <label className="block text-xs">Reason for voiding (required), e.g. &ldquo;Duplicate of the $7,500 pledge&rdquo;<input className={input} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} /></label>
+                  )}
+                  <div className="mt-2 flex gap-2"><button className={btn} disabled={busy} onClick={() => save(g)}>{busy ? "Saving…" : mode.kind === "edit" ? "Save changes" : "Void this record"}</button><button className={btn2} onClick={() => setMode(null)}>Cancel</button></div>
+                </td></tr>
+              )}
+            </Fragment>
+          ))}</tbody></table>
+        {!state.gifts.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No campaign gifts or pledges recorded yet.</p>}
+      </div>
+      {(voided.length > 0 || dbVoids.length > 0) && (
+        <details className="mt-4"><summary className="cursor-pointer text-sm font-medium">Voided records ({voided.length + dbVoids.length}), not counted in totals</summary>
+          <table className="mt-2 w-full"><tbody>
+            {voided.map((v) => <tr key={`v${v.id}`} className="border-b border-[rgb(var(--line))] text-[rgb(var(--ink))]/70"><td className={td}>{v.donor_name}</td><td className={td}>{v.kind}</td><td className={`${td} text-right`}>{usd(Number(v.amount))}</td><td className={td}>Reason: {v.void_reason}</td><td className={td}>{v.voided_by} · {v.voided_at ? new Date(v.voided_at).toLocaleString() : ""}</td></tr>)}
+            {dbVoids.map((v) => <tr key={`o${v.id}`} className="border-b border-[rgb(var(--line))] text-[rgb(var(--ink))]/70"><td className={td}>{v.donor_name ?? v.gift_key}</td><td className={td}>database row</td><td className={td} /><td className={td}>Reason: {v.void_reason}</td><td className={td}>{v.created_by} · {new Date(v.created_at).toLocaleString()}</td></tr>)}
+          </tbody></table>
+        </details>
+      )}
     </div>
   );
 }
@@ -142,24 +219,40 @@ function GiftForm() {
   const [by, setBy] = useBy();
   const [f, setF] = useState({ donorName: "", cptid: "", kind: "pledge", amount: "", date: "", note: "" });
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
-  const save = async () => {
+  const [matches, setMatches] = useState<{ cptid: number; name: string; address: string; exact: boolean }[] | null>(null);
+  const save = async (confirmNew = false, gift = f) => {
+    if (parseUsDateClient(gift.date) === null) { setMsg("Use MM/DD/YYYY for the date."); return; }
     setBusy(true); setMsg("");
-    try { await post(client, { op: "addGift", by, gift: f }); setF({ donorName: "", cptid: "", kind: f.kind, amount: "", date: "", note: "" }); setMsg("Saved."); await reload(); }
-    catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+    try {
+      const r = await post(client, { op: "addGift", by, gift, confirmNew });
+      if (r.matches) { setMatches(r.matches); setMsg(""); return; }
+      setMatches(null); setF({ donorName: "", cptid: "", kind: f.kind, amount: "", date: "", note: "" }); setMsg("Saved."); await reload();
+    } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
   return (
     <div className={card}>
       <h3 className="font-display text-lg text-[rgb(var(--navy))]">Record a gift or pledge</h3>
       <div className="mt-3 grid gap-3 md:grid-cols-6">
-        <input className={`${input} md:col-span-2`} placeholder="Donor name *" value={f.donorName} onChange={(e) => setF({ ...f, donorName: e.target.value })} />
-        <input className={input} placeholder="CPTID (if known)" value={f.cptid} onChange={(e) => setF({ ...f, cptid: e.target.value })} />
+        <input className={`${input} md:col-span-2`} placeholder="Donor name *" value={f.donorName} onChange={(e) => { setF({ ...f, donorName: e.target.value }); setMatches(null); }} />
+        <input className={input} placeholder="CPTID (if known)" value={f.cptid} onChange={(e) => { setF({ ...f, cptid: e.target.value }); setMatches(null); }} />
         <select className={input} value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="pledge">Pledge</option><option value="gift">Gift</option></select>
         <input className={input} placeholder="Amount *" value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} />
-        <input className={input} type="date" value={f.date} onChange={(e) => setF({ ...f, date: e.target.value })} />
+        <DateInput className={input} value={f.date} onChange={(v) => setF({ ...f, date: v })} />
         <input className={`${input} md:col-span-4`} placeholder="Note" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
         <input className={input} placeholder="Your name" value={by} onChange={(e) => setBy(e.target.value)} />
-        <button className={btn} disabled={busy} onClick={save}>{busy ? "Saving…" : "Save"}</button>
+        <button className={btn} disabled={busy} onClick={() => save(false)}>{busy ? "Saving…" : "Save"}</button>
       </div>
+      {matches && (
+        <div className="mt-4 rounded border border-amber-400 bg-amber-50 p-4 text-sm">
+          <p className="font-medium">No CPTID entered. These donors already on file match &ldquo;{f.donorName}&rdquo;. Pick one so the {f.kind} attaches to their record:</p>
+          <ul className="mt-2 space-y-1">{matches.map((m) => (
+            <li key={m.cptid} className="flex flex-wrap items-center gap-2">
+              <button className={btn2} disabled={busy} onClick={() => { const g = { ...f, cptid: String(m.cptid), donorName: m.name }; setF(g); void save(true, g); }}>Use this record</button>
+              <span><strong>{m.name}</strong> · CPTID {m.cptid}{m.address ? ` · ${m.address}` : ""}{m.exact ? " · exact name match" : ""}</span>
+            </li>))}</ul>
+          <div className="mt-3 flex gap-2"><button className={btn2} onClick={() => setMatches(null)}>Cancel</button><button className={btn} disabled={busy} onClick={() => save(true)}>None of these, save as a new donor</button></div>
+        </div>
+      )}
       {msg && <p className="mt-2 text-sm">{msg}</p>}
     </div>
   );
@@ -274,9 +367,9 @@ export function AuditLog() {
         <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><th className={th}>When</th><th className={th}>What</th><th className={th}>By</th><th className={`${th} text-right`}>New</th><th className={`${th} text-right`}>Changed</th><th className={`${th} text-right`}>Gifts</th><th className={th} /></tr></thead>
           <tbody>{state.batches.map((b) => (
             <tr key={b.id} className={`border-b border-[rgb(var(--line))] ${b.undone_at ? "text-[rgb(var(--ink))]/40 line-through" : ""}`}>
-              <td className={td}>{new Date(b.created_at).toLocaleString()}</td><td className={td}>{b.kind === "upload" ? `File: ${b.file_name}` : `Entry: ${b.file_name}`}</td><td className={td}>{b.created_by}</td>
+              <td className={td}>{new Date(b.created_at).toLocaleString()}</td><td className={td}>{b.kind === "upload" ? `File: ${b.file_name}` : b.kind === "edit" ? `Change: ${b.file_name}` : `Entry: ${b.file_name}`}</td><td className={td}>{b.created_by}</td>
               <td className={`${td} text-right`}>{b.new_rows}</td><td className={`${td} text-right`}>{b.changed_rows}</td><td className={`${td} text-right`}>{b.gift_rows}</td>
-              <td className={td}>{b.undone_at ? <span className="no-underline">Undone {new Date(b.undone_at).toLocaleDateString()}</span> : <button className="text-sm text-[rgb(var(--navy))] underline" disabled={busy === b.id} onClick={() => undo(b.id)}>Undo</button>}</td>
+              <td className={td}>{b.kind === "edit" ? <span className="text-xs text-[rgb(var(--ink))]/50">Logged</span> : b.undone_at ? <span className="no-underline">Undone {new Date(b.undone_at).toLocaleDateString()}</span> : <button className="text-sm text-[rgb(var(--navy))] underline" disabled={busy === b.id} onClick={() => undo(b.id)}>Undo</button>}</td>
             </tr>))}</tbody></table>
         {!state.batches.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No changes yet.</p>}
       </div>
@@ -328,7 +421,7 @@ export function AddAndUpload() {
           <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Click Edit to fix a name, address or contact detail. Changes are logged in the audit log.</p>
           <div className="mt-3 max-h-[520px] overflow-auto"><table className="w-full"><tbody>{[...state.prospects].reverse().map((p) => (
             <Fragment key={p.id}>
-              <tr className="border-b border-[rgb(var(--line))]"><td className={td}>CPTID {p.cptid}</td><td className={td}>{p.full_name}</td><td className={td}>{p.client_id ?? ""}</td><td className={td}>{[p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ")}</td><td className={td}>{p.source === "upload" ? "Client file" : "Portal entry"}</td>
+              <tr className="border-b border-[rgb(var(--line))]"><td className={td}>CPTID {p.cptid}</td><td className={td}><NameLink name={p.full_name} cptid={p.cptid} /></td><td className={td}>{p.client_id ?? ""}</td><td className={td}>{[p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ")}</td><td className={td}>{p.source === "upload" ? "Client file" : "Portal entry"}</td>
                 <td className={`${td} text-right`}><button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => setEditing(editing === p.cptid ? null : p.cptid)}>{editing === p.cptid ? "Close" : "Edit"}</button></td></tr>
               {editing === p.cptid && <EditPortalProspect p={p} onDone={() => setEditing(null)} />}
             </Fragment>

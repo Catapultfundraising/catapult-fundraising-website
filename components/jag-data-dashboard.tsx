@@ -1,6 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useUrlState } from "@/lib/use-url-state";
+import { SafeBoundary, NameLink, useRecordNav } from "@/components/dashboard-shared";
 import { PortalV2Provider, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
@@ -29,7 +31,14 @@ type Tab = (typeof TABS)[number];
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
   return <div className={`min-w-0 max-w-full rounded-xl border border-[rgb(var(--line))] bg-white p-4 sm:p-5 ${className}`}>{children}</div>;
 }
-function Stat({ label, value, note }: { label: string; value: string; note?: string }) {
+function Stat({ label, value, note, onClick }: { label: string; value: string; note?: string; onClick?: () => void }) {
+  if (onClick) return (
+    <button type="button" onClick={onClick} className="min-w-0 max-w-full rounded-xl border border-[rgb(var(--line))] bg-white p-4 py-4 text-left hover:border-[rgb(var(--brass))] hover:bg-[rgb(var(--brass))]/5 sm:p-5" title="Click to see the list">
+      <p className="font-display text-2xl text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40">{value}</p>
+      <p className="text-[11px] uppercase tracking-wider text-[rgb(var(--ink))]/55">{label}</p>
+      {note && <p className="mt-1 text-[11px] text-[rgb(var(--ink))]/50">{note}</p>}
+    </button>
+  );
   return (
     <Card className="py-4">
       <p className="font-display text-2xl text-[rgb(var(--navy))]">{value}</p>
@@ -48,17 +57,29 @@ function H({ children, sub }: { children: React.ReactNode; sub?: string }) {
 }
 
 function Table<T extends Record<string, unknown>>({
-  rows, cols, csvName, exportSub,
+  rows, cols, csvName, exportSub, rowClick,
 }: {
   rows: T[];
+  /** Aggregate rows (year, type, level, solicitor...): click opens the list of people behind the row. */
+  rowClick?: (r: T) => void;
   cols: { key: keyof T; label: string; fmt?: (v: T[keyof T], r: T) => string; right?: boolean }[];
   /** Report title for the branded PDF/Excel download. */
   csvName?: string;
   exportSub?: string;
 }) {
   const { open } = useCrm();
+  const nav = useRecordNav();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ k: keyof T; dir: 1 | -1 } | null>(null);
+  const NAME_KEYS = ["name", "donor", "prospect", "donor_name", "full_name"];
+  const nameOf = (r: T) => { for (const k of NAME_KEYS) if (typeof r[k] === "string" && r[k]) return r[k] as string; return ""; };
+  const clickOf = (r: T): (() => void) | undefined => {
+    if (rowClick) return () => rowClick(r);
+    const id = Number(r.cptid);
+    if (Number.isInteger(id) && id > 0) return () => open(id);
+    const n = nameOf(r);
+    return n && nav ? () => nav.openName(n, null) : undefined;
+  };
   const shown = useMemo(() => {
     let r = rows;
     if (q) r = r.filter((x) => JSON.stringify(x).toLowerCase().includes(q.toLowerCase()));
@@ -105,11 +126,11 @@ function Table<T extends Record<string, unknown>>({
             {shown.map((r, i) => (
               <tr
                 key={i}
-                onClick={typeof r.cptid === "number" ? () => open(r.cptid as number) : undefined}
-                className={`${i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"} ${typeof r.cptid === "number" ? "cursor-pointer hover:bg-[rgb(var(--brass))]/10" : ""}`}
+                onClick={clickOf(r)}
+                className={`${i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"} ${clickOf(r) ? "cursor-pointer hover:bg-[rgb(var(--brass))]/10" : ""}`}
               >
-                {cols.map((c) => (
-                  <td key={String(c.key)} className={`whitespace-nowrap px-3 py-1.5 ${c.right ? "text-right tabular-nums" : ""}`}>
+                {cols.map((c, ci) => (
+                  <td key={String(c.key)} className={`whitespace-nowrap px-3 py-1.5 ${c.right ? "text-right tabular-nums" : ""} ${(NAME_KEYS.includes(String(c.key)) || (rowClick && ci === 0)) && clickOf(r) ? "font-medium text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40" : ""}`}>
                     {c.fmt ? c.fmt(r[c.key], r) : String(r[c.key] ?? "")}
                   </td>
                 ))}
@@ -152,14 +173,17 @@ const personCols: { key: keyof Person; label: string; fmt?: (v: never) => string
 ];
 
 function Overview({ d }: { d: JagSnapshot }) {
+  const nav = useRecordNav();
+  const go = useDrill();
+  const yr = (v: unknown) => nav?.drillQuery(`Donors who gave in ${v}`, "Every donor with a gift in this year", "year", String(v));
   const recent = d.fys.slice(-10);
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Lifetime giving" value={short(d.kpi.total)} note={`${short(d.kpi.cash)} cash, ${short(d.kpi.inkind)} in-kind`} />
-        <Stat label="Gifts" value={num(d.kpi.gifts)} note={`Avg ${usd(d.kpi.avg)}`} />
-        <Stat label="Donors with gifts" value={num(d.kpi.donors)} />
-        <Stat label="Screened (DonorSearch)" value={num(d.health.dsScreened)} />
+        <Stat label="Gifts" value={num(d.kpi.gifts)} note={`Avg ${usd(d.kpi.avg)}`} onClick={() => go("Donors with gifts", "Every donor with at least one gift", (r) => r.gifts > 0)} />
+        <Stat label="Donors with gifts" value={num(d.kpi.donors)} onClick={() => go("Donors with gifts", "Every donor with lifetime giving", (r) => r.lifetime > 0)} />
+        <Stat label="Screened (DonorSearch)" value={num(d.health.dsScreened)} onClick={() => go("Screened (DonorSearch)", "Records with a DonorSearch rating or capacity", (r) => !!(r.ds || r.capacity))} />
       </div>
       <Card>
         <H sub="Fiscal year July to June. Bars = dollars, line = donors.">Giving by fiscal year</H>
@@ -170,7 +194,7 @@ function Overview({ d }: { d: JagSnapshot }) {
               <XAxis dataKey="fy" />
               <YAxis tickFormatter={short} />
               <Tooltip formatter={(v: number) => usd(v)} />
-              <Bar dataKey="total" fill={NAVY} name="Dollars" />
+              <Bar dataKey="total" fill={NAVY} name="Dollars" cursor="pointer" onClick={(e: { fy?: unknown; payload?: { fy: unknown } }) => yr(e.payload?.fy ?? e.fy)} />
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -180,7 +204,7 @@ function Overview({ d }: { d: JagSnapshot }) {
           <H sub="Donors per fiscal year">Donor count</H>
           <div className="h-64">
             <ResponsiveContainer>
-              <LineChart data={recent}>
+              <LineChart data={recent} onClick={(st: { activeLabel?: unknown } | null) => st?.activeLabel !== undefined && yr(st.activeLabel)} style={{ cursor: "pointer" }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="fy" />
                 <YAxis />
@@ -194,7 +218,7 @@ function Overview({ d }: { d: JagSnapshot }) {
           <H sub="Share of last year's donors who gave again">Donor retention</H>
           <div className="h-64">
             <ResponsiveContainer>
-              <BarChart data={d.retention.slice(-10)}>
+              <BarChart data={d.retention.slice(-10)} onClick={(st: { activeLabel?: unknown } | null) => st?.activeLabel !== undefined && nav?.drillQuery(`Retained donors, ${st.activeLabel}`, "Gave this year and the year before", "retained", String(st.activeLabel))} style={{ cursor: "pointer" }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="fy" />
                 <YAxis unit="%" />
@@ -210,6 +234,7 @@ function Overview({ d }: { d: JagSnapshot }) {
         <H>Recent fiscal years</H>
         <Table
           csvName="Giving by Fiscal Year"
+          rowClick={(r: { fy: unknown }) => yr(r.fy)}
           rows={[...recent].reverse().map((f) => {
             const r = d.retention.find((x) => x.fy === f.fy);
             return { ...f, retention: r ? r.rate : 0, newDonors: r ? r.new : 0 };
@@ -228,6 +253,7 @@ function Overview({ d }: { d: JagSnapshot }) {
         <H sub="Gift file stages">Gifts by stage</H>
         <Table
           csvName="Gifts by Stage"
+          rowClick={(r: { stage: unknown }) => nav?.drillQuery(String(r.stage), "Donors with gifts of this type", "stage", String(r.stage))}
           rows={d.stages}
           cols={[
             { key: "stage", label: "Stage" },
@@ -240,6 +266,11 @@ function Overview({ d }: { d: JagSnapshot }) {
   );
 }
 
+/** List the people behind an aggregate (rows with a CPTID). */
+function useIds() {
+  const nav = useRecordNav();
+  return (title: string, sub: string, rows: { cptid?: number | null }[]) => nav?.drillIds(title, sub, rows.map((r) => Number(r.cptid)).filter((n) => n > 0));
+}
 function useDrill() {
   const { index, drill, loading } = useCrm();
   return (title: string, sub: string, f: (r: IndexRow) => boolean) => {
@@ -327,7 +358,18 @@ function GiftChartTab({ d }: { d: JagSnapshot }) {
   const [busy, setBusy] = useState<string | null>(null);
   const goal = Math.min(500_000_000, Math.max(100_000, Number(goalText.replace(/[^\d]/g, "")) || 0));
   const { index, tracking } = useCrm();
-  const { chart, seated, notShown, removed } = useMemo(() => seatGc2p(goal, d.pool, tracking, extrasFromIndex(index, tracking, d.pool)), [goal, d.pool, index, tracking]);
+  const { chart, seated, notShown, removed, below, belowLevel } = useMemo(() => seatGc2p(goal, d.pool, tracking, extrasFromIndex(index, tracking, d.pool)), [goal, d.pool, index, tracking]);
+  const nav = useRecordNav();
+  const seatList = (level: number | null) => {
+    if (level === null) { nav?.drillIds(`Below ${formatDollars(belowLevel)}`, "Prospects whose amount is under the lowest level shown", below.map((p) => p.cptid)); return; }
+    const x = seated.find((y) => y.level === level);
+    if (x) nav?.drillIds(`${formatDollars(level)} level`, `${x.people.length} prospects seated at this level`, x.people.map((p) => p.cptid));
+    else {
+      // Level not seated on the GC2P (under the lowest level shown): list the prospects whose amount falls in this band.
+      const higher = chart.rows.map((r) => r.level).filter((l): l is number => l !== null && l > level).sort((p, q) => p - q)[0] ?? Infinity;
+      nav?.drillIds(`${formatDollars(level)} level`, "Prospects whose amount falls in this band", below.filter((p) => (p.rating || 0) >= level && (p.rating || 0) < higher).map((p) => p.cptid));
+    }
+  };
   const stOf = (id: number) => tracking.prospects[String(id)];
   const shownValue = goal - notShown;
   const reportDownload = async (report: "gc" | "gc2p", format: "pdf" | "docx" | "xlsx") => {
@@ -368,10 +410,11 @@ function GiftChartTab({ d }: { d: JagSnapshot }) {
         <H sub="Suggested gift chart">Gift chart</H>
         <Table
           rows={chart.rows.map((r) => ({
-            gifts: r.gifts ?? "Many", level: r.level === null ? `Under ${formatDollars(r.under ?? 0)}` : formatDollars(r.level),
+            lvl: r.level, gifts: r.gifts ?? "Many", level: r.level === null ? `Under ${formatDollars(r.under ?? 0)}` : formatDollars(r.level),
             value: r.value, cumulative: r.cumulative, prospects: r.prospects ?? "", share: Math.round(r.shareOfGoal * 1000) / 10,
           }))}
           csvName={`Gift Chart ${formatDollars(goal)}`}
+          rowClick={(r: { lvl: number | null }) => seatList(r.lvl)}
           cols={[
             { key: "gifts", label: "Gifts" }, { key: "level", label: "Gift Level" },
             { key: "value", label: "Value", fmt: (v) => usd(v as number), right: true },
@@ -387,7 +430,7 @@ function GiftChartTab({ d }: { d: JagSnapshot }) {
         </H>
         <div className="mb-4 space-y-1.5">
           {seated.map((x) => (
-            <div key={x.level} className="grid grid-cols-[110px_1fr_140px] items-center gap-3 text-sm">
+            <div key={x.level} onClick={() => seatList(x.level)} title="Click to list the prospects" className="grid cursor-pointer grid-cols-[110px_1fr_140px] items-center gap-3 rounded text-sm hover:bg-[rgb(var(--brass))]/10">
               <span className="font-medium">{formatDollars(x.level)}</span>
               <div className="h-5 rounded bg-[rgb(var(--paper))]">
                 <div className="h-5 rounded" style={{ width: `${Math.min(100, (x.people.length / x.need) * 100)}%`, background: x.people.length >= x.need ? NAVY : GOLD }} />
@@ -395,6 +438,13 @@ function GiftChartTab({ d }: { d: JagSnapshot }) {
               <span className="text-right tabular-nums">{x.people.length} of {x.need} identified</span>
             </div>
           ))}
+          {below.length > 0 && (
+            <div onClick={() => seatList(null)} title="Click to list the prospects" className="grid cursor-pointer grid-cols-[110px_1fr_140px] items-center gap-3 rounded border-t border-[rgb(var(--line))] pt-1.5 text-sm hover:bg-[rgb(var(--brass))]/10">
+              <span className="font-medium">Below {formatDollars(belowLevel)}</span>
+              <span className="text-xs text-[rgb(var(--ink))]/60">{usd(below.reduce((a, p) => a + (p.rating || 0), 0))} total</span>
+              <span className="text-right tabular-nums">{below.length} prospect{below.length === 1 ? "" : "s"}</span>
+            </div>
+          )}
         </div>
         <p className="mb-4 text-xs text-[rgb(var(--ink))]/55">Click any prospect to open the full donor record. Use the download buttons at the top for the complete branded PDF with every section.</p>
         <div className="space-y-5">
@@ -424,6 +474,24 @@ function GiftChartTab({ d }: { d: JagSnapshot }) {
               )}
             </div>
           ))}
+          {below.length > 0 && (
+            <div>
+              <p className="mb-1 font-display text-lg text-[rgb(var(--navy))]">Below {formatDollars(belowLevel)} · {below.length} prospect{below.length === 1 ? "" : "s"} · {usd(below.reduce((a, p) => a + (p.rating || 0), 0))}</p>
+              <Table
+                csvName={`GC2P Below ${formatDollars(belowLevel)}`}
+                exportSub={`${formatDollars(goal)} goal`}
+                rows={below.map((p) => ({ ...p, amount: p.rating || 0 })) as never}
+                cols={[
+                  { key: "name", label: "Prospect" },
+                  { key: "amount", label: "Ask / Rating", fmt: (v: unknown) => usd(v as number), right: true },
+                  { key: "ds", label: "DS" },
+                  { key: "lifetime", label: "Lifetime", fmt: (v: unknown) => usd(v as number), right: true },
+                  { key: "largest", label: "Largest Gift", fmt: (v: unknown) => usd(v as number), right: true },
+                  { key: "last", label: "Last Gift" },
+                ] as never}
+              />
+            </div>
+          )}
         </div>
       </Card>
     </div>
@@ -481,13 +549,14 @@ function Board({ d }: { d: JagSnapshot }) {
   const ask = active.reduce((s, b) => s + b.ask, 0);
   const got = active.reduce((s, b) => s + b.get, 0);
   const giving = active.filter((b) => b.lifetime > 0).length;
+  const ids = useIds();
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Active board members" value={num(active.length)} />
-        <Stat label="Campaign ask total" value={usd(ask)} />
-        <Stat label="Committed so far" value={usd(got)} note={pct(got, ask) + " of ask"} />
-        <Stat label="Members who have given" value={`${giving} of ${active.length}`} />
+        <Stat label="Active board members" value={num(active.length)} onClick={() => ids('Active board members', "", active)} />
+        <Stat label="Campaign ask total" value={usd(ask)} onClick={() => ids('Members with an ask or pledge', "", active.filter((b) => b.ask > 0))} />
+        <Stat label="Committed so far" value={usd(got)} note={pct(got, ask) + " of ask"} onClick={() => ids('Members with gifts', "", active.filter((b) => b.get > 0))} />
+        <Stat label="Members who have given" value={`${giving} of ${active.length}`} onClick={() => ids('Members who have given', "", active.filter((b) => b.lifetime > 0 || b.ask > 0 || b.get > 0))} />
       </div>
       <Card>
         <H sub="Board campaign ask vs. get, with giving history and DonorSearch">Board report</H>
@@ -515,13 +584,14 @@ function Board({ d }: { d: JagSnapshot }) {
 function Calling({ d }: { d: JagSnapshot }) {
   const all = d.batches.flatMap((b) => b.people.map((p) => ({ batch: b.batch, ...p })));
   const tiers = Array.from(new Set(d.batches.flatMap((b) => Object.keys(b.tiers)))).sort();
+  const ids = useIds();
   return (
     <div className="space-y-6">
       <Card>
         <H sub="Prospects sent for feasibility study interview appointments, by study tier">Calling batches</H>
         <div className="h-64">
           <ResponsiveContainer>
-            <BarChart data={d.batches.map((b) => ({ batch: b.batch, ...b.tiers }))}>
+            <BarChart data={d.batches.map((b) => ({ batch: b.batch, ...b.tiers }))} style={{ cursor: "pointer" }} onClick={(st: { activeLabel?: unknown } | null) => { const b = d.batches.find((x) => x.batch === st?.activeLabel); if (b) ids(`Calling batch ${b.batch}`, "Prospects sent to calling in this batch", b.people); }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="batch" />
               <YAxis />
@@ -555,6 +625,9 @@ function Calling({ d }: { d: JagSnapshot }) {
 
 function Health({ d }: { d: JagSnapshot }) {
   const h = d.health;
+  const nav = useRecordNav();
+  const go = useDrill();
+  const has = (k: string) => () => nav?.drillQuery(`Records with ${k}`, `Constituents with a ${k} on file`, "has", k);
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -562,23 +635,23 @@ function Health({ d }: { d: JagSnapshot }) {
         <Stat label="With address" value={pct(h.address, h.records)} note={num(h.address)} />
         <Stat label="With phone" value={pct(h.phone, h.records)} note={num(h.phone)} />
         <Stat label="With email" value={pct(h.email, h.records)} note={num(h.email)} />
-        <Stat label="Organizations" value={num(h.orgs)} />
+        <Stat label="Organizations" value={num(h.orgs)} onClick={() => go("Organizations", "Organization records", (r) => /org|foundation|corp|business|church|trust/i.test(r.kind ?? ""))} />
         <Stat label="Flagged duplicates" value={num(h.duplicates)} />
         <Stat label="Accounts with 2+ CPTIDs" value={num(h.multiCptAccounts)} />
-        <Stat label="DonorSearch screened" value={pct(h.dsScreened, h.constituents)} note={`${num(h.dsScreened)} of ${num(h.constituents)}`} />
+        <Stat label="DonorSearch screened" value={pct(h.dsScreened, h.constituents)} note={`${num(h.dsScreened)} of ${num(h.constituents)}`} onClick={() => go("DonorSearch screened", "Records with a DonorSearch rating or capacity", (r) => !!(r.ds || r.capacity))} />
       </div>
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <H>Donor type</H>
-          <Table csvName="Donor Types" rows={d.donorType.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Donor Type" }, { key: "count", label: "Records", right: true }]} />
+          <Table rowClick={(r: { type: unknown }) => nav?.drillQuery(String(r.type), "Donor Types", "attr", String(r.type))} csvName="Donor Types" rows={d.donorType.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Donor Type" }, { key: "count", label: "Records", right: true }]} />
         </Card>
         <Card>
           <H>Affiliation flags</H>
-          <Table csvName="Affiliation Flags" rows={Object.entries(d.flags).map(([k, n]) => ({ flag: k, count: n }))} cols={[{ key: "flag", label: "Flag" }, { key: "count", label: "Records", right: true }]} />
+          <Table rowClick={(r: { flag: unknown }) => nav?.drillQuery(String(r.flag), "Affiliation Flags", "attr", String(r.flag))} csvName="Affiliation Flags" rows={Object.entries(d.flags).map(([k, n]) => ({ flag: k, count: n }))} cols={[{ key: "flag", label: "Flag" }, { key: "count", label: "Records", right: true }]} />
         </Card>
         <Card>
           <H>Organization types</H>
-          <Table csvName="Organization Types" rows={d.orgTypes.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Type" }, { key: "count", label: "Orgs", right: true }]} />
+          <Table rowClick={(r: { type: unknown }) => nav?.drillQuery(String(r.type), "Organization Types", "attr", String(r.type))} csvName="Organization Types" rows={d.orgTypes.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Type" }, { key: "count", label: "Orgs", right: true }]} />
         </Card>
       </div>
     </div>
@@ -588,20 +661,21 @@ function Health({ d }: { d: JagSnapshot }) {
 function Feasibility({ d }: { d: JagSnapshot }) {
   const f = d.feasibility;
   const yn = (v: unknown) => (v ? "Yes" : "");
+  const ids = useIds();
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Prospects in study" value={num(f.total)} />
-        <Stat label="Interviews completed" value={num(f.completed)} note={pct(f.completed, f.total)} />
-        <Stat label="Declined interview" value={num(f.declined)} />
-        <Stat label="Would consider a gift" value={num(f.consider)} note={pct(f.consider, f.completed) + " of completed"} />
-        <Stat label="Multi-year gift" value={num(f.multiYear)} />
-        <Stat label="Campaign leadership" value={num(f.leadership)} />
-        <Stat label="Would introduce others" value={num(f.introduce)} />
+        <Stat label="Prospects in study" value={num(f.total)} onClick={() => ids('Prospects in study', "", f.people)} />
+        <Stat label="Interviews completed" value={num(f.completed)} note={pct(f.completed, f.total)} onClick={() => ids('Interviews completed', "", f.people.filter((p) => /complet/i.test(p.result)))} />
+        <Stat label="Declined interview" value={num(f.declined)} onClick={() => ids('Declined interview', "", f.people.filter((p) => /declin/i.test(p.result)))} />
+        <Stat label="Would consider a gift" value={num(f.consider)} note={pct(f.consider, f.completed) + " of completed"} onClick={() => ids('Would consider a gift', "", f.people.filter((p) => p.consider))} />
+        <Stat label="Multi-year gift" value={num(f.multiYear)} onClick={() => ids('Multi-year gift', "", f.people.filter((p) => p.multiYear))} />
+        <Stat label="Campaign leadership" value={num(f.leadership)} onClick={() => ids('Campaign leadership', "", f.people.filter((p) => p.leadership))} />
+        <Stat label="Would introduce others" value={num(f.introduce)} onClick={() => ids('Would introduce others', "", f.people.filter((p) => p.introduce))} />
       </div>
       <Card>
         <H sub="Feasibility study prospects by tier">Results by tier</H>
-        <Table csvName="Feasibility Results by Tier" rows={f.byTier} cols={[
+        <Table rowClick={(r: { tier: string }) => ids(`Tier ${r.tier}`, "Study prospects in this tier", f.people.filter((p) => p.tier === r.tier))} csvName="Feasibility Results by Tier" rows={f.byTier} cols={[
           { key: "tier", label: "Tier" }, { key: "prospects", label: "Prospects", right: true },
           { key: "completed", label: "Completed", right: true }, { key: "consider", label: "Would Give", right: true },
         ]} />
@@ -620,7 +694,7 @@ function Feasibility({ d }: { d: JagSnapshot }) {
 }
 
 export function JagDataDashboard({ data }: { data: JagSnapshot }) {
-  const [tab, setTab] = useState<Tab | "Prospect Ratings">("Overview");
+  const [tab, setTab] = useUrlState<Tab | "Prospect Ratings">("tab", "Overview", [...TABS, "Prospect Ratings"]);
   const staff = useBoardReviewStaff("jag");
   return (
     <CrmProvider>
@@ -650,6 +724,7 @@ export function JagDataDashboard({ data }: { data: JagSnapshot }) {
         </div>
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
+        <SafeBoundary key={tab} label={`The ${tab} tab`}>
         {tab === "Donor Lookup" && <Lookup d={data} />}
         {tab === "Prospect Ratings" && (staff ? <BoardReviewAdmin client="jag" /> : <StaffSignIn client="jag" />)}
         {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
@@ -662,6 +737,7 @@ export function JagDataDashboard({ data }: { data: JagSnapshot }) {
         {tab === "Calling" && <Calling d={data} />}
         {tab === "Database Health" && <Health d={data} />}
         {tab === "Feasibility" && <Feasibility d={data} />}
+        </SafeBoundary>
         <p className="mt-10 text-xs text-[rgb(var(--ink))]/50">
           Built {data.builtAt}. Lifetime totals come from the giving history file.
         </p>
