@@ -10,6 +10,7 @@ import { getCsnfTracking } from "@/lib/csnf-tracking";
 import { getPvasTracking } from "@/lib/pvas-tracking";
 import { getWcbhcTracking } from "@/lib/wcbhc-tracking";
 import { getBaqTracking } from "@/lib/baq-tracking";
+import { portalProspects } from "@/lib/portal-v2/server";
 import { idsPath } from "@/lib/portal-v2/clients";
 import { lastNameKey, type BrClient, type BrEntry, type BrFilters, type BrPoolRow } from "@/lib/board-review/config";
 
@@ -22,15 +23,18 @@ const RECORDS: Record<BrClient, () => Promise<unknown>> = { jag: getJagRecords, 
 const TRACKING: Record<BrClient, () => Promise<unknown>> = { jag: getJagTracking, csnf: getCsnfTracking, pvas: getPvasTracking, wcbhc: getWcbhcTracking, baq: getBaqTracking };
 
 export async function getPool(c: BrClient): Promise<BrPoolRow[]> {
-  const [rec, trk] = (await Promise.all([RECORDS[c](), TRACKING[c]().catch(() => null)])) as [Rec | null, Trk | null];
-  if (!rec) return [];
-  return rec.index.map((r) => {
+  const [rec0, trk, added] = (await Promise.all([RECORDS[c](), TRACKING[c]().catch(() => null), portalProspects(c)])) as [Rec | null, Trk | null, Awaited<ReturnType<typeof portalProspects>>];
+  const rec: Rec = rec0 ?? { index: [], records: {} };
+  // Prospects added through the dashboard portal aren't in the weekly records index yet.
+  const have = new Set(rec.index.map((r) => r.cptid));
+  const extra = added.filter((p) => !have.has(p.cptid)).map((p) => ({ cptid: p.cptid, name: p.full_name, kind: p.org_name ? "Organization" : "Individual", city: p.city ?? "", lifetime: 0, gifts: 0, largest: 0, last: "", ds: "", capacity: "", capMin: 0, state: p.state ?? "" }));
+  return [...rec.index, ...extra].map((r) => {
     const full = rec.records?.[String(r.cptid)];
     let lastAmt = 0, lastDate = "";
     for (const g of full?.gifts ?? []) if (g.amount > 0 && (g.date ?? "") >= lastDate) { lastDate = g.date ?? ""; lastAmt = g.amount; }
     const t = trk?.prospects?.[String(r.cptid)];
     return {
-      cptid: r.cptid, name: r.name || `CPTID ${r.cptid}`, kind: r.kind ?? "", city: r.city || full?.contact?.city || "", state: (full?.contact?.state ?? "").toUpperCase(),
+      cptid: r.cptid, name: r.name || `CPTID ${r.cptid}`, kind: r.kind ?? "", city: r.city || full?.contact?.city || "", state: (full?.contact?.state ?? (r as { state?: string }).state ?? "").toUpperCase(),
       lifetime: r.lifetime || 0, gifts: r.gifts || 0, largest: r.largest || 0, lastDate: lastDate || r.last || "", lastAmt,
       ds: r.ds ?? "", capacity: r.capacity ?? "", capMin: r.capMin || 0, status: t?.status ?? "", solicitor: t?.solicitor ?? "",
     };
