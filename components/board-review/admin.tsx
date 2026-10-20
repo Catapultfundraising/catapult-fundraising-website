@@ -262,6 +262,48 @@ function DueSettings({ settings, post, reload }: { settings: BrSettings; post: P
   );
 }
 
+function MemberUpload({ members, post, reload }: { members: BrMemberPublic[]; post: Post; reload: () => void }) {
+  const [rows, setRows] = useState<{ name: string; email: string; role: string; status: string }[]>([]);
+  const [busy, setBusy] = useState(false), [msg, setMsg] = useState("");
+  const read = async (f: File) => {
+    setMsg("");
+    const XLSX = await import("xlsx");
+    const wb = XLSX.read(await f.arrayBuffer());
+    const raw = XLSX.utils.sheet_to_json<Record<string, unknown>>(wb.Sheets[wb.SheetNames[0]], { defval: "" });
+    const have = new Set(members.map((m) => m.email.toLowerCase()));
+    const pick = (r: Record<string, unknown>, ...keys: string[]) => { for (const k of Object.keys(r)) if (keys.includes(k.trim().toLowerCase().replace(/[^a-z]/g, ""))) { const v = String(r[k] ?? "").trim(); if (v) return v; } return ""; };
+    const out = raw.map((r) => {
+      const name = pick(r, "name", "fullname", "membername") || `${pick(r, "first", "firstname")} ${pick(r, "last", "lastname")}`.trim();
+      const email = pick(r, "email", "emailaddress", "e mail", "email1").toLowerCase();
+      const role = pick(r, "role", "title", "position");
+      const status = !name || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) ? "Missing name or valid email" : have.has(email) ? "Already a member" : "Ready";
+      return { name, email, role, status };
+    }).filter((r) => r.name || r.email);
+    setRows(out);
+  };
+  const ready = rows.filter((r) => r.status === "Ready");
+  const addAll = async () => {
+    setBusy(true); let ok = 0; const next = [...rows];
+    for (const r of next) { if (r.status !== "Ready") continue; try { await post({ op: "invite", name: r.name, email: r.email, role: r.role }); r.status = "Added"; ok++; } catch (e) { r.status = (e as Error).message; } }
+    setRows(next); setBusy(false); setMsg(`${ok} member${ok === 1 ? "" : "s"} added. Nobody has been emailed yet: use Send invite below when you are ready.`); reload();
+  };
+  return (
+    <div className={card}>
+      <h2 className="font-display text-xl text-[#0E1E31]">Upload a member roster</h2>
+      <p className="mt-1 text-sm text-[#0E1E31]/70">CSV or Excel with a Name column (or First + Last), an Email column and an optional Role column. Emails already on the list are skipped. Uploading does not email anyone.</p>
+      <input type="file" accept=".csv,.xlsx,.xls" className="mt-3 text-sm" disabled={busy} onChange={(e) => e.target.files?.[0] && read(e.target.files[0])} />
+      {rows.length > 0 && (
+        <div className="mt-4">
+          <table className="w-full text-sm"><thead><tr className="text-left text-[#0E1E31]/60"><th>Name</th><th>Email</th><th>Role</th><th>Status</th></tr></thead>
+            <tbody>{rows.map((r, i) => <tr key={i} className="border-t border-[rgb(var(--line))]"><td className="py-1">{r.name}</td><td>{r.email}</td><td>{r.role}</td><td>{r.status}</td></tr>)}</tbody></table>
+          <button className={`${btn} mt-3`} disabled={busy || !ready.length} onClick={addAll}>{busy ? "Adding…" : `Add ${ready.length} member${ready.length === 1 ? "" : "s"}`}</button>
+        </div>
+      )}
+      {msg && <p className="mt-2 text-sm text-[#0E1E31]">{msg}</p>}
+    </div>
+  );
+}
+
 function Members({ client, settings, members, total, post, reload }: { client: BrClient; settings: BrSettings; members: BrMemberPublic[]; total: number; post: Post; reload: () => void }) {
   const [note, setNote] = useState("");
   const send = async (body: Record<string, unknown>, what: string) => {
@@ -287,6 +329,7 @@ function Members({ client, settings, members, total, post, reload }: { client: B
   return (
     <>
       <DueSettings settings={settings} post={post} reload={reload} />
+      <MemberUpload members={members} post={post} reload={reload} />
       <div className={card}>
         <h2 className="font-display text-xl text-[#0E1E31]">Invite a board or committee member</h2>
         <div className="mt-4 grid gap-4 sm:grid-cols-3">
