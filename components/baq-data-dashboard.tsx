@@ -472,7 +472,9 @@ function Prospects({ d }: { d: BaqSnapshot }) {
 }
 
 function Board({ d }: { d: BaqSnapshot }) {
-  const active = d.board.filter((b) => b.active);
+  // Stewardship (Committed) amounts win over the database Get field (Anthony, 2026-10-19).
+  const stew = new Map(((d as unknown as { committed?: { cptid: number; ask: number }[] }).committed ?? []).filter((p) => p.ask > 0).map((p) => [p.cptid, p.ask] as const));
+  const active = d.board.filter((b) => b.active).map((b) => (stew.has(b.cptid ?? -1) ? { ...b, get: stew.get(b.cptid ?? -1)! } : b));
   const ask = active.reduce((s, b) => s + b.ask, 0);
   const got = active.reduce((s, b) => s + b.get, 0);
   const giving = active.filter((b) => b.lifetime > 0).length;
@@ -487,7 +489,7 @@ function Board({ d }: { d: BaqSnapshot }) {
       <Card>
         <H sub="Campaign committee and board members, with any pledges and gifts on file">Committee giving</H>
         <Table
-          rows={d.board}
+          rows={d.board.map((b) => (stew.has(b.cptid ?? -1) ? { ...b, get: stew.get(b.cptid ?? -1)! } : b))}
           csvName="Committee Giving"
           cols={[
             { key: "name", label: "Name" },
