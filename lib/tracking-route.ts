@@ -27,6 +27,16 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
   async function POST(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     const b = await req.json().catch(() => null);
+    // QA cleanup: removes only entries written by a "ZZTEST" author (test data), never real staff entries.
+    if (b?.type === "purgeTest") {
+      const t = await get();
+      const isTest = (x?: string) => /^ZZTEST/i.test(x ?? "");
+      t.activity = t.activity.filter((a) => !isTest(a.by));
+      t.removed = (t.removed ?? []).filter((a) => !isTest(a.by) && !isTest(a.removedBy));
+      for (const [k, v] of Object.entries(t.prospects)) if (isTest(v.by)) delete t.prospects[k];
+      await save(t);
+      return NextResponse.json({ ok: true });
+    }
     const cptid = Number(b?.cptid);
     const by = clean(b?.by, 80);
     if (!b || !Number.isInteger(cptid) || cptid <= 0) return NextResponse.json({ error: "bad cptid" }, { status: 400 });
