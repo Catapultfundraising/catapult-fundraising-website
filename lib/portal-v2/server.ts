@@ -92,8 +92,7 @@ export async function dbCampaignGifts(client: PortalClient): Promise<PortalGift[
   const cfg = DB_CAMPAIGN[client];
   if (!cfg) return [];
   const snap = await cfg.load().catch(() => null);
-  const gb = snap?.givebutter;
-  if (!gb) return [];
+  const gb = snap?.givebutter ?? { transactions: [], pledges: [] };
   // Proxy contacts ("City of McAllen Proxy") resolve to the org's own record when the name matches exactly.
   const byName = new Map<string, number>();
   for (const p of [...(snap?.committed ?? []), ...(snap?.portfolio ?? [])]) if (p.cptid && p.cptid < PLACEHOLDER_CPTID && !byName.has(nameKey(p.name))) byName.set(nameKey(p.name), p.cptid);
@@ -116,8 +115,41 @@ export async function dbCampaignGifts(client: PortalClient): Promise<PortalGift[
     out.push({ id: id--, cptid: r.cptid, client_id: null, donor_name: r.name, kind: "pledge", amount: Number(p.amount), gift_date: p.pledged || null,
       note: [p.status && p.status[0].toUpperCase() + p.status.slice(1), p.frequency].filter(Boolean).join(" · ") || null, source: "database", batch_id: null, created_by: cfg.label, created_at: "" });
   }
-  return out;
+  return stewardshipWins(client, snap, out);
 }
+
+// Same donor recorded under another name in Givebutter / the gift file than on the Stewardship list (confirmed by Anthony).
+const STEWARD_ALIASES: Partial<Record<PortalClient, Record<string, string>>> = {
+  pvas: { "Maria Cuellar-Munoz": "LFD Furniture", "Klaire Duff": "Klaire & Nick Rhodes" },
+};
+/** The Committed (Stewardship) list is the source of truth for campaign dollars (Anthony, 2026-10-19). Each Stewardship donor
+ *  counts once at their Stewardship amount: their database gifts/pledges are kept as-is when they add up to that amount,
+ *  otherwise replaced by one pledge for the Stewardship amount. Database items for donors not on the list are added on top. */
+function stewardshipWins(client: PortalClient, snap: SnapLike, items: PortalGift[]): PortalGift[] {
+  const stew = (snap?.committed ?? []).filter((p) => Number((p as { ask?: number }).ask) > 0) as { cptid: number; name: string; ask: number }[];
+  if (!stew.length) return items;
+  const alias = new Map(Object.entries(STEWARD_ALIASES[client] ?? {}).map(([a, b]) => [nameKey(a), nameKey(b)]));
+  const byCpt = new Map<number, number>(), byKey = new Map<string, number>();
+  stew.forEach((p, i) => { if (p.cptid && p.cptid < PLACEHOLDER_CPTID) byCpt.set(p.cptid, i); byKey.set(nameKey(p.name), i); });
+  const owner = (g: PortalGift) => {
+    if (g.cptid != null && byCpt.has(g.cptid)) return byCpt.get(g.cptid)!;
+    const k = nameKey(g.donor_name);
+    return byKey.get(alias.get(k) ?? k);
+  };
+  const mine = new Map<number, PortalGift[]>(), rest: PortalGift[] = [];
+  for (const g of items) { const o = owner(g); if (o === undefined) rest.push(g); else mine.set(o, [...(mine.get(o) ?? []), g]); }
+  let id = Math.min(0, ...items.map((g) => g.id)) - 1;
+  const out: PortalGift[] = [];
+  stew.forEach((p, i) => {
+    const gs = mine.get(i) ?? [];
+    if (gs.length && Math.abs(gs.reduce((a, g) => a + g.amount, 0) - p.ask) < 1) { out.push(...gs.map((g) => ({ ...g, cptid: p.cptid, donor_name: p.name }))); return; }
+    const was = gs.length ? ` (database shows ${gs.reduce((a, g) => a + g.amount, 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 })})` : "";
+    out.push({ id: id--, cptid: p.cptid, client_id: null, donor_name: p.name, kind: "pledge", amount: p.ask, gift_date: gs[0]?.gift_date ?? null,
+      note: `Stewardship commitment${was}`, source: "database", batch_id: null, created_by: "Stewardship", created_at: "" });
+  });
+  return [...out, ...rest];
+}
+
 async function withDbGifts(client: PortalClient, state: PortalState): Promise<PortalState> {
   const db = await dbCampaignGifts(client);
   return { ...state, gifts: [...db, ...state.gifts] };
