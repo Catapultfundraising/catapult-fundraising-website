@@ -3,6 +3,7 @@ import { catapultClient, publicMember, sortEntries, adminState } from "@/lib/boa
 import { getList, saveList, getMembers, addMember, setPassword, removeMember, queueInvites, importFromBlob, inviteLog, saveSettings } from "@/lib/board-review/store";
 import { getPool, applyFilters, toEntry, matchUpload, isAssigned } from "@/lib/board-review/source";
 import { generatePassword, hashPassword } from "@/lib/board-review/auth";
+import { portalProspects, BOARD_SUGGEST_PREFIX } from "@/lib/portal-v2/server";
 import { BR_CLIENT_NAMES, type BrClient, type BrFilters } from "@/lib/board-review/config";
 
 // Catapult-only setup + results API for the board Prospect Review.
@@ -21,6 +22,8 @@ export async function GET(req: NextRequest) {
     members: st.members.map((m) => publicMember(m)),
     answers: st.answers,
     settings: st.settings,
+    suggestions: (await portalProspects(c)).filter((p) => p.created_by?.startsWith(BOARD_SUGGEST_PREFIX))
+      .map((p) => ({ cptid: p.cptid, name: p.full_name, city: p.city ?? "", state: p.state ?? "", phone: p.phone ?? "", note: p.note ?? "", by: p.created_by!.slice(BOARD_SUGGEST_PREFIX.length), at: p.created_at })),
   });
 }
 
