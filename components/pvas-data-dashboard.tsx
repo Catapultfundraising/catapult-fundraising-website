@@ -588,10 +588,10 @@ function Health({ d }: { d: PvasSnapshot }) {
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Individual records" value={num(h.records)} />
-        <Stat label="With address" value={pct(h.address, h.records)} note={num(h.address)} />
-        <Stat label="With phone" value={pct(h.phone, h.records)} note={num(h.phone)} />
-        <Stat label="With email" value={pct(h.email, h.records)} note={num(h.email)} />
+        <Stat label="Individual records" value={num(h.records)} onClick={() => go("Individual records", "Individual constituents", (r) => !/org|foundation|corp|business|church|trust/i.test(r.kind ?? ""))} />
+        <Stat label="With address" value={pct(h.address, h.records)} note={num(h.address)} onClick={has("address")} />
+        <Stat label="With phone" value={pct(h.phone, h.records)} note={num(h.phone)} onClick={has("phone")} />
+        <Stat label="With email" value={pct(h.email, h.records)} note={num(h.email)} onClick={has("email")} />
         <Stat label="Organizations" value={num(h.orgs)} onClick={() => go("Organizations", "Organization records", (r) => /org|foundation|corp|business|church|trust/i.test(r.kind ?? ""))} />
         <Stat label="Flagged duplicates" value={num(h.duplicates)} />
         <Stat label="Accounts with 2+ CPTIDs" value={num(h.multiCptAccounts)} />
