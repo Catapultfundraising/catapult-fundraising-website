@@ -58,7 +58,7 @@ export const PARTNERS: Partner[] = [
     firm: "Philadelphia Planned Giving Day",
     hubspotValue: "",
     assignOwnerId: "36164952",
-    notify: ["anthonya@catapultfr.com", "gwenp@catapultfr.com"],
+    notify: ["anthonya@catapultfr.com", "gwenp@catapultfr.com", "jeffg@catapultfr.com"],
     leadSource: "Philly PG Day: Legacy Giving as the Catalyst in Fundraising Strategies (Gwen Paxon)",
     intro:
       "Thanks for joining Gwen Paxon's session at Philadelphia Planned Giving Day. Leave your details for free access to the slides, our planned giving articles, and free tools. You can also tell us which services you'd like to hear more about.",

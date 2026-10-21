@@ -17,7 +17,7 @@ function esc(v: string) {
   return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-type Fields = { name: string; email: string; org: string; title: string; utm: string; interests: string[] };
+type Fields = { name: string; email: string; org: string; title: string; city: string; state: string; utm: string; interests: string[] };
 
 async function syncHubSpot(
   token: string,
@@ -38,6 +38,7 @@ async function syncHubSpot(
     `Email: ${f.email}`,
     f.org ? `Organization: ${f.org}` : "",
     f.title ? `Title: ${f.title}` : "",
+    f.city || f.state ? `Location: ${[f.city, f.state].filter(Boolean).join(", ")}` : "",
     f.interests.length ? `Requested service information: ${f.interests.join(", ")}` : "",
     f.utm ? `Tracking: ${f.utm}` : "",
   ]
@@ -55,6 +56,8 @@ async function syncHubSpot(
         email: f.email,
         company: f.org,
         jobtitle: f.title,
+        ...(f.city ? { city: f.city } : {}),
+        ...(f.state ? { state: f.state } : {}),
         lifecyclestage: "lead",
         ...(assignOwnerId ? { hubspot_owner_id: assignOwnerId } : {}),
       },
@@ -111,6 +114,7 @@ async function notify(to: string[], f: Fields, partnerName: string) {
     ["Email", f.email],
     ["Organization", f.org],
     ["Title", f.title],
+    ["Location", [f.city, f.state].filter(Boolean).join(", ")],
     ["Referred by", partnerName],
     ["Interested services", f.interests.join(", ")],
   ];
@@ -153,6 +157,8 @@ export async function POST(req: NextRequest) {
     name: String(body.name || "").trim(),
     email: String(body.email || "").trim(),
     org: String(body.org || "").trim(),
+    city: String(body.city || "").trim().slice(0, 80),
+    state: String(body.state || "").trim().slice(0, 40),
     title: String(body.title || "").trim(),
     utm: String(body.utm || "").slice(0, 300),
     interests: Array.isArray(body.interests)

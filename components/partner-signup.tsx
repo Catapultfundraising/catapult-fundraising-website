@@ -54,6 +54,8 @@ export function PartnerSignup(props: {
           email: fd.get("email"),
           org: fd.get("org"),
           title: fd.get("title"),
+          city: fd.get("city"),
+          state: fd.get("state"),
           company: fd.get("company"),
           interests: fd.getAll("interests"),
           utm,
@@ -96,7 +98,7 @@ export function PartnerSignup(props: {
             <CalendarDays className="h-5 w-5" /> Meet with Anthony
           </a>
         </div>
-        <form onSubmit={onSubmit} className="space-y-5 rounded-2xl border border-[rgb(var(--line))] bg-white p-8">
+        <form onSubmit={onSubmit} data-hs-do-not-collect="true" className="space-y-5 rounded-2xl border border-[rgb(var(--line))] bg-white p-8">
           <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Get the slides and resources</h2>
           {error && (
             <div className="flex gap-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-800">
@@ -107,6 +109,10 @@ export function PartnerSignup(props: {
           <div className="space-y-2"><Label htmlFor="email">Work email *</Label><Input id="email" name="email" type="email" required className={FIELD_CLASS} /></div>
           <div className="space-y-2"><Label htmlFor="org">Organization</Label><Input id="org" name="org" className={FIELD_CLASS} /></div>
           <div className="space-y-2"><Label htmlFor="title">Title</Label><Input id="title" name="title" className={FIELD_CLASS} /></div>
+          <div className="grid gap-5 sm:grid-cols-[1.6fr_1fr]">
+            <div className="space-y-2"><Label htmlFor="city">City</Label><Input id="city" name="city" autoComplete="address-level2" className={FIELD_CLASS} /></div>
+            <div className="space-y-2"><Label htmlFor="state">State</Label><Input id="state" name="state" autoComplete="address-level1" className={FIELD_CLASS} /></div>
+          </div>
           {props.serviceChoices && props.serviceChoices.length > 0 && (
             <fieldset className="space-y-3">
               <legend className="text-sm font-semibold text-[rgb(var(--navy))]">
