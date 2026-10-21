@@ -126,7 +126,7 @@ export function ContactForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-8">
+    <form onSubmit={handleSubmit} data-hs-do-not-collect="true" className="space-y-8">
       {errorMessage && (
         <div className="flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-sm text-red-800">
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0 text-red-600" />

@@ -50,7 +50,8 @@ export function PartnerSignup(props: {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           partner: props.partnerSlug,
-          name: fd.get("name"),
+          firstname: fd.get("firstname"),
+          lastname: fd.get("lastname"),
           email: fd.get("email"),
           org: fd.get("org"),
           title: fd.get("title"),
@@ -105,7 +106,10 @@ export function PartnerSignup(props: {
               <AlertCircle className="h-4 w-4 shrink-0" /> {error}
             </div>
           )}
-          <div className="space-y-2"><Label htmlFor="name">Full name *</Label><Input id="name" name="name" required className={FIELD_CLASS} /></div>
+          <div className="grid gap-5 sm:grid-cols-2">
+            <div className="space-y-2"><Label htmlFor="firstname">First name *</Label><Input id="firstname" name="firstname" required autoComplete="given-name" className={FIELD_CLASS} /></div>
+            <div className="space-y-2"><Label htmlFor="lastname">Last name *</Label><Input id="lastname" name="lastname" required autoComplete="family-name" className={FIELD_CLASS} /></div>
+          </div>
           <div className="space-y-2"><Label htmlFor="email">Work email *</Label><Input id="email" name="email" type="email" required className={FIELD_CLASS} /></div>
           <div className="space-y-2"><Label htmlFor="org">Organization</Label><Input id="org" name="org" className={FIELD_CLASS} /></div>
           <div className="space-y-2"><Label htmlFor="title">Title</Label><Input id="title" name="title" className={FIELD_CLASS} /></div>

@@ -23,7 +23,7 @@ export const PARTNERS: Partner[] = [
     name: "Wayne Olson",
     firm: "Wayne Olson Consulting",
     hubspotValue: "wayne_olson",
-    notify: ["anthonya@catapultfr.com", "wayne@wayneolson.com"],
+    notify: ["anthonya@catapultfr.com", "jeffg@catapultfr.com", "wayne@wayneolson.com"],
     intro:
       "Thanks for joining Wayne's webinar. Sign up below for free access to Catapult's fundraising articles and free planning tools, and book a time to talk through your own program.",
   },
@@ -33,7 +33,7 @@ export const PARTNERS: Partner[] = [
     firm: "AFP New Jersey",
     hubspotValue: "afpnj_middle_market",
     assignOwnerId: "36164952",
-    notify: ["anthonya@catapultfr.com"],
+    notify: ["anthonya@catapultfr.com", "jeffg@catapultfr.com"],
     leadSource: "AFP-NJ Pre-Conference Webinar: Unlocking the Middle",
     intro:
       "How to Build a High-Performing Mid-Level Donor Program. Thanks for joining AFP-NJ's webinar. Leave your details for free access to the slides, practical fundraising tools, and a short reading list. You can also tell us which services you'd like to hear more about.",

@@ -95,7 +95,7 @@ function LeadGate({ onUnlock }: { onUnlock: (donors: number, org: string, email:
         number we ask for can be an estimate.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+      <form onSubmit={handleSubmit} data-hs-do-not-collect="true" className="mt-8 space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="dl-name" className="text-[rgb(var(--navy))]">

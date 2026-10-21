@@ -193,7 +193,7 @@ export function SubmitToHubspotForm() {
   }
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-12">
+    <form onSubmit={handleSubmit} data-hs-do-not-collect="true" className="space-y-12">
       <div className="space-y-6 rounded-2xl border border-[rgb(var(--line))] bg-white p-8 lg:p-10">
         <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Organization & contact information</h2>
         <div className="grid gap-6 sm:grid-cols-2">

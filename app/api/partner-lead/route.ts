@@ -17,7 +17,7 @@ function esc(v: string) {
   return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-type Fields = { name: string; email: string; org: string; title: string; city: string; state: string; utm: string; interests: string[] };
+type Fields = { name: string; firstname: string; lastname: string; email: string; org: string; title: string; city: string; state: string; utm: string; interests: string[] };
 
 async function syncHubSpot(
   token: string,
@@ -28,9 +28,7 @@ async function syncHubSpot(
   assignOwnerId?: string,
 ) {
   const headers = { Authorization: `Bearer ${token}`, "Content-Type": "application/json" };
-  const parts = f.name.trim().split(/\s+/);
-  const firstname = parts.shift() || "";
-  const lastname = parts.join(" ");
+  const { firstname, lastname } = f;
   const noteBody = [
     `${leadSource ? `Event signup: ${leadSource}` : `Referral partner signup: ${partnerName}`} (catapultfr.com/partners page)`,
     "",
@@ -154,7 +152,9 @@ export async function POST(req: NextRequest) {
   if (honeypot || tooFast) return NextResponse.json({ ok: true });
 
   const f: Fields = {
-    name: String(body.name || "").trim(),
+    firstname: String(body.firstname || "").trim().slice(0, 80),
+    lastname: String(body.lastname || "").trim().slice(0, 80),
+    name: "",
     email: String(body.email || "").trim(),
     org: String(body.org || "").trim(),
     city: String(body.city || "").trim().slice(0, 80),
@@ -168,7 +168,8 @@ export async function POST(req: NextRequest) {
           .slice(0, partner.serviceChoices?.length ?? 0)
       : [],
   };
-  if (!f.name || !EMAIL_RE.test(f.email)) {
+  f.name = `${f.firstname} ${f.lastname}`.trim();
+  if (!f.firstname || !f.lastname || !EMAIL_RE.test(f.email)) {
     return NextResponse.json({ error: "Please enter your name and a valid email." }, { status: 400 });
   }
 

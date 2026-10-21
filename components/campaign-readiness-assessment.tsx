@@ -93,7 +93,7 @@ function LeadGate({ onUnlock }: { onUnlock: (goal: number, org: string, email: s
         and no obligation.
       </p>
 
-      <form onSubmit={handleSubmit} className="mt-8 space-y-5">
+      <form onSubmit={handleSubmit} data-hs-do-not-collect="true" className="mt-8 space-y-5">
         <div className="grid gap-5 sm:grid-cols-2">
           <div className="space-y-2">
             <Label htmlFor="cr-name" className="text-[rgb(var(--navy))]">
