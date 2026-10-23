@@ -20,6 +20,28 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "legacy-society",
+    date: "2026-10-19",
+    title: "How to Build a Legacy Society Your Donors Want to Join",
+    description: "Anthony R. Alonso on finding the bequests you don't know about, who to ask first, and how to steward legacy society members.",
+    readTime: "6 min read",
+    image: "/blog/legacy-society/hero-legacy-call.jpg",
+    alt: "A long-time donor smiling during a thank-you phone call",
+    pillars: ["Planned Giving"],
+    services: ["legacy-giving"],
+  },
+  {
+    slug: "choosing-a-nonprofit-fundraising-call-center",
+    date: "2026-10-19",
+    title: "Choosing a Nonprofit Fundraising Call Center: Telefundraising vs. Telemarketing",
+    description: "Anthony R. Alonso on the difference between telemarketing and telefundraising, and the questions to ask before you hand your donors to a call center.",
+    readTime: "6 min read",
+    image: "/blog/choosing-a-nonprofit-fundraising-call-center/hero-callers.jpg",
+    alt: "An experienced fundraising caller smiling on a call with a donor",
+    pillars: ["Annual Fund"],
+    services: ["annual-fund"],
+  },
+  {
     slug: "is-the-phonathon-dead",
     date: "2026-10-17",
     title: "Is the Phonathon Dead? What Works Now for Calling Programs",
