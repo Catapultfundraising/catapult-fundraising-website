@@ -86,6 +86,27 @@ async function rowsViaEngage(query: string): Promise<Row[]> {
   throw last;
 }
 
+/** Gift-level client history Viktor loaded into Engage (engage.client_gift_history) for clients whose Access gift table
+ *  isn't in the client schema (PVAS). Paged through Engage op clientGifts. Empty when nothing is loaded. */
+export type ClientGift = { cptid: number; date: string | null; amount: number; status: string; campaign: string; fund: string; type: string; year: number | null };
+export async function engageClientGifts(client: string): Promise<ClientGift[]> {
+  const secret = process.env.PORTAL_WRITE_SECRET;
+  const url = process.env.ENGAGE_PORTAL_URL || "https://engage.catapultfr.com/api/portal-v2";
+  if (!secret) return [];
+  const out: ClientGift[] = [];
+  let afterId = 0;
+  for (let page = 0; page < 40; page++) {
+    const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ op: "clientGifts", client, afterId, limit: 15000 }) });
+    if (!r.ok) throw new Error(`Engage clientGifts ${r.status}`);
+    const j = (await r.json()) as { rows: (ClientGift & { id: number })[]; next: number | null; done: boolean };
+    out.push(...j.rows);
+    if (j.done || !j.next) break;
+    afterId = j.next;
+  }
+  return out;
+}
+
 export async function rows(query: string): Promise<Row[]> {
   if (process.env.PORTAL_SQL_DIRECT !== "1") return rowsViaEngage(query);
   const pool = await azurePool();

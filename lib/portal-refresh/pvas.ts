@@ -1,5 +1,5 @@
 import {
-  band, builtAt, dsField, capmin, cid, counter, loadedAsOf, money, mostCommon, pdate, Per,
+  band, builtAt, dsField, capmin, cid, counter, engageClientGifts, loadedAsOf, money, mostCommon, pdate, Per,
   pirLinks, pyramid, round2, Row, rows, s, sortedItems, yearsAgo,
 } from "./common";
 
@@ -27,6 +27,10 @@ export async function buildPvas() {
     q("board_info"), q("campaign_committee"), q("portfolio"), q("givebutter_id_numbers"), q("givebutter_transactions"),
     q("givebutter_pledges"), loadedAsOf("pvas"),
   ]);
+  // Individual gifts (Access Master_Giving_History, loaded into Engage by Viktor). Falls back to calendar-year totals when absent.
+  const giftRows = await engageClientGifts("pvas").catch(() => []);
+  const giftsBy = new Map<number, Record<string, unknown>[]>();
+  for (const g of giftRows) (giftsBy.get(g.cptid) ?? giftsBy.set(g.cptid, []).get(g.cptid)!).push(Object.fromEntries(Object.entries({ date: g.date ?? (g.year ? String(g.year) : ""), amount: round2(g.amount), type: g.type, campaign: g.campaign, fund: g.fund, status: g.status === "Succeeded" ? "" : g.status }).filter(([k, v]) => k === "amount" || k === "date" || !!v)));
   const byC = (rr: Row[]) => { const m = new Map<number, Row>(); for (const r of rr) { const c = cid(r.CPTID); if (c !== null) m.set(c, r); } return m; };
   const gho = byC(ghoRows), ds = byC(dsRows), port = byC(portRows), phones = byC(phoneRows);
   const fullName = (r: Row) => [s(r.First_Name), s(r.Last_Name)].filter(Boolean).join(" ");
@@ -202,6 +206,7 @@ export async function buildPvas() {
     const x = rec(c); x.years = [...m].sort((a, b) => b[0] - a[0]).map(([year, amount]) => ({ year, amount: round2(amount) }));
     x.gifts = x.years.map((y) => ({ date: String(y.year), amount: y.amount, stage: "Calendar year total", type: "", campaign: "" }));
   }
+  for (const [c, list] of giftsBy) if (R.has(c)) R.get(c)!.gifts = list.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   for (const b of board) if (b.cptid !== undefined) rec(b.cptid).board.push({ board: b.board, title: b.title, term: b.term, active: b.active, ask: b.ask, get: 0 });
   for (const m of committee) if (m.cptid !== null) rec(m.cptid).committees.push(`Campaign committee${m.title ? ` (${m.title})` : ""}`);
   for (const p of portfolio) {

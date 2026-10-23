@@ -14,6 +14,8 @@ import { getPvasSnapshot } from "@/lib/pvas-data-store";
 import { getWcbhcSnapshot } from "@/lib/wcbhc-data-store";
 import { PORTAL_V2, idsPath, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
 import { buildMatcher, diffRow, nameKey, parseClientFile, type Known } from "@/lib/portal-v2/match";
+import { CONTACT_KEYS, OVERLAY_FIELD, buildOverlay, finalId, findDuplicates, type DupCandidate, type UpdateRow } from "@/lib/portal-v2/record-overlay";
+import { listProfiles, getProfile } from "@/lib/research-profiles-store";
 
 // Portal v2 server side. Reads (match index) happen here; every Azure SQL write is
 // forwarded to the Catapult Engage project (static IPs) at ENGAGE_PORTAL_URL with
@@ -57,7 +59,13 @@ async function knownRecords(client: PortalClient, state: PortalState) {
   const extra: Known[] = [];
   for (const r of rec?.index ?? []) if (!byCpt.has(r.cptid)) byCpt.set(r.cptid, { cptid: r.cptid, clientId: "", name: r.name, address: "", city: r.city ?? "", zip: "" });
   for (const p of state.prospects) byCpt.set(p.cptid, { cptid: p.cptid, clientId: p.client_id ?? "", name: p.full_name, address: p.address1 ?? "", city: p.city ?? "", zip: p.zip ?? "", email: p.email ?? "", phone: p.phone ?? "" });
-  for (const u of state.updates) { if (u.field === "solicitor2" || u.field === "ask") continue; const k = byCpt.get(u.cptid); if (k) (k as unknown as Record<string, string>)[u.field === "client_id" ? "clientId" : u.field] = u.new_value ?? ""; }
+  // Dashboard contact edits feed matching (address/city/zip/email/phone); other dashboard-only fields never do.
+  const CONTACT_TO_KNOWN: Record<string, string> = { "contact:street": "address", "contact:city": "city", "contact:zip": "zip", "contact:email": "email", "contact:phone": "phone" };
+  for (const u of state.updates) {
+    if (u.field === "solicitor2" || u.field === "ask") continue;
+    if (OVERLAY_FIELD(u.field)) { const kf = CONTACT_TO_KNOWN[u.field]; const k = byCpt.get(u.cptid); if (kf && k) (k as unknown as Record<string, string>)[kf] = u.new_value ?? ""; continue; }
+    const k = byCpt.get(u.cptid); if (k) (k as unknown as Record<string, string>)[u.field === "client_id" ? "clientId" : u.field] = u.new_value ?? "";
+  }
   // Extra client-id rows (one CPTID with several client ids) still match on id.
   for (const k of ids ?? []) if (k.clientId && byCpt.get(k.cptid)?.clientId !== k.clientId) extra.push(k);
   const known = [...byCpt.values()];
@@ -65,6 +73,11 @@ async function knownRecords(client: PortalClient, state: PortalState) {
   const floor = Math.max(0, ...all.filter((c) => c < PLACEHOLDER_CPTID));
   const skip = [...new Set(all.filter((c) => c > floor))];
   return { known: [...known, ...extra], floor, skip, idsLoaded: !!ids };
+}
+
+/** Full Portal v2 state (Engage SQL), or null when Engage is unreachable. */
+export async function portalStateSafe(client: PortalClient): Promise<PortalState | null> {
+  try { return await engage<PortalState>(client, "state"); } catch { return null; }
 }
 
 /** Prospects added through the portal (Engage SQL), for screens built on the records index. */
@@ -250,6 +263,28 @@ export function parseUsDate(v: unknown): string | null {
   return `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
 }
 
+/** Queue a DonorSearch wealth screening (portal_updates field wealth:request). Viktor's screening job picks it up within minutes. */
+async function queueScreening(client: PortalClient, cptid: number, inputs: Record<string, string | undefined>, by: string) {
+  const clean = Object.fromEntries(Object.entries(inputs).filter(([, v]) => v && String(v).trim()).map(([k, v]) => [k, String(v).trim().slice(0, 100)]));
+  await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Wealth screening request (CPTID ${cptid})`, by, newRows: [], gifts: [],
+    updates: [{ cptid, field: "wealth:request", oldValue: null, newValue: JSON.stringify(clean).slice(0, 1000) }], summary: { screeningRequest: true, cptid } });
+}
+
+/** Wealth capacity + rating from a completed PIR in the /research portal, matched by the PIR file name or the record name. */
+const pirKey = (s: string) => s.toLowerCase().replace(/\.(pdf|docx?)$/i, "").replace(/\b(pir|profile|prospect|research|individual|final|draft|v\d+)\b/g, " ")
+  .replace(/\d{1,2}[./-]\d{1,2}[./-]\d{2,4}/g, " ").replace(/[^a-z ]/g, " ").replace(/\b(and|the|mr|mrs|ms|dr|jr|sr)\b/g, " ").replace(/\s+/g, " ").trim();
+async function pirWealth(pirName: string, name: string) {
+  const keys = [pirKey(pirName), pirKey(name)].filter((k) => k.length > 3);
+  if (!keys.length) return { found: false };
+  const list = await listProfiles().catch(() => []);
+  const hit = list.find((p) => keys.includes(pirKey(p.name))) ?? list.find((p) => keys.some((k) => { const a = pirKey(p.name).split(" "), b = k.split(" "); return a.length > 1 && b.length > 1 && a[0] === b[0] && a[a.length - 1] === b[b.length - 1]; }));
+  if (!hit) return { found: false };
+  const env = await getProfile(hit.id).catch(() => null);
+  const d = (env?.data ?? {}) as { givingCapacity?: string; wealthRating?: string; netWorth?: string };
+  if (!d.givingCapacity && !d.wealthRating) return { found: false };
+  return { found: true, profile: hit.name, status: hit.status, updatedAt: hit.updatedAt, capacity: d.givingCapacity ?? "", rating: d.wealthRating ?? "", netWorth: d.netWorth ?? "" };
+}
+
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const txt = (v: unknown, n = 300) => (v === null || v === undefined ? "" : String(v).trim().slice(0, n));
 
@@ -340,7 +375,14 @@ export function portalV2Route(client: PortalClient) {
         const idHit = prospect.clientId ? m.match({ clientId: prospect.clientId, fullName: "" }) : null;
         const dups = [...(idHit ? [idHit.k] : []), ...m.similar(prospect)].filter((k, i, a) => a.findIndex((x) => x.cptid === k.cptid) === i);
         if (dups.length && !b.force) return NextResponse.json({ duplicates: dups.map((k) => ({ cptid: k.cptid, name: k.name, address: [k.address, k.city, k.zip].filter(Boolean).join(", "), clientId: k.clientId })) });
-        return NextResponse.json(await engage(client, "addProspect", { floor, skip, prospect, by }));
+        const added = await engage<{ cptid: number }>(client, "addProspect", { floor, skip, prospect, by });
+        // New prospect with a name + state: queue a DonorSearch screening automatically (Viktor's screening job runs it).
+        if (added?.cptid && prospect.state && (prospect.firstName || prospect.fullName) && !prospect.orgName) {
+          const parts = prospect.fullName.split(/\s+/);
+          const first = prospect.firstName || (parts.length > 1 ? parts.slice(0, -1).join(" ") : ""), last = prospect.lastName || (parts.length > 1 ? parts[parts.length - 1] : "");
+          if (first && last) await queueScreening(client, added.cptid, { first, last, street: prospect.address1, city: prospect.city, state: prospect.state, zip: prospect.zip }, by).catch(() => {});
+        }
+        return NextResponse.json(added);
       }
       if (b.op === "addGift") {
         const g = b.gift ?? {};
@@ -401,6 +443,95 @@ export function portalV2Route(client: PortalClient) {
         for (const k of Object.keys(lim)) if (pr[k] !== undefined) prospect[k] = txt(pr[k], lim[k]);
         if (prospect.fullName !== undefined && !prospect.fullName) return bad("Name is required");
         return NextResponse.json(await engage(client, "editProspect", { cptid, prospect, by }));
+      }
+      // ---- record tools: contact edits, wealth screening, duplicates (all saved in Engage SQL portal_updates) ----
+      if (b.op === "setContact") {
+        const cptid = Number(b.cptid);
+        if (!(cptid > 0)) return bad("cptid required");
+        const changes = (b.changes ?? {}) as Record<string, unknown>, current = (b.current ?? {}) as Record<string, unknown>;
+        const updates = (CONTACT_KEYS as readonly string[]).filter((k) => changes[k] !== undefined && txt(changes[k], 300) !== txt(current[k], 300))
+          .map((k) => ({ cptid, field: `contact:${k}`, oldValue: txt(current[k], 300) || null, newValue: txt(changes[k], 300) }));
+        if (!updates.length) return NextResponse.json({ ok: true, unchanged: true });
+        await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Contact edit (CPTID ${cptid})`, by, newRows: [], gifts: [], updates, summary: { contactEdit: true, cptid, fields: updates.map((u) => u.field) } });
+        return NextResponse.json({ ok: true, changed: updates.length });
+      }
+      if (b.op === "setWealth") {
+        const cptid = Number(b.cptid), field = String(b.field || "");
+        if (!(cptid > 0) || !["capacity", "rating"].includes(field)) return bad("cptid and field (capacity or rating) required");
+        const value = txt(b.value, 200), current = txt(b.current, 200);
+        if (value === current) return NextResponse.json({ ok: true, unchanged: true });
+        await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Wealth ${field} edit (CPTID ${cptid})`, by, newRows: [], gifts: [],
+          updates: [{ cptid, field: `wealth:${field}`, oldValue: current || null, newValue: value }], summary: { wealthEdit: true, cptid, field, from: current, to: value } });
+        return NextResponse.json({ ok: true });
+      }
+      if (b.op === "requestScreening") {
+        const cptid = Number(b.cptid);
+        if (!(cptid > 0)) return bad("cptid required");
+        const inputs: Record<string, string> = {};
+        for (const k of ["first", "last", "street", "city", "state", "zip", "spouseFirst", "spouseLast"]) if (txt(b.inputs?.[k], 100)) inputs[k] = txt(b.inputs[k], 100);
+        if (!inputs.first || !inputs.last || !inputs.state) return bad("DonorSearch needs a first name, last name and state");
+        await queueScreening(client, cptid, inputs, by);
+        return NextResponse.json({ ok: true, queued: true });
+      }
+      if (b.op === "mergeRecords") {
+        const keep = Number(b.keep), merge = (Array.isArray(b.merge) ? b.merge : []).map(Number).filter((x: number) => x > 0 && x !== keep);
+        if (!(keep > 0) || !merge.length) return bad("Pick the record to keep and at least one record to merge into it");
+        const ov = buildOverlay((await engage<PortalState>(client, "state")).updates as unknown as UpdateRow[]);
+        if (ov.deleted.has(keep)) return bad(`CPTID ${keep} is deleted. Restore it first.`);
+        if (ov.mergedInto.has(keep)) return bad(`CPTID ${keep} was already merged into CPTID ${finalId(ov, keep)}. Merge into that record instead.`);
+        for (const m of merge) if (finalId(ov, m) !== m) return bad(`CPTID ${m} was already merged into CPTID ${finalId(ov, m)}`);
+        await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Merge into CPTID ${keep}`, by, newRows: [], gifts: [],
+          updates: merge.map((m: number) => ({ cptid: m, field: "merged_into", oldValue: null, newValue: String(keep) })), summary: { mergeRecords: true, keep, merged: merge, note: txt(b.note, 300) } });
+        return NextResponse.json({ ok: true, keep, merged: merge });
+      }
+      if (b.op === "unmerge" || b.op === "restoreRecord") {
+        const cptid = Number(b.cptid);
+        if (!(cptid > 0)) return bad("cptid required");
+        const ov = buildOverlay((await engage<PortalState>(client, "state")).updates as unknown as UpdateRow[]);
+        const field = b.op === "unmerge" ? "merged_into" : "deleted";
+        const old = b.op === "unmerge" ? ov.mergedInto.get(cptid) : ov.deleted.get(cptid)?.reason;
+        if (!old) return bad(b.op === "unmerge" ? "That record is not merged" : "That record is not deleted");
+        await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `${b.op === "unmerge" ? "Unmerge" : "Restore"} CPTID ${cptid}`, by, newRows: [], gifts: [],
+          updates: [{ cptid, field, oldValue: String(old), newValue: "" }], summary: { [b.op]: true, cptid } });
+        return NextResponse.json({ ok: true });
+      }
+      if (b.op === "deleteRecord") {
+        const cptid = Number(b.cptid), reason = txt(b.reason, 500);
+        if (!(cptid > 0)) return bad("cptid required");
+        if (!reason) return bad("Please enter a reason for deleting this record");
+        await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Delete CPTID ${cptid}`, by, newRows: [], gifts: [],
+          updates: [{ cptid, field: "deleted", oldValue: null, newValue: reason }], summary: { deleteRecord: true, cptid, reason } });
+        return NextResponse.json({ ok: true });
+      }
+      if (b.op === "notDuplicate") {
+        const key = txt(b.key, 900);
+        if (!/^\d+(\|\d+)+$/.test(key)) return bad("group key required");
+        await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Not duplicates (${key})`, by, newRows: [], gifts: [],
+          updates: [{ cptid: Number(key.split("|")[0]), field: "notdup", oldValue: null, newValue: key }], summary: { notDuplicate: key } });
+        return NextResponse.json({ ok: true });
+      }
+      if (b.op === "duplicates") {
+        const state = await engage<PortalState>(client, "state");
+        const ov = buildOverlay(state.updates as unknown as UpdateRow[]);
+        const data = (await RECORDS[client]()) as unknown as { index: { cptid: number; name: string; city?: string; lifetime?: number; kind?: string }[]; records?: Record<string, { contact?: Record<string, string> }> } | null;
+        const seen = new Set<number>(); const cands: DupCandidate[] = [];
+        const gone = (c: number) => ov.mergedInto.has(c) || ov.deleted.has(c);
+        for (const r of data?.index ?? []) {
+          if (gone(r.cptid) || seen.has(r.cptid)) continue; seen.add(r.cptid);
+          const c = { ...(data?.records?.[String(r.cptid)]?.contact ?? {}), ...(ov.contact.get(r.cptid) ?? {}) } as Record<string, string>;
+          cands.push({ cptid: r.cptid, name: r.name, city: c.city || r.city || "", street: c.street || c.address || "", lifetime: r.lifetime ?? 0, kind: r.kind });
+        }
+        for (const p of state.prospects) if (!seen.has(p.cptid) && !gone(p.cptid)) { seen.add(p.cptid); const c = ov.contact.get(p.cptid) ?? {}; cands.push({ cptid: p.cptid, name: p.full_name, city: c.city || p.city || "", street: c.street || p.address1 || "", lifetime: 0, kind: p.org_name ? "Organization" : "Individual" }); }
+        const minS = Number(b.minStrength) || 0, ql = txt(b.q, 100).toLowerCase();
+        const groups = findDuplicates(cands, ov.notdup, 100000).filter((g) => g.strength >= minS && (!ql || g.members.some((m) => `${m.name} ${m.city ?? ""} ${m.cptid}`.toLowerCase().includes(ql))));
+        const names = new Map(cands.map((c) => [c.cptid, c.name]));
+        const log = ov.log.slice(-300).reverse().map((l) => ({ ...l, name: names.get(l.cptid) ?? data?.index.find((r) => r.cptid === l.cptid)?.name ?? `CPTID ${l.cptid}`, targetName: l.target ? names.get(l.target) ?? `CPTID ${l.target}` : undefined,
+          current: l.action === "merged" ? ov.mergedInto.get(l.cptid) === l.target : l.action === "deleted" ? ov.deleted.has(l.cptid) : false }));
+        return NextResponse.json({ total: groups.length, groups: groups.slice(0, Math.min(Number(b.limit) || 300, 1000)), log });
+      }
+      if (b.op === "pirWealth") {
+        const pir = txt(b.pirName, 300), name = txt(b.name, 300);
+        return NextResponse.json(await pirWealth(pir, name));
       }
       if (b.op === "undo") return NextResponse.json(await engage(client, "undoBatch", { batchId: Number(b.batchId), by }));
       return bad("unknown op");
