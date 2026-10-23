@@ -304,12 +304,13 @@ export function GiftsByYear({ gifts, title = "Giving by calendar year", showDeta
                 <span className="ml-auto font-medium tabular-nums">{usd(total, 2)}</span>
               </button>
               {open.has(y) && !totalsOnly && (
-                <table className="w-full text-xs">
+                <table className="w-full table-fixed text-xs">
+                  <colgroup><col className="w-32" />{showDetail && <col />}<col className="w-56" /><col className="w-32" /></colgroup>
                   <tbody>
                     {list.map((g, j) => (
                       <tr key={j} className={j % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"}>
-                        <td className="w-28 py-1.5 pl-10 pr-2">{usDate(g.date)}</td>
-                        {showDetail && <td className="px-2 py-1.5">{[g.campaign, g.stage && g.stage !== g.campaign ? g.stage : "", g.fund, g.allocation].filter(Boolean).join(" · ")}</td>}
+                        <td className="py-1.5 pl-10 pr-2">{usDate(g.date)}</td>
+                        {showDetail && <td className="truncate px-2 py-1.5">{[g.campaign, g.stage && g.stage !== g.campaign ? g.stage : "", g.fund, g.allocation].filter(Boolean).join(" · ")}</td>}
                         <td className="px-2 py-1.5 text-[rgb(var(--ink))]/60">{[g.type, g.status && g.status !== "Succeeded" ? g.status : "", g.fromCptid ? `from CPTID ${g.fromCptid}` : ""].filter(Boolean).join(" · ")}</td>
                         <td className={`px-3 py-1.5 text-right tabular-nums ${NOT_COUNTED.test(g.status ?? "") ? "text-[rgb(var(--ink))]/45" : ""}`}>{usd(g.amount, 2)}</td>
                       </tr>
