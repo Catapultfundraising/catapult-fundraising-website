@@ -107,6 +107,35 @@ export async function engageClientGifts(client: string): Promise<ClientGift[]> {
   return out;
 }
 
+/** Client contact records Viktor loaded into Engage (engage.client_contacts) from a client's Access MASTER table when it
+ *  isn't in the client schema (PVAS). Paged through Engage op clientContacts. Empty when nothing is loaded. */
+export type ClientContact = { cptid: number } & Record<string, string | boolean | number | undefined>;
+export async function engageClientContacts(client: string): Promise<ClientContact[]> {
+  const secret = process.env.PORTAL_WRITE_SECRET;
+  const url = process.env.ENGAGE_CONTACTS_URL || process.env.ENGAGE_PORTAL_URL || "https://engage.catapultfr.com/api/portal-v2";
+  if (!secret) return [];
+  const out: ClientContact[] = [];
+  let afterId = 0;
+  for (let page = 0; page < 40; page++) {
+    const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
+      body: JSON.stringify({ op: "clientContacts", client, afterId, limit: 10000 }) });
+    if (!r.ok) throw new Error(`Engage clientContacts ${r.status}`);
+    const j = (await r.json()) as { rows: (ClientContact & { id: number })[]; next: number | null; done: boolean };
+    out.push(...j.rows);
+    if (j.done || !j.next) break;
+    afterId = j.next;
+  }
+  return out;
+}
+
+/** "9565551234" / "956-555-1234" -> "(956) 555-1234"; anything else is returned trimmed. */
+export function fmtPhone(v: unknown): string {
+  let t = String(v ?? "").trim();
+  if (t.endsWith(".0")) t = t.slice(0, -2);
+  const d = t.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
+  return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : t;
+}
+
 export async function rows(query: string): Promise<Row[]> {
   if (process.env.PORTAL_SQL_DIRECT !== "1") return rowsViaEngage(query);
   const pool = await azurePool();

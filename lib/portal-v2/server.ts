@@ -513,13 +513,13 @@ export function portalV2Route(client: PortalClient) {
       if (b.op === "duplicates") {
         const state = await engage<PortalState>(client, "state");
         const ov = buildOverlay(state.updates as unknown as UpdateRow[]);
-        const data = (await RECORDS[client]()) as unknown as { index: { cptid: number; name: string; city?: string; lifetime?: number; kind?: string }[]; records?: Record<string, { contact?: Record<string, string> }> } | null;
+        const data = (await RECORDS[client]()) as unknown as { index: { cptid: number; name: string; city?: string; lifetime?: number; kind?: string }[]; records?: Record<string, { contact?: Record<string, string>; clientDupOf?: number }> } | null;
         const seen = new Set<number>(); const cands: DupCandidate[] = [];
         const gone = (c: number) => ov.mergedInto.has(c) || ov.deleted.has(c);
         for (const r of data?.index ?? []) {
           if (gone(r.cptid) || seen.has(r.cptid)) continue; seen.add(r.cptid);
           const c = { ...(data?.records?.[String(r.cptid)]?.contact ?? {}), ...(ov.contact.get(r.cptid) ?? {}) } as Record<string, string>;
-          cands.push({ cptid: r.cptid, name: r.name, city: c.city || r.city || "", street: c.street || c.address || "", lifetime: r.lifetime ?? 0, kind: r.kind });
+          cands.push({ cptid: r.cptid, name: r.name, city: c.city || r.city || "", street: c.street || c.address || "", lifetime: r.lifetime ?? 0, kind: r.kind, dupOf: data?.records?.[String(r.cptid)]?.clientDupOf });
         }
         for (const p of state.prospects) if (!seen.has(p.cptid) && !gone(p.cptid)) { seen.add(p.cptid); const c = ov.contact.get(p.cptid) ?? {}; cands.push({ cptid: p.cptid, name: p.full_name, city: c.city || p.city || "", street: c.street || p.address1 || "", lifetime: 0, kind: p.org_name ? "Organization" : "Individual" }); }
         const minS = Number(b.minStrength) || 0, ql = txt(b.q, 100).toLowerCase();
