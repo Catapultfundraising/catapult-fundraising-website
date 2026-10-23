@@ -104,7 +104,7 @@ const NICKMAP = new Map<string, Set<string>>();
 for (const g of NICK) for (const n of g) { const s = NICKMAP.get(n) ?? new Set<string>(); g.forEach((x) => s.add(x)); NICKMAP.set(n, s); }
 const STOP = new Set(["and", "the", "mr", "mrs", "ms", "dr", "jr", "sr", "ii", "iii", "family", "&"]);
 const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter((w) => w && !STOP.has(w));
-const normStreet = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\b(street|st|road|rd|drive|dr|avenue|ave|lane|ln|boulevard|blvd|court|ct|circle|cir|place|pl|apt|unit|suite|ste)\b/g, "").replace(/\s+/g, " ").trim();
+const normStreet = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\b(street|st|road|rd|drive|dr|avenue|ave|lane|ln|boulevard|blvd|court|ct|circle|cir|place|pl|apt|unit|suite|ste)\b/g, "").replace(/\bnorth\b/g, "n").replace(/\bsouth\b/g, "s").replace(/\beast\b/g, "e").replace(/\bwest\b/g, "w").replace(/\s+/g, " ").trim();
 const firstOk = (a: string[], b: string[]) => a.some((x) => b.some((y) => x === y || NICKMAP.get(x)?.has(y) || (x.length === 1 && y.startsWith(x)) || (y.length === 1 && x.startsWith(y))));
 
 export type DupCandidate = { cptid: number; name: string; city?: string; street?: string; lifetime?: number; kind?: string };
@@ -137,6 +137,7 @@ export function findDuplicates(cands: DupCandidate[], notdup: Set<string>, max =
       else if (sameCity && contained) { reason = "Same last name and city, one name includes the other"; strength = 70; }
       else if (sameCity && firstMatch) { reason = "Same last name and city, matching first name or nickname"; strength = 60; }
       else if (noConflict && contained && !(a.s && b.s && a.s !== b.s)) { reason = "Same last name, one name includes the other"; strength = 62; }
+      else if (noConflict && firstMatch) { reason = "Same last name, matching first name or nickname (no address to compare)"; strength = 50; }
       else if (contained && a.f.length !== b.f.length) { reason = "Same last name, one name includes the other (different address)"; strength = 30; }
       if (strength) pairs.push({ a, b, reason, strength });
     }

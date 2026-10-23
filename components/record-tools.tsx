@@ -20,7 +20,7 @@ type AnyRec = {
   dsFromScreening?: boolean; dsFromCptid?: number;
 };
 type Edit = { value: string; from: string; by: string; at: string };
-type Screening = { status: "matched" | "no_match" | "error"; fields?: Record<string, string>; quality?: number; message?: string; by: string; at: string };
+type Screening = { status: "matched" | "no_match" | "error"; fields?: Record<string, string>; quality?: number; message?: string; note?: string; by: string; at: string };
 export type GiftRow = { date?: string; amount: number; stage?: string; type?: string; campaign?: string; allocation?: string; status?: string; fund?: string; fromCptid?: number };
 type IdxRow = { cptid: number; name: string; city?: string; lifetime?: number; kind?: string };
 
@@ -267,7 +267,7 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
       {ds ? (
         <>
           <p className="mb-1 text-[11px] font-semibold uppercase tracking-wider text-[rgb(var(--ink))]/60">
-            DonorSearch{r.dsFromScreening && scr ? ` (screened ${day(scr.at)} from the dashboard)` : r.dsFromCptid ? ` (from merged CPTID ${r.dsFromCptid})` : ""}
+            DonorSearch{r.dsFromScreening && scr ? ` (screened ${day(scr.at)} from the dashboard${scr.note ? `, ${scr.note}` : ""})` : r.dsFromCptid ? ` (from merged CPTID ${r.dsFromCptid})` : ""}
           </p>
           {Object.entries(ds).map(([k, v]) => <Field key={k} k={k} v={v} />)}
         </>
