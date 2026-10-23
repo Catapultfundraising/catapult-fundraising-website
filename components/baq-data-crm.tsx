@@ -1,9 +1,10 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
-import { RecordNav, SafeBoundary, cmpValues, useSort, SortTh, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from "react";
+import { RecordNav, SafeBoundary, cmpValues, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
 import { useUrlId } from "@/lib/use-url-state";
 import { AskAmountPanel } from "@/components/ask-amount-panel";
+import { ContactSection, GiftsByYear, MergeDeleteButtons, RecordBanners, WealthSection } from "@/components/record-tools";
 import { Search, X, Download, FileSpreadsheet, FileText } from "lucide-react";
 import type { DonorRecord, IndexRow } from "@/lib/baq-data-store";
 import { ACTIVITY_KINDS, EMPTY_TRACKING, PROSPECT_STATUSES, type BaqTracking } from "@/lib/baq-tracking-types";
@@ -66,6 +67,11 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetch("/api/baq-data-tracking", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((t) => t && setTracking(t));
     fetch("/api/baq-data-records").then((r) => (r.ok ? r.json() : null)).then((d) => setIndex(d?.index ?? null)).finally(() => setLoading(false));
+  }, []);
+  useEffect(() => {
+    const f = () => { fetch("/api/baq-data-records", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => d?.index && setIndex(d.index)).catch(() => {}); };
+    window.addEventListener("crm-index-refresh", f);
+    return () => window.removeEventListener("crm-index-refresh", f);
   }, []);
   const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking, setRecId]);
   const [pick, setPick] = useState<{ name: string; rows: IndexRow[] } | null>(null);
@@ -272,14 +278,17 @@ export function recordPayload(r: DonorRecord, t?: BaqTracking): ExportPayload {
 }
 
 function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
-  const { tracking } = useCrm();
+  const { tracking, index } = useCrm();
   const [r, setR] = useState<DonorRecord | null>(null);
   const [err, setErr] = useState(false);
-  const gso = useSort(r?.gifts ?? [], (g, k) => (g as unknown as Record<string, unknown>)[k]);
+  const [ver, setVer] = useState(0);
+  const reload = () => setVer((v) => v + 1);
+  const lastId = useRef<number | null>(null);
   useEffect(() => {
-    setR(null); setErr(false);
-    fetch(`/api/baq-data-records?id=${cptid}`).then((x) => (x.ok ? x.json() : Promise.reject())).then(setR).catch(() => setErr(true));
-  }, [cptid]);
+    if (lastId.current !== cptid) { setR(null); lastId.current = cptid; }
+    setErr(false);
+    fetch(`/api/baq-data-records?id=${cptid}`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : Promise.reject())).then(setR).catch(() => setErr(true));
+  }, [cptid, ver]);
   if (err) return <Modal title="Record not found" onClose={onClose}><p>No record for CPTID {cptid}.</p></Modal>;
   if (!r) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
   const c = r.contact ?? {};
@@ -288,6 +297,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
   for (const g of r.gifts ?? []) { const y = (g.date ?? "").slice(0, 4) || "Undated"; byYear.set(y, (byYear.get(y) ?? 0) + g.amount); }
   return (
     <Modal title={r.name} sub={[r.kind, c.city && `${c.city}${c.state ? ", " + c.state : ""}`, `CPTID ${r.cptid}`].filter(Boolean).join(" · ")} onClose={onClose} wide>
+      <RecordBanners client="baq" r={r as never} onChanged={reload} />
       <div className="mb-4 flex flex-wrap items-center gap-2">
         {(r.flags ?? []).map((f) => <span key={f} className="rounded-full bg-[rgb(var(--brass))]/15 px-2.5 py-0.5 text-xs text-[rgb(var(--navy))]">{f}</span>)}
         {(r.board ?? []).some((b) => b.active) && <span className="rounded-full bg-[rgb(var(--navy))] px-2.5 py-0.5 text-xs text-white">Board member</span>}
@@ -298,6 +308,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         )}
         {tracking.prospects[String(r.cptid)]?.solicitor2 && <span className="rounded-full bg-[rgb(var(--paper))] px-2.5 py-0.5 text-xs">Secondary solicitor: {tracking.prospects[String(r.cptid)].solicitor2}</span>}
         {tracking.prospects[String(r.cptid)] && <span className="rounded-full border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium">{tracking.prospects[String(r.cptid)].status}</span>}
+        <MergeDeleteButtons client="baq" r={r as never} index={index} onChanged={reload} />
         <DownloadButtons get={() => recordPayload(r, tracking)} small />
       </div>
       <TrackingPanel cptid={r.cptid} />
@@ -311,17 +322,8 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
-        <Sec title="Contact">
-          <Field k="Formal greeting" v={c.greeting} /><Field k="Salutation" v={c.salutation} /><Field k="Primary contact" v={c.primaryContact} />
-          <Field k="Title" v={c.title} /><Field k="Affiliation" v={c.affiliation} />
-          <Field k="Address" v={[c.street, c.city, c.state, c.zip].filter(Boolean).join(", ")} />
-          <Field k="Phone" v={c.phone} /><Field k="Phone 2" v={c.phone2} /><Field k="Email 2" v={c.email2} /><Field k="Mobile" v={c.mobile} /><Field k="Email" v={c.email} /><Field k="Work email" v={c.workEmail} />
-          <Field k="Marital status" v={c.marital} /><Field k="Birthdate" v={c.birthdate} />
-          {!Object.values(c).some(Boolean) && <p className="text-sm text-[rgb(var(--ink))]/55">No contact details on file.</p>}
-        </Sec>
-        <Sec title="Wealth screening (DonorSearch)">
-          {r.ds ? Object.entries(r.ds).map(([k, v]) => <Field key={k} k={k} v={v} />) : <p className="text-sm text-[rgb(var(--ink))]/55">Not screened.</p>}
-        </Sec>
+        <ContactSection client="baq" r={r as never} onSaved={reload} />
+        <WealthSection client="baq" r={r as never} pirName={tracking.pirs[String(r.cptid)]?.name} onSaved={reload} />
         <Sec title="Giving summary">
           <Field k="First gift" v={s.first} /><Field k="Last gift" v={s.last} /><Field k="Lifetime band" v={s.band} />
           
@@ -345,22 +347,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         </Sec>
       </div>
       <div className="mt-4">
-        <Sec title={`Gifts (${r.gifts?.length ?? 0})`}>
-          <div className="max-h-[360px] overflow-auto">
-            <table className="w-full text-sm">
-              <thead className="sticky top-0 bg-[rgb(var(--navy))] text-left text-xs uppercase text-white">
-                <tr><SortTh s={gso} k="date" label="Date" className="px-3 py-2" /><SortTh s={gso} k="stage" label="Campaign" className="px-3 py-2" /><SortTh s={gso} k="amount" label="Amount" className="px-3 py-2 text-right" /></tr>
-              </thead>
-              <tbody>
-                {gso.sorted.map((g, i) => (
-                  <tr key={i} className={i % 2 ? "bg-[rgb(var(--paper))]" : ""}>
-                    <td className="px-3 py-1.5">{g.date || "Undated"}</td><td className="px-3 py-1.5">{g.stage}</td><td className="px-3 py-1.5 text-right tabular-nums">{usd(g.amount, 2)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </Sec>
+        <GiftsByYear gifts={(r.gifts ?? []) as never} />
       </div>
     </Modal>
   );

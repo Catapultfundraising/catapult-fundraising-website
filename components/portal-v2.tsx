@@ -2,6 +2,7 @@
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
+import { DuplicatesPanel, refreshCrmIndex } from "@/components/record-tools";
 import { DateInput, NameLink, isoToUs, parseUsDateClient, useSort, SortTh } from "@/components/dashboard-shared";
 
 // Portal v2 shared UI: campaign progress bar, Campaign Donors (gift-chart levels),
@@ -271,7 +272,8 @@ export function AddProspect() {
     try {
       const r = await post(client, { op: "addProspect", by, force, prospect: p });
       if (r.duplicates) { setDups(r.duplicates); return; }
-      setDups(null); setP(EMPTY_P); setMsg(`Added with CPTID ${r.cptid}.`); await reload();
+      const screened = !p.orgName && !!p.state.trim() && !!(p.firstName.trim() && p.lastName.trim());
+      setDups(null); setP(EMPTY_P); setMsg(`Added with CPTID ${r.cptid}.${screened ? " A DonorSearch wealth screening was requested and will appear on the record within about 15 minutes." : " Add a first name, last name and state to run a DonorSearch wealth screening from the record."}`); await reload(); refreshCrmIndex();
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
   const fld = (k: keyof typeof EMPTY_P, ph: string, cls = "") => <input className={`${input} ${cls}`} placeholder={ph} value={p[k]} onChange={(e) => { setP({ ...p, [k]: e.target.value }); setDups(null); }} />;
@@ -410,13 +412,14 @@ function EditPortalProspect({ p, onDone }: { p: PortalState["prospects"][number]
 }
 
 export function AddAndUpload() {
-  const { state } = useV2();
+  const { state, client } = useV2();
   const [editing, setEditing] = useState<number | null>(null);
   const pso = useSort([...(state?.prospects ?? [])].reverse().map((p) => ({ ...p, addr: [p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ") })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   return (
     <div className="space-y-6">
       <AddProspect />
       <UploadClientFile />
+      <div className={card}><DuplicatesPanel client={client} /></div>
       <AuditLog />
       {state && state.prospects.length > 0 && (
         <div className={card}>
