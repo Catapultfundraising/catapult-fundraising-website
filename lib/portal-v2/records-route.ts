@@ -28,7 +28,7 @@ function drillIds(client: PortalClient, records: Record<string, Rec>, kind: stri
     else if (kind === "stage") hit = (r.gifts ?? []).some((g) => [g.stage, g.type, g.campaign].some((x) => (x ?? "").toLowerCase() === vl)) || (r.kind ?? "").toLowerCase() === vl;
     else if (kind === "attr") hit = (r.kind ?? "").toLowerCase() === vl || (r.flags ?? []).some((f) => f.toLowerCase() === vl) || Object.values(c).some((x) => String(x ?? "").toLowerCase() === vl)
       || (r.calling ?? []).some((x) => (x.batch ?? "").toLowerCase() === vl || (x.tier ?? "").toLowerCase() === vl);
-    else if (kind === "has") hit = v === "address" ? !!(c.street || c.address) : v === "phone" ? !!(c.phone || c.mobile || c.phone2) : v === "email" ? !!(c.email || c.workEmail || c.email2) : false;
+    else if (kind === "has") hit = v === "address" ? !!(c.street || c.address) : v === "phone" ? !!(c.phone || c.mobile || c.phone2 || c.phone3) : v === "email" ? !!(c.email || c.workEmail || c.email2 || c.email3) : false;
     if (hit) out.push(r.cptid);
   }
   return out;

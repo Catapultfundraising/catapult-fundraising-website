@@ -8,10 +8,10 @@
 //   deleted         record deleted from the dashboard (new_value = reason, "" = restored)
 //   notdup          "not a duplicate" decisions (new_value = group key)
 
-export const CONTACT_KEYS = ["street", "city", "state", "zip", "phone", "mobile", "phone2", "email", "email2", "workEmail"] as const;
+export const CONTACT_KEYS = ["street", "city", "state", "zip", "phone", "mobile", "phone2", "phone3", "email", "email2", "email3", "workEmail"] as const;
 export type ContactKey = (typeof CONTACT_KEYS)[number];
 export const CONTACT_LABELS: Record<ContactKey, string> = {
-  street: "Street address", city: "City", state: "State", zip: "ZIP", phone: "Phone", mobile: "Mobile", phone2: "Phone 2", email: "Email", email2: "Email 2", workEmail: "Work email",
+  street: "Street address", city: "City", state: "State", zip: "ZIP", phone: "Phone", mobile: "Mobile", phone2: "Phone 2", phone3: "Phone 3", email: "Email", email2: "Email 2", email3: "Email 3", workEmail: "Work email",
 };
 export const OVERLAY_FIELD = (f: string) => f.startsWith("contact:") || f.startsWith("wealth:") || f === "merged_into" || f === "deleted" || f === "notdup";
 
@@ -107,20 +107,28 @@ const words = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/
 const normStreet = (s: string) => s.toLowerCase().replace(/[^a-z0-9 ]/g, " ").replace(/\b(street|st|road|rd|drive|dr|avenue|ave|lane|ln|boulevard|blvd|court|ct|circle|cir|place|pl|apt|unit|suite|ste)\b/g, "").replace(/\bnorth\b/g, "n").replace(/\bsouth\b/g, "s").replace(/\beast\b/g, "e").replace(/\bwest\b/g, "w").replace(/\s+/g, " ").trim();
 const firstOk = (a: string[], b: string[]) => a.some((x) => b.some((y) => x === y || NICKMAP.get(x)?.has(y) || (x.length === 1 && y.startsWith(x)) || (y.length === 1 && x.startsWith(y))));
 
-export type DupCandidate = { cptid: number; name: string; city?: string; street?: string; lifetime?: number; kind?: string };
+/** dupOf = CPTID the client's own database marks this record a duplicate of (e.g. PVAS MASTER "DELETE" = "Duplicate 3604"). */
+export type DupCandidate = { cptid: number; name: string; city?: string; street?: string; lifetime?: number; kind?: string; dupOf?: number };
 export type DupGroup = { key: string; reason: string; strength: number; members: DupCandidate[] };
 
 /** Likely duplicate pairs/groups: same last name AND (same street, or same city with matching/nickname/contained first names), or identical names. */
 export function findDuplicates(cands: DupCandidate[], notdup: Set<string>, max = 400): DupGroup[] {
   type C = DupCandidate & { w: string[]; f: string[]; s: string; c: string; n: string };
   const byLast = new Map<string, C[]>();
+  const byId = new Map<number, C>();
   for (const x of cands) {
-    const w = words(x.name); if (!w.length) continue;
-    const last = w[w.length - 1]; if (last.length < 2) continue;
+    const w = words(x.name);
     const c: C = { ...x, w, f: w.slice(0, -1), s: normStreet(x.street ?? ""), c: (x.city ?? "").trim().toLowerCase(), n: w.join(" ") };
+    byId.set(c.cptid, c);
+    if (!w.length) continue;
+    const last = w[w.length - 1]; if (last.length < 2) continue;
     (byLast.get(last) ?? byLast.set(last, []).get(last)!).push(c);
   }
   const pairs: { a: C; b: C; reason: string; strength: number }[] = [];
+  for (const a of byId.values()) {
+    const b = a.dupOf ? byId.get(a.dupOf) : undefined;
+    if (b && b.cptid !== a.cptid) pairs.push({ a, b, reason: "Marked as a duplicate in the client's database", strength: 95 });
+  }
   for (const list of byLast.values()) {
     if (list.length < 2 || list.length > 2500) continue;
     for (let i = 0; i < list.length; i++) for (let j = i + 1; j < list.length; j++) {

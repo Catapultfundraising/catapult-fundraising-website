@@ -1,5 +1,5 @@
 import {
-  band, builtAt, dsField, capmin, cid, counter, engageClientGifts, loadedAsOf, money, mostCommon, pdate, Per,
+  band, builtAt, dsField, capmin, cid, counter, engageClientContacts, engageClientGifts, fmtPhone, loadedAsOf, money, mostCommon, pdate, Per,
   pirLinks, pyramid, round2, Row, rows, s, sortedItems, yearsAgo,
 } from "./common";
 
@@ -7,7 +7,8 @@ import {
 // The Access MASTER / Master_Giving_History tables are scrambled and were not
 // loaded, so per-donor totals come from giving_history_overview, yearly giving
 // from calendar_year_giving (calendar years), and contacts from the campaign
-// portfolio plus phone_numbers. Givebutter transactions and pledges are kept
+// portfolio, then the Access MASTER table (loaded by Viktor into Engage
+// engage.client_contacts), then phone_numbers and Givebutter. Givebutter transactions and pledges are kept
 // in their own "Recent Givebutter Activity" section and are NOT counted in any
 // campaign / lifetime total.
 
@@ -29,6 +30,10 @@ export async function buildPvas() {
   ]);
   // Individual gifts (Access Master_Giving_History, loaded into Engage by Viktor). Falls back to calendar-year totals when absent.
   const giftRows = await engageClientGifts("pvas").catch(() => []);
+  // Access MASTER (31k constituents with addresses, phones, emails), loaded by Viktor into Engage.
+  const masterRows = await engageClientContacts("pvas").catch(() => []);
+  const master = new Map<number, (typeof masterRows)[number]>();
+  for (const m of masterRows) if (m.cptid > 0) master.set(m.cptid, m);
   const giftsBy = new Map<number, Record<string, unknown>[]>();
   for (const g of giftRows) (giftsBy.get(g.cptid) ?? giftsBy.set(g.cptid, []).get(g.cptid)!).push(Object.fromEntries(Object.entries({ date: g.date ?? (g.year ? String(g.year) : ""), amount: round2(g.amount), type: g.type, campaign: g.campaign, fund: g.fund, status: g.status === "Succeeded" ? "" : g.status }).filter(([k, v]) => k === "amount" || k === "date" || !!v)));
   const byC = (rr: Row[]) => { const m = new Map<number, Row>(); for (const r of rr) { const c = cid(r.CPTID); if (c !== null) m.set(c, r); } return m; };
@@ -37,6 +42,7 @@ export async function buildPvas() {
   const name = new Map<number, string>();
   for (const [c, r] of port) name.set(c, s(r.Account_Name) || fullName(r));
   for (const [c, r] of gho) if (!name.get(c)) name.set(c, s(r.Account_Name));
+  for (const [c, m] of master) if (!name.get(c)) name.set(c, s(m.name) || [s(m.first), s(m.last)].filter(Boolean).join(" "));
   for (const [c, r] of ds) if (!name.get(c)) name.set(c, fullName(r));
 
   // Calendar-year giving per donor.
@@ -103,14 +109,35 @@ export async function buildPvas() {
   });
   const committee = [...commRows].sort((a, b) => money(a.Order) - money(b.Order)).map((r) => ({ cptid: cid(r.CPTID), name: s(r.Account_Name), title: s(r.Committee_Title) || s(r.Category) }));
 
-  // Contacts: portfolio first, then Phone Numbers, then Givebutter (latest contact on file).
+  // Contacts: portfolio first, then Phone Numbers, then Givebutter, then the Access MASTER. Each source only fills
+  // blanks. An address is taken as one block (street, city, state, ZIP from the same source) so lines never mix.
+  // Phones and emails fill the next free slot and skip numbers / addresses already on the record.
   const contact = new Map<number, Record<string, string>>();
+  const ADDR = ["street", "city", "state", "zip"];
+  const PHONES = ["phone", "phone2", "phone3"], EMAILS = ["email", "email2", "email3"];
+  const digits = (v: string) => v.replace(/\D/g, "").replace(/^1(?=\d{10}$)/, "");
   const addc = (c: number | null, kw: Record<string, unknown>) => {
     if (c === null) return;
     const ct = contact.get(c) ?? {}; contact.set(c, ct);
-    for (const [k, v] of Object.entries(kw)) { const t = s(v); if (t && !ct[k]) ct[k] = t; }
+    const v = (k: string) => s(kw[k]);
+    if (v("street") && !ct.street) { for (const k of ADDR) { if (v(k)) ct[k] = v(k); else delete ct[k]; } }
+    else if (!ct.street && !ct.city) for (const k of ADDR.slice(1)) if (v(k) && !ct[k]) ct[k] = v(k);
+    for (const k of PHONES) {
+      const t = fmtPhone(kw[k]); if (!t || digits(t).length < 7) continue;
+      if (PHONES.concat("mobile").some((x) => ct[x] && digits(ct[x]) === digits(t))) continue;
+      const slot = PHONES.find((x) => !ct[x]); if (slot) ct[slot] = t;
+    }
+    for (const k of EMAILS) {
+      const t = v(k); if (!t || !t.includes("@")) continue;
+      if (EMAILS.concat("workEmail").some((x) => ct[x] && ct[x].toLowerCase() === t.toLowerCase())) continue;
+      const slot = EMAILS.find((x) => !ct[x]); if (slot) ct[slot] = t;
+    }
+    for (const [k, val] of Object.entries(kw)) {
+      if (ADDR.includes(k) || PHONES.includes(k) || EMAILS.includes(k)) continue;
+      const t = s(val); if (t && !ct[k]) ct[k] = t;
+    }
   };
-  const ph = (v: unknown) => { const t = s(v); return t.endsWith(".0") ? t.slice(0, -2) : t; };
+  const ph = (v: unknown) => fmtPhone(v);
   for (const [c, r] of port) addc(c, { street: [s(r.Address), s(r.Address2)].filter(Boolean).join(", "), city: r.City, state: r.State, zip: r.Zip_Code,
     phone: ph(r.Phone1), phone2: ph(r.Phone2), email: r.Email1, email2: r.Email2, title: r.Title });
   for (const [c, r] of phones) addc(c, { phone: ph(r.Phone1), phone2: ph(r.Phone2), phone3: ph(r.Phone3) });
@@ -125,6 +152,16 @@ export async function buildPvas() {
     return { cptid: c, name: (c !== null && name.get(c)) || gbName(r), date: pdate(r.Transaction_Date_UTC) ?? "", amount: round2(money(r.Amount)),
       campaign: s(r.Campaign_Title), fund: s(r.Fund_Name), status: s(r.Status_Friendly) || "Succeeded", dedication: s(r.Dedication_Name) };
   }).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.amount - a.amount));
+  // Access MASTER last: it fills every blank but never replaces a contact the dashboard already showed. When its
+  // address is a different place (other house number or ZIP), it is kept as "Other address on file".
+  const houseZip = (st: string, zip: string) => `${(st.match(/\d+/) ?? [""])[0]}|${zip.slice(0, 5)}`;
+  for (const [c, m] of master) {
+    const before = contact.get(c)?.street ? { ...contact.get(c)! } : null;
+    addc(c, { street: m.street, city: m.city, state: m.state, zip: m.zip, phone: m.phone, phone2: m.phone2, phone3: m.phone3,
+      email: m.email, email2: m.email2, email3: m.email3, title: m.title, org: m.org, spouse: m.spouse, birthdate: m.birthdate, primaryContact: m.contact2 });
+    if (before && s(m.street) && houseZip(before.street, s(before.zip)) !== houseZip(s(m.street), s(m.zip)))
+      contact.get(c)!.altAddress = [s(m.street), s(m.city), s(m.state), s(m.zip)].filter(Boolean).join(", ");
+  }
   const pledges = gbPl.map((r) => {
     const c = gb2c.get(s(cid(r.Givebutter_Contact_ID))) ?? null;
     return { cptid: c, name: (c !== null && name.get(c)) || gbName(r), pledged: pdate(r.Pledged_on) ?? "", amount: round2(money(r.Amount)),
@@ -153,21 +190,24 @@ export async function buildPvas() {
   const pool = portfolio.filter((p) => p.ask > 0 && p.solicitor !== "Stewardship" && p.solicitor !== "DQ")
     .map((p) => ({ ...person(p.cptid), rating: p.ask, basis: "Campaign Ask", ask: p.ask, solicitor: p.solicitor, donorType: p.donorType || "" }));
 
-  const allc = new Set<number>([...gho.keys(), ...ds.keys(), ...port.keys()]);
+  const allc = new Set<number>([...gho.keys(), ...ds.keys(), ...port.keys(), ...master.keys()]);
+  const ORG = /corp|foundat|organi|govern|business|church|trust/i;
+  const kindOf = (c: number) => { const t = s(port.get(c)?.Record_Type) || s(master.get(c)?.recordType); return t ? t[0].toUpperCase() + t.slice(1) : ""; };
   const has = (c: number, k: string) => Boolean(contact.get(c)?.[k]);
   const all = [...allc];
   const health = {
     records: allc.size, address: all.filter((c) => has(c, "street")).length, phone: all.filter((c) => has(c, "phone")).length,
-    email: all.filter((c) => has(c, "email")).length, orgs: portRows.filter((r) => s(r.Record_Type) && s(r.Record_Type) !== "Individual").length,
-    duplicates: 0, dsScreened: ds.size, constituents: allc.size, multiCptAccounts: 0,
+    email: all.filter((c) => has(c, "email")).length, orgs: all.filter((c) => ORG.test(kindOf(c))).length,
+    duplicates: [...master.values()].filter((m) => /dup/i.test(s(m.deleteNote))).length, dsScreened: ds.size, constituents: allc.size, multiCptAccounts: 0,
   };
-  const dtype = counter([...gho.values()].filter((r) => money(r.Total_Gift_Amount) > 0).map((r) => s(r.Donor_Type) || "Not coded"));
+  const donorTypeOf = (c: number) => s(gho.get(c)?.Donor_Type) || s(master.get(c)?.donorType) || "Not coded";
+  const dtype = counter([...pd.keys()].map(donorTypeOf));
   const flags = { "Board (current or former)": boardRows.length, "Campaign committee": commRows.length, "Campaign portfolio": portRows.length,
     "Portfolio with a Campaign Ask": portfolio.filter((p) => p.ask > 0).length, "Givebutter contacts": gb2c.size };
-  const otype = counter(portRows.map((r) => s(r.Record_Type) || "Not coded"));
+  const otype = counter(all.map(kindOf).filter((k) => ORG.test(k)).map((k) => k.replace(/^Foundaiton$/, "Foundation")));
   // "Giving by donor type" uses the stages chart.
   const stagesM = new Map<string, [number, number]>();
-  for (const [c, p] of pd) { const k = s(gho.get(c)?.Donor_Type) || "Not coded"; const x = stagesM.get(k) ?? [0, 0]; x[0] += p.n; x[1] += p.total; stagesM.set(k, x); }
+  for (const [c, p] of pd) { const k = donorTypeOf(c); const x = stagesM.get(k) ?? [0, 0]; x[0] += p.n; x[1] += p.total; stagesM.set(k, x); }
 
   const solicitors = [...new Set(portfolio.map((p) => p.solicitor))].sort();
   const batches = solicitors.map((sol) => {
@@ -216,6 +256,7 @@ export async function buildPvas() {
     x.calling.push({ batch: "Campaign portfolio", tier: p.priority, interviewer: p.solicitor, appt: "" });
     for (const k of ["New_Notes", "Historical_Notes"]) if (s(r[k])) x.notes.push(s(r[k]));
   }
+  for (const [c, m] of master) { const x = rec(c); if (!x.kind || x.kind === "Individual") x.kind = kindOf(c).replace(/^Foundaiton$/, "Foundation") || x.kind; if (s(m.notes)) x.notes.push(`Client file note: ${s(m.notes)}`); }
   for (const r of [...noteRows].sort((a, b) => money(a.Note_Order_Newest_to_Oldest) - money(b.Note_Order_Newest_to_Oldest))) {
     const c = cid(r.CPTID); if (c === null || !s(r.Note)) continue;
     const d = pdate(r.Date); rec(c).notes.push(d ? `${d}: ${s(r.Note)}` : s(r.Note));
@@ -227,6 +268,11 @@ export async function buildPvas() {
   const index: Record<string, unknown>[] = [];
   for (const [c, x] of R) {
     x.flags = lists.filter(([, ss]) => ss.has(c)).map(([k]) => k);
+    const m = master.get(c);
+    if (m?.deceased) x.flags.push("Deceased / out of business (client file)");
+    const del = s(m?.deleteNote); const dupOf = /dup/i.test(del) ? cid(del.match(/\d+/)?.[0]) : null;
+    if (dupOf !== null && dupOf !== c) { x.flags.push(`Client file: duplicate of CPTID ${dupOf}`); (x as Rec & { clientDupOf?: number }).clientDupOf = dupOf; }
+    else if (del) x.flags.push(`Marked DELETE in client file (${del})`);
     const p = pd.get(c); const d = x.ds; const cap = d["Wealth-Based Capacity"] || s(port.get(c)?.Wealth_Capacity);
     const sm = { lifetime: round2(p?.total ?? 0), gifts: p?.n ?? 0, first: p?.first ?? "", last: p?.last ?? "", largest: round2(p?.max ?? 0),
       years: p?.fys.size ?? 0, band: p ? band(p.total) : "No gifts", ghoTotal: p ? round2(p.total) : null };

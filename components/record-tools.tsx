@@ -78,8 +78,8 @@ function NameBox({ by, setBy }: { by: string; setBy: (v: string) => void }) {
 // ---------------------------------------------------------------- Contact
 const EDIT_FIELDS: { key: string; label: string; wide?: boolean }[] = [
   { key: "street", label: "Street address", wide: true }, { key: "city", label: "City" }, { key: "state", label: "State" }, { key: "zip", label: "ZIP" },
-  { key: "phone", label: "Phone" }, { key: "mobile", label: "Mobile" }, { key: "phone2", label: "Phone 2" },
-  { key: "email", label: "Email" }, { key: "email2", label: "Email 2" }, { key: "workEmail", label: "Work email" },
+  { key: "phone", label: "Phone" }, { key: "mobile", label: "Mobile" }, { key: "phone2", label: "Phone 2" }, { key: "phone3", label: "Phone 3" },
+  { key: "email", label: "Email" }, { key: "email2", label: "Email 2" }, { key: "email3", label: "Email 3" }, { key: "workEmail", label: "Work email" },
 ];
 export function ContactSection({ client, r, onSaved }: { client: string; r: AnyRec; onSaved: () => void }) {
   const c = r.contact ?? {};
@@ -124,9 +124,9 @@ export function ContactSection({ client, r, onSaved }: { client: string; r: AnyR
         <>
           <Field k="Formal greeting" v={c.greeting} /><Field k="Salutation" v={c.salutation} /><Field k="Primary contact" v={c.primaryContact} />
           <Field k="Title" v={c.title} /><Field k="Affiliation" v={c.affiliation} /><Field k="Organization" v={c.org} />
-          <Field k="Address" v={[street, c.city, c.state, c.zip].filter(Boolean).join(", ")} />
-          <Field k="Phone" v={c.phone} /><Field k="Mobile" v={c.mobile} /><Field k="Phone 2" v={c.phone2} />
-          <Field k="Email" v={c.email} /><Field k="Email 2" v={c.email2} /><Field k="Work email" v={c.workEmail} />
+          <Field k="Address" v={[street, c.city, c.state, c.zip].filter(Boolean).join(", ")} /><Field k="Other address on file" v={c.altAddress} />
+          <Field k="Phone" v={c.phone} /><Field k="Mobile" v={c.mobile} /><Field k="Phone 2" v={c.phone2} /><Field k="Phone 3" v={c.phone3} />
+          <Field k="Email" v={c.email} /><Field k="Email 2" v={c.email2} /><Field k="Email 3" v={c.email3} /><Field k="Work email" v={c.workEmail} />
           <Field k="Spouse" v={c.spouse} /><Field k="Marital status" v={c.marital} /><Field k="Birthdate" v={c.birthdate} />
           {!Object.values(c).some(Boolean) && <p className="text-sm text-[rgb(var(--ink))]/55">No contact details on file. Use Edit contact to add them.</p>}
         </>
