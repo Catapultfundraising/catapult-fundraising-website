@@ -20,6 +20,17 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    slug: "five-donors-by-10am-mid-level-giving",
+    date: "2026-10-24",
+    title: "Five Donors by 10 AM: What a Mid-Level Giving Webinar Reminded Me About the Basics",
+    description: "Maria Healy on giving every mid-level donor an owner, a year-round cadence, and the Five by Ten habit.",
+    readTime: "4 min read",
+    image: "/blog/five-donors-by-10am-mid-level-giving/hero-five-by-ten.jpg",
+    alt: "An experienced fundraiser smiling on a desk phone, a handwritten list of five donor names beside her",
+    pillars: ["Annual Fund", "Donor Acquisition & Retention"],
+    services: ["donor-engagement"],
+  },
+  {
     slug: "is-the-phonathon-dead",
     date: "2026-10-17",
     title: "Is the Phonathon Dead? What Works Now for Calling Programs",
