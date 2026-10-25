@@ -339,7 +339,7 @@ export const ANSWERS: Answer[] = [
   {
     slug: "how-do-you-choose-a-capital-campaign-consulting-firm",
     primaryService: {
-      label: "Capital campaign consulting",
+      label: "Capital campaign consulting firm",
       href: "/services/capital-campaign",
       blurb: "Catapult is one national firm across all five campaign phases, including staffing the public phase with trained Engagement Officers.",
     },
