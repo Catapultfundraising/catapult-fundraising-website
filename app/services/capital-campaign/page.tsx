@@ -12,12 +12,14 @@ import { CAMPAIGN_SECTOR_LINKS } from "@/lib/constants";
 const SITE_URL = "https://www.catapultfr.com";
 
 export const metadata = {
-  title: "Capital Campaign Consulting & Counsel",
+  title: { absolute: "Capital Campaign Consulting Firm & Consultants | Catapult" },
   description:
     "Capital campaign consulting from feasibility study to final pledge: planning, quiet-phase major gift strategy, and public-phase calling from one national firm.",
   keywords: [
     "capital campaign consultant",
     "capital campaign consultants",
+    "capital campaign consulting firm",
+    "capital campaign consulting firms",
     "capital campaign consulting",
     "capital campaign consulting services",
     "capital campaign counsel",
@@ -63,7 +65,7 @@ export const metadata = {
   ],
   alternates: { canonical: "/services/capital-campaign" },
   openGraph: {
-    title: "Capital Campaign Consulting & Counsel | Catapult Fundraising",
+    title: "Capital Campaign Consulting Firm & Consultants | Catapult",
     description:
       "Capital campaign consulting from feasibility study to final pledge: planning, quiet-phase major gift strategy, and public-phase calling from one national firm.",
     url: "/services/capital-campaign",
@@ -343,17 +345,14 @@ export default function CapitalCampaignPage() {
             How to choose a capital campaign consulting firm.
           </h2>
           <p className="mt-5 text-xl leading-relaxed text-[rgb(var(--ink))]/70">
-            Proposals from campaign counsel can look alike on paper. These questions separate
-            them quickly:
+            Proposals from campaign counsel can look alike on paper. Ask who will actually attend
+            your committee meetings, how the feasibility study is run, how the fee is structured,
+            and who runs the public phase. Our full guide walks through{" "}
+            <Link href="/answers/how-do-you-choose-a-capital-campaign-consulting-firm" className="font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))] decoration-2 underline-offset-4">
+              how to choose a capital campaign consulting firm
+            </Link>
+            .
           </p>
-          <ul className="mt-6 list-disc space-y-4 pl-6 text-xl leading-relaxed text-[rgb(var(--ink))]/70">
-            <li><strong className="text-[rgb(var(--navy))]">Who will actually attend our committee meetings?</strong> Ask for the named senior counsel, not the pitch team.</li>
-            <li><strong className="text-[rgb(var(--navy))]">How many feasibility interviews are included, and who conducts them?</strong> A thin study produces a goal built on optimism.</li>
-            <li><strong className="text-[rgb(var(--navy))]">How is the fee structured?</strong> Look for a retainer or project fee. Walk away from percentage or commission pricing.</li>
-            <li><strong className="text-[rgb(var(--navy))]">Who runs the public phase?</strong> If the answer is &ldquo;a separate vendor,&rdquo; you are hiring two or three firms, not one.</li>
-            <li><strong className="text-[rgb(var(--navy))]">How will we see progress?</strong> Expect regular written reporting against the gift chart that your board can read.</li>
-            <li><strong className="text-[rgb(var(--navy))]">Can we speak with a client whose campaign you finished?</strong> References from completed campaigns tell you more than any proposal.</li>
-          </ul>
           <p className="mt-5 text-xl leading-relaxed text-[rgb(var(--ink))]/70">
             For more on fees and what they should buy, read{" "}
             <Link href="/answers/how-much-does-a-capital-campaign-consultant-cost" className="font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))] decoration-2 underline-offset-4">

@@ -30,7 +30,7 @@ export function Hero() {
               heading leads with the search phrase, not just the tagline. */}
           <h1>
             <span className="block font-display text-base sm:text-lg uppercase tracking-[0.25em] text-[rgb(var(--brass-light))]">
-              Capital Campaign & Donor Engagement Consultants
+              Nonprofit Fundraising Consultants
             </span>
             <span className="mt-4 block font-display text-5xl leading-[1.05] tracking-tight text-balance sm:text-6xl lg:text-7xl">
               The full-service partner that grows your donor base at{" "}

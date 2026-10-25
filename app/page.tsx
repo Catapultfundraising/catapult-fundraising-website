@@ -14,7 +14,7 @@ const SITE_URL = "https://www.catapultfr.com";
 export const metadata = {
   // Kept under ~60 characters so Google shows the whole title rather than
   // truncating it mid-phrase; the full positioning line lives in the H1.
-  title: { absolute: "Capital Campaign Consultants for Nonprofits | Catapult" },
+  title: { absolute: "Nonprofit Fundraising Consulting Firm | Catapult" },
   description:
     "Catapult Fundraising is a national, full-service firm with 30+ years in capital campaigns, annual fund calling, donor engagement, and legacy giving.",
   keywords: [
