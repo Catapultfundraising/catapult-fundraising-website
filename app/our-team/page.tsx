@@ -49,6 +49,12 @@ const LEADERSHIP = [
     bio: "Jeff has spent 15 years proving that fundraising can be taught, mentored, and passed forward. He's an instructor in UNLV's Nonprofit Management program and a past president of AFP's Texas Coastal Bend chapter. He brings that same teaching instinct to every new Catapult partnership, helping first-time clients understand not just what will happen in their campaign, but why each step matters.",
   },
   {
+    name: "Paul A. Dunne, CFRE",
+    role: "Senior Counsel",
+    photo: "/team/paul-dunne.jpg",
+    bio: "Paul answered a calling to serve after 9/11 and has spent the years since turning bold goals into finished campaigns. He raised the final $14 million of North Hawaii Community Hospital's $32 million campaign and has led Catapult campaigns ranging from $15 million to $155 million. A past Chair of the AFP International Foundation Fundraising Board, Paul knows the last dollar matters as much as the first.",
+  },
+  {
     name: "Tina Romero",
     role: "Director of Campaign Services",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/20b29291-5afc-4a87-8c36-2e8d74c8bc41.png",
