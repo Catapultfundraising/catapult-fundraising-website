@@ -50,7 +50,7 @@ const LEADERSHIP = [
   },
   {
     name: "Paul A. Dunne, CFRE",
-    role: "Senior Consultant",
+    role: "Senior Counsel",
     photo: "/team/paul-dunne.jpg",
     bio: "Paul answered a calling to serve after 9/11 and has spent the years since turning bold goals into finished campaigns. He raised the final $14 million of North Hawaii Community Hospital's $32 million campaign and has led Catapult campaigns ranging from $15 million to $155 million. A past Chair of the AFP International Foundation Fundraising Board, Paul knows the last dollar matters as much as the first.",
   },
