@@ -508,7 +508,6 @@ function Lookup({ d }: { d: BaqSnapshot }) {
         <H sub={`All ${index ? num(index.length) : ""} constituents, largest lifetime giving first. Sort or filter, then click any name.`}>All records</H>
         {index ? <PeopleTable rows={index} /> : <p className="text-sm">{loading ? "Loading donor records..." : "Donor records are not available yet."}</p>}
       </Card>
-      <p className="text-xs text-[rgb(var(--ink))]/50">Data updated {d.asOf}.</p>
     </div>
   );
 }
@@ -719,7 +718,8 @@ export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">Prepared by Catapult Fundraising</p>
             <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
-            <p className="mt-1 text-sm text-white/70">Data updated {data.builtAt}</p>
+            <p className="mt-1 text-sm text-white/70">Source data as of {data.asOf}</p>
+            <p className="text-xs text-white/60">Snapshot refreshed {data.builtAt}</p>
           </div>
           <DonorSearch dark />
         </div>
