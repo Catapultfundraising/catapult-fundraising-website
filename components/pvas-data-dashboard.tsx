@@ -657,9 +657,10 @@ function Givebutter({ d }: { d: PvasSnapshot }) {
   const ids = useIds();
   return (
     <div className="space-y-6">
+      <CampaignProgress />
       <Card className="border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5">
         <p className="text-sm text-[rgb(var(--ink))]/75">
-          Online gifts and pledges recorded in Givebutter{g.from ? ` from ${g.from} to ${g.to}` : ""}. This activity is shown on its own and is not included in the campaign or lifetime giving totals elsewhere in the portal.
+          Online gifts and pledges recorded in Givebutter{g.from ? ` from ${g.from} to ${g.to}` : ""}. One Shelter. One Future. gifts and pledges count in the campaign total above, with Stewardship commitments taking precedence. Other Givebutter campaigns remain separate; lifetime giving is unchanged.
         </p>
       </Card>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">

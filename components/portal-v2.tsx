@@ -43,10 +43,10 @@ function useBy() {
 }
 
 /** Progress toward the campaign goal (gifts + pledges, no double counting of pledge payments). */
-export function CampaignProgress() {
+export function CampaignProgress({ goal: selectedGoal }: { goal?: number } = {}) {
   const { client, state } = useV2();
   const cfg = PORTAL_V2[client];
-  const goal = state?.goal ?? cfg.goal;
+  const goal = selectedGoal ?? state?.goal ?? cfg.goal;
   const c = useMemo(() => campaignByLevel(cfg.chart(goal), state?.gifts ?? []), [cfg, goal, state]);
   if (!state) return null;
   const share = Math.min(1, c.raised / goal);
@@ -54,7 +54,7 @@ export function CampaignProgress() {
     <div className={`${card} mb-6`}>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <div>
-          <p className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">Campaign progress</p>
+          <p className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">Campaign total including pledges</p>
           <p className="font-display text-2xl text-[rgb(var(--navy))]">{usd(c.raised)} <span className="text-base text-[rgb(var(--ink))]/60">of {usd(goal)} goal</span></p>
         </div>
         <p className="text-sm text-[rgb(var(--ink))]/70">{pct(c.raised / goal)} secured · {c.donors.length} donors · gifts {usd(c.totalGifts)} · pledges {usd(c.totalPledges)}</p>
@@ -74,10 +74,24 @@ export function CampaignDonors() {
   const goal = Math.min(500_000_000, Math.max(100_000, Number(goalText.replace(/[^\d]/g, "")) || cfg.goal));
   const c = useMemo(() => campaignByLevel(cfg.chart(goal), state?.gifts ?? []), [cfg, goal, state]);
   const [open, setOpen] = useState<number | null>(null);
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState("");
+  async function download(format: "pdf" | "xlsx") {
+    setDownloading(true); setDownloadError("");
+    try {
+      const r = await fetch(`${cfg.api}?report=campaign&format=${format}&goal=${goal}`, { cache: "no-store" });
+      if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || "Download failed. Please try again.");
+      const url = URL.createObjectURL(await r.blob());
+      const a = document.createElement("a"); a.href = url;
+      a.download = r.headers.get("content-disposition")?.match(/filename="([^"]+)"/)?.[1] ?? `${client.toUpperCase()} Campaign Donors.${format}`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+    } catch (e) { setDownloadError((e as Error).message); }
+    finally { setDownloading(false); }
+  }
   if (!state) return <p className="text-sm">Loading…</p>;
   return (
     <div className="space-y-6">
-      <CampaignProgress />
+      <CampaignProgress goal={goal} />
       <div className={card}>
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
@@ -88,6 +102,12 @@ export function CampaignDonors() {
             <input className={`${input} mt-1 w-40`} value={goalText} onChange={(e) => setGoalText(e.target.value)} />
           </label>
         </div>
+        <div className="mb-4 flex flex-wrap gap-2">
+          <button className={btn2} disabled={downloading || !state.configured} onClick={() => void download("pdf")}>Download PDF</button>
+          <button className={btn2} disabled={downloading || !state.configured} onClick={() => void download("xlsx")}>Download Excel</button>
+          {downloading && <span className="self-center text-sm">Preparing download…</span>}
+        </div>
+        {downloadError && <p role="alert" className="mb-3 text-sm">{downloadError}</p>}
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead><tr className="border-b border-[rgb(var(--line))]">

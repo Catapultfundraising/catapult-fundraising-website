@@ -1,3 +1,4 @@
+import { campaignDownload } from "@/lib/portal-v2/campaign-export";
 import { get as blobGet } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
@@ -119,10 +120,11 @@ const DB_CAMPAIGN: Partial<Record<PortalClient, { load: () => Promise<SnapLike>;
 };
 const BAD_STATUS = /refund|disput|fail|cancel|void|declin/i;
 
-export async function dbCampaignGifts(client: PortalClient): Promise<PortalGift[]> {
+export async function dbCampaignGifts(client: PortalClient, strict = false): Promise<PortalGift[]> {
   const cfg = DB_CAMPAIGN[client];
   if (!cfg) return [];
   const snap = await cfg.load().catch(() => null);
+  if (strict && !snap) throw new Error("Campaign source unavailable");
   const gb = snap?.givebutter ?? { transactions: [], pledges: [] };
   // Proxy contacts ("City of McAllen Proxy") resolve to the org's own record when the name matches exactly.
   const byName = new Map<string, number>();
@@ -203,8 +205,8 @@ function applyOverrides(items: PortalGift[], overrides: PortalState["giftOverrid
   }
   return out;
 }
-async function withDbGifts(client: PortalClient, state: PortalState): Promise<PortalState> {
-  const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client)), state.giftOverrides);
+async function withDbGifts(client: PortalClient, state: PortalState, strict = false): Promise<PortalState> {
+  const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client, strict)), state.giftOverrides);
   return { ...state, gifts: [...db, ...state.gifts] };
 }
 
@@ -329,9 +331,17 @@ export function portalV2Route(client: PortalClient) {
   async function GET(req: NextRequest) {
     if (!(await AUTH[client](req))) return bad("unauthorized", 401);
     try {
-      const state = await engage<PortalState>(client, "state");
-      return NextResponse.json({ ...(await withDbGifts(client, state)), goal: cfg.goal, configured: true });
+      const download = req.nextUrl.searchParams.get("report") === "campaign";
+      const format = req.nextUrl.searchParams.get("format") ?? "pdf";
+      const goal = Number(req.nextUrl.searchParams.get("goal") ?? cfg.goal);
+      if (download && (!Number.isFinite(goal) || goal < 100_000 || goal > 500_000_000)) return bad("Invalid campaign goal", 400);
+      if (download && format !== "pdf" && format !== "xlsx") return bad("Use PDF or Excel", 400);
+      const state = await withDbGifts(client, await engage<PortalState>(client, "state"), download);
+      if (download) return await campaignDownload(client, goal, state.gifts, format as "pdf" | "xlsx");
+      return NextResponse.json({ ...state, goal: cfg.goal, configured: true });
     } catch (e) {
+      // Never export an incomplete campaign total when SQL or rendering is unavailable.
+      if (req.nextUrl.searchParams.get("report") === "campaign") return bad("Campaign download unavailable. Please try again.", 503);
       const gifts = await dbCampaignGifts(client).catch(() => []);
       return NextResponse.json({ prospects: [], gifts, updates: [], batches: [], goal: cfg.goal, configured: false, error: (e as Error).message });
     }
