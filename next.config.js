@@ -10,6 +10,7 @@ const nextConfig = {
   // even though the code itself is unchanged. Explicitly including them
   // here guarantees they're bundled into every affected function.
   outputFileTracingIncludes: {
+    "/api/*-data-v2": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
     "/api/research-pdf": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
     "/api/research-pdf-corporate": ["./node_modules/pdfkit/js/standard-fonts/**/*"],
     "/api/research-pdf-foundation": ["./node_modules/pdfkit/js/standard-fonts/**/*"],

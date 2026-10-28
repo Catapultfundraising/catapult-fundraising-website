@@ -667,14 +667,15 @@ function Givebutter({ d }: { d: WcbhcSnapshot }) {
   const ids = useIds();
   return (
     <div className="space-y-6">
+      <CampaignProgress />
       <Card className="border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5">
         <p className="text-sm text-[rgb(var(--ink))]/75">
-          Gifts recorded to the $12M Capital Campaign{g.from ? ` from ${g.from} to ${g.to}` : ""}, plus committee pledges and verbal commitments. Pledges are not counted in the giving totals until they are paid.
+          Gifts recorded to the $12M Capital Campaign{g.from ? ` from ${g.from} to ${g.to}` : ""}, plus committee pledges and verbal commitments. Campaign totals above include gifts and pledges without counting pledge payments twice. The gift dollars below show payments received only.
         </p>
       </Card>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Campaign gifts" value={num(g.txCount)} note={`${num(g.txDonors)} donors`} onClick={() => ids('Gift donors', "", g.transactions as { cptid?: number | null }[])} />
-        <Stat label="Campaign gift dollars" value={usd(g.txTotal)} onClick={() => ids('Gift donors', "", g.transactions as { cptid?: number | null }[])} />
+        <Stat label="Campaign payments received" value={usd(g.txTotal)} onClick={() => ids('Gift donors', "", g.transactions as { cptid?: number | null }[])} />
         <Stat label="Committee pledges" value={num(g.pledgeCount)} onClick={() => ids('Pledges', "", g.pledges as { cptid?: number | null }[])} />
         <Stat label="Pledged" value={usd(g.pledgeTotal)} onClick={() => ids('Pledges', "", g.pledges as { cptid?: number | null }[])} />
       </div>
