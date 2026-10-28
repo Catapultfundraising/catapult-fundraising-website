@@ -345,7 +345,7 @@ export function portalV2Route(client: PortalClient) {
       // Never export an incomplete campaign total when SQL or rendering is unavailable.
       if (req.nextUrl.searchParams.get("report") === "campaign") {
         console.error("Campaign export failed", client, e);
-        return bad("Campaign download unavailable. Please try again.", 503);
+        return bad(process.env.VERCEL_ENV === "preview" ? `Campaign download unavailable: ${(e as Error).message}` : "Campaign download unavailable. Please try again.", 503);
       }
       const gifts = await dbCampaignGifts(client).catch(() => []);
       return NextResponse.json({ prospects: [], gifts, updates: [], batches: [], goal: cfg.goal, configured: false, error: (e as Error).message });
