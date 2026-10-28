@@ -1,4 +1,3 @@
-import { campaignDownload } from "@/lib/portal-v2/campaign-export";
 import { get as blobGet } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
@@ -337,11 +336,17 @@ export function portalV2Route(client: PortalClient) {
       if (download && (!Number.isFinite(goal) || goal < 100_000 || goal > 500_000_000)) return bad("Invalid campaign goal", 400);
       if (download && format !== "pdf" && format !== "xlsx") return bad("Use PDF or Excel", 400);
       const state = await withDbGifts(client, await engage<PortalState>(client, "state"), download);
-      if (download) return await campaignDownload(client, goal, state.gifts, format as "pdf" | "xlsx");
+      if (download) {
+        const { campaignDownload } = await import("@/lib/portal-v2/campaign-export");
+        return await campaignDownload(client, goal, state.gifts, format as "pdf" | "xlsx");
+      }
       return NextResponse.json({ ...state, goal: cfg.goal, configured: true });
     } catch (e) {
       // Never export an incomplete campaign total when SQL or rendering is unavailable.
-      if (req.nextUrl.searchParams.get("report") === "campaign") return bad("Campaign download unavailable. Please try again.", 503);
+      if (req.nextUrl.searchParams.get("report") === "campaign") {
+        console.error("Campaign export failed", client, e);
+        return bad("Campaign download unavailable. Please try again.", 503);
+      }
       const gifts = await dbCampaignGifts(client).catch(() => []);
       return NextResponse.json({ prospects: [], gifts, updates: [], batches: [], goal: cfg.goal, configured: false, error: (e as Error).message });
     }
