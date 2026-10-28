@@ -2,6 +2,7 @@
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DuplicatesPanel, refreshCrmIndex } from "@/components/record-tools";
 import { DateInput, NameLink, isoToUs, parseUsDateClient, useSort, SortTh } from "@/components/dashboard-shared";
 
@@ -189,6 +190,7 @@ function AllGifts() {
   };
   const voided = state.voidedGifts ?? [];
   const dbVoids = (state.giftOverrides ?? []).filter((o) => o.voided);
+  const activeGift = state.gifts.find((g) => giftId(g) === mode?.id);
   return (
     <div className={card}>
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -207,30 +209,32 @@ function AllGifts() {
                 <td className={`${td} whitespace-nowrap text-right`}>{(Number(g.id) > 0 || g.key) && <>
                   <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => start(g, "edit")}>Edit</button>
                   <button className="ml-3 text-xs font-semibold text-red-700 hover:underline" onClick={() => start(g, "void")}>Void</button></>}</td></tr>
-              {mode?.id === giftId(g) && (
-                <tr className="border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]"><td colSpan={7} className="px-3 py-3">
-                  <p className="mb-2 text-sm font-medium">{mode.kind === "edit" ? "Edit" : "Void"} {g.donor_name}&rsquo;s {g.kind}</p>
+            </Fragment>
+          ))}</tbody></table>
+        {!state.gifts.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No campaign gifts or pledges recorded yet.</p>}
+      </div>
+      <Dialog open={!!(mode && activeGift)} onOpenChange={(open) => { if (!open && !busy) { setMode(null); setMsg(""); } }}>
+        {mode && activeGift && <DialogContent className="z-[100] max-h-[85vh] max-w-2xl overflow-y-auto bg-white text-[rgb(var(--navy))]">
+          <DialogTitle>{mode.kind === "edit" ? "Edit" : "Void"} {activeGift.donor_name}&rsquo;s {activeGift.kind}</DialogTitle>
+          <DialogDescription>Your name is saved in the audit history. {mode.kind === "edit" ? "This updates the existing record, without creating a second gift or pledge." : "Voiding removes this record from campaign totals and keeps the reason and history."}</DialogDescription>
                   <label className="mb-3 block text-xs">Your name (required for this change)
                     <input ref={editorName} autoFocus={!by.trim()} className={`${input} mt-1 max-w-sm`} value={by} onChange={(e) => setBy(e.target.value)} aria-required="true" />
                   </label>
                   {mode.kind === "edit" ? (
-                    <div className="grid gap-2 md:grid-cols-6">
+                    <div className="grid gap-2 md:grid-cols-2">
                       <label className="text-xs">Amount<input className={input} value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></label>
                       <label className="text-xs">Type<select className={input} value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })}><option value="pledge">Pledge</option><option value="gift">Gift</option></select></label>
                       <label className="text-xs">Date<DateInput className={input} value={f.date} onChange={(v) => setF({ ...f, date: v })} /></label>
-                      <label className="text-xs md:col-span-3">Note<input className={input} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
+                      <label className="text-xs md:col-span-2">Note<input className={input} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
                     </div>
                   ) : (
                     <label className="block text-xs">Reason for voiding (required), e.g. &ldquo;Duplicate of the $7,500 pledge&rdquo;<input ref={voidReason} className={input} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} /></label>
                   )}
                   {msg && <p role="alert" className="mt-3 rounded border border-[rgb(var(--brass))] bg-white p-3 text-sm">{msg}</p>}
-                  <div className="mt-2 flex gap-2"><button className={btn} disabled={busy} onClick={() => save(g)}>{busy ? "Saving…" : mode.kind === "edit" ? "Save changes" : "Void this record"}</button><button className={btn2} disabled={busy} onClick={() => { setMode(null); setMsg(""); }}>Cancel</button></div>
-                </td></tr>
-              )}
-            </Fragment>
-          ))}</tbody></table>
-        {!state.gifts.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No campaign gifts or pledges recorded yet.</p>}
-      </div>
+                  <div className="mt-2 flex gap-2"><button className={btn} disabled={busy} onClick={() => save(activeGift)}>{busy ? "Saving…" : mode.kind === "edit" ? "Save changes" : "Void this record"}</button><button className={btn2} disabled={busy} onClick={() => { setMode(null); setMsg(""); }}>Cancel</button></div>
+
+        </DialogContent>}
+      </Dialog>
       {(voided.length > 0 || dbVoids.length > 0) && (
         <details className="mt-4"><summary className="cursor-pointer text-sm font-medium">Voided records ({voided.length + dbVoids.length}), not counted in totals</summary>
           <table className="mt-2 w-full"><tbody>
