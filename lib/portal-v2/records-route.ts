@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { portalStateSafe } from "@/lib/portal-v2/server";
+import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, screeningPending, type Overlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
+import { campaignRecords } from "@/lib/portal-v2/campaign-records";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 
 type Idx = { cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number; last: string; years: number; band: string; capMin: number };
@@ -106,14 +107,17 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
     if (!data) return NextResponse.json({ error: "records not loaded" }, { status: 503 });
     const drill = req.nextUrl.searchParams.get("drill");
     if (drill) return NextResponse.json({ cptids: drillIds(client, data.records as Record<string, Rec>, drill, req.nextUrl.searchParams.get("v") ?? "") });
-    const state = await portalStateSafe(client);
+    const state = await portalCampaignStateSafe(client);
     const prospects = (state?.prospects ?? []) as Prospect[];
     const o = buildOverlay((state?.updates ?? []) as unknown as UpdateRow[]);
+    // Committee/campaign-only donors can have a valid campaign CPTID but no master
+    // donor record. Make them searchable without inventing cash/lifetime giving.
+    const campaign = campaignRecords(state?.gifts ?? []);
     const lookup = (c: number): Full | null => {
       const rec = data.records[String(c)] as Full | undefined;
       if (rec) return rec;
       const p = prospects.find((x) => x.cptid === c);
-      return p ? prospectRecord(p) : null;
+      return p ? prospectRecord(p) : (campaign.get(c) ?? null);
     };
     const id = req.nextUrl.searchParams.get("id");
     if (id) {
@@ -127,6 +131,10 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
     }
     const have = new Set(data.index.map((r) => r.cptid));
     const extra: Idx[] = prospects.filter((p) => !have.has(p.cptid)).map((p) => ({ cptid: p.cptid, name: p.full_name, kind: p.org_name ? "Organization" : "Individual", city: p.city ?? "", lifetime: 0, gifts: 0, largest: 0, last: "", years: 0, band: "", capMin: 0 }));
+    for (const p of campaign.values()) {
+      if (have.has(p.cptid) || extra.some((r) => r.cptid === p.cptid)) continue;
+      extra.push({ cptid: p.cptid, name: p.name, kind: "Campaign donor", city: "", lifetime: 0, gifts: 0, largest: 0, last: "", years: 0, band: "", capMin: 0 });
+    }
     const all = [...data.index, ...extra];
     const byId = new Map(all.map((r) => [r.cptid, r]));
     const gone = (c: number) => o.mergedInto.has(c) || o.deleted.has(c);

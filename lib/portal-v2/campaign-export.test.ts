@@ -1,3 +1,4 @@
+import { campaignRecords } from "./campaign-records";
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
 import ExcelJS from "exceljs";
@@ -15,6 +16,11 @@ const gifts = [
 ];
 async function main() {
   await mkdir("/tmp/campaign-qa", { recursive: true });
+  const records = campaignRecords(gifts);
+  assert.equal(records.size, 4); // Unlinked names do not get invented CPTIDs.
+  assert.equal(records.get(1)!.summary.lifetime, 0);
+  assert.equal(records.get(1)!.givebutter.length, 2);
+  assert.equal(records.get(3)!.givebutter[0].type, "pledge");
   for (const client of PORTAL_V2_CLIENTS) {
     const goal = PORTAL_V2[client].goal;
     const m = campaignExportModel(client, goal, gifts);

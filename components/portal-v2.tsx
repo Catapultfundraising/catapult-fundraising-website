@@ -1,6 +1,6 @@
 "use client";
 
-import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
 import { DuplicatesPanel, refreshCrmIndex } from "@/components/record-tools";
 import { DateInput, NameLink, isoToUs, parseUsDateClient, useSort, SortTh } from "@/components/dashboard-shared";
@@ -163,17 +163,19 @@ function AllGifts() {
   const [mode, setMode] = useState<{ id: string; kind: "edit" | "void" } | null>(null);
   const [f, setF] = useState({ amount: "", kind: "pledge", date: "", note: "", reason: "" });
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const editorName = useRef<HTMLInputElement>(null);
+  const voidReason = useRef<HTMLInputElement>(null);
   const gso = useSort([...(state?.gifts ?? [])].reverse().map((g) => ({ ...g, amount: Number(g.amount), src: g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry" })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   if (!state) return null;
   const start = (g: PortalGift, kind: "edit" | "void") => { setMsg(""); setMode({ id: giftId(g), kind }); setF({ amount: String(Number(g.amount)), kind: g.kind, date: isoToUs(g.gift_date), note: g.note ?? "", reason: "" }); };
   const base = (g: PortalGift) => ({ id: Number(g.id) > 0 ? Number(g.id) : undefined, key: Number(g.id) > 0 ? undefined : g.key, cptid: g.cptid, donorName: g.donor_name,
     original: { amount: Number(g.amount), kind: g.kind, date: g.gift_date, name: g.donor_name, cptid: g.cptid } });
   const save = async (g: PortalGift) => {
-    if (!by.trim()) { setMsg("Enter your name first."); return; }
+    if (!by.trim()) { setMsg("Enter your name below so we can record who made this change."); editorName.current?.focus(); return; }
     setBusy(true); setMsg("");
     try {
       if (mode?.kind === "void") {
-        if (!f.reason.trim()) { setMsg("Enter a reason for voiding."); return; }
+        if (!f.reason.trim()) { setMsg("Enter a reason for voiding."); voidReason.current?.focus(); return; }
         await post(client, { op: "voidGift", by, reason: f.reason, gift: base(g) });
         setMsg(`Voided. Reason, your name and the time are saved.`);
       } else {
@@ -182,7 +184,7 @@ function AllGifts() {
         await post(client, { op: "editGift", by, gift: { ...base(g), amount: f.amount, kind: f.kind, date: f.date, note: f.note } });
         setMsg("Saved. The existing record was updated.");
       }
-      setMode(null); await reload();
+      await reload(); setMode(null);
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
   const voided = state.voidedGifts ?? [];
@@ -194,7 +196,7 @@ function AllGifts() {
         <label className="text-xs">Your name (required to edit or void)<input className={`${input} mt-1 w-56`} value={by} onChange={(e) => setBy(e.target.value)} /></label>
       </div>
       <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh.</p>
-      {msg && <p className="mt-2 text-sm">{msg}</p>}
+      {msg && !mode && <p role="status" aria-live="polite" className="mt-2 rounded border border-[rgb(var(--brass))] p-3 text-sm">{msg}</p>}
       <div className="mt-3 max-h-[560px] overflow-auto">
         <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={gso} k="gift_date" label="Date" className={th} /><SortTh s={gso} k="donor_name" label="Donor" className={th} /><SortTh s={gso} k="kind" label="Type" className={th} /><SortTh s={gso} k="amount" label="Amount" className={`${th} text-right`} /><SortTh s={gso} k="src" label="Source" className={th} /><SortTh s={gso} k="note" label="Note" className={th} /><th className={th} /></tr></thead>
           <tbody>{gso.sorted.map((g) => (
@@ -207,6 +209,10 @@ function AllGifts() {
                   <button className="ml-3 text-xs font-semibold text-red-700 hover:underline" onClick={() => start(g, "void")}>Void</button></>}</td></tr>
               {mode?.id === giftId(g) && (
                 <tr className="border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]"><td colSpan={7} className="px-3 py-3">
+                  <p className="mb-2 text-sm font-medium">{mode.kind === "edit" ? "Edit" : "Void"} {g.donor_name}&rsquo;s {g.kind}</p>
+                  <label className="mb-3 block text-xs">Your name (required for this change)
+                    <input ref={editorName} autoFocus={!by.trim()} className={`${input} mt-1 max-w-sm`} value={by} onChange={(e) => setBy(e.target.value)} aria-required="true" />
+                  </label>
                   {mode.kind === "edit" ? (
                     <div className="grid gap-2 md:grid-cols-6">
                       <label className="text-xs">Amount<input className={input} value={f.amount} onChange={(e) => setF({ ...f, amount: e.target.value })} /></label>
@@ -215,9 +221,10 @@ function AllGifts() {
                       <label className="text-xs md:col-span-3">Note<input className={input} value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} /></label>
                     </div>
                   ) : (
-                    <label className="block text-xs">Reason for voiding (required), e.g. &ldquo;Duplicate of the $7,500 pledge&rdquo;<input className={input} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} /></label>
+                    <label className="block text-xs">Reason for voiding (required), e.g. &ldquo;Duplicate of the $7,500 pledge&rdquo;<input ref={voidReason} className={input} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} /></label>
                   )}
-                  <div className="mt-2 flex gap-2"><button className={btn} disabled={busy} onClick={() => save(g)}>{busy ? "Saving…" : mode.kind === "edit" ? "Save changes" : "Void this record"}</button><button className={btn2} onClick={() => setMode(null)}>Cancel</button></div>
+                  {msg && <p role="alert" className="mt-3 rounded border border-[rgb(var(--brass))] bg-white p-3 text-sm">{msg}</p>}
+                  <div className="mt-2 flex gap-2"><button className={btn} disabled={busy} onClick={() => save(g)}>{busy ? "Saving…" : mode.kind === "edit" ? "Save changes" : "Void this record"}</button><button className={btn2} disabled={busy} onClick={() => { setMode(null); setMsg(""); }}>Cancel</button></div>
                 </td></tr>
               )}
             </Fragment>

@@ -53,10 +53,11 @@ async function readIds(client: PortalClient): Promise<Known[] | null> {
 
 /** Everything we know about the client's constituents: ids.json (client id + address), records index, portal-added prospects, latest portal edits. */
 async function knownRecords(client: PortalClient, state: PortalState) {
-  const [ids, rec] = await Promise.all([readIds(client), RECORDS[client]()]);
+  const [ids, rec, dbGifts] = await Promise.all([readIds(client), RECORDS[client](), dbCampaignGifts(client)]);
   const byCpt = new Map<number, Known>();
   for (const k of ids ?? []) if (!byCpt.has(k.cptid) || (k.clientId && !byCpt.get(k.cptid)!.clientId)) byCpt.set(k.cptid, { ...k });
   const extra: Known[] = [];
+  for (const g of [...dbGifts, ...state.gifts]) if (g.cptid && !byCpt.has(g.cptid)) byCpt.set(g.cptid, { cptid: g.cptid, clientId: g.client_id ?? "", name: g.donor_name, address: "", city: "", zip: "" });
   for (const r of rec?.index ?? []) if (!byCpt.has(r.cptid)) byCpt.set(r.cptid, { cptid: r.cptid, clientId: "", name: r.name, address: "", city: r.city ?? "", zip: "" });
   for (const p of state.prospects) byCpt.set(p.cptid, { cptid: p.cptid, clientId: p.client_id ?? "", name: p.full_name, address: p.address1 ?? "", city: p.city ?? "", zip: p.zip ?? "", email: p.email ?? "", phone: p.phone ?? "" });
   // Dashboard contact edits feed matching (address/city/zip/email/phone); other dashboard-only fields never do.
@@ -207,6 +208,12 @@ function applyOverrides(items: PortalGift[], overrides: PortalState["giftOverrid
 async function withDbGifts(client: PortalClient, state: PortalState, strict = false): Promise<PortalState> {
   const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client, strict)), state.giftOverrides);
   return { ...state, gifts: [...db, ...state.gifts] };
+}
+
+/** Current campaign rows plus refresh-safe overrides, for gift-only donor lookup records. */
+export async function portalCampaignStateSafe(client: PortalClient): Promise<PortalState | null> {
+  const state = await portalStateSafe(client);
+  return state ? withDbGifts(client, state) : null;
 }
 
 /** Name match against everything on file (records index, ids.json, portal prospects): exact name key first, then
