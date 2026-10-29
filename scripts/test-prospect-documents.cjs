@@ -2,19 +2,20 @@ const fs=require('fs'), ts=require(process.cwd()+'/node_modules/typescript'), Mo
 const {NextRequest}=require(process.cwd()+'/node_modules/next/server');
 const {PDFDocument}=require(process.cwd()+'/node_modules/pdf-lib');
 (async()=>{
- let grant=null,delegation=null; let reads=0,deletes=0,saves=0,failSQL=false,failState=false,authClient='pvas'; const saved=[],blobs=new Map();
+ let grant=null,delegation=null; let reads=0,deletes=0,saves=0,failSQL=false,failDelete=false,failState=false,authClient='pvas'; const saved=[],blobs=new Map();
  const idx=[{cptid:123},{cptid:456},{cptid:789}], updates=[];
  const actualLoad=Module._load;
  const fakeEngage=async(c,op,b={})=>{
   if(op==='state'){if(failState)throw new Error('SQL unavailable');return {updates,prospects:[]}}
-  if(op==='listDocuments')return {documents:saved.filter(d=>d.client===c&&b.cptids.includes(d.cptid))};
+  if(op==='listDocuments')return {documents:saved.filter(d=>d.client===c&&!d.deleted_at&&b.cptids.includes(d.cptid))};
   if(op==='documentByPath')return {document:saved.find(d=>d.client===c&&d.blob_path===b.pathname)||null};
-  if(op==='getDocument')return {document:saved.find(d=>d.client===c&&d.id===b.id)||null};
+  if(op==='getDocument')return {document:saved.find(d=>d.client===c&&d.id===b.id&&(b.includeDeleted||!d.deleted_at))||null};
   if(op==='addDocument'){if(failSQL)throw new Error('SQL unavailable');saves++;const d={...b.document,id:saved.length+1,client:c,uploaded_at:'2026-10-29T00:00:00Z'};saved.push(d);return{document:d}}
+  if(op==='deleteDocument'){if(failSQL)throw new Error('SQL unavailable');const d=saved.find(d=>d.client===c&&d.id===b.id);if(d&&!d.deleted_at){d.deleted_at='2026-10-29T01:00:00Z';d.deleted_by=b.by}return {document:d||null}}
   throw new Error(op)
  };
  Module._load=function(name,parent,isMain){
-  if(name==='@vercel/blob')return {issueSignedToken:async opts=>{delegation=opts;return {delegationToken:"test",clientSigningToken:"test",validUntil:opts.validUntil}},get:async p=>{reads++;const v=blobs.get(p);return v?{statusCode:200,blob:{size:v.length},stream:new ReadableStream({start(c){c.enqueue(v);c.close()}})}:null},del:async p=>{deletes++;blobs.delete(p)}};
+  if(name==='@vercel/blob')return {issueSignedToken:async opts=>{delegation=opts;return {delegationToken:"test",clientSigningToken:"test",validUntil:opts.validUntil}},get:async p=>{reads++;const v=blobs.get(p);return v?{statusCode:200,blob:{size:v.length},stream:new ReadableStream({start(c){c.enqueue(v);c.close()}})}:null},del:async p=>{deletes++;if(failDelete)throw new Error("Blob unavailable");blobs.delete(p)}};
   if(name==='@vercel/blob/client')return {handleUploadPresigned:async opts=>{grant=await opts.getSignedToken(opts.body.payload.pathname,opts.body.payload.clientPayload,false);return {ok:true}}};
   if(name.endsWith('-data-auth')){const c=name.split('/').pop().split('-')[0];return new Proxy({}, {get:()=>async()=>authClient===c})}
   if(name.endsWith('-data-store'))return new Proxy({}, {get:()=>async()=>({index:idx})});
@@ -30,6 +31,7 @@ const {PDFDocument}=require(process.cwd()+'/node_modules/pdf-lib');
  const req=(c,q='',body)=>new NextRequest(`https://test.local/api/${c}-data-documents${q}`,body?{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify(body)}:undefined);
  const meta={cptid:123,filename:'Meeting notes.pdf',by:'QA'};
  const post=(c,b)=>routes[c].POST(req(c,'',b));const get=(c,q)=>routes[c].GET(req(c,q));
+ const remove=(c,b)=>routes[c].DELETE(new NextRequest(`https://test.local/api/${c}-data-documents`,{method:'DELETE',headers:{'content-type':'application/json'},body:JSON.stringify(b)}));
  const pdf=await PDFDocument.create();pdf.addPage();const good=await pdf.save();
  for(const c of Object.keys(routes)){
   authClient=null;assert.equal((await get(c,'?cptid=123')).status,401);assert.equal((await post(c,{op:'prepare',...meta})).status,401);
@@ -54,5 +56,23 @@ const {PDFDocument}=require(process.cwd()+'/node_modules/pdf-lib');
  failState=true;assert.equal((await get('pvas','?cptid=123')).status,503);failState=false;
  r=await post('pvas',{op:'complete',pathname:p.replace('/123/','/789/'),...meta});assert.equal(r.status,400);
  r=await get('pvas','?cptid=0');assert.equal(r.status,400);
+ for(const c of Object.keys(routes)){
+  const doc=saved.find(d=>d.client===c&&!d.deleted_at), other=saved.find(d=>d.client===c&&d.id!==doc.id&&!d.deleted_at);
+  const body={cptid:123,id:doc.id,by:'QA deletion'};
+  authClient=null;assert.equal((await remove(c,body)).status,401);authClient=c;
+  assert.equal((await remove(c,{...body,cptid:789})).status,404);
+  assert.equal((await remove(c,{...body,by:''})).status,400);
+  assert.equal(blobs.has(doc.blob_path),true);
+  failSQL=true;assert.equal((await remove(c,body)).status,503);assert.equal(doc.deleted_at,undefined);assert.equal(blobs.has(doc.blob_path),true);failSQL=false;
+  failDelete=true;r=await remove(c,body);assert.equal(r.status,503);assert.match((await r.json()).error,/storage cleanup/);assert.ok(doc.deleted_at);assert.equal(blobs.has(doc.blob_path),true);failDelete=false;
+  assert.equal((await get(c,`?cptid=123&id=${doc.id}`)).status,404);
+  r=await get(c,'?cptid=123');assert.ok(!(await r.json()).documents.some(d=>d.id===doc.id));
+  const beforeSaves=saves;assert.equal((await post(c,{op:'complete',pathname:doc.blob_path,...meta})).status,410);assert.equal(saves,beforeSaves);
+  r=await remove(c,{...body,by:'Retry staff'});assert.equal(r.status,200);assert.equal((await r.json()).deleted,true);assert.equal(blobs.has(doc.blob_path),false);assert.equal(doc.deleted_by,'QA deletion');
+  assert.equal((await remove(c,body)).status,200);
+  if(other){assert.equal((await get(c,`?cptid=123&id=${other.id}`)).status,200);assert.equal(blobs.has(other.blob_path),true)}
+ }
+ authClient='pvas';assert.equal((await remove('csnf',{cptid:123,id:2,by:'QA'})).status,401);
+ console.log('PASS: all five DELETE routes; logged-out/cross-client/IDOR denied; staff name required; SQL failure preserves file; cleanup retry idempotent; tombstones block old links and late callbacks; other PDFs untouched');
  console.log(`PASS: all five clients auth/list/upload/open, PDF validation, idempotent completion, IDOR blocked, cross-client blocked, merge-safe, transient SQL retry, fail-closed, no sandbox PDF header; saves=${saves}, rejected cleanup=${deletes}`);
 })().catch(e=>{console.error(e);process.exit(1)});

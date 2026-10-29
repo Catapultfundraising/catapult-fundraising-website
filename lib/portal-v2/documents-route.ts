@@ -20,7 +20,7 @@ import type { PortalClient, PortalState } from "@/lib/portal-v2/clients";
 const MAX_BYTES = 20 * 1024 * 1024;
 const AUTH = { pvas: isPvasDataAuthed, csnf: isCsnfDataAuthed, jag: isJagDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed };
 const LOAD = { pvas: getPvasRecords, csnf: getCsnfRecords, jag: getJagRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords };
-type Doc = { id: number; cptid: number; blob_path: string; filename: string; bytes: number; sha256: string; uploaded_by: string; uploaded_at: string };
+type Doc = { id: number; cptid: number; blob_path: string; filename: string; bytes: number; sha256: string; uploaded_by: string; uploaded_at: string; deleted_at?: string | null; deleted_by?: string | null };
 type Intent = { cptid: number; filename: string; by: string };
 class RequestError extends Error { constructor(message: string, public status = 400) { super(message); } }
 function cptid(value: unknown) {
@@ -68,6 +68,7 @@ async function complete(client: PortalClient, pathname: string, meta: Intent) {
   await recordScope(client, meta.cptid);
   // Completion is idempotent. Browser completion and the signed Blob callback can race safely.
   const existing = await engage<{ document: Doc | null }>(client, "documentByPath", { pathname });
+  if (existing.document?.deleted_at) throw new RequestError("This PDF was deleted and cannot be restored by completing an old upload.", 410);
   if (existing.document) return { document: publicDoc(existing.document) };
   let pdf: Awaited<ReturnType<typeof checkedPdf>>;
   try { pdf = await checkedPdf(pathname); }
@@ -79,6 +80,7 @@ async function complete(client: PortalClient, pathname: string, meta: Intent) {
   const saved = await engage<{ document: Doc }>(client, "addDocument", {
     document: { cptid: meta.cptid, blob_path: pathname, filename: meta.filename, bytes: pdf.bytes.length, sha256: pdf.sha256, uploaded_by: meta.by },
   });
+  if (saved.document.deleted_at) throw new RequestError("This PDF was deleted and cannot be restored by completing an old upload.", 410);
   return { document: publicDoc(saved.document) };
 }
 function publicDoc(d: Doc) {
@@ -151,5 +153,23 @@ export function documentsRoute(client: PortalClient) {
       throw new RequestError("Unknown PDF upload action.");
     } catch (e) { return failure(e); }
   }
-  return { GET, POST };
+  async function DELETE(req: NextRequest) {
+    if (!(await AUTH[client](req))) return NextResponse.json({ error: "Please sign in to this data dashboard." }, { status: 401 });
+    try {
+      const body = await req.json().catch(() => null);
+      if (!body || typeof body !== "object") throw new RequestError("Invalid PDF deletion request.");
+      const id = cptid(body.id), scope = await recordScope(client, cptid(body.cptid));
+      const by = String(body.by ?? "").trim();
+      if (!by || by.length > 200) throw new RequestError("Enter your name (up to 200 characters).");
+      const { document: doc } = await engage<{ document: Doc | null }>(client, "getDocument", { id, includeDeleted: true });
+      if (!doc || !scope.ids.includes(doc.cptid) || !validPath(client, doc.cptid, doc.blob_path)) throw new RequestError("PDF not found on this prospect record.", 404);
+      // Mark first so every list/open URL stops serving the PDF immediately, even if Blob is temporarily unavailable.
+      const result = await engage<{ document: Doc | null }>(client, "deleteDocument", { id, by });
+      if (!result.document) throw new RequestError("PDF not found on this prospect record.", 404);
+      try { await blobDel(doc.blob_path); }
+      catch { throw new RequestError("The PDF was removed from the record, but storage cleanup could not finish. Click Retry deletion to finish removing the stored file.", 503); }
+      return NextResponse.json({ deleted: true, id, filename: doc.filename }, { headers: { "Cache-Control": "no-store" } });
+    } catch (e) { return failure(e); }
+  }
+  return { GET, POST, DELETE };
 }
