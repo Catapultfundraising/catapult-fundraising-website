@@ -2,7 +2,7 @@ const fs=require('fs'), ts=require(process.cwd()+'/node_modules/typescript'), Mo
 const {NextRequest}=require(process.cwd()+'/node_modules/next/server');
 const {PDFDocument}=require(process.cwd()+'/node_modules/pdf-lib');
 (async()=>{
- let reads=0,deletes=0,saves=0,failSQL=false,failState=false,authClient='pvas'; const saved=[],blobs=new Map();
+ let grant=null,delegation=null; let reads=0,deletes=0,saves=0,failSQL=false,failState=false,authClient='pvas'; const saved=[],blobs=new Map();
  const idx=[{cptid:123},{cptid:456},{cptid:789}], updates=[];
  const actualLoad=Module._load;
  const fakeEngage=async(c,op,b={})=>{
@@ -14,8 +14,8 @@ const {PDFDocument}=require(process.cwd()+'/node_modules/pdf-lib');
   throw new Error(op)
  };
  Module._load=function(name,parent,isMain){
-  if(name==='@vercel/blob')return {issueSignedToken:async opts=>({delegationToken:"test",clientSigningToken:"test",validUntil:opts.validUntil}),get:async p=>{reads++;const v=blobs.get(p);return v?{statusCode:200,blob:{size:v.length},stream:new ReadableStream({start(c){c.enqueue(v);c.close()}})}:null},del:async p=>{deletes++;blobs.delete(p)}};
-  if(name==='@vercel/blob/client')return {handleUploadPresigned:async opts=>{await opts.getSignedToken(opts.body.payload.pathname,opts.body.payload.clientPayload,false);return {ok:true}}};
+  if(name==='@vercel/blob')return {issueSignedToken:async opts=>{delegation=opts;return {delegationToken:"test",clientSigningToken:"test",validUntil:opts.validUntil}},get:async p=>{reads++;const v=blobs.get(p);return v?{statusCode:200,blob:{size:v.length},stream:new ReadableStream({start(c){c.enqueue(v);c.close()}})}:null},del:async p=>{deletes++;blobs.delete(p)}};
+  if(name==='@vercel/blob/client')return {handleUploadPresigned:async opts=>{grant=await opts.getSignedToken(opts.body.payload.pathname,opts.body.payload.clientPayload,false);return {ok:true}}};
   if(name.endsWith('-data-auth')){const c=name.split('/').pop().split('-')[0];return new Proxy({}, {get:()=>async()=>authClient===c})}
   if(name.endsWith('-data-store'))return new Proxy({}, {get:()=>async()=>({index:idx})});
   if(name==='@/lib/portal-v2/server')return{engage:fakeEngage};
@@ -34,6 +34,10 @@ const {PDFDocument}=require(process.cwd()+'/node_modules/pdf-lib');
  for(const c of Object.keys(routes)){
   authClient=null;assert.equal((await get(c,'?cptid=123')).status,401);assert.equal((await post(c,{op:'prepare',...meta})).status,401);
   authClient=c;const prep=await post(c,{op:'prepare',...meta});assert.equal(prep.status,200);const p=(await prep.json()).pathname;assert.match(p,new RegExp(`^prospect-notes/${c}/123/`));
+  const tokenBody={type:'blob.generate-presigned-url',payload:{pathname:p,clientPayload:JSON.stringify(meta),multipart:false}};
+  authClient=null;assert.equal((await post(c,tokenBody)).status,401);authClient=c;
+  assert.equal((await post(c,tokenBody)).status,200);assert.deepEqual(delegation.operations,['put']);assert.equal(delegation.pathname,p);assert.equal(delegation.maximumSizeInBytes,20*1024*1024);assert.equal(grant.urlOptions.allowOverwrite,false);assert.match(grant.urlOptions.callbackUrl,/^https:\/\//);
+  assert.equal((await post(c,{...tokenBody,payload:{...tokenBody.payload,pathname:p.replace('/123/','/789/')}})).status,400);
   blobs.set(p,good);let r=await post(c,{op:'complete',pathname:p,...meta});assert.equal(r.status,200,JSON.stringify(await r.clone().json()));let d=(await r.json()).document;assert.equal(d.blob_path,undefined);
   const before=reads;assert.equal((await post(c,{op:'complete',pathname:p,...meta})).status,200);assert.equal(reads,before);
   r=await get(c,`?cptid=123&id=${d.id}`);assert.equal(r.status,200);assert.equal(r.headers.get('content-type'),'application/pdf');assert.ok(!r.headers.get('content-security-policy').includes('sandbox'));assert.equal(Buffer.from(await r.arrayBuffer()).subarray(0,5).toString(),'%PDF-');
