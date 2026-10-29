@@ -3,6 +3,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from "react";
 import { RecordNav, SafeBoundary, cmpValues, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
 import { useUrlId } from "@/lib/use-url-state";
+import { ProspectDocuments } from "@/components/prospect-documents";
 import { AskAmountPanel } from "@/components/ask-amount-panel";
 import { ContactSection, GiftsByYear, MergeDeleteButtons, RecordBanners, WealthSection } from "@/components/record-tools";
 import { Search, X, Download, FileSpreadsheet, FileText } from "lucide-react";
@@ -312,6 +313,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         <DownloadButtons get={() => recordPayload(r, tracking)} small />
       </div>
       <TrackingPanel cptid={r.cptid} />
+      <ProspectDocuments key={`wcbhc-${r.cptid}`} client="wcbhc" cptid={r.cptid} />
       <AskAmountPanel client="wcbhc" cptid={r.cptid} base={((r as { portfolio?: { ask?: number } }).portfolio?.ask) || (r.board ?? []).find((b) => b.active && b.ask)?.ask || 0} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         {[["Lifetime giving", usd(s.lifetime)], ["Gifts", String(s.gifts)], ["Largest gift", usd(s.largest)], ["Years giving", String(s.years)], ["Last gift", s.last || "None"]].map(([k, v]) => (

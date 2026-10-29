@@ -31,9 +31,9 @@ const RECORDS: Record<PortalClient, () => Promise<{ index: { cptid: number; name
 const PLACEHOLDER_CPTID = 900_000;
 
 const ENGAGE_V2_PREVIEW = "https://catapult-calling-git-portal-gift-edit-void-wwwcatapultfrcom.vercel.app/api/portal-v2";
-async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
+export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
   // Preview deploys of this branch talk to the Engage branch preview (same SQL database) until Engage PR #7 is merged.
-  const url = process.env.ENGAGE_PORTAL_URL_OVERRIDE || (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/dashboard-10-fixes" ? ENGAGE_V2_PREVIEW : process.env.ENGAGE_PORTAL_URL), secret = process.env.PORTAL_WRITE_SECRET;
+  const url = process.env.ENGAGE_PORTAL_URL_OVERRIDE || (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/prospect-pdf-notes" ? "https://catapult-calling-git-feat-prospect-pdf-notes-wwwcatapultfrcom.vercel.app/api/portal-v2" : undefined) || (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/dashboard-10-fixes" ? ENGAGE_V2_PREVIEW : process.env.ENGAGE_PORTAL_URL), secret = process.env.PORTAL_WRITE_SECRET;
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
   const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
   const j = await r.json().catch(() => ({ error: `engage ${r.status}` }));
