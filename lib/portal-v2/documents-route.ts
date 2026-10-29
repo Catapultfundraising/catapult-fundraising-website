@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
-import { get as blobGet, del as blobDel } from "@vercel/blob";
-import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
+import { get as blobGet, del as blobDel, issueSignedToken } from "@vercel/blob";
+import { handleUploadPresigned, type HandleUploadPresignedBody } from "@vercel/blob/client";
 import { PDFDocument } from "pdf-lib";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
 import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
@@ -118,17 +118,21 @@ export function documentsRoute(client: PortalClient) {
     try {
       const body = await req.json().catch(() => null);
       if (!body || typeof body !== "object") throw new RequestError("Invalid upload request.");
-      if (body.type === "blob.generate-client-token" || body.type === "blob.upload-completed") {
-        // Completion callbacks do not have staff cookies; handleUpload verifies Vercel's signature.
+      if (body.type === "blob.generate-presigned-url" || body.type === "blob.upload-completed") {
+        // Completion callbacks do not have staff cookies; the SDK verifies Vercel's Ed25519 signature.
         // Authorization is enforced before any upload token can be issued.
-        const result = await handleUpload({ request: req, body: body as HandleUploadBody,
-          onBeforeGenerateToken: async (pathname, clientPayload) => {
+        const result = await handleUploadPresigned({ request: req, body: body as HandleUploadPresignedBody,
+          getSignedToken: async (pathname, clientPayload) => {
             if (!(await AUTH[client](req))) throw new RequestError("Please sign in to this data dashboard.", 401);
             const meta = intent(JSON.parse(clientPayload || "{}"));
             await recordScope(client, meta.cptid);
             if (!validPath(client, meta.cptid, pathname)) throw new RequestError("Invalid prospect PDF location.");
-            return { allowedContentTypes: ["application/pdf"], maximumSizeInBytes: MAX_BYTES, addRandomSuffix: false,
-              allowOverwrite: false, validUntil: Date.now() + 15 * 60 * 1000, tokenPayload: JSON.stringify(meta) };
+            const validUntil = Date.now() + 15 * 60 * 1000;
+            // This workspace uses Blob OIDC, not a read-write token. Delegate only this file's PUT.
+            const token = await issueSignedToken({ pathname, operations: ["put"], allowedContentTypes: ["application/pdf"], maximumSizeInBytes: MAX_BYTES, validUntil });
+            const origin = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : req.nextUrl.origin;
+            return { token, urlOptions: { allowedContentTypes: ["application/pdf"], maximumSizeInBytes: MAX_BYTES, addRandomSuffix: false,
+              allowOverwrite: false, validUntil, tokenPayload: JSON.stringify(meta), callbackUrl: `${origin}${req.nextUrl.pathname}` } };
           },
           onUploadCompleted: async ({ blob, tokenPayload }) => {
             const meta = intent(JSON.parse(tokenPayload || "{}"));

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { upload } from "@vercel/blob/client";
+import { uploadPresigned as upload } from "@vercel/blob/client";
 import { FileText, Upload, ExternalLink } from "lucide-react";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 
