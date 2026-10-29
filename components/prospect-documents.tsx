@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { uploadPresigned as upload } from "@vercel/blob/client";
-import { FileText, Upload, ExternalLink } from "lucide-react";
+import { FileText, Upload, ExternalLink, Trash2 } from "lucide-react";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 
 type Doc = { id: number; cptid: number; filename: string; bytes: number; uploaded_by: string; uploaded_at: string };
@@ -23,6 +23,9 @@ export function ProspectDocuments({ client, cptid }: { client: PortalClient; cpt
   const [by, setBy] = useState("");
   const [busy, setBusy] = useState(false);
   const [queue, setQueue] = useState<Queue[]>([]);
+  const [remove, setRemove] = useState<Doc | null>(null);
+  const [deleteError, setDeleteError] = useState("");
+  const deleteTitle = useId();
   const input = useRef<HTMLInputElement>(null);
   const scope = useRef("");
   scope.current = `${client}:${cptid}`;
@@ -36,7 +39,7 @@ export function ProspectDocuments({ client, cptid }: { client: PortalClient; cpt
     } finally { if (scope.current === key) setLoading(false); }
   }, [api, client, cptid]);
   useEffect(() => {
-    setDocs([]); setLoading(true); setError(""); setQueue([]);
+    setDocs([]); setLoading(true); setError(""); setQueue([]); setRemove(null); setDeleteError("");
     setBy(localStorage.getItem(`${client}-by`) ?? "");
     void load();
   }, [client, cptid, load]);
@@ -87,6 +90,17 @@ export function ProspectDocuments({ client, cptid }: { client: PortalClient; cpt
     } catch (e) { if (scope.current === key) setQueue((q) => q.map((x, n) => n === i ? { ...x, status: (e as Error).message, failed: true } : x)); }
     finally { if (scope.current === key) setBusy(false); }
   }
+  async function deletePdf(doc: Doc) {
+    const key = `${client}:${cptid}`, author = by.trim();
+    if (!author) { setDeleteError("Enter your name to confirm this deletion."); return; }
+    localStorage.setItem(`${client}-by`, author);
+    setBusy(true); setDeleteError("");
+    try {
+      await jsonResponse(await fetch(api, { method: "DELETE", headers: { "content-type": "application/json" }, body: JSON.stringify({ cptid, id: doc.id, by: author }) }));
+      if (scope.current === key) { setDocs((all) => all.filter((d) => d.id !== doc.id)); setRemove(null); setQueue([]); }
+    } catch (e) { if (scope.current === key) setDeleteError((e as Error).message); }
+    finally { if (scope.current === key) setBusy(false); }
+  }
   return (
     <section className="mb-4 rounded-xl border border-[rgb(var(--line))] bg-white p-4" aria-label="PDF notes">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -101,12 +115,25 @@ export function ProspectDocuments({ client, cptid }: { client: PortalClient; cpt
           </label>
           <input ref={input} type="file" accept="application/pdf,.pdf" multiple className="sr-only" tabIndex={-1}
             aria-label="Choose PDF notes" disabled={busy} onChange={(e) => void save(Array.from(e.target.files ?? []))} />
-          <button disabled={busy || !by.trim()} onClick={() => input.current?.click()}
+          <button disabled={busy || !!remove || !by.trim()} onClick={() => input.current?.click()}
             className="inline-flex items-center gap-1.5 rounded-md bg-[rgb(var(--navy))] px-3 py-2 text-xs font-medium text-white disabled:opacity-50">
             <Upload className="h-3.5 w-3.5" />{busy ? "Uploading…" : "Upload PDF"}
           </button>
         </div>
       </div>
+      {remove && <div role="alertdialog" aria-labelledby={deleteTitle} className="mt-4 rounded-lg border border-[rgb(var(--brass))] bg-[rgb(var(--paper))] p-4">
+        <h5 id={deleteTitle} className="text-sm font-semibold text-[rgb(var(--navy))]">Delete this PDF?</h5>
+        <p className="mt-2 break-words text-sm">{remove.filename}</p>
+        <p className="mt-1 text-xs text-[rgb(var(--ink))]/65">This removes the PDF from the record and deletes its stored file. This cannot be undone. Other PDFs will not be changed.</p>
+        <label className="mt-3 block text-xs">Deleted by
+          <input value={by} maxLength={200} disabled={busy} onChange={(e) => setBy(e.target.value)} className="ml-2 rounded-md border border-[rgb(var(--line))] bg-white px-2 py-1.5" />
+        </label>
+        {deleteError && <p role="alert" className="mt-2 text-sm font-medium">{deleteError}</p>}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button disabled={busy || !by.trim()} onClick={() => void deletePdf(remove)} className="rounded-md bg-[rgb(var(--navy))] px-3 py-2 text-xs font-medium text-white disabled:opacity-50">{busy ? "Deleting…" : deleteError ? "Retry deletion" : "Confirm delete"}</button>
+          <button disabled={busy} onClick={() => { setRemove(null); setDeleteError(""); }} className="rounded-md border border-[rgb(var(--line))] bg-white px-3 py-2 text-xs disabled:opacity-50">Cancel</button>
+        </div>
+      </div>}
       {error && <div role="alert" className="mt-3 text-sm text-[rgb(var(--navy))]">{error} <button onClick={() => void load()} className="underline">Retry loading</button></div>}
       {queue.length > 0 && <ul aria-live="polite" className="mt-3 space-y-1 text-xs">
         {queue.map((q, i) => <li key={i} className={q.failed ? "font-medium" : ""}>{q.name}: {q.status}{q.pending && <button disabled={busy} className="ml-2 underline disabled:opacity-50" onClick={() => void retrySaving(i, q.pending!)}>Retry saving</button>}</li>)}
@@ -121,6 +148,8 @@ export function ProspectDocuments({ client, cptid }: { client: PortalClient; cpt
           </div>
           <a href={`${api}?cptid=${cptid}&id=${d.id}`} target="_blank" rel="noopener noreferrer" aria-label={`Open ${d.filename}`}
             className="inline-flex items-center gap-1 text-xs text-[rgb(var(--navy))]"><ExternalLink className="h-3.5 w-3.5" />Open PDF</a>
+          <button disabled={busy || !!remove} onClick={() => { setRemove(d); setDeleteError(""); }} aria-label={`Delete ${d.filename}`}
+            className="inline-flex items-center gap-1 rounded-md border border-[rgb(var(--line))] px-2 py-1.5 text-xs text-[rgb(var(--navy))] disabled:opacity-50"><Trash2 className="h-3.5 w-3.5" />Delete</button>
         </li>)}
       </ul>}
     </section>
