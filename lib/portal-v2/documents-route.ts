@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createHash, randomUUID } from "node:crypto";
-import { get as blobGet } from "@vercel/blob";
+import { get as blobGet, del as blobDel } from "@vercel/blob";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
 import { PDFDocument } from "pdf-lib";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
@@ -67,7 +67,15 @@ async function complete(client: PortalClient, pathname: string, meta: Intent) {
   if (!validPath(client, meta.cptid, pathname)) throw new RequestError("The upload does not belong to this prospect.");
   await recordScope(client, meta.cptid);
   // Completion is idempotent. Browser completion and the signed Blob callback can race safely.
-  const pdf = await checkedPdf(pathname);
+  const existing = await engage<{ document: Doc | null }>(client, "documentByPath", { pathname });
+  if (existing.document) return { document: publicDoc(existing.document) };
+  let pdf: Awaited<ReturnType<typeof checkedPdf>>;
+  try { pdf = await checkedPdf(pathname); }
+  catch (e) {
+    // Delete only a newly rejected, invalid file. Never remove files on transient SQL/storage failures.
+    if (e instanceof RequestError && e.status === 400) await blobDel(pathname).catch(() => {});
+    throw e;
+  }
   const saved = await engage<{ document: Doc }>(client, "addDocument", {
     document: { cptid: meta.cptid, blob_path: pathname, filename: meta.filename, bytes: pdf.bytes.length, sha256: pdf.sha256, uploaded_by: meta.by },
   });
@@ -102,7 +110,7 @@ export function documentsRoute(client: PortalClient) {
         "Content-Type": "application/pdf", "Content-Length": String(doc.bytes),
         "Content-Disposition": `inline; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(doc.filename).replace(/['()*]/g, (c) => `%${c.charCodeAt(0).toString(16)}`)}`,
         "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
-        "Content-Security-Policy": "sandbox; default-src 'none'; frame-ancestors 'self'",
+        "Content-Security-Policy": "default-src 'none'; frame-ancestors 'self'; base-uri 'none'",
       } });
     } catch (e) { return failure(e); }
   }

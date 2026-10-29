@@ -6,12 +6,13 @@ import { FileText, Upload, ExternalLink } from "lucide-react";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 
 type Doc = { id: number; cptid: number; filename: string; bytes: number; uploaded_by: string; uploaded_at: string };
-type Queue = { name: string; status: string; failed?: boolean };
+type Pending = { cptid: number; pathname: string; filename: string; by: string };
+type Queue = { name: string; status: string; failed?: boolean; pending?: Pending };
 const LIMIT = 20 * 1024 * 1024;
 const size = (n: number) => n >= 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)} MB` : `${Math.max(1, Math.ceil(n / 1024))} KB`;
 async function jsonResponse(r: Response) {
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || "Could not save the PDF. Please try again.");
+  if (!r.ok) throw Object.assign(new Error(j.error || "Could not save the PDF. Please try again."), { status: r.status });
   return j;
 }
 export function ProspectDocuments({ client, cptid }: { client: PortalClient; cptid: number }) {
@@ -44,13 +45,15 @@ export function ProspectDocuments({ client, cptid }: { client: PortalClient; cpt
     const key = `${client}:${cptid}`, uploader = by.trim();
     if (!uploader) { setError("Enter your name before uploading."); return; }
     localStorage.setItem(`${client}-by`, uploader);
-    setBusy(true); setError(""); setQueue(files.map((f) => ({ name: f.name, status: "Waiting" })));
-    const mark = (i: number, status: string, failed = false) => {
-      if (scope.current === key) setQueue((q) => q.map((x, n) => n === i ? { ...x, status, failed } : x));
+    const start = queue.length;
+    setBusy(true); setError(""); setQueue((q) => [...q, ...files.map((f) => ({ name: f.name, status: "Waiting" }))]);
+    const mark = (i: number, status: string, failed = false, pending?: Pending) => {
+      if (scope.current === key) setQueue((q) => q.map((x, n) => n === start + i ? { ...x, status, failed, pending } : x));
     };
     try {
       for (let i = 0; i < files.length; i++) {
         const f = files[i];
+        let pending: Pending | undefined;
         try {
           if (!/\.pdf$/i.test(f.name)) throw new Error("Only PDF files are accepted.");
           if (!f.size || f.size > LIMIT) throw new Error("Choose a PDF up to 20 MB.");
@@ -62,17 +65,27 @@ export function ProspectDocuments({ client, cptid }: { client: PortalClient; cpt
           const blob = await upload(intent.pathname, f, { access: "private", handleUploadUrl: api,
             clientPayload: JSON.stringify({ cptid, filename: f.name, by: uploader }), contentType: "application/pdf",
             multipart: f.size > 4 * 1024 * 1024 });
+          pending = { cptid, pathname: blob.pathname, filename: f.name, by: uploader };
           mark(i, "Saving to record…");
           await jsonResponse(await fetch(api, { method: "POST", headers: { "content-type": "application/json" },
             body: JSON.stringify({ op: "complete", cptid, pathname: blob.pathname, filename: f.name, by: uploader }) }));
           mark(i, "Saved");
-        } catch (e) { mark(i, (e as Error).message, true); }
+        } catch (e) { mark(i, (e as Error).message, true, Number((e as { status?: number }).status || 503) >= 500 ? pending : undefined); }
       }
       if (scope.current === key) await load();
     } finally {
       if (scope.current === key) setBusy(false);
       if (input.current) input.current.value = "";
     }
+  }
+  async function retrySaving(i: number, pending: Pending) {
+    const key = `${client}:${cptid}`;
+    setBusy(true);
+    try {
+      await jsonResponse(await fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ op: "complete", ...pending }) }));
+      if (scope.current === key) { setQueue((q) => q.map((x, n) => n === i ? { name: x.name, status: "Saved" } : x)); await load(); }
+    } catch (e) { if (scope.current === key) setQueue((q) => q.map((x, n) => n === i ? { ...x, status: (e as Error).message, failed: true } : x)); }
+    finally { if (scope.current === key) setBusy(false); }
   }
   return (
     <section className="mb-4 rounded-xl border border-[rgb(var(--line))] bg-white p-4" aria-label="PDF notes">
@@ -96,7 +109,7 @@ export function ProspectDocuments({ client, cptid }: { client: PortalClient; cpt
       </div>
       {error && <div role="alert" className="mt-3 text-sm text-[rgb(var(--navy))]">{error} <button onClick={() => void load()} className="underline">Retry loading</button></div>}
       {queue.length > 0 && <ul aria-live="polite" className="mt-3 space-y-1 text-xs">
-        {queue.map((q, i) => <li key={i} className={q.failed ? "font-medium" : ""}>{q.name}: {q.status}</li>)}
+        {queue.map((q, i) => <li key={i} className={q.failed ? "font-medium" : ""}>{q.name}: {q.status}{q.pending && <button disabled={busy} className="ml-2 underline disabled:opacity-50" onClick={() => void retrySaving(i, q.pending!)}>Retry saving</button>}</li>)}
       </ul>}
       {loading ? <p className="mt-3 text-sm">Loading PDFs…</p> : !docs.length && !error ? <p className="mt-3 text-sm text-[rgb(var(--ink))]/55">No PDFs uploaded yet.</p> : null}
       {docs.length > 0 && <ul className="mt-3 divide-y divide-[rgb(var(--line))]">
