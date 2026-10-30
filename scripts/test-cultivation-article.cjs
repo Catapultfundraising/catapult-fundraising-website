@@ -9,7 +9,7 @@ const posts = fs.readFileSync("lib/posts.ts", "utf8");
 const sitemap = fs.readFileSync("app/sitemap.ts", "utf8");
 assert.equal((page.match(/<H2>/g) || []).length, 8);
 assert.equal((page.match(/<li className=/g) || []).length, 12);
-assert.equal((page.match(/<Figure src=/g) || []).length, 9);
+assert.equal((page.match(/<Figure src=/g) || []).length, 8);
 assert(page.includes("By Anthony R. Alonso, President and CEO, Catapult Fundraising"));
 assert(page.includes('href="https://go.catapultfr.com/meetings/anthonya"'));
 assert(page.includes('datePublished: "2026-10-30"'));
@@ -20,8 +20,8 @@ assert(posts.includes(`"slug": "${slug}"`));
 assert(sitemap.includes(`"/blog/${slug}": "2026-10-30"`));
 assert(sitemap.includes(`    "/blog/${slug}",`));
 for (const image of [
-  "hero-reception", "purpose", "guest-list", "rsvp", "story",
-  "seating", "corporate", "follow-up", "question", "social-cultivation-events",
+  "hero-reception-v2", "purpose", "guest-list", "rsvp", "story",
+  "seating", "corporate", "follow-up", "question", "social-cultivation-events-v2",
 ]) {
   assert(fs.statSync(path.join("public", "blog", slug, `${image}.jpg`)).size > 10000);
 }

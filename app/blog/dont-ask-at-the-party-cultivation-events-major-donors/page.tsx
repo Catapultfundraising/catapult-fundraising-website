@@ -20,7 +20,7 @@ export const metadata = {
     url: `${SITE_URL}/blog/${SLUG}`,
     publishedTime: "2026-10-30T00:00:00-07:00",
     authors: ["Anthony R. Alonso"],
-    images: [{ url: `${SITE_URL}${IMG}/social-cultivation-events.jpg`, width: 1200, height: 630, alt: "Don’t Ask at the Party. By Anthony R. Alonso, President & CEO, Catapult Fundraising." }],
+    images: [{ url: `${SITE_URL}${IMG}/social-cultivation-events-v2.jpg`, width: 1200, height: 630, alt: "Don’t Ask at the Party. By Anthony R. Alonso, President & CEO, Catapult Fundraising." }],
   },
 };
 
@@ -28,7 +28,7 @@ const jsonLd = {
   "@context": "https://schema.org", "@type": "BlogPosting",
   headline: HEADLINE, description: DESCRIPTION,
   datePublished: "2026-10-30", dateModified: "2026-10-30",
-  image: `${SITE_URL}${IMG}/hero-reception.jpg`,
+  image: `${SITE_URL}${IMG}/hero-reception-v2.jpg`,
   author: {
     "@type": "Person", name: "Anthony R. Alonso", jobTitle: "President and CEO",
     url: `${SITE_URL}/our-team`, worksFor: { "@id": `${SITE_URL}/#organization` },
@@ -97,7 +97,9 @@ export default function CultivationEventPost() {
         <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">
           By Anthony R. Alonso, President and CEO, Catapult Fundraising
         </p>
-        <Figure src={`${IMG}/hero-reception.jpg`} alt="Guests talking together around a table at a networking reception" aspect="aspect-[4/3]" priority />
+        <div className="relative mb-8 mt-6 aspect-[3/2] w-full overflow-hidden rounded-2xl">
+          <Image src={`${IMG}/hero-reception-v2.jpg`} alt="Guests arriving and mingling at an indoor reception with refreshments and event staff" fill className="object-cover" sizes="(min-width: 896px) 816px, 100vw" priority />
+        </div>
         <P>{"This fall, I've been working with two clients on very different events. One is planning a small, invitation-only reception. The other is putting together a lunch for approximately 190 people."}</P>
         <P>{"The events have little in common in terms of size or format. But in both planning meetings, we kept coming back to the same point: this is a cultivation event, not a fundraiser."}</P>
         <P>{"That distinction matters more than many organizations realize."}</P>
@@ -215,7 +217,7 @@ export default function CultivationEventPost() {
         <P>{"Want to talk about how cultivation events fit into your major gift strategy? Connect with our team at "}<a href="https://go.catapultfr.com/meetings/anthonya" className="font-semibold text-[rgb(var(--navy))] underline">go.catapultfr.com/meetings/anthonya</a>{"."}</P>
         <Clear />
         <p className="mt-10 text-sm leading-relaxed text-[rgb(var(--ink))]/50">
-          Photo: <a href="https://www.pexels.com/photo/people-standing-at-the-table-8761647/" className="underline">Pavel Danilyuk / Pexels</a>.
+          Photo: <a href="https://www.pexels.com/photo/elegant-indoor-gathering-with-smiling-guests-35688741/" className="underline">Filip Rankovic Grobgaard / Pexels</a>.
         </p>
       </article>
       <CtaBand />

@@ -25,8 +25,8 @@ export const POSTS: Post[] = [
     "title": "Don’t Ask at the Party: How to Run a Cultivation Event That Builds Major Donors",
     "description": "Anthony R. Alonso on choosing the right guests, making personal invitations, sharing impact and following up after a cultivation event.",
     "readTime": "10 min read",
-    "image": "/blog/dont-ask-at-the-party-cultivation-events-major-donors/hero-reception.jpg",
-    "alt": "Guests having a conversation at a networking reception",
+    "image": "/blog/dont-ask-at-the-party-cultivation-events-major-donors/hero-reception-v2.jpg",
+    "alt": "Guests mingling at an indoor reception with refreshments and event staff",
     "pillars": [
       "Major Gifts",
       "Donor Acquisition & Retention"
