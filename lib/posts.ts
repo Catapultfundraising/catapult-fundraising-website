@@ -20,6 +20,23 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+    "slug": "dont-ask-at-the-party-cultivation-events-major-donors",
+    "date": "2026-10-30",
+    "title": "Don’t Ask at the Party: How to Run a Cultivation Event That Builds Major Donors",
+    "description": "Anthony R. Alonso on choosing the right guests, making personal invitations, sharing impact and following up after a cultivation event.",
+    "readTime": "10 min read",
+    "image": "/blog/dont-ask-at-the-party-cultivation-events-major-donors/hero-reception-v2.jpg",
+    "alt": "Guests mingling at an indoor reception with refreshments and event staff",
+    "pillars": [
+      "Major Gifts",
+      "Donor Acquisition & Retention"
+    ],
+    "services": [
+      "capital-campaign",
+      "donor-engagement"
+    ]
+  },
+  {
     slug: "five-donors-by-10am-mid-level-giving",
     date: "2026-10-24",
     title: "Five Donors by 10 AM: What a Mid-Level Giving Webinar Reminded Me About the Basics",
