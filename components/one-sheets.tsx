@@ -12,31 +12,31 @@ const SHEETS: Sheet[] = [
     icon: Layers,
     title: "All Services",
     description: "Every service line and the 5-phase campaign process.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/eb9c7595-a8dd-4026-aba8-c2a31bc64f40.pdf",
+    href: "/one-sheets/print/Catapult-All-Services-Print-2026-10-30.pdf",
   },
   {
     icon: Target,
     title: "Capital Campaign",
     description: "Feasibility, campaign planning, quiet phase, and public-phase calling.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/78d0d662-4f94-4a7e-bc1d-79f8d2c89f14.pdf",
+    href: "/one-sheets/print/Catapult-Capital-Campaign-Print-2026-10-30.pdf",
   },
   {
     icon: Gift,
     title: "Legacy Call",
     description: "Our planned giving methodology and the 7-step donor journey.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/11472be2-2699-4a1d-9304-d04c2c90057b.pdf",
+    href: "/one-sheets/print/Catapult-Legacy-Call-Print-2026-10-30.pdf",
   },
   {
     icon: Users,
     title: "Donor Engagement",
     description: "The 8-stage mid-level donor engagement journey.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/40de600c-6754-4f14-add4-3b39d5aa92a8.pdf",
+    href: "/one-sheets/print/Catapult-Donor-Engagement-Print-2026-10-30.pdf",
   },
   {
     icon: Phone,
     title: "Annual Fund Calling",
     description: "The AF Connect program and included digital enhancements.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0ffd3539-4742-4480-a0ad-9e8b158ab8f4.pdf",
+    href: "/one-sheets/print/Catapult-Annual-Fund-Calling-Print-2026-10-30.pdf",
   },
   {
     icon: Landmark,
@@ -55,7 +55,7 @@ const SHEETS: Sheet[] = [
     icon: HelpCircle,
     title: "Frequently Asked Questions",
     description: "Answers to the questions we hear most from boards and staff.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/84825e0d-aa6b-442f-af6a-3a07cabd66ea.pdf",
+    href: "/one-sheets/print/Catapult-Frequently-Asked-Questions-Print-2026-10-30.pdf",
   },
   {
     icon: FolderOpen,
@@ -69,7 +69,7 @@ const SHEETS: Sheet[] = [
     title: "Trifold Brochure",
     description:
       "6-panel conference leave-behind covering all four services, our capital campaign process, and results — built for heavy-stock glossy print.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/eb45ccc8-2fbb-4885-ade4-90b467adc406.pdf",
+    href: "/one-sheets/print/Catapult-Trifold-Brochure-Print-2026-10-30.pdf",
   },
   {
     icon: Heart,
