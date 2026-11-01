@@ -79,7 +79,7 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
     setLoading(true);
     const t = setTimeout(() => {
       fetchRows(query, PREVIEW_ROWS).then((d) => { if (n === seq.current) { setRes(d); setErr(null); } })
-        .catch((e: Error) => { if (n === seq.current) setErr(e.message); })
+        .catch((e: Error) => { if (n === seq.current) { setErr(e.message); setRes(null); } })
         .finally(() => { if (n === seq.current) setLoading(false); });
     }, 350);
     return () => clearTimeout(t);
@@ -241,7 +241,7 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
           <button onClick={() => runExport("xlsx")} disabled={!!busy || !res?.total || !!errors.length || res?.campaignAvailable === false} className={`${btn} border border-[rgb(var(--brass))] text-[rgb(var(--navy))]`}><FileSpreadsheet className="h-3.5 w-3.5" />{busy === "xlsx" ? "Building..." : "Excel"}</button>
         </span>
       </div>
-      {res?.campaignAvailable === false && <p role="status" className="text-xs text-amber-800">Dashboard edits (merges, deletes, contact and wealth edits) and campaign figures are unavailable right now. Campaign columns are left blank (unknown, not $0) and downloads are paused until they load.</p>}
+
 
       <div className="max-h-[560px] overflow-auto rounded-lg border border-[rgb(var(--line))]">
         <table className="w-full text-sm">

@@ -3,7 +3,7 @@ import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 import { campaignRecords } from "@/lib/portal-v2/campaign-records";
 import { overlaidIndex, type Data, type Prospect } from "@/lib/portal-v2/records-route";
-import { parseCapacity, FIELD_BY_ID, XLSX_MAX_ROWS, queryErrors, reportNotes, runReport, sanitizeQuery, usesCampaign, type ReportRow } from "@/lib/portal-v2/report-fields";
+import { parseCapacity, FIELD_BY_ID, XLSX_MAX_ROWS, queryErrors, reportNotes, runReport, sanitizeQuery, usesTracking, type ReportRow } from "@/lib/portal-v2/report-fields";
 import type { PortalClient, PortalGift, PortalState } from "@/lib/portal-v2/clients";
 
 type Tracking = { prospects: Record<string, { status?: string; solicitor?: string; solicitor2?: string }> };
@@ -86,12 +86,13 @@ export function reportRoute(client: PortalClient, auth: (r: NextRequest) => Prom
     const data = await load();
     if (!data) return NextResponse.json({ error: "records not loaded" }, { status: 503 });
     const [state, tracking] = await Promise.all([getState(client), getTracking().catch(() => null)]);
-    if (!state && usesCampaign(query)) return NextResponse.json({ error: "Campaign figures are unavailable right now, so campaign filters and sorting cannot run. Remove them or try again shortly." }, { status: 503 });
+    // Fail closed: without SQL state, merges/deletes/staff edits can't be applied, so deleted or merged records would reappear.
+    if (!state) return NextResponse.json({ error: "Dashboard edits (merges, deletes, contact and wealth edits) and campaign figures are unavailable right now, so reports are paused. Please try again shortly." }, { status: 503 });
+    // Committee tracking unavailable: never show or export assignment fields as falsely blank.
+    if (!tracking && usesTracking(query)) return NextResponse.json({ error: "Committee tracking (status, solicitor) is unavailable right now. Remove those fields and filters or try again shortly." }, { status: 503 });
     const rows = runReport(buildReportRows(data, state, tracking), query);
     const keep = ["cptid", ...query.fields.filter((f) => f !== "cptid")];
     if (body?.format === "xlsx") {
-      // Without SQL state, merges/deletes/staff edits cannot be applied either: never ship a file that may resurrect them.
-      if (!state) return NextResponse.json({ error: "Dashboard edits and campaign figures are unavailable right now, so downloads are paused. Please try again shortly." }, { status: 503 });
       if (!xlsx) return NextResponse.json({ error: "Excel export not configured" }, { status: 400 });
       if (rows.length > XLSX_MAX_ROWS) return NextResponse.json({ error: `This list has ${rows.length.toLocaleString()} records; Excel downloads are limited to ${XLSX_MAX_ROWS.toLocaleString()}. Add a filter.` }, { status: 413 });
       const cols = query.fields.map((f) => FIELD_BY_ID.get(f)!);

@@ -66,10 +66,16 @@ async function main() {
   const route2 = reportRoute("jag", async () => true, async () => data as never, async () => tracking, undefined, async () => null);
   const post = (b: unknown) => route2.POST(new NextRequest("http://x/api/jag-data-report-builder", { method: "POST", body: JSON.stringify(b) }));
   let r2 = await post({ query: { fields: ["name", "campaignPledged"] } });
-  const j2 = await r2.json(); assert.equal(r2.status, 200); assert.equal(j2.campaignAvailable, false); assert.ok(j2.rows.every((x: { campaignPledged: unknown }) => x.campaignPledged === null));
-  r2 = await post({ query: { fields: ["name"], filters: [{ field: "campaignPledged", op: "gte", value: "1" }] } }); assert.equal(r2.status, 503, "campaign filter refuses to run on unknown data");
+  assert.equal(r2.status, 503, "whole report fails closed without SQL state (no resurrected merged/deleted rows)");
+  r2 = await post({ query: { fields: ["name"] }, format: "xlsx" }); assert.equal(r2.status, 503);
   r2 = await post({ query: { fields: ["name"], filters: [{ field: "lifetime", op: "gte", value: "abc" }] } }); assert.equal(r2.status, 400, "malformed filter rejected by API");
-  r2 = await post({ query: { fields: ["name"] }, format: "xlsx" }); assert.equal(r2.status, 503, "no Excel when SQL edits/merges are unavailable");
+  // Tracking unavailable: assignment fields refused, other reports still run.
+  const route5 = reportRoute("jag", async () => true, async () => data as never, async () => { throw new Error("blob down"); }, undefined, async () => state);
+  const post5 = (b: unknown) => route5.POST(new NextRequest("http://x", { method: "POST", body: JSON.stringify(b) }));
+  assert.equal((await post5({ query: { fields: ["name", "status"] } })).status, 503);
+  assert.equal((await post5({ query: { fields: ["name"], filters: [{ field: "solicitor", op: "not_empty" }] } })).status, 503);
+  assert.equal((await post5({ query: { fields: ["name"], sort: { field: "status", dir: 1 } } })).status, 503);
+  assert.equal((await post5({ query: { fields: ["name", "solicitor2"] } })).status, 200, "secondary solicitor comes from SQL, not tracking");
   // Excel cap: oversize lists are refused (no partial file).
   const big = { asOf: "x", records: {}, index: Array.from({ length: XLSX_MAX_ROWS + 1 }, (_, i) => idx(10_000 + i, `ZZTEST Big ${i}`, 1)) };
   let built = false;

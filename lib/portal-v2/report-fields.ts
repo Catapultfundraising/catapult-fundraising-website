@@ -167,6 +167,8 @@ export function describeFilters(q: ReportQuery): string[] {
 
 export const CAMPAIGN_FIELDS = ["campaignPledged", "campaignReceived"];
 export const usesCampaign = (q: ReportQuery) => q.filters.some((f) => CAMPAIGN_FIELDS.includes(f.field)) || CAMPAIGN_FIELDS.includes(q.sort?.field ?? "");
+const TRACKING_FIELDS = ["status", "solicitor"];
+export const usesTracking = (q: ReportQuery) => q.fields.some((f) => TRACKING_FIELDS.includes(f)) || q.filters.some((f) => TRACKING_FIELDS.includes(f.field)) || TRACKING_FIELDS.includes(q.sort?.field ?? "");
 export const XLSX_MAX_ROWS = 60_000;
 export const PDF_MAX_ROWS = 5_000;
 

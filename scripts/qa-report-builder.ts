@@ -76,6 +76,9 @@ async function main() {
   const firstCells = await page.locator("[data-testid=report-builder] tbody tr").first().locator("td").allInnerTexts();
   assert.equal(firstCells[1], String(exp[0].name), "sorted by lifetime desc");
   assert.equal(firstCells[8], "$250,000", "campaign pledge shown, separate from lifetime");
+  const lifetimes = (await page.locator("[data-testid=report-builder] tbody tr td:nth-child(6)").allTextContents()).map((v) => Number(v.replace(/[$,]/g, "")));
+  assert.deepEqual(lifetimes, [...lifetimes].sort((a, b) => b - a), `lifetime descending ${lifetimes}`);
+  assert.deepEqual(lifetimes, exp.map((r) => r.lifetime));
   await shot(`${OUT}/04-filtered.png`);
 
   // Excel: full filtered list through the real branded builder.
@@ -125,22 +128,12 @@ async function main() {
 
   // Other client: separate namespace; campaign source unavailable -> blanks + one warning, campaign filter refused.
   await page.goto(`${BASE}/dev/report-builder-harness?client=pvas`);
-  await page.waitForFunction(() => document.querySelectorAll("[data-testid=report-builder] tbody tr").length > 5);
+  await page.getByText(/reports are paused/).waitFor();
   assert.equal(await page.getByLabel("Saved lists").locator("option").count(), 1, "PVAS sees no JAG lists");
-  await page.getByRole("button", { name: /Choose fields/ }).click();
-  await page.getByLabel(/Campaign pledges/).check();
-  await page.getByRole("button", { name: "Done" }).click();
-  await page.getByText(/unknown, not \$0/).waitFor();
-  assert.equal(await page.getByText(/unknown, not \$0/).count(), 1, "one warning");
-  assert.ok(await page.getByRole("button", { name: /Excel/ }).isDisabled(), "downloads paused while SQL overlays are unavailable");
-  const col = (await headers()).findIndex((x) => x.startsWith("Campaign pledges"));
-  const vals = await page.locator(`[data-testid=report-builder] tbody tr td:nth-child(${col + 1})`).allInnerTexts();
-  assert.ok(vals.every((v) => v === ""), "unknown campaign values are blank, not $0");
-  await shot(`${OUT}/07-campaign-unavailable.png`);
-  await page.getByRole("button", { name: "Add filter" }).click();
-  await page.getByLabel("Filter field").selectOption("campaignPledged");
-  await page.getByLabel("Filter value").fill("1");
-  await page.getByText(/campaign filters and sorting cannot run/).waitFor();
+  await page.getByText(/reports are paused/).waitFor();
+  assert.equal(await page.locator("[data-testid=report-builder] tbody tr").count(), 0, "no unoverlaid rows shown when SQL state is missing");
+  assert.ok(await page.getByRole("button", { name: /Excel/ }).isDisabled());
+  await shot(`${OUT}/07-sql-unavailable.png`);
   await browser.close();
   console.log(log.join("\n")); console.log("browser QA passed");
 }
