@@ -4,8 +4,8 @@ import { buildOverlay, finalId, mergedSources, screeningPending, type Overlay, t
 import { campaignRecords } from "@/lib/portal-v2/campaign-records";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 
-type Idx = { cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number; last: string; years: number; band: string; capMin: number };
-type Data = { asOf?: string; index: Idx[]; records: Record<string, unknown> } | null;
+export type Idx = { cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number; last: string; years: number; band: string; capMin: number };
+export type Data = { asOf?: string; index: Idx[]; records: Record<string, unknown> } | null;
 
 type Rec = { cptid: number; kind?: string; flags?: string[]; contact?: Record<string, string>; gifts?: { date?: string; amount: number; stage?: string; campaign?: string; type?: string }[];
   calling?: { batch?: string; tier?: string }[]; summary?: { first?: string } };
@@ -37,9 +37,9 @@ function drillIds(client: PortalClient, records: Record<string, Rec>, kind: stri
 
 type Full = Rec & { name?: string; summary?: Record<string, unknown>; notes?: string[]; calls?: unknown[]; board?: unknown[]; committees?: string[]; ds?: Record<string, string>;
   givebutter?: unknown[]; portfolio?: unknown; [k: string]: unknown };
-type Prospect = { cptid: number; full_name: string; org_name?: string | null; address1?: string | null; city?: string | null; state?: string | null; zip?: string | null; phone?: string | null; email?: string | null; note?: string | null; created_at?: string | null; created_by?: string | null };
+export type Prospect = { cptid: number; full_name: string; org_name?: string | null; address1?: string | null; city?: string | null; state?: string | null; zip?: string | null; phone?: string | null; email?: string | null; note?: string | null; created_at?: string | null; created_by?: string | null };
 
-function prospectRecord(p: Prospect): Full {
+export function prospectRecord(p: Prospect): Full {
   return {
     cptid: p.cptid, name: p.full_name, kind: p.org_name ? "Organization" : "Individual",
     contact: { street: p.address1 ?? "", city: p.city ?? "", state: p.state ?? "", zip: p.zip ?? "", phone: p.phone ?? "", email: p.email ?? "" },
@@ -97,6 +97,28 @@ function overlayRecord(base: Full, o: Overlay, lookup: (c: number) => Full | nul
   return r;
 }
 
+/** Lookup index with dashboard-added prospects and campaign-only donors, merged/deleted records removed
+ * and merged duplicates' giving folded into the survivor. Shared by the records index and the report builder. */
+export function overlaidIndex(base: Idx[], prospects: Prospect[], campaign: ReturnType<typeof campaignRecords>, o: Overlay): Idx[] {
+  const have = new Set(base.map((r) => r.cptid));
+  const extra: Idx[] = prospects.filter((p) => !have.has(p.cptid)).map((p) => ({ cptid: p.cptid, name: p.full_name, kind: p.org_name ? "Organization" : "Individual", city: p.city ?? "", lifetime: 0, gifts: 0, largest: 0, last: "", years: 0, band: "", capMin: 0 }));
+  for (const p of campaign.values()) {
+    if (have.has(p.cptid) || extra.some((r) => r.cptid === p.cptid)) continue;
+    extra.push({ cptid: p.cptid, name: p.name, kind: "Campaign donor", city: "", lifetime: 0, gifts: 0, largest: 0, last: "", years: 0, band: "", capMin: 0 });
+  }
+  const all = [...base, ...extra];
+  const byId = new Map(all.map((r) => [r.cptid, r]));
+  const gone = (c: number) => o.mergedInto.has(c) || o.deleted.has(c);
+  return all.filter((r) => !gone(r.cptid)).map((r) => {
+    const srcs = mergedSources(o, r.cptid);
+    const city = o.contact.get(r.cptid)?.city;
+    if (!srcs.length && !city) return r;
+    const x = { ...r, city: city || r.city };
+    for (const c of srcs) { const s = byId.get(c); if (!s) continue; x.lifetime = Math.round((x.lifetime + (s.lifetime || 0)) * 100) / 100; x.gifts += s.gifts || 0; x.largest = Math.max(x.largest, s.largest || 0); x.last = maxDate(x.last, s.last); }
+    return x;
+  });
+}
+
 // GET ?id=<CPTID> -> one full donor record; no id -> the lookup index. Prospects added on the dashboard (Engage SQL)
 // are included so every name on every screen opens a record, even before the next refresh picks them up.
 // Dashboard edits (contact, wealth, merges, deletes) are applied on read; merged/deleted records leave the index.
@@ -129,23 +151,7 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
       if (target !== asked) out.redirectedFrom = { cptid: asked, name: lookup(asked)?.name ?? `CPTID ${asked}` };
       return NextResponse.json(out, { headers: { "Cache-Control": "no-store" } });
     }
-    const have = new Set(data.index.map((r) => r.cptid));
-    const extra: Idx[] = prospects.filter((p) => !have.has(p.cptid)).map((p) => ({ cptid: p.cptid, name: p.full_name, kind: p.org_name ? "Organization" : "Individual", city: p.city ?? "", lifetime: 0, gifts: 0, largest: 0, last: "", years: 0, band: "", capMin: 0 }));
-    for (const p of campaign.values()) {
-      if (have.has(p.cptid) || extra.some((r) => r.cptid === p.cptid)) continue;
-      extra.push({ cptid: p.cptid, name: p.name, kind: "Campaign donor", city: "", lifetime: 0, gifts: 0, largest: 0, last: "", years: 0, band: "", capMin: 0 });
-    }
-    const all = [...data.index, ...extra];
-    const byId = new Map(all.map((r) => [r.cptid, r]));
-    const gone = (c: number) => o.mergedInto.has(c) || o.deleted.has(c);
-    const index = all.filter((r) => !gone(r.cptid)).map((r) => {
-      const srcs = mergedSources(o, r.cptid);
-      const city = o.contact.get(r.cptid)?.city;
-      if (!srcs.length && !city) return r;
-      const x = { ...r, city: city || r.city };
-      for (const c of srcs) { const s = byId.get(c); if (!s) continue; x.lifetime = Math.round((x.lifetime + (s.lifetime || 0)) * 100) / 100; x.gifts += s.gifts || 0; x.largest = Math.max(x.largest, s.largest || 0); x.last = maxDate(x.last, s.last); }
-      return x;
-    });
+    const index = overlaidIndex(data.index, prospects, campaign, o);
     return NextResponse.json({ asOf: data.asOf, index }, { headers: { "Cache-Control": "private, max-age=20" } });
   }
   return { GET };

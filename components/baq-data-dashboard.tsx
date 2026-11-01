@@ -12,7 +12,8 @@ import { formatDollars } from "@/lib/gift-chart";
 import { extrasFromIndex, seatGc2p } from "@/lib/baq-gc2p";
 import { BoardReviewAdmin } from "@/components/board-review/admin";
 import { useBoardReviewStaff, StaffSignIn } from "@/components/board-review/staff-tab";
-import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadUrl, useCrm, type ExportKind } from "@/components/baq-data-crm";
+import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadExport, downloadUrl, useCrm, type ExportKind } from "@/components/baq-data-crm";
+import { ReportBuilder } from "@/components/report-builder";
 import type { IndexRow } from "@/lib/baq-data-store";
 
 const NAVY = "#15212e";
@@ -25,7 +26,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Committee", "Campaign Prospects", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Committee", "Campaign Prospects", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -748,6 +749,7 @@ export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
         {tab === "Gift Pyramid" && <Pyramid d={data} />}
         {tab === "Gift Chart + GC2P" && <GiftChartTab d={data} />}
         {tab === "Prospects" && <Prospects d={data} />}
+        {tab === "Reports" && <ReportsTab clientLabel={data.client} />}
         {tab === "Committee" && <Board d={data} />}
         {tab === "Campaign Prospects" && <Portfolio d={data} />}
         {tab === "Database Health" && <Health d={data} />}
@@ -761,4 +763,9 @@ export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
     </PortalV2Provider>
     </CrmProvider>
   );
+}
+
+function ReportsTab({ clientLabel }: { clientLabel: string }) {
+  const { open } = useCrm();
+  return <ReportBuilder client="baq" clientLabel={clientLabel} api="/api/baq-data-report-builder" onOpen={open} downloadExport={downloadExport} />;
 }
