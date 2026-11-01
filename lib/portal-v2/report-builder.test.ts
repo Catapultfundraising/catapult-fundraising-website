@@ -1,17 +1,17 @@
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { buildReportRows, reportRoute } from "./report-route";
-import { runReport, sanitizeQuery, describeFilters } from "./report-fields";
+import { runReport, sanitizeQuery, describeFilters, filterError, queryErrors, XLSX_MAX_ROWS } from "./report-fields";
 import type { PortalState } from "./clients";
 
 // Synthetic records only (ZZTEST). No storage or SQL is touched.
 const idx = (cptid: number, name: string, lifetime: number, extra: Record<string, unknown> = {}) => ({ cptid, name, kind: "Individual", city: "Testville", lifetime, gifts: 2, largest: lifetime / 2, last: "2024-05-01", years: 2, band: "", capMin: 0, ...extra });
 const data = {
   asOf: "2026-10-01",
-  index: [idx(1, "ZZTEST Keep", 1000, { ds: "DS3", capacity: "$100K" }), idx(2, "ZZTEST Merged", 500), idx(3, "ZZTEST Deleted", 9000), idx(4, "ZZTEST Other", 50, { city: "Reno" })],
+  index: [idx(1, "ZZTEST Keep", 1000, { ds: "DS3", capacity: "$100K" }), idx(2, "ZZTEST Merged", 500), idx(3, "ZZTEST Deleted", 9000), idx(4, "ZZTEST Other", 50, { city: "Reno" }), idx(5, "ZZTEST Screened", 0, { city: "Index City" })],
   records: {
-    "1": { cptid: 1, contact: { street: "1 Test St", city: "Testville", state: "NV", phone: "555-0100", email: "keep@example.test" }, flags: ["Board"] },
-    "2": { cptid: 2, contact: { city: "Mergetown" } }, "3": { cptid: 3, contact: {} }, "4": { cptid: 4, contact: { city: "Reno", state: "NV" } },
+    "1": { cptid: 1, contact: { street: "1 Test St", city: "Testville", state: "NV", phone: "555-0100", email: "keep@example.test" }, flags: ["Board"], summary: { first: "2010-01-01" } },
+    "2": { cptid: 2, contact: { city: "Mergetown" }, summary: { first: "2001-02-03" } }, "3": { cptid: 3, contact: {} }, "4": { cptid: 4, contact: { city: "Reno", state: "NV" } }, "5": { cptid: 5, contact: { email: "x@example.test" } },
   },
 };
 const u = (id: number, cptid: number, field: string, new_value: string, old_value: string | null = null) => ({ id, cptid, field, new_value, old_value, client_id: null, batch_id: null, created_at: "2026-10-01" });
@@ -19,7 +19,8 @@ const g = (id: number, cptid: number, kind: "gift" | "pledge", amount: number) =
 const state = {
   prospects: [{ id: 1, cptid: 900, client_id: null, full_name: "ZZTEST Added Prospect", first_name: null, last_name: null, org_name: null, address1: "9 New Rd", city: "Henderson", state: "NV", zip: "89002", email: "new@example.test", phone: null, source: "manual", batch_id: null, created_by: "ZZTEST", created_at: "" }],
   gifts: [g(1, 1, "pledge", 100000), g(2, 2, "gift", 2500), g(3, 4, "gift", 10)],
-  updates: [u(1, 2, "merged_into", "1"), u(2, 3, "deleted", "Test duplicate"), u(3, 1, "contact:phone", "555-0199", "555-0100"), u(4, 1, "wealth:capacity", "$250K", "$100K"), u(5, 1, "solicitor2", "ZZTEST Sol")],
+  updates: [u(1, 2, "merged_into", "1"), u(2, 3, "deleted", "Test duplicate"), u(3, 1, "contact:phone", "555-0199", "555-0100"), u(4, 1, "wealth:capacity", "$250K", "$100K"), u(5, 1, "solicitor2", "ZZTEST Sol"), u(6, 4, "contact:city", "", "Reno"), u(7, 4, "contact:email", "", "old@example.test"),
+    u(8, 5, "wealth:ds", JSON.stringify({ status: "matched", fields: { "DS Rating": "DS2", "Wealth-Based Capacity": "$1M+" } })), u(9, 5, "contact:city", "", "")],
   batches: [],
 } as unknown as PortalState;
 const tracking = { prospects: { "1": { status: "Active", solicitor: "ZZTEST Lead" } } };
@@ -27,7 +28,13 @@ const tracking = { prospects: { "1": { status: "Active", solicitor: "ZZTEST Lead
 async function main() {
   const rows = buildReportRows(data as never, state, tracking);
   const by = new Map(rows.map((r) => [r.cptid, r]));
-  assert.deepEqual([...by.keys()].sort((a, b) => Number(a) - Number(b)), [1, 4, 900], "merged + deleted records leave the report");
+  assert.deepEqual([...by.keys()].sort((a, b) => Number(a) - Number(b)), [1, 4, 5, 900], "merged + deleted records leave the report");
+  assert.equal(by.get(4)!.city, "", "staff-cleared city stays blank (no index fallback)");
+  assert.equal(by.get(4)!.email, "", "staff-cleared email stays blank");
+  assert.equal(by.get(5)!.city, "", "staff-cleared city stays blank even when the client file had none");
+  assert.equal(by.get(5)!.ds, "DS2", "latest dashboard DonorSearch result fills rating when the file had none");
+  assert.equal(by.get(5)!.capacity, "$1M+");
+  assert.equal(by.get(1)!.first, "2001-02-03", "first gift is the earliest across merged records");
   const k = by.get(1)!;
   assert.equal(k.lifetime, 1500, "merged duplicate's giving history folds into the survivor");
   assert.equal(k.campaignPledged, 100000); assert.equal(k.campaignReceived, 2500, "merged campaign gift follows the survivor");
@@ -40,10 +47,38 @@ async function main() {
   assert.deepEqual(q.fields, ["name", "lifetime"]); assert.equal(q.filters.length, 1);
   assert.deepEqual(runReport(rows, q).map((r) => r.cptid), [1]);
   assert.deepEqual(runReport(rows, sanitizeQuery({ filters: [{ field: "state", op: "equals", value: "nv" }, { field: "email", op: "not_empty" }] })).map((r) => r.cptid).sort(), [1, 900]);
-  assert.deepEqual(runReport(rows, sanitizeQuery({ filters: [{ field: "last", op: "gte", value: "01/01/2024" }] })).map((r) => r.cptid).sort(), [1, 4], "blank dates excluded from date comparisons");
-  assert.deepEqual(runReport(rows, sanitizeQuery({ filters: [{ field: "lifetime", op: "gte", value: "" }] })).length, 3, "incomplete filter ignored");
-  assert.deepEqual(runReport(rows, sanitizeQuery({ search: "reno" })).map((r) => r.cptid), [4]);
+  // Malformed entered values are errors and never broaden the query.
+  assert.equal(filterError({ field: "lifetime", op: "gte", value: "abc" }), "Lifetime giving: enter a number");
+  assert.equal(filterError({ field: "lifetime", op: "gte", value: "$1,000.50" }), null);
+  assert.equal(filterError({ field: "last", op: "gte", value: "13/45/2024" }), "Last gift date: use MM/DD/YYYY");
+  assert.equal(filterError({ field: "last", op: "gte", value: "02/30/2024" }), "Last gift date: use MM/DD/YYYY");
+  assert.equal(filterError({ field: "last", op: "gte", value: "" }), null);
+  assert.equal(runReport(rows, sanitizeQuery({ filters: [{ field: "lifetime", op: "gte", value: "abc" }] })).length, 0);
+  assert.deepEqual(runReport(rows, sanitizeQuery({ filters: [{ field: "last", op: "gte", value: "01/01/2024" }] })).map((r) => r.cptid).sort(), [1, 4, 5], "blank dates excluded from date comparisons");
+  assert.deepEqual(runReport(rows, sanitizeQuery({ filters: [{ field: "lifetime", op: "gte", value: "" }] })).length, 4, "incomplete filter ignored");
+  assert.deepEqual(runReport(rows, sanitizeQuery({ search: "other" })).map((r) => r.cptid), [4]);
   assert.deepEqual(describeFilters(q), ["Lifetime giving is at least $1,000"]);
+
+  // Campaign source unavailable: unknown (null), not $0; numeric filters exclude unknowns; sorting puts them last.
+  const un = buildReportRows(data as never, null, tracking);
+  assert.ok(un.every((r) => r.campaignPledged === null && r.campaignReceived === null));
+  assert.equal(runReport(un, sanitizeQuery({ filters: [{ field: "campaignPledged", op: "lte", value: "0" }] })).length, 0);
+  const route2 = reportRoute("jag", async () => true, async () => data as never, async () => tracking, undefined, async () => null);
+  const post = (b: unknown) => route2.POST(new NextRequest("http://x/api/jag-data-report-builder", { method: "POST", body: JSON.stringify(b) }));
+  let r2 = await post({ query: { fields: ["name", "campaignPledged"] } });
+  const j2 = await r2.json(); assert.equal(r2.status, 200); assert.equal(j2.campaignAvailable, false); assert.ok(j2.rows.every((x: { campaignPledged: unknown }) => x.campaignPledged === null));
+  r2 = await post({ query: { fields: ["name"], filters: [{ field: "campaignPledged", op: "gte", value: "1" }] } }); assert.equal(r2.status, 503, "campaign filter refuses to run on unknown data");
+  r2 = await post({ query: { fields: ["name"], filters: [{ field: "lifetime", op: "gte", value: "abc" }] } }); assert.equal(r2.status, 400, "malformed filter rejected by API");
+  r2 = await post({ query: { fields: ["name"] }, format: "xlsx" }); assert.equal(r2.status, 503, "no Excel when SQL edits/merges are unavailable");
+  // Excel cap: oversize lists are refused (no partial file).
+  const big = { asOf: "x", records: {}, index: Array.from({ length: XLSX_MAX_ROWS + 1 }, (_, i) => idx(10_000 + i, `ZZTEST Big ${i}`, 1)) };
+  let built = false;
+  const route3 = reportRoute("jag", async () => true, async () => big as never, async () => tracking, { clientName: "Synthetic", filePrefix: "QA", build: async () => { built = true; return Buffer.from(""); } }, async () => state);
+  r2 = await route3.POST(new NextRequest("http://x", { method: "POST", body: JSON.stringify({ query: { fields: ["name"] }, format: "xlsx" }) }));
+  assert.equal(r2.status, 413); assert.equal(built, false);
+  r2 = await route3.POST(new NextRequest("http://x", { method: "POST", body: JSON.stringify({ query: { fields: ["name"], filters: [{ field: "cptid", op: "lte", value: "10100" }] }, format: "xlsx" }) }));
+  assert.equal(r2.status, 200); assert.equal(r2.headers.get("x-report-rows"), "104"); // 101 big rows + live campaign/prospect records 1, 4, 900 assert.equal(built, true);
+  assert.equal(queryErrors(sanitizeQuery({ filters: [{ field: "zip", op: "contains", value: "abc" }] })).length, 0);
 
   // Strict per-client auth: unauthorized requests never load data.
   let loaded = false;

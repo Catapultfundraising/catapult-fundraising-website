@@ -33,9 +33,9 @@ export const REPORT_FIELDS: ReportField[] = [
   { id: "last", label: "Last gift date", group: "Giving history", kind: "date" },
   { id: "years", label: "Years giving", group: "Giving history", kind: "num" },
   { id: "band", label: "Giving band", group: "Giving history", kind: "text" },
-  { id: "ds", label: "DS rating", group: "Wealth", kind: "text", help: "Staff override wins over the screening file." },
-  { id: "capacity", label: "Capacity", group: "Wealth", kind: "text", help: "Staff override wins over the screening file." },
-  { id: "campaignPledged", label: "Campaign pledges", group: "Campaign", kind: "usd", help: "Pledged to the campaign. Not paid giving." },
+  { id: "ds", label: "DS rating", group: "Wealth", kind: "text", help: "Staff edit, then client screening file, then latest dashboard DonorSearch result. PIR values are not included." },
+  { id: "capacity", label: "Capacity", group: "Wealth", kind: "text", help: "Staff edit, then client screening file, then latest dashboard DonorSearch result. PIR values are not included." },
+  { id: "campaignPledged", label: "Campaign pledges", group: "Campaign", kind: "usd", help: "Pledged to the campaign. Not paid giving. Blank when campaign data is unavailable." },
   { id: "campaignReceived", label: "Campaign gifts received", group: "Campaign", kind: "usd", help: "Campaign gifts entered on the dashboard. Not added to Lifetime giving." },
   { id: "status", label: "Prospect status", group: "Committee tracking", kind: "text" },
   { id: "solicitor", label: "Solicitor", group: "Committee tracking", kind: "text" },
@@ -67,6 +67,19 @@ function isoDate(s: string): string {
   return s.trim().slice(0, 10);
 }
 
+const validIso = (iso: string) => { const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso); if (!m) return false; const d = new Date(`${iso}T00:00:00Z`); return d.getUTCFullYear() === +m[1] && d.getUTCMonth() + 1 === +m[2] && d.getUTCDate() === +m[3]; };
+/** User-visible problem with an entered filter value, or null. Empty values are "not filled in yet" and ignored. */
+export function filterError(f: ReportFilter): string | null {
+  const field = FIELD_BY_ID.get(f.field);
+  if (!field || f.op === "empty" || f.op === "not_empty") return null;
+  const want = String(f.value ?? "").trim();
+  if (!want) return null;
+  if (field.kind === "usd" || field.kind === "num") return /^\$?\s*-?[\d,]*\.?\d+$/.test(want) && Number.isFinite(toNum(want)) ? null : `${field.label}: enter a number`;
+  if (field.kind === "date") return validIso(isoDate(want)) ? null : `${field.label}: use MM/DD/YYYY`;
+  return null;
+}
+export const queryErrors = (q: ReportQuery) => q.filters.map(filterError).filter((e): e is string => !!e);
+
 export function matchFilter(row: ReportRow, f: ReportFilter): boolean {
   const field = FIELD_BY_ID.get(f.field);
   if (!field) return true; // unknown fields never silently drop rows
@@ -75,9 +88,10 @@ export function matchFilter(row: ReportRow, f: ReportFilter): boolean {
   if (f.op === "not_empty") return !blank(v);
   const want = String(f.value ?? "").trim();
   if (!want) return true; // incomplete filter row: ignore until a value is entered
+  if (filterError(f)) return false; // never broaden a query on a malformed value (routes reject these first)
   if (field.kind === "usd" || field.kind === "num") {
-    const n = toNum(want); if (!Number.isFinite(n)) return true;
-    const x = Number(v) || 0;
+    if (blank(v)) return false; // unknown is not zero
+    const n = toNum(want), x = Number(v);
     return f.op === "gte" ? x >= n : f.op === "lte" ? x <= n : x === n;
   }
   if (field.kind === "date") {
@@ -121,4 +135,18 @@ export function describeFilters(q: ReportQuery): string[] {
     .map((f) => `${FIELD_BY_ID.get(f.field)?.label ?? f.field} ${OPS[f.op]}${f.op === "empty" || f.op === "not_empty" ? "" : ` ${f.value}`}`);
   if (q.search?.trim()) out.push(`Search: "${q.search.trim()}"`);
   return out;
+}
+
+export const CAMPAIGN_FIELDS = ["campaignPledged", "campaignReceived"];
+export const usesCampaign = (q: ReportQuery) => q.filters.some((f) => CAMPAIGN_FIELDS.includes(f.field)) || CAMPAIGN_FIELDS.includes(q.sort?.field ?? "");
+export const XLSX_MAX_ROWS = 60_000;
+export const PDF_MAX_ROWS = 5_000;
+
+/** Footnotes printed on every report download. */
+export function reportNotes(q: ReportQuery, campaignAvailable: boolean): string[] {
+  const crit = describeFilters(q);
+  const notes = [crit.length ? `Filters: ${crit.join("; ")}.` : "Filters: none (all live records).", "Merged and deleted records are excluded; staff contact and wealth edits are applied."];
+  if (q.fields.some((f) => ["lifetime", "largest", "gifts", "first", "last", "years"].includes(f))) notes.push("Giving history comes from the client giving file and does not include campaign pledges.");
+  if (q.fields.some((f) => CAMPAIGN_FIELDS.includes(f))) notes.push(campaignAvailable ? "Campaign pledges and campaign gifts are shown separately and are not added to giving history." : "Campaign figures were unavailable when this file was built and are left blank (unknown, not $0).");
+  return notes;
 }

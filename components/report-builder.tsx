@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Download, FileSpreadsheet, Plus, Save, Trash2, X } from "lucide-react";
 import {
-  DEFAULT_FIELDS, FIELD_BY_ID, OPS, REPORT_FIELDS, describeFilters, opsFor, sanitizeQuery,
+  DEFAULT_FIELDS, FIELD_BY_ID, OPS, PDF_MAX_ROWS, REPORT_FIELDS, XLSX_MAX_ROWS, filterError, opsFor, queryErrors, reportNotes, sanitizeQuery,
   type FilterOp, type ReportFilter, type ReportQuery, type ReportRow,
 } from "@/lib/portal-v2/report-fields";
 
@@ -13,7 +13,6 @@ interface SavedList { id: string; name: string; query: ReportQuery; savedAt: str
 
 const usd = (n: number) => (n || 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const PREVIEW_ROWS = 500;
-const PDF_MAX_ROWS = 5_000;
 const groups = [...new Set(REPORT_FIELDS.map((f) => f.group))];
 const btn = "inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium disabled:opacity-60";
 const input = "rounded-md border border-[rgb(var(--line))] bg-white px-2 py-1.5 text-sm";
@@ -63,12 +62,17 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
 
   const fetchRows = useCallback(async (q: ReportQuery, limit: number) => {
     const r = await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query: q, limit }) });
-    if (!r.ok) throw new Error(r.status === 401 ? "Your session expired. Please sign in again." : "The report could not be loaded. Please try again.");
+    if (!r.ok) {
+      const j = (await r.json().catch(() => null)) as { error?: string } | null;
+      throw new Error(r.status === 401 ? "Your session expired. Please sign in again." : j?.error || "The report could not be loaded. Please try again.");
+    }
     return (await r.json()) as { total: number; rows: ReportRow[]; asOf?: string; campaignAvailable?: boolean };
   }, [api]);
 
+  const errors = useMemo(() => queryErrors(query), [query]);
   useEffect(() => {
     const n = ++seq.current;
+    if (errors.length) { setLoading(false); return; } // never run a query with a malformed value
     setLoading(true);
     const t = setTimeout(() => {
       fetchRows(query, PREVIEW_ROWS).then((d) => { if (n === seq.current) { setRes(d); setErr(null); } })
@@ -76,7 +80,7 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
         .finally(() => { if (n === seq.current) setLoading(false); });
     }, 350);
     return () => clearTimeout(t);
-  }, [query, fetchRows]);
+  }, [query, fetchRows, errors]);
 
   const toggleField = (id: string) => setFields((f) => (f.includes(id) ? f.filter((x) => x !== id) : [...f, id]));
   const move = (i: number, d: -1 | 1) => setFields((f) => { const n = [...f]; const j = i + d; if (j < 0 || j >= n.length) return f; [n[i], n[j]] = [n[j], n[i]]; return n; });
@@ -106,25 +110,28 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
   };
 
   const runExport = async (format: "pdf" | "xlsx") => {
+    if (errors.length) return;
     setBusy(format);
     try {
-      const all = await fetchRows(query, 25_000);
-      if (format === "pdf" && all.total > PDF_MAX_ROWS) { alert(`PDF is limited to ${PDF_MAX_ROWS.toLocaleString()} rows; this list has ${all.total.toLocaleString()}. Add a filter or download Excel.`); return; }
-      const cols = query.fields.map((f) => FIELD_BY_ID.get(f)!).filter(Boolean);
       const title = (lists.find((l) => l.id === activeList)?.name || listName.trim() || "Custom Report").slice(0, 100);
-      const crit = describeFilters(query);
-      const notes = [
-        crit.length ? `Filters: ${crit.join("; ")}.` : "Filters: none (all live records).",
-        "Merged and deleted records are excluded; staff contact and wealth edits are applied.",
-      ];
-      if (query.fields.some((f) => f === "lifetime" || f === "largest" || f === "gifts")) notes.push("Giving history comes from the client giving file and does not include campaign pledges.");
-      if (query.fields.some((f) => f.startsWith("campaign"))) notes.push(all.campaignAvailable === false ? "Campaign figures were unavailable when this file was built and show as $0." : "Campaign pledges and campaign gifts are shown separately and are not added to giving history.");
-      if (all.total > all.rows.length) notes.push(`Only the first ${all.rows.length.toLocaleString()} of ${all.total.toLocaleString()} rows are included.`);
+      if (format === "xlsx") {
+        // Built server-side from every matching row, so a large list is never silently cut short.
+        if (res && res.total > XLSX_MAX_ROWS) { alert(`This list has ${res.total.toLocaleString()} records; Excel downloads are limited to ${XLSX_MAX_ROWS.toLocaleString()}. Add a filter.`); return; }
+        const r = await fetch(api, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ query, format: "xlsx", title }) });
+        if (!r.ok) { const j = (await r.json().catch(() => null)) as { error?: string } | null; throw new Error(j?.error || "Download failed. Please try again."); }
+        const name = /filename="([^"]+)"/.exec(r.headers.get("content-disposition") || "")?.[1] || `${title}.xlsx`;
+        const a = document.createElement("a"); a.href = URL.createObjectURL(await r.blob()); a.download = name; a.click();
+        return;
+      }
+      const all = await fetchRows(query, PDF_MAX_ROWS);
+      if (all.campaignAvailable === false) { alert("Dashboard edits are unavailable right now, so downloads are paused. Please try again shortly."); return; }
+      if (all.total > PDF_MAX_ROWS) { alert(`PDF is limited to ${PDF_MAX_ROWS.toLocaleString()} rows; this list has ${all.total.toLocaleString()}. Add a filter or download Excel.`); return; }
+      const cols = query.fields.map((f) => FIELD_BY_ID.get(f)!).filter(Boolean);
       await downloadExport({
         title, subtitle: `${all.total.toLocaleString()} records${all.asOf ? ` · Data as of ${all.asOf}` : ""}`,
         cols: cols.map((c) => ({ label: c.label, kind: c.kind === "usd" ? "usd" : c.kind === "num" && c.id !== "cptid" ? "num" : "text" })),
         sections: [{ rows: all.rows.map((r) => cols.map((c) => (c.id === "cptid" ? String(r.cptid ?? "") : (r[c.id] ?? "")))) }],
-        notes,
+        notes: reportNotes(query, true), // unavailable SQL state returned above
       }, format);
     } catch (e) { alert((e as Error).message); } finally { setBusy(null); }
   };
@@ -149,7 +156,7 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
         </label>
         <button onClick={saveList} disabled={!listName.trim()} className={`${btn} bg-[rgb(var(--navy))] text-white`}><Save className="h-3.5 w-3.5" />Save list</button>
         {activeList && <button onClick={deleteList} className={`${btn} border border-[rgb(var(--line))] text-[rgb(var(--ink))]`}><Trash2 className="h-3.5 w-3.5" />Delete list</button>}
-        <p className="basis-full text-xs text-[rgb(var(--ink))]/55">Saved lists keep the fields and filters, not a frozen copy of the records, and are stored in this browser for now.</p>
+        <p className="basis-full text-xs text-[rgb(var(--ink))]/55"><b>Saved on this browser only.</b> Lists keep the fields and filters (not a frozen copy of records) and do not appear on other computers.</p>
       </div>
 
       <div className="rounded-lg border border-[rgb(var(--line))] bg-white p-3">
@@ -205,7 +212,8 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
                 <select aria-label="Filter condition" value={f.op} onChange={(e) => setFilter(i, { op: e.target.value as FilterOp })} className={input}>
                   {opsFor(kind).map((o) => <option key={o} value={o}>{OPS[o]}</option>)}
                 </select>
-                {needsValue && <input aria-label="Filter value" value={f.value ?? ""} onChange={(e) => setFilter(i, { value: e.target.value })} placeholder={kind === "date" ? "MM/DD/YYYY" : kind === "usd" ? "Amount" : "Value"} className={`${input} w-44`} />}
+                {needsValue && <input aria-label="Filter value" aria-invalid={!!filterError(f)} value={f.value ?? ""} onChange={(e) => setFilter(i, { value: e.target.value })} placeholder={kind === "date" ? "MM/DD/YYYY" : kind === "usd" ? "Amount" : "Value"} className={`${input} w-44 ${filterError(f) ? "border-red-600" : ""}`} />}
+                {filterError(f) && <span role="alert" className="text-xs text-red-700">{filterError(f)}</span>}
                 <button aria-label="Remove filter" onClick={() => setFilters((fs) => fs.filter((_, k) => k !== i))} className="text-[rgb(var(--ink))]/50 hover:text-[rgb(var(--ink))]"><X className="h-4 w-4" /></button>
               </div>
             );
@@ -219,14 +227,14 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-[rgb(var(--ink))]/70" aria-live="polite">
-          {err ? <span className="text-red-700">{err}</span> : res ? <>{res.total.toLocaleString()} records{res.total > res.rows.length ? `, previewing ${res.rows.length}` : ""}{loading ? " · updating..." : ""}</> : "Loading..."}
+          {errors.length ? <span className="text-red-700">Fix the highlighted filter{errors.length > 1 ? "s" : ""} to update the list.</span> : err ? <span className="text-red-700">{err}</span> : res ? <>{res.total.toLocaleString()} records{res.total > res.rows.length ? `, previewing ${res.rows.length}` : ""}{loading ? " · updating..." : ""}</> : "Loading..."}
         </span>
         <span className="flex flex-wrap gap-2 sm:ml-auto">
-          <button onClick={() => runExport("pdf")} disabled={!!busy || !res?.total} className={`${btn} bg-[rgb(var(--navy))] text-white`}><Download className="h-3.5 w-3.5" />{busy === "pdf" ? "Building..." : "PDF"}</button>
-          <button onClick={() => runExport("xlsx")} disabled={!!busy || !res?.total} className={`${btn} border border-[rgb(var(--brass))] text-[rgb(var(--navy))]`}><FileSpreadsheet className="h-3.5 w-3.5" />{busy === "xlsx" ? "Building..." : "Excel"}</button>
+          <button onClick={() => runExport("pdf")} disabled={!!busy || !res?.total || !!errors.length || res?.campaignAvailable === false} className={`${btn} bg-[rgb(var(--navy))] text-white`}><Download className="h-3.5 w-3.5" />{busy === "pdf" ? "Building..." : "PDF"}</button>
+          <button onClick={() => runExport("xlsx")} disabled={!!busy || !res?.total || !!errors.length || res?.campaignAvailable === false} className={`${btn} border border-[rgb(var(--brass))] text-[rgb(var(--navy))]`}><FileSpreadsheet className="h-3.5 w-3.5" />{busy === "xlsx" ? "Building..." : "Excel"}</button>
         </span>
       </div>
-      {res?.campaignAvailable === false && fields.some((f) => f.startsWith("campaign")) && <p className="text-xs text-amber-800">Campaign figures are temporarily unavailable and show as $0.</p>}
+      {res?.campaignAvailable === false && <p role="status" className="text-xs text-amber-800">Dashboard edits (merges, deletes, contact and wealth edits) and campaign figures are unavailable right now. Campaign columns are left blank (unknown, not $0) and downloads are paused until they load.</p>}
 
       <div className="max-h-[560px] overflow-auto rounded-lg border border-[rgb(var(--line))]">
         <table className="w-full text-sm">
