@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { engageCall } from "@/lib/portal-v2/server";
-import { FIELD_BY_ID, OPS, TOP_MAX, queryErrors, type ReportQuery } from "@/lib/portal-v2/report-fields";
+import { FIELD_BY_ID, OPS, TOP_MAX, opsFor, queryErrors, type ReportQuery } from "@/lib/portal-v2/report-fields";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 
 export interface SharedReportList { id: number; name: string; query: ReportQuery; version: number; created_by: string; created_at: string; updated_by: string; updated_at: string }
@@ -22,6 +22,8 @@ export function strictSavedQuery(raw: unknown): ReportQuery {
   const filters = ((r.filters as unknown[]) ?? []).map((x) => {
     const f = x as Record<string, unknown>;
     if (!(String(f.op) in OPS)) throw new Bad("Unknown filter condition.");
+    const kind = FIELD_BY_ID.get(String(f.field))!.kind;
+    if (!opsFor(kind).includes(f.op as keyof typeof OPS)) throw new Bad(`"${OPS[f.op as keyof typeof OPS]}" cannot be used with ${FIELD_BY_ID.get(String(f.field))!.label}.`);
     if (f.value !== undefined && (typeof f.value !== "string" || f.value.length > 200)) throw new Bad("Filter values must be text up to 200 characters.");
     return { field: String(f.field), op: f.op as keyof typeof OPS, ...(f.value !== undefined ? { value: f.value as string } : {}) };
   });
@@ -41,11 +43,14 @@ export function strictSavedQuery(raw: unknown): ReportQuery {
  */
 export function reportListsRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, call: EngageCaller = engageCall) {
   const forward = async (op: string, body: Record<string, unknown>) => {
+    // A write can commit in SQL and still lose its response, so never claim "nothing was changed" on 5xx/transport errors.
+    const msg = op === "listReportLists" ? "Saved lists are unavailable right now. Please try again shortly."
+      : "Could not confirm the change. Reload the saved lists before retrying.";
     let res;
     try { res = await call(client, op, body); }
-    catch { return NextResponse.json({ error: "Saved lists are unavailable right now. Nothing was changed; please try again shortly." }, { status: 503 }); }
+    catch { return NextResponse.json({ error: msg, code: "unconfirmed" }, { status: 503 }); }
     const { status, body: b } = res;
-    if (status >= 500) return NextResponse.json({ error: "Saved lists are unavailable right now. Nothing was changed; please try again shortly." }, { status: 503 });
+    if (status >= 500) return NextResponse.json({ error: msg, code: "unconfirmed" }, { status: 503 });
     return NextResponse.json(b, { status, headers: { "cache-control": "no-store" } });
   };
   const handler = (method: "GET" | "POST" | "PATCH" | "DELETE") => async (req: NextRequest) => {

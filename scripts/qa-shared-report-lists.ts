@@ -17,7 +17,7 @@ async function mockLists(ctx) {
     const req = route.request(); const client = req.url().split("/").pop().split("?")[0];
     const live = (db[client] ??= []).filter((l) => !l.deleted);
     const send = (status, body) => route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
-    if (down) return send(503, { error: "Saved lists are unavailable right now. Nothing was changed; please try again shortly." });
+    if (down) return send(503, { error: "Saved lists are unavailable right now. Please try again shortly." });
     const b = req.postData() ? JSON.parse(req.postData()) : {};
     const now = new Date("2026-11-02T15:00:00Z").toISOString();
     const clash = (n, id) => live.some((l) => l.name.toLowerCase() === n.toLowerCase() && l.id !== id);

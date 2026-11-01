@@ -68,6 +68,7 @@ const q = { fields: ["cptid", "name", "lifetime"], filters: [{ field: "lifetime"
   for (const bad of [{ name: "x", query: { ...q, fields: ["cptid", "ssn"] }, by: "A" }, { name: "x", query: { ...q, filters: [{ field: "nope", op: "equals", value: "1" }] }, by: "A" },
     { name: "x", query: { ...q, sort: { field: "nope", dir: 1 } }, by: "A" }, { name: "x", query: { ...q, filters: [{ field: "lifetime", op: "drop", value: "1" }] }, by: "A" },
     { name: "x", query: { ...q, filters: [{ field: "lifetime", op: "gte", value: "abc" }] }, by: "A" }, { name: "x", query: { ...q, top: 25001 }, by: "A" },
+    { name: "x", query: { ...q, filters: [{ field: "lifetime", op: "contains", value: "1" }] }, by: "A" }, { name: "x", query: { ...q, filters: [{ field: "name", op: "gte", value: "1" }] }, by: "A" },
     { name: "x", query: { ...q, evil: 1 }, by: "A" }, { name: "", query: q, by: "A" }, { name: "x", query: q, by: "" }, { name: "x", query: q, by: "A", importKey: "../x" }]) {
     const res = await j(await pvas.POST(req("POST", bad))); assert.equal(res.s, 400, JSON.stringify(bad).slice(0, 120));
   }
@@ -79,7 +80,7 @@ const q = { fields: ["cptid", "name", "lifetime"], filters: [{ field: "lifetime"
   const sqlDown = reportListsRoute("pvas", yes, async () => ({ status: 500, body: { error: "Login failed for user engage_app" } }));
   for (const rt of [down, sqlDown]) {
     assert.equal((await rt.GET(req("GET"))).status, 503);
-    const res = await j(await rt.POST(req("POST", { name: "x", query: q, by: "A" }))); assert.equal(res.s, 503); assert.doesNotMatch(JSON.stringify(res.b), /engage_app/);
+    const res = await j(await rt.POST(req("POST", { name: "x", query: q, by: "A" }))); assert.equal(res.s, 503); assert.doesNotMatch(JSON.stringify(res.b), /engage_app|Nothing was changed/); assert.match(res.b.error, /Could not confirm/);
   }
   console.log("report-lists tests passed");
 })().catch((e) => { console.error(e); process.exit(1); });

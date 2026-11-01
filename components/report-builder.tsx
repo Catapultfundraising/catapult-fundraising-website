@@ -53,7 +53,7 @@ function useSharedLists(client: string, listsApi: string) {
       const j = (await r.json().catch(() => ({}))) as Record<string, unknown>;
       if (r.ok) return { ok: true, data: j };
       return { ok: false, status: r.status, code: j.code as string | undefined, error: r.status === 401 ? "Your session expired. Please sign in again." : String(j.error || "The saved list could not be changed. Please try again.") };
-    } catch { return { ok: false, status: 0, error: "Saved lists are unavailable right now. Nothing was changed." }; }
+    } catch { return { ok: false, status: 0, error: "Could not confirm the change. Reload the saved lists before retrying.", code: "unconfirmed" }; }
   };
   const markImported = (id: string) => { const next = [...new Set([...imported, id])]; setImported(next); try { localStorage.setItem(importedKey, JSON.stringify(next)); } catch { /* ignore */ } };
   const pending = local.filter((l) => !imported.includes(l.id));
@@ -131,7 +131,7 @@ export function ReportBuilder({ client, clientLabel, api, listsApi: listsApiProp
   const needBy = () => { if (by.trim()) return false; setListMsg({ tone: "err", text: "Enter your name first so others can see who saved or changed a list." }); return true; };
   const fail = async (r: Extract<ListResult, { ok: false }>) => {
     setListMsg({ tone: "err", text: r.error });
-    if (r.code === "version_conflict" || r.status === 404) await reload(); // show the latest version; never overwrite it
+    if (r.code === "version_conflict" || r.code === "unconfirmed" || r.status === 404) await reload(); // show the latest state; never overwrite or assume nothing changed
   };
   const saveNew = async () => {
     const name = listName.trim().slice(0, 80); if (!name || errors.length || needBy()) return;
