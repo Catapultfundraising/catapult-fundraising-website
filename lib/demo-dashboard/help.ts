@@ -2,7 +2,7 @@
 // exists in components/demo-data-dashboard.tsx; simulated features are labeled as such.
 import type { HelpTopic } from "@/lib/dashboard-help";
 
-export const DEMO_TABS = ["Overview", "Donor Lookup", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Committee", "Campaign Gifts", "Database Health", "Add + Upload", "Prospect Ratings"] as const;
+export const DEMO_TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"] as const;
 export type DemoTab = (typeof DEMO_TABS)[number];
 
 const SESSION = "Edits in this demo are kept only in this browser tab and are not shared with anyone else. Closing the tab or clicking Reset demo discards them (notes and saved report setups).";
@@ -66,12 +66,12 @@ export const DEMO_HELP_TOPICS: HelpTopic[] = [
     related: ["downloads"],
   },
   {
-    id: "committee", kind: "section", tab: "Committee", title: "Committee",
+    id: "committee", kind: "section", tab: "Board", title: "Board",
     summary: "Each campaign volunteer's portfolio: assigned prospects, commitments and open asks.",
     steps: ["Click a solicitor row to list their assigned records.", "Click a name to open the record."],
   },
   {
-    id: "campaign-gifts", kind: "section", tab: "Campaign Gifts", title: "Campaign Gifts",
+    id: "campaign-gifts", kind: "section", tab: "Campaign Donors", title: "Campaign Donors",
     summary: "Every campaign commitment with amount pledged, received and outstanding.",
     steps: ["Search or sort the table.", "Totals at the top reconcile to the campaign bar on Overview.", "Use Excel or PDF to download."],
     related: ["downloads"],
