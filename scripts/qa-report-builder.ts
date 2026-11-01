@@ -23,6 +23,14 @@ async function main() {
   const browser = await chromium.launch();
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 }, deviceScaleFactor: 2, acceptDownloads: true, extraHTTPHeaders: { "x-forwarded-proto": "https" } });
   await ctx.route("**/api/*-data-export", (route) => route.continue({ headers: { ...route.request().headers(), authorization: "Bearer qa-local" } }));
+  // Shared-lists API mocked in memory per client (contract + SQL path covered by lib/portal-v2/report-lists.test.ts and scripts/qa-shared-report-lists.ts).
+  const listDb: Record<string, any[]> = {};
+  await ctx.route("**/api/qa-report-lists/*", async (route) => {
+    const c = route.request().url().split("/").pop(); const live = (listDb[c] ??= []);
+    if (route.request().method() === "GET") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ lists: live }) });
+    const b = JSON.parse(route.request().postData()); const l = { id: live.length + 1, name: b.name, query: b.query, version: 1, created_by: b.by, updated_by: b.by, created_at: "2026-11-02T15:00:00Z", updated_at: "2026-11-02T15:00:00Z" };
+    live.push(l); return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ list: l }) });
+  });
   const page = await ctx.newPage();
   const log: string[] = [];
   page.on("dialog", (d) => { log.push(`dialog: ${d.message()}`); d.accept(); });
@@ -115,15 +123,15 @@ async function main() {
 
   // Saved list round-trip, per-client namespace.
   await page.getByPlaceholder(/Las Vegas/).fill("QA Vegas 15K");
-  await page.getByRole("button", { name: "Save list" }).click();
-  await page.getByText("Saved on this browser only.").waitFor();
+  await page.getByPlaceholder("Shown as saved by").fill("QA Staff");
+  await page.getByRole("button", { name: "Save as new list" }).click();
+  await page.getByText(/Saved "QA Vegas 15K" for everyone/).waitFor();
   await page.reload();
   await page.getByLabel("Saved lists").selectOption({ label: "QA Vegas 15K" });
   await page.waitForFunction((n) => document.querySelector("[data-testid=report-builder] span[aria-live]")?.textContent?.startsWith(`${n} records`), exp.length);
   assert.deepEqual((await headers()).map((x) => x.replace(/[ ▲▼]+$/, "")), order, "restored field order");
   assert.equal(await page.getByLabel("Filter value").nth(1).inputValue(), "las vegas");
-  const keys = await page.evaluate(() => Object.keys(localStorage));
-  assert.deepEqual(keys.filter((k) => k.startsWith("catapult-report-lists:")), ["catapult-report-lists:jag"]);
+  assert.deepEqual(Object.keys(listDb).filter((k) => listDb[k].length), ["jag"], "saved under the JAG client only");
   await shot(`${OUT}/06-saved-list-restored.png`);
 
   // Other client: separate namespace; campaign source unavailable -> blanks + one warning, campaign filter refused.
