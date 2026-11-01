@@ -55,6 +55,12 @@ const LEADERSHIP = [
     bio: "Paul answered a calling to serve after 9/11 and has spent the years since turning bold goals into finished campaigns. He raised the final $14 million of North Hawaii Community Hospital's $32 million campaign and has led Catapult campaigns ranging from $15 million to $155 million. A past Chair of the AFP International Foundation Fundraising Board, Paul knows the last dollar matters as much as the first.",
   },
   {
+    name: "Amy Juba, CFRE",
+    role: "Campaign Strategist",
+    photo: "/team/amy-juba.jpg",
+    bio: "Amy brings more than 20 years of fundraising and nonprofit leadership to the work of building a stronger campaign. A Certified Fund Raising Executive based in Amarillo, she pairs deep knowledge of the local philanthropic community with experience in feasibility studies, capital campaigns, strategic planning, and board development. From advising boards to strengthening donor stewardship and fundraising systems, Amy helps clients turn a thoughtful plan into practical steps, with relationships at the center of the work.",
+  },
+  {
     name: "Tina Romero",
     role: "Director of Campaign Services",
     photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/20b29291-5afc-4a87-8c36-2e8d74c8bc41.png",
