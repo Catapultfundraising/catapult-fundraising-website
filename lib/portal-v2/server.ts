@@ -31,13 +31,27 @@ const RECORDS: Record<PortalClient, () => Promise<{ index: { cptid: number; name
 const PLACEHOLDER_CPTID = 900_000;
 
 const ENGAGE_V2_PREVIEW = "https://catapult-calling-git-portal-gift-edit-void-wwwcatapultfrcom.vercel.app/api/portal-v2";
-export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
-  // Preview deploys of this branch talk to the Engage branch preview (same SQL database) until Engage PR #7 is merged.
-  const url = process.env.ENGAGE_PORTAL_URL_OVERRIDE || (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/delete-prospect-pdfs" ? "https://catapult-calling-git-feat-delete-prospect-pdfs-wwwcatapultfrcom.vercel.app/api/portal-v2" : undefined) || (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "feat/prospect-pdf-notes" ? "https://catapult-calling-git-feat-prospect-pdf-notes-wwwcatapultfrcom.vercel.app/api/portal-v2" : undefined) || (process.env.VERCEL_ENV === "preview" && process.env.VERCEL_GIT_COMMIT_REF === "fix/dashboard-10-fixes" ? ENGAGE_V2_PREVIEW : process.env.ENGAGE_PORTAL_URL), secret = process.env.PORTAL_WRITE_SECRET;
+function engageUrl() {
+  // Preview deploys of these branches talk to the matching Engage branch preview (same SQL database).
+  const ref = process.env.VERCEL_ENV === "preview" ? process.env.VERCEL_GIT_COMMIT_REF : undefined;
+  return process.env.ENGAGE_PORTAL_URL_OVERRIDE
+    || (ref === "feat/shared-report-lists" ? "https://catapult-calling-git-feat-shared-report-lists-wwwcatapultfrcom.vercel.app/api/portal-v2" : undefined)
+    || (ref === "feat/delete-prospect-pdfs" ? "https://catapult-calling-git-feat-delete-prospect-pdfs-wwwcatapultfrcom.vercel.app/api/portal-v2" : undefined)
+    || (ref === "feat/prospect-pdf-notes" ? "https://catapult-calling-git-feat-prospect-pdf-notes-wwwcatapultfrcom.vercel.app/api/portal-v2" : undefined)
+    || (ref === "fix/dashboard-10-fixes" ? ENGAGE_V2_PREVIEW : process.env.ENGAGE_PORTAL_URL);
+}
+
+/** Raw gateway call that keeps Engage's HTTP status (400/404/409) for callers that surface it. Throws only when unreachable/unconfigured. */
+export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<{ status: number; body: Record<string, unknown> }> {
+  const url = engageUrl(), secret = process.env.PORTAL_WRITE_SECRET;
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
   const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
-  const j = await r.json().catch(() => ({ error: `engage ${r.status}` }));
-  if (!r.ok) throw new Error(j.error || `engage ${r.status}`);
+  return { status: r.status, body: (await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown> };
+}
+
+export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
+  const { status, body: j } = await engageCall(client, op, body);
+  if (status < 200 || status >= 300) throw new Error(String(j.error || `engage ${status}`));
   return j as T;
 }
 

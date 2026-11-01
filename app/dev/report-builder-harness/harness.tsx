@@ -18,7 +18,7 @@ export function Harness() {
     <main className="min-h-screen bg-[rgb(var(--paper))] px-6 py-8">
       <div className="mx-auto max-w-7xl">
         <p className="mb-4 text-xs uppercase tracking-widest text-[rgb(var(--ink))]/50">Synthetic QA harness · {client.toUpperCase()}{opened ? ` · opened CPTID ${opened}` : ""}</p>
-        <ReportBuilder client={client} clientLabel="Synthetic Test Client" api={`/api/qa-report-fixture/${client}`} onOpen={setOpened} downloadExport={downloadExport} />
+        <ReportBuilder client={client} clientLabel="Synthetic Test Client" api={`/api/qa-report-fixture/${client}`} listsApi={`/api/qa-report-lists/${client}`} onOpen={setOpened} downloadExport={downloadExport} />
       </div>
     </main>
   );
