@@ -56,9 +56,9 @@ const LEADERSHIP = [
   },
   {
     name: "Amy Juba, CFRE",
-    role: "Campaign Strategist",
+    role: "Senior Counsel",
     photo: "/team/amy-juba.jpg",
-    bio: "Amy brings more than 20 years of fundraising and nonprofit leadership to the work of building a stronger campaign. A Certified Fund Raising Executive based in Amarillo, she pairs deep knowledge of the local philanthropic community with experience in feasibility studies, capital campaigns, strategic planning, and board development. From advising boards to strengthening donor stewardship and fundraising systems, Amy helps clients turn a thoughtful plan into practical steps, with relationships at the center of the work.",
+    bio: "Amy brings more than 20 years of experience in fundraising, nonprofit management, and capital campaigns. A Certified Fund Raising Executive based in Amarillo, she pairs local philanthropic knowledge with experience in feasibility studies, strategic planning, and board development. From advising boards to strengthening donor stewardship, Amy helps clients turn a thoughtful plan into action.",
   },
   {
     name: "Tina Romero",
