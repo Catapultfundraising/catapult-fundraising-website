@@ -54,6 +54,7 @@ for (const bad of ["mg score", "major gift score", "multiple review lists", "pas
 const pr = ALL_HELP_TOPICS.find((t) => t.id === "prospect-ratings")!;
 assert.ok(pr.steps.join(" ").includes("one review list"));
 assert.ok(pr.notes!.join(" ").includes("separate from saved report lists"));
+assert.ok(!JSON.stringify(pr).includes("client staff cannot"));
 assert.ok(ALL_HELP_TOPICS.find((t) => t.id === "shared-lists")!.notes!.join(" ").includes("separate from the Prospect Ratings"));
 
 console.log("dashboard-help tests passed");

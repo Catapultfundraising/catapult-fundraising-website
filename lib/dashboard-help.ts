@@ -37,7 +37,7 @@ const ALL_TOPICS: HelpTopic[] = [
     steps: [
       "Type a name, city or CPTID in the search box at the top of the page or on this tab.",
       "Click a result to open the donor record on the right.",
-      "Scroll the record for contact details, every gift, giving by year, wealth screening and the client-specific sections.",
+      "Scroll the record for contact details, the giving history on file, wealth screening and the client-specific sections.",
       "Close the record with the X or by pressing Escape.",
     ],
     notes: ["Merged and deleted records stay hidden from search. Use Database Health or Add + Upload to review merges and deletes."],
@@ -48,7 +48,7 @@ const ALL_TOPICS: HelpTopic[] = [
     summary: "Campaign progress and the headline giving trends.",
     steps: [
       "Check the campaign progress bar at the top: it is the campaign total including pledges.",
-      "Read the headline cards (lifetime giving, gifts, donors with gifts, screened records). Click a card to see the list behind it.",
+      "Read the headline cards. Cards with underlined numbers can be clicked to see the list behind them.",
       "Use the giving, donor count and retention charts to compare years.",
       "Use the Recent years table, or the download buttons on a table, to export the figures.",
     ],
@@ -72,8 +72,8 @@ const ALL_TOPICS: HelpTopic[] = [
     steps: [
       "Check the campaign goal and gift chart shown at the top.",
       "Read each level: gifts, gift level, cumulative total, prospects needed and share of goal.",
-      "Click a level's prospect count to list the prospects whose amount falls in that band.",
-      "Click any prospect to open the full donor record.",
+      "Where a count can be clicked, click it to list the prospects whose amount falls in that band.",
+      "Click a prospect name to open the donor record.",
       "Use the download buttons at the top of the dashboard for the complete branded PDF.",
     ],
     related: ["record", "downloads"],
@@ -94,7 +94,7 @@ const ALL_TOPICS: HelpTopic[] = [
     id: "reports", kind: "section", tab: "Reports", title: "Reports",
     summary: "Build your own prospect report: choose fields, add filters, sort, keep the top rows, then download to Excel or PDF.",
     steps: [
-      "Open Fields and tick the columns you want. Click Done.",
+      "Click Choose fields and tick the columns you want. Click Done.",
       "Click Add filter. Choose a field, a condition and a value. Dates use MM/DD/YYYY.",
       "Use the search box to narrow by name, CPTID, city or email.",
       "Click a column heading to sort.",
@@ -234,9 +234,9 @@ const ALL_TOPICS: HelpTopic[] = [
   },
   {
     id: "prospect-ratings", kind: "section", tab: "Prospect Ratings", title: "Prospect Ratings",
-    summary: "Catapult staff only: build the board prospect review list, invite members and see their ratings.",
+    summary: "Build the board prospect review list, invite board or committee members, and see their ratings.",
     steps: [
-      "Sign in with this client's employee dashboard password.",
+      "Open Prospect Ratings. It is available to signed-in dashboard users; if a sign-in box appears, your session needs to be renewed.",
       "Build the review list: either select prospects with filters (Option A) or upload a prospect list (Option B).",
       "Save the review list. Each dashboard has one review list; saving again asks before replacing it.",
       "Add or upload members, then send invites.",
@@ -244,7 +244,7 @@ const ALL_TOPICS: HelpTopic[] = [
     ],
     notes: [
       "This is separate from saved report lists on the Reports tab.",
-      "Members never see each other's answers, and client staff cannot open this page.",
+      "Members sign in from their own invite and rate the saved review list."
     ],
     related: ["shared-lists"],
   },
@@ -252,13 +252,13 @@ const ALL_TOPICS: HelpTopic[] = [
   // ---------- Shared tasks ----------
   {
     id: "record", kind: "task", title: "Open and edit a donor record",
-    summary: "Every name in the dashboard opens the same donor record.",
+    summary: "Clickable names across the dashboard open the same donor record.",
     steps: [
-      "Click a name anywhere, or search at the top of the page.",
+      "Click a highlighted name, or search at the top of the page.",
       "To change contact details, click Edit contact, enter your name and save. Replaced values are kept as old contact information.",
       "To change capacity or rating, use Edit in Wealth screening. The record shows where each value comes from (Edited, From PIR or DonorSearch).",
       "Log a contact or visit: choose the type, enter a date (MM/DD/YYYY) and notes.",
-      "Use Undo edit to reverse a change.",
+      "Wealth screening edits show who changed them, and can be reversed with Undo edit.",
     ],
     notes: ["Contact changes are kept when the data is refreshed each Monday."],
     related: ["gifts-pledges", "documents", "merge-delete"],
@@ -299,7 +299,7 @@ const ALL_TOPICS: HelpTopic[] = [
     id: "reports-build", kind: "task", title: "Build and download a report",
     summary: "Step-by-step for the Reports tab.",
     steps: [
-      "Go to Reports and open Fields to choose columns.",
+      "Go to Reports and click Choose fields to pick columns.",
       "Add filters. Each filter has a field, a condition and a value.",
       "Sort by clicking a column heading.",
       "Optionally keep only the top rows (applied after filters and sort).",
@@ -314,7 +314,7 @@ const ALL_TOPICS: HelpTopic[] = [
     steps: [
       "Set up the report. Type a List name and your name (shown as saved by).",
       "Click Save as new list.",
-      "To reopen, choose it from Saved lists.",
+      "To reopen, choose it from Shared saved lists.",
       "After changing filters, click Update list. Use Rename or Delete list as needed.",
       "If someone else changed the list first, the lists reload instead of overwriting their change.",
       "Lists saved earlier only on this browser are offered for Import so you can share them.",
