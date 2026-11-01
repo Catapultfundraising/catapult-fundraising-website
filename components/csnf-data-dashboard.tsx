@@ -14,6 +14,7 @@ import { BoardReviewAdmin } from "@/components/board-review/admin";
 import { useBoardReviewStaff, StaffSignIn } from "@/components/board-review/staff-tab";
 import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadExport, downloadUrl, useCrm, type ExportKind } from "@/components/csnf-data-crm";
 import { ReportBuilder } from "@/components/report-builder";
+import { DashboardHelp } from "@/components/dashboard-help";
 import type { IndexRow } from "@/lib/csnf-data-store";
 
 const NAVY = "#15212e";
@@ -701,7 +702,8 @@ export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
         </div>
       </header>
       <nav className="sticky top-0 z-10 border-b border-[rgb(var(--line))] bg-white">
-        <div className="mx-auto flex max-w-7xl gap-1 overflow-x-auto px-6">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-6">
+          <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
           {([...TABS, "Prospect Ratings"] as (Tab | "Prospect Ratings")[]).map((t) => (
             <button
               key={t}
@@ -711,6 +713,8 @@ export function CsnfDataDashboard({ data }: { data: CsnfSnapshot }) {
               {t}
             </button>
           ))}
+          </div>
+          <DashboardHelp client="csnf" currentTab={tab} />
         </div>
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
