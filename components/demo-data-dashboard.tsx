@@ -5,6 +5,7 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ArrowDown, ArrowUp, X } from "lucide-react";
+import Image from "next/image";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { RecordNav, NameLink, SafeBoundary, HistoryList, cmpValues, isoToUs, parseUsDateClient, todayUs, DateInput, type HistoryItem } from "@/components/dashboard-shared";
 import { DashboardHelp } from "@/components/dashboard-help";
@@ -16,11 +17,13 @@ import {
 } from "@/lib/demo-dashboard/data";
 import { DEMO_TABS, DEMO_HELP_TOPICS, demoSearch, demoTopicForTab, type DemoTab } from "@/lib/demo-dashboard/help";
 import { downloadTable, type Cell } from "@/lib/demo-dashboard/export";
+import { exampleRatings, RATING_DONE, RATING_MEMBERS } from "@/lib/demo-dashboard/ratings";
 import { FIELDS, DEFAULT_SETUP, runReport, seatGiftChart, type FieldKey, type ReportSetup } from "@/lib/demo-dashboard/logic";
 
 const NAVY = "#15212e";
 const GOLD = "#b28c46";
 const STORE_KEY = "catapult-sample-dashboard:v1";
+export const SETUPS_KEY = `${STORE_KEY}:report-setups`;
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const short = (n: number) => (n >= 1e6 ? `$${(n / 1e6).toFixed(n % 1e6 ? 2 : 0)}M` : n >= 1e3 ? `$${Math.round(n / 1e3)}K` : `$${Math.round(n)}`);
 const num = (n: number) => n.toLocaleString("en-US");
@@ -62,7 +65,7 @@ function Downloads({ title, cols, rows, subtitle }: { title: string; cols: { lab
   return (
     <span className="flex gap-1.5">
       {(["xlsx", "pdf"] as const).map((f) => (
-        <button key={f} type="button" disabled={!!busy || !rows.length} onClick={() => go(f)} className="rounded-md border border-[rgb(var(--navy))] px-2.5 py-1 text-xs font-medium text-[rgb(var(--navy))] hover:bg-[rgb(var(--navy))] hover:text-white disabled:opacity-50">
+        <button key={f} type="button" disabled={!!busy || !rows.length || !cols.length} onClick={() => go(f)} className="rounded-md border border-[rgb(var(--navy))] px-2.5 py-1 text-xs font-medium text-[rgb(var(--navy))] hover:bg-[rgb(var(--navy))] hover:text-white disabled:opacity-50">
           {busy === f ? "Preparing..." : f === "xlsx" ? "Excel" : "PDF"}
         </button>
       ))}
@@ -221,10 +224,10 @@ function Pyramid() {
   return (
     <div className="space-y-6">
       <Card>
-        <H sub="Historical giving plus campaign commitment. Click a band to see the donors.">Lifetime giving pyramid</H>
+        <H sub="Historical giving plus campaign commitment per record (pledged, not necessarily paid). Click a band to see the donors.">Historical giving + campaign commitments</H>
         <div className="space-y-1.5">
           {bands.map((b) => (
-            <button type="button" key={b.band} onClick={() => nav.drillIds(`Lifetime giving ${b.band}`, "Donors in this band", b.rows.map(byId))} className="grid w-full grid-cols-[88px_1fr_40px] items-center gap-3 rounded text-left text-sm hover:bg-[rgb(var(--brass))]/10 sm:grid-cols-[120px_1fr_60px_110px]">
+            <button type="button" key={b.band} onClick={() => nav.drillIds(`Historical giving + commitments ${b.band}`, "Donors in this band", b.rows.map(byId))} className="grid w-full grid-cols-[88px_1fr_40px] items-center gap-3 rounded text-left text-sm hover:bg-[rgb(var(--brass))]/10 sm:grid-cols-[120px_1fr_60px_110px]">
               <span className="font-medium">{b.band}</span>
               <span className="block h-6 rounded bg-[rgb(var(--paper))]"><span className="block h-6 rounded" style={{ width: `${Math.max(2, (b.rows.length / max) * 100)}%`, background: NAVY }} /></span>
               <span className="text-right tabular-nums">{b.rows.length}</span>
@@ -277,7 +280,6 @@ function Prospects() {
 }
 
 // ---------- Reports (local report builder) ----------
-const SETUPS_KEY = `${STORE_KEY}:report-setups`;
 
 function Reports() {
   const [s, setS] = useState<ReportSetup>(DEFAULT_SETUP);
@@ -425,12 +427,21 @@ function AddUpload() {
 }
 
 function Ratings() {
-  const rows = DEMO_DONORS.filter((d) => d.ask && !d.pledge).slice(0, 10).map((d, i) => ({ d, reviews: 3 + (i % 3), rating: ["Strong", "Strong", "Possible", "Strong", "Possible", "Unlikely"][i % 6], suggested: d.ask }));
+  const rows = exampleRatings();
   return (
     <div className="space-y-6">
-      <PreviewNote>example committee ratings with fictional reviewers. No reviewer invitations are sent from the demo.</PreviewNote>
-      <Card><H sub="How committee members' confidential ratings roll up (sample).">Prospect ratings</H>
-        <Table title="Prospect Ratings (example)" rows={rows} id={(r) => r.d.cptid} cols={[{ key: "n", label: "Name", get: (r) => r.d.name, name: true }, { key: "rv", label: "Reviews", get: (r) => r.reviews }, { key: "r", label: "Consensus", get: (r) => r.rating }, { key: "s", label: "Suggested ask", get: (r) => r.suggested, money: true }]} />
+      <PreviewNote>example committee ratings from fictional members. No reviewer invitations are sent from the demo and the rating form is not available here.</PreviewNote>
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <Stat label="Members completed" value={`${RATING_DONE} of ${RATING_MEMBERS.length}`} note="Sample committee" />
+        <Stat label="Prospects reviewed" value={num(rows.length)} />
+      </div>
+      <Card><H sub="Each member answers for each prospect. A = I could be the primary solicitor; B = I could be a secondary solicitor; C = I can open the door; D = I don't know them. Members can add a comment.">Prospect ratings (example)</H>
+        <Table title="Prospect Ratings (example)" rows={rows} id={(r) => r.d.cptid} cols={[{ key: "n", label: "Name", get: (r) => r.d.name, name: true },
+          { key: "a", label: "A - Primary", get: (r) => r.a }, { key: "b", label: "B - Secondary", get: (r) => r.b }, { key: "c", label: "C - Open door", get: (r) => r.c }, { key: "d", label: "D - Don't know", get: (r) => r.dk },
+          { key: "cm", label: "Comments", get: (r) => r.comments }]} />
+      </Card>
+      <Card><H sub="Sample completion status.">Committee members</H>
+        <ul className="grid gap-1 text-sm sm:grid-cols-2">{RATING_MEMBERS.map((m, i) => <li key={m} className="flex justify-between border-b border-[rgb(var(--line))] py-1"><span>{m}</span><span className={i < RATING_DONE ? "text-[rgb(var(--navy))]" : "text-[rgb(var(--ink))]/50"}>{i < RATING_DONE ? "Completed" : "Not started"}</span></li>)}</ul>
       </Card>
     </div>
   );
@@ -478,6 +489,13 @@ function RecordView({ d }: { d: Donor }) {
       <Card><H sub={`Historical giving ${usd(lifetime(d))} across ${d.gifts.length} gifts`}>Giving history</H>
         <ul className="max-h-56 overflow-auto text-sm">{[...d.gifts].reverse().map((g, i) => <li key={i} className="flex justify-between gap-3 border-b border-[rgb(var(--line))] py-1"><span>{isoToUs(g.date)} · {g.kind}</span><span className="tabular-nums">{usd(g.amount)}</span></li>)}</ul>
       </Card>
+      <Card><H sub="In client dashboards your team uploads PDF notes here. In the demo, uploads are disabled; you can download a generated sample notes PDF.">PDF notes</H>
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="button" onClick={() => downloadTable({ title: `Meeting notes - ${d.name}`, subtitle: "Generated sample notes", cols: [{ label: "Date" }, { label: "Type" }, { label: "Note" }, { label: "By" }], rows: notes.map((n) => [isoToUs(n.date), n.kind, n.note, n.by]) }, "pdf")} disabled={!notes.length} className="rounded-md border border-[rgb(var(--navy))] px-3 py-1 text-xs font-medium text-[rgb(var(--navy))] disabled:opacity-50">Download sample notes PDF</button>
+          <button type="button" disabled className="rounded-md bg-[rgb(var(--navy))] px-3 py-1 text-xs text-white opacity-50">Upload PDF (disabled in demo)</button>
+        </div>
+        {!notes.length && <p className="mt-2 text-xs text-[rgb(var(--ink))]/55">Add a history note first to generate a sample PDF.</p>}
+      </Card>
       <Card><H sub="Notes you add stay in this browser tab only.">History notes</H>
         <div className="mb-3 grid grid-cols-2 gap-2 rounded-md bg-[rgb(var(--paper))] p-2">
           <label className="text-xs">Type<select value={f.kind} onChange={(e) => setF({ ...f, kind: e.target.value })} className="w-full rounded-md border border-[rgb(var(--line))] px-2 py-1.5 text-sm">{NOTE_KINDS.map((k) => <option key={k}>{k}</option>)}</select></label>
@@ -498,6 +516,7 @@ export function DemoDataDashboard() {
   const [drill, setDrill] = useState<{ title: string; sub: string; ids: number[] } | null>(null);
   const [pick, setPick] = useState<number[] | null>(null);
   const [q, setQ] = useState("");
+  const [rev, setRev] = useState(0);
   const { overlay, save, reset } = useSessionNotes();
 
   const notesOf = useCallback((d: Donor) => overlay[d.cptid] ?? d.notes, [overlay]);
@@ -527,7 +546,7 @@ export function DemoDataDashboard() {
       setDrill({ title, sub, ids });
     },
   }), []);
-  const ctx: DemoCtx = { notesOf, post: postNote, reset: () => { reset(); setRec(null); setDrill(null); }, edited: Object.keys(overlay).length > 0, open: nav.open };
+  const ctx: DemoCtx = { notesOf, post: postNote, reset: () => { reset(); try { sessionStorage.removeItem(SETUPS_KEY); } catch { /* ignore */ } setRec(null); setDrill(null); setPick(null); setQ(""); setRev((r) => r + 1); }, edited: Object.keys(overlay).length > 0, open: nav.open };
   const hits = q.trim() ? DEMO_DONORS.filter((d) => `${d.name} ${d.city} ${d.cptid}`.toLowerCase().includes(q.toLowerCase())).slice(0, 8) : [];
   const recDonor = rec ? BY_ID.get(rec) : undefined;
   const helpCatalog = useMemo(() => ({
@@ -543,9 +562,10 @@ export function DemoDataDashboard() {
         <strong>SAMPLE DASHBOARD · FICTIONAL DATA.</strong> {DEMO_ORG_LABEL} is invented; no real donors or organizations. Changes stay in this browser tab only.
         <button type="button" onClick={ctx.reset} className="ml-2 rounded border border-[rgb(var(--navy))] px-2 py-0.5 text-xs font-semibold hover:bg-[rgb(var(--navy))] hover:text-white">Reset demo</button>
       </div>
-      <header className="bg-[rgb(var(--navy))] px-4 py-8 text-white sm:px-6">
+      <header className="bg-[rgb(var(--navy))] px-4 py-5 text-white sm:px-6 sm:py-8">
         <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4">
           <div className="min-w-0">
+            <span className="mb-3 inline-flex h-14 items-center overflow-hidden rounded-md bg-[rgb(var(--paper))] px-1"><Image src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png" alt="Catapult Fundraising" width={768} height={512} className="h-32 w-auto max-w-none object-contain" priority /></span>
             <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">Prepared by Catapult Fundraising · Sample</p>
             <h1 className="font-display mt-1 text-3xl">{DEMO_ORG_LABEL}</h1>
             <p className="mt-1 text-sm text-white/70">Fictional source data as of {DEMO_AS_OF}</p>
@@ -569,7 +589,7 @@ export function DemoDataDashboard() {
         </div>
       </nav>
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <SafeBoundary key={tab} label={`The ${tab} tab`}>
+        <SafeBoundary key={`${tab}-${rev}`} label={`The ${tab} tab`}>
           {tab === "Overview" && <Overview />}
           {tab === "Donor Lookup" && <Lookup />}
           {tab === "Gift Pyramid" && <Pyramid />}

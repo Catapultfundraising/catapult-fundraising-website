@@ -4,6 +4,8 @@ import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 import { DEMO_DONORS, DEMO_GOAL, campaignTotals, paid, outstanding, sum, lifetime } from "./data";
 import { runReport, DEFAULT_SETUP, seatGiftChart } from "./logic";
+import { exampleRatings } from "./ratings";
+import { isBareRoute } from "../../components/bare-route";
 import { sheetRows, SAMPLE_MARK } from "./export";
 import { DEMO_TABS, DEMO_HELP_TOPICS, demoSearch } from "./help";
 
@@ -67,4 +69,25 @@ t("isolation: demo files make no network calls and import no client stores/APIs"
   const mw = readFileSync("middleware.ts", "utf8");
   assert.ok(!mw.includes("demo-dashboard"), "middleware untouched");
 });
+t("prospect ratings example uses A/B/C/D answers that add up per completed member", () => {
+  for (const r of exampleRatings()) { assert.ok(r.dk >= 0); assert.equal(r.a + r.b + r.c + r.dk, 4); }
+  assert.ok(!/Consensus|Suggested ask/.test(readFileSync("components/demo-data-dashboard.tsx", "utf8")));
+});
+t("export PDF uses exact brand colours only", () => {
+  const s = readFileSync("lib/demo-dashboard/export.tsx", "utf8");
+  for (const c of ["#0E1E31", "#B28C46", "#5A6675", "#DCE1E7"]) assert.ok(s.includes(c), c);
+  for (const h of s.match(/#[0-9a-fA-F]{6}\b/g) ?? []) assert.ok(["#0E1E31", "#B28C46", "#5A6675", "#DCE1E7", "#FFFFFF"].includes(h), h);
+});
+t("bare route exception is exactly /demo-dashboard; client pages keep site chrome", () => {
+  assert.equal(isBareRoute("/demo-dashboard"), true);
+  for (const p of ["/demo-dashboard/x", "/demo", "/demo-dashboards", "/", "/pvas/data-dashboard", "/jag/data-dashboard", "/csnf/data-dashboard", "/baq/data-dashboard", "/wcbhc/data-dashboard", "/research", "/blog"]) assert.equal(isBareRoute(p), false, p);
+  assert.equal(isBareRoute("/csnf"), true); assert.equal(isBareRoute("/csnfvip/x"), true);
+});
+t("reset clears notes and saved setups and remounts the tab; downloads need columns", () => {
+  const s = readFileSync("components/demo-data-dashboard.tsx", "utf8");
+  assert.match(s, /sessionStorage\.removeItem\(SETUPS_KEY\)/);
+  assert.match(s, /key=\{`\$\{tab\}-\$\{rev\}`\}/);
+  assert.match(s, /!rows\.length \|\| !cols\.length/);
+});
 console.log(`${n} tests passed`);
+

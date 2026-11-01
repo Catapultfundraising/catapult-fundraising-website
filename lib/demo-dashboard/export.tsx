@@ -1,3 +1,4 @@
+// Catapult brand colours: navy #0E1E31, brass #B28C46, slate #5A6675, rule #DCE1E7.
 // Browser-side Excel/PDF downloads for the fictional sample dashboard. No server calls.
 import { DEMO_ORG_LABEL } from "./data";
 
@@ -33,11 +34,11 @@ const fmtCell = (v: Cell, money?: boolean) => (typeof v === "number" && money ? 
 export async function pdfBlob(t: ExportTable): Promise<Blob> {
   const { pdf, Document, Page, Text, View, StyleSheet } = await import("@react-pdf/renderer");
   const s = StyleSheet.create({
-    page: { padding: 28, fontSize: 8, fontFamily: "Helvetica", color: "#1f2937" },
-    mark: { position: "absolute", top: 300, left: 60, fontSize: 48, color: "#b28c46", opacity: 0.15, transform: "rotate(-30deg)" },
-    band: { backgroundColor: "#15212e", color: "#ffffff", padding: 8, marginBottom: 8 },
-    row: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: "#e5e0d5", paddingVertical: 3 },
-    th: { flexDirection: "row", backgroundColor: "#15212e", color: "#ffffff", paddingVertical: 4 },
+    page: { padding: 28, fontSize: 8, fontFamily: "Helvetica", color: "#0E1E31" },
+    mark: { position: "absolute", top: 300, left: 60, fontSize: 48, color: "#B28C46", opacity: 0.15, transform: "rotate(-30deg)" },
+    band: { backgroundColor: "#0E1E31", color: "#FFFFFF", padding: 8, marginBottom: 8 },
+    row: { flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: "#DCE1E7", paddingVertical: 3 },
+    th: { flexDirection: "row", backgroundColor: "#0E1E31", color: "#FFFFFF", paddingVertical: 4 },
     cell: { flex: 1, paddingHorizontal: 3 },
   });
   const doc = (
@@ -45,7 +46,7 @@ export async function pdfBlob(t: ExportTable): Promise<Blob> {
       <Page size="LETTER" orientation={t.cols.length > 6 ? "landscape" : "portrait"} style={s.page}>
         <Text fixed style={s.mark}>SAMPLE DATA</Text>
         <View style={s.band}>
-          <Text style={{ fontSize: 7, color: "#cdaa6e" }}>{SAMPLE_MARK.toUpperCase()}</Text>
+          <Text style={{ fontSize: 7, color: "#B28C46" }}>{SAMPLE_MARK.toUpperCase()}</Text>
           <Text style={{ fontSize: 13, marginTop: 2 }}>{t.title}</Text>
           <Text style={{ fontSize: 8, marginTop: 2 }}>{DEMO_ORG_LABEL}{t.subtitle ? ` · ${t.subtitle}` : ""}</Text>
         </View>
@@ -53,7 +54,7 @@ export async function pdfBlob(t: ExportTable): Promise<Blob> {
         {t.rows.map((r, ri) => (
           <View key={ri} style={s.row} wrap={false}>{r.map((v, ci) => <Text key={ci} style={[s.cell, t.cols[ci]?.money ? { textAlign: "right" } : {}]}>{String(fmtCell(v, t.cols[ci]?.money))}</Text>)}</View>
         ))}
-        <Text fixed style={{ position: "absolute", bottom: 14, left: 28, fontSize: 7, color: "#6b7280" }} render={({ pageNumber, totalPages }) => `${SAMPLE_MARK} · Prepared by Catapult Fundraising · Page ${pageNumber} of ${totalPages}`} />
+        <Text fixed style={{ position: "absolute", bottom: 14, left: 28, fontSize: 7, color: "#5A6675" }} render={({ pageNumber, totalPages }) => `${SAMPLE_MARK} · Prepared by Catapult Fundraising · Page ${pageNumber} of ${totalPages}`} />
       </Page>
     </Document>
   );
