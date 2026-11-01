@@ -12,7 +12,8 @@ import { formatDollars } from "@/lib/gift-chart";
 import { extrasFromIndex, seatGc2p } from "@/lib/pvas-gc2p";
 import { BoardReviewAdmin } from "@/components/board-review/admin";
 import { useBoardReviewStaff, StaffSignIn } from "@/components/board-review/staff-tab";
-import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadUrl, useCrm, type ExportKind } from "@/components/pvas-data-crm";
+import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadExport, downloadUrl, useCrm, type ExportKind } from "@/components/pvas-data-crm";
+import { ReportBuilder } from "@/components/report-builder";
 import type { IndexRow } from "@/lib/pvas-data-store";
 
 const NAVY = "#15212e";
@@ -25,7 +26,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Donors", "Add + Upload"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -740,6 +741,7 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
         {tab === "Gift Pyramid" && <Pyramid d={data} />}
         {tab === "Gift Chart + GC2P" && <GiftChartTab d={data} />}
         {tab === "Prospects" && <Prospects d={data} />}
+        {tab === "Reports" && <ReportsTab clientLabel={data.client} />}
         {tab === "Board" && <Board d={data} />}
         {tab === "Portfolio" && <Portfolio d={data} />}
         {tab === "Database Health" && <Health d={data} />}
@@ -753,4 +755,9 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
     </PortalV2Provider>
     </CrmProvider>
   );
+}
+
+function ReportsTab({ clientLabel }: { clientLabel: string }) {
+  const { open } = useCrm();
+  return <ReportBuilder client="pvas" clientLabel={clientLabel} api="/api/pvas-data-report-builder" onOpen={open} downloadExport={downloadExport} />;
 }
