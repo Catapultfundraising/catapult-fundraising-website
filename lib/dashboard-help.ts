@@ -231,7 +231,7 @@ const ALL_TOPICS: HelpTopic[] = [
       "Change log: see every upload and change. An upload can be undone from here.",
     ],
     notes: [
-      "Adding an individual with a first name, last name and state automatically requests a DonorSearch wealth screening; results appear on the record within about 15 minutes.",
+      "Adding an individual with a first name, last name and state automatically requests a DonorSearch wealth screening. Check Wealth screening on the record for the request status and any returned results. Some requests may not produce a match.",
       "Prospects added here are listed at the bottom. Click Edit to fix a name, address or contact detail.",
     ],
     related: ["merge-delete", "troubleshooting"],
@@ -262,7 +262,7 @@ const ALL_TOPICS: HelpTopic[] = [
       "Changes made on the dashboard (edits, gifts, uploads) show right away, even before the next refresh.",
       "CPTID is the dashboard's record number. It is not necessarily the ID in the client's own database (that is the Client ID).",
       "Before editing, check the name, address and CPTID to be sure you have the right person.",
-      "Dashboard changes are saved in the dashboard. They are not written back to the client's own database.",
+      "Do not assume a dashboard edit updates the client\u2019s own database; follow the team\u2019s process for updating the source record.",
       "Capacity is a wealth estimate. It is not a pledge or an ask amount.",
     ],
     related: ["record", "gifts-pledges"],
