@@ -6,7 +6,7 @@ import { ArrowLeft, CircleHelp, Search, X } from "lucide-react";
 import { searchTopics, sectionTopicsFor, taskTopicsFor, topicForTab, type HelpClient, type HelpTopic } from "@/lib/dashboard-help";
 
 /** Optional topic catalog for dashboards outside the five client set (e.g. the fictional sample dashboard). */
-export interface HelpCatalog { sections: HelpTopic[]; tasks: HelpTopic[]; search: (q: string) => HelpTopic[]; topicForTab: (tab?: string) => HelpTopic | undefined }
+export interface HelpCatalog { sections: HelpTopic[]; tasks: HelpTopic[]; search: (q: string) => HelpTopic[]; topicForTab: (tab?: string) => HelpTopic | undefined; searchPlaceholder?: string }
 
 /** Help button + indexed, searchable how-to panel for the employee data dashboards. Read-only: no network calls. */
 export function DashboardHelp({ client, catalog, currentTab }: { client?: HelpClient; catalog?: HelpCatalog; currentTab?: string }) {
@@ -80,7 +80,7 @@ export function DashboardHelp({ client, catalog, currentTab }: { client?: HelpCl
                 type="search"
                 value={q}
                 onChange={(e) => { setQ(e.target.value); setMobileList(!!e.target.value.trim()); }}
-                placeholder="Search help (e.g. merge, pledge, Excel)"
+                placeholder={catalog?.searchPlaceholder ?? "Search help (e.g. merge, pledge, Excel)"}
                 className="w-full rounded-md border border-[rgb(var(--line))] py-2 pl-9 pr-3 text-sm"
               />
             </label>

@@ -441,8 +441,8 @@ function Modal({ open, onClose, title, children, testid }: { open: boolean; onCl
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogPrimitive.Portal>
-        <DialogPrimitive.Overlay className="fixed inset-0 z-40 bg-[rgb(var(--navy))]/40" />
-        <DialogPrimitive.Content data-testid={testid} aria-describedby={undefined} className="fixed inset-0 z-40 flex flex-col bg-[rgb(var(--paper))] shadow-2xl focus:outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(760px,100vw)]">
+        <DialogPrimitive.Overlay className="fixed inset-0 z-50 bg-[rgb(var(--navy))]/40" />
+        <DialogPrimitive.Content data-testid={testid} aria-describedby={undefined} className="fixed inset-0 z-50 flex flex-col bg-[rgb(var(--paper))] shadow-2xl focus:outline-none sm:inset-y-0 sm:left-auto sm:right-0 sm:w-[min(760px,100vw)]">
           <header className="flex items-center gap-3 bg-[rgb(var(--navy))] px-5 py-4 text-white">
             <DialogPrimitive.Title className="font-display min-w-0 flex-1 truncate text-xl">{title}</DialogPrimitive.Title>
             <span className="rounded bg-[rgb(var(--brass))] px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-[rgb(var(--navy))]">Fictional</span>
@@ -532,7 +532,7 @@ export function DemoDataDashboard() {
   const recDonor = rec ? BY_ID.get(rec) : undefined;
   const helpCatalog = useMemo(() => ({
     sections: DEMO_HELP_TOPICS.filter((t) => t.kind === "section"), tasks: DEMO_HELP_TOPICS.filter((t) => t.kind === "task"),
-    search: demoSearch, topicForTab: demoTopicForTab,
+    search: demoSearch, topicForTab: demoTopicForTab, searchPlaceholder: "Search help (e.g. pledge, Excel, notes)",
   }), []);
 
   return (
