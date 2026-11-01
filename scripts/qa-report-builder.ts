@@ -101,6 +101,15 @@ async function main() {
   execFileSync("pdftoppm", ["-png", "-r", "60", "-f", "1", "-l", "1", pp, `${OUT}/05-pdf-page`]);
   log.push(`pdf ${pd.suggestedFilename()} rows=${exp.length}`);
 
+  // Top N after filters/sort: 3 highest-lifetime of the filtered list.
+  await page.getByLabel("Top rows").fill("0");
+  await page.getByRole("alert").filter({ hasText: "whole number" }).waitFor();
+  await page.getByLabel("Top rows").fill("3");
+  await page.waitForFunction(() => document.querySelector("[data-testid=report-builder] span[aria-live]")?.textContent?.startsWith("3 records"));
+  assert.deepEqual((await page.locator("[data-testid=report-builder] tbody tr td:nth-child(1)").allTextContents()).map(Number), exp.slice(0, 3).map((r) => r.cptid));
+  await page.getByLabel("Top rows").fill("");
+  await page.waitForFunction((n) => document.querySelector("[data-testid=report-builder] span[aria-live]")?.textContent?.startsWith(`${n} records`), exp.length);
+
   // Saved list round-trip, per-client namespace.
   await page.getByPlaceholder(/Las Vegas/).fill("QA Vegas 15K");
   await page.getByRole("button", { name: "Save list" }).click();

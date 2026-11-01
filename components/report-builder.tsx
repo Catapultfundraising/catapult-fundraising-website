@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, Download, FileSpreadsheet, Plus, Save, Trash2, X } from "lucide-react";
 import {
-  DEFAULT_FIELDS, FIELD_BY_ID, OPS, PDF_MAX_ROWS, REPORT_FIELDS, XLSX_MAX_ROWS, filterError, opsFor, queryErrors, reportNotes, sanitizeQuery,
+  DEFAULT_FIELDS, TOP_MAX, FIELD_BY_ID, OPS, PDF_MAX_ROWS, REPORT_FIELDS, XLSX_MAX_ROWS, filterError, opsFor, queryErrors, reportNotes, sanitizeQuery,
   type FilterOp, type ReportFilter, type ReportQuery, type ReportRow,
 } from "@/lib/portal-v2/report-fields";
 
@@ -48,6 +48,7 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
   const [fields, setFields] = useState<string[]>(DEFAULT_FIELDS);
   const [filters, setFilters] = useState<ReportFilter[]>([]);
   const [search, setSearch] = useState("");
+  const [top, setTop] = useState("");
   const [sort, setSort] = useState<{ field: string; dir: 1 | -1 }>({ field: "lifetime", dir: -1 });
   const [res, setRes] = useState<{ total: number; rows: ReportRow[]; asOf?: string; campaignAvailable?: boolean } | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -57,7 +58,9 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
   const [listName, setListName] = useState("");
   const [activeList, setActiveList] = useState<string>("");
   const { lists, write } = useSavedLists(client);
-  const query = useMemo<ReportQuery>(() => ({ fields, filters, search, sort }), [fields, filters, search, sort]);
+  const topN = Number(top);
+  const topError = top.trim() && !(Number.isInteger(topN) && topN >= 1 && topN <= TOP_MAX) ? `Top rows: enter a whole number from 1 to ${TOP_MAX.toLocaleString()}` : null;
+  const query = useMemo<ReportQuery>(() => ({ fields, filters, search, sort, top: top.trim() && !topError ? topN : undefined }), [fields, filters, search, sort, top, topError, topN]);
   const seq = useRef(0);
 
   const fetchRows = useCallback(async (q: ReportQuery, limit: number) => {
@@ -69,7 +72,7 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
     return (await r.json()) as { total: number; rows: ReportRow[]; asOf?: string; campaignAvailable?: boolean };
   }, [api]);
 
-  const errors = useMemo(() => queryErrors(query), [query]);
+  const errors = useMemo(() => [...queryErrors(query), ...(topError ? [topError] : [])], [query, topError]);
   useEffect(() => {
     const n = ++seq.current;
     if (errors.length) { setLoading(false); return; } // never run a query with a malformed value
@@ -94,7 +97,7 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
     setActiveList(id);
     const l = lists.find((x) => x.id === id); if (!l) return;
     const q = sanitizeQuery(l.query);
-    setFields(q.fields); setFilters(q.filters); setSearch(q.search ?? ""); setSort(q.sort ?? { field: "lifetime", dir: -1 }); setListName(l.name);
+    setFields(q.fields); setFilters(q.filters); setSearch(q.search ?? ""); setSort(q.sort ?? { field: "lifetime", dir: -1 }); setTop(q.top ? String(q.top) : ""); setListName(l.name);
   };
   const saveList = () => {
     const name = listName.trim().slice(0, 80); if (!name) return;
@@ -156,7 +159,7 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
         </label>
         <button onClick={saveList} disabled={!listName.trim()} className={`${btn} bg-[rgb(var(--navy))] text-white`}><Save className="h-3.5 w-3.5" />Save list</button>
         {activeList && <button onClick={deleteList} className={`${btn} border border-[rgb(var(--line))] text-[rgb(var(--ink))]`}><Trash2 className="h-3.5 w-3.5" />Delete list</button>}
-        <p className="basis-full text-xs text-[rgb(var(--ink))]/55"><b>Saved on this browser only.</b> Lists keep the fields and filters (not a frozen copy of records) and do not appear on other computers.</p>
+        <p className="basis-full text-xs text-[rgb(var(--ink))]/55"><b>Saved on this browser only.</b> Lists keep the fields, filters, sort and top-N (not a frozen copy of records) and do not appear on other computers. This does not change the Prospect Ratings tab.</p>
       </div>
 
       <div className="rounded-lg border border-[rgb(var(--line))] bg-white p-3">
@@ -221,6 +224,10 @@ export function ReportBuilder({ client, clientLabel, api, onOpen, downloadExport
           <div className="flex flex-wrap items-center gap-2">
             <button onClick={() => setFilters((fs) => [...fs, { field: "lifetime", op: "gte", value: "" }])} className={`${btn} border border-[rgb(var(--line))]`}><Plus className="h-3.5 w-3.5" />Add filter</button>
             <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search name, CPTID, city or email..." className={`${input} w-full sm:w-72`} />
+            <label className="flex items-center gap-1.5 text-xs text-[rgb(var(--ink))]/70">Keep only the top
+              <input aria-label="Top rows" aria-invalid={!!topError} inputMode="numeric" value={top} onChange={(e) => setTop(e.target.value)} placeholder="all" className={`${input} w-20 ${topError ? "border-red-600" : ""}`} />
+              rows after filters and sort</label>
+            {topError && <span role="alert" className="text-xs text-red-700">{topError}</span>}
           </div>
         </div>
       </div>

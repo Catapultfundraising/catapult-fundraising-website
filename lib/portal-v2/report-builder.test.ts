@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { NextRequest } from "next/server";
 import { buildReportRows, reportRoute } from "./report-route";
-import { runReport, sanitizeQuery, describeFilters, filterError, queryErrors, XLSX_MAX_ROWS } from "./report-fields";
+import { parseCapacity, runReport, sanitizeQuery, describeFilters, filterError, queryErrors, XLSX_MAX_ROWS } from "./report-fields";
 import type { PortalState } from "./clients";
 
 // Synthetic records only (ZZTEST). No storage or SQL is touched.
@@ -79,6 +79,26 @@ async function main() {
   r2 = await route3.POST(new NextRequest("http://x", { method: "POST", body: JSON.stringify({ query: { fields: ["name"], filters: [{ field: "cptid", op: "lte", value: "10100" }] }, format: "xlsx" }) }));
   assert.equal(r2.status, 200); assert.equal(r2.headers.get("x-report-rows"), "104"); // 101 big rows + live campaign/prospect records 1, 4, 900 assert.equal(built, true);
   assert.equal(queryErrors(sanitizeQuery({ filters: [{ field: "zip", op: "contains", value: "abc" }] })).length, 0);
+
+  // Capacity parsing is conservative; unknown stays null.
+  assert.deepEqual(parseCapacity("$500K-$1M").min, 500000);
+  assert.deepEqual(parseCapacity("$500,000 - $999,999").min, 500000);
+  assert.deepEqual(parseCapacity("$1M+").min, 1000000);
+  assert.deepEqual(parseCapacity("$1.5M and up").min, 1500000);
+  assert.deepEqual(parseCapacity("<$500K"), { min: 0, read: "Under $500,000" });
+  assert.equal(parseCapacity("Under $25K").min, 0);
+  assert.equal(parseCapacity("$250K").min, 250000);
+  for (const bad of ["High", "500", "$1M-$500K", "DS3", "$5K-", "TBD"]) assert.equal(parseCapacity(bad).min, null, bad);
+  assert.equal(parseCapacity("").min, null);
+  assert.equal(by.get(1)!.capacityMin, 250000, "parsed from staff override $250K");
+  assert.equal(by.get(5)!.capacityMin, 1000000); assert.equal(by.get(4)!.capacityMin, null);
+  // $500K+ capacity filter excludes unknown capacity.
+  assert.deepEqual(runReport(rows, sanitizeQuery({ filters: [{ field: "capacityMin", op: "gte", value: "500000" }] })).map((r) => r.cptid), [5]);
+  // Top N applies after filter + sort, and the API total equals the capped count.
+  assert.deepEqual(runReport(rows, sanitizeQuery({ top: 2, sort: { field: "lifetime", dir: -1 } })).map((r) => r.cptid), [1, 4]);
+  assert.equal(sanitizeQuery({ top: 999999 }).top, 25000); assert.equal(sanitizeQuery({ top: 0 }).top, undefined); assert.equal(sanitizeQuery({ top: "x" }).top, undefined);
+  const r4 = await reportRoute("jag", async () => true, async () => data as never, async () => tracking, undefined, async () => state).POST(new NextRequest("http://x", { method: "POST", body: JSON.stringify({ query: { fields: ["name"], top: 2 } }) }));
+  const j4 = await r4.json(); assert.equal(j4.total, 2); assert.equal(j4.rows.length, 2);
 
   // Strict per-client auth: unauthorized requests never load data.
   let loaded = false;

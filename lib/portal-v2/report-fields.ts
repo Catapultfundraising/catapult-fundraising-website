@@ -35,6 +35,8 @@ export const REPORT_FIELDS: ReportField[] = [
   { id: "band", label: "Giving band", group: "Giving history", kind: "text" },
   { id: "ds", label: "DS rating", group: "Wealth", kind: "text", help: "Staff edit, then client screening file, then latest dashboard DonorSearch result. PIR values are not included." },
   { id: "capacity", label: "Capacity", group: "Wealth", kind: "text", help: "Staff edit, then client screening file, then latest dashboard DonorSearch result. PIR values are not included." },
+  { id: "capacityMin", label: "Capacity minimum (parsed)", group: "Wealth", kind: "usd", help: "Lower bound read from the Capacity text: $500K-$1M = $500,000; $1M+ = $1,000,000; under/<$500K = $0. Blank when the text can't be read." },
+  { id: "capacityRead", label: "Capacity read as", group: "Wealth", kind: "text", help: "How the Capacity text was interpreted for the parsed minimum." },
   { id: "campaignPledged", label: "Campaign pledges", group: "Campaign", kind: "usd", help: "Pledged to the campaign. Not paid giving. Blank when campaign data is unavailable." },
   { id: "campaignReceived", label: "Campaign gifts received", group: "Campaign", kind: "usd", help: "Campaign gifts entered on the dashboard. Not added to Lifetime giving." },
   { id: "status", label: "Prospect status", group: "Committee tracking", kind: "text" },
@@ -52,7 +54,8 @@ export const OPS = {
 } as const;
 export type FilterOp = keyof typeof OPS;
 export interface ReportFilter { field: string; op: FilterOp; value?: string }
-export interface ReportQuery { fields: string[]; filters: ReportFilter[]; search?: string; sort?: { field: string; dir: 1 | -1 } }
+export interface ReportQuery { fields: string[]; filters: ReportFilter[]; search?: string; sort?: { field: string; dir: 1 | -1 }; /** Keep only the first N rows after filtering and sorting. */ top?: number }
+export const TOP_MAX = 25_000;
 
 export function opsFor(kind: FieldKind): FilterOp[] {
   return kind === "text" ? ["contains", "equals", "not_contains", "empty", "not_empty"] : ["gte", "lte", "equals", "empty", "not_empty"];
@@ -109,12 +112,34 @@ export function runReport(rows: ReportRow[], q: ReportQuery): ReportRow[] {
   if (search) out = out.filter((r) => `${r.name ?? ""} ${r.cptid ?? ""} ${r.city ?? ""} ${r.email ?? ""}`.toLowerCase().includes(search));
   const s = q.sort && FIELD_BY_ID.has(q.sort.field) ? q.sort : { field: "lifetime", dir: -1 as const };
   const k = FIELD_BY_ID.get(s.field)?.kind ?? "text";
-  return [...out].sort((a, b) => {
+  const sorted = [...out].sort((a, b) => {
     const x = a[s.field], y = b[s.field];
     if (blank(x) && blank(y)) return 0; if (blank(x)) return 1; if (blank(y)) return -1; // blanks last
     const c = k === "usd" || k === "num" ? (Number(x) || 0) - (Number(y) || 0) : k === "date" ? isoDate(String(x)).localeCompare(isoDate(String(y))) : String(x).localeCompare(String(y));
     return c * s.dir;
   });
+  return q.top ? sorted.slice(0, q.top) : sorted;
+}
+
+const money = (n: string, unit?: string) => { const v = Number(n.replace(/,/g, "")); const m = (unit ?? "").toUpperCase(); return Number.isFinite(v) ? v * (m === "B" ? 1e9 : m === "M" ? 1e6 : m === "K" ? 1e3 : 1) : NaN; };
+const AMT = String.raw`\$?\s*(\d[\d,]*(?:\.\d+)?)\s*([KMB])?`;
+/** Conservative lower bound from a capacity band/amount. null = can't tell (never guessed). */
+export function parseCapacity(raw: string | null | undefined): { min: number | null; read: string } {
+  const t = String(raw ?? "").trim();
+  if (!t) return { min: null, read: "" };
+  const fmt = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+  let m = new RegExp(`^(?:<|under|less than|below)\\s*${AMT}$`, "i").exec(t);
+  if (m) { const v = money(m[1], m[2]); return Number.isFinite(v) ? { min: 0, read: `Under ${fmt(v)}` } : { min: null, read: "Not readable" }; }
+  m = new RegExp(`^${AMT}\\s*(?:\\+|and up|or more|plus)$`, "i").exec(t);
+  if (m) { const v = money(m[1], m[2]); return Number.isFinite(v) ? { min: v, read: `${fmt(v)} or more` } : { min: null, read: "Not readable" }; }
+  m = new RegExp(`^${AMT}\\s*(?:-|–|—|to)\\s*${AMT}$`, "i").exec(t);
+  if (m) {
+    const a = money(m[1], m[2] ?? m[4]), b = money(m[3], m[4]);
+    return Number.isFinite(a) && Number.isFinite(b) && a <= b ? { min: a, read: `${fmt(a)} to ${fmt(b)}` } : { min: null, read: "Not readable" };
+  }
+  m = new RegExp(`^${AMT}$`, "i").exec(t);
+  if (m && (t.includes("$") || m[2])) { const v = money(m[1], m[2]); if (Number.isFinite(v)) return { min: v, read: fmt(v) }; }
+  return { min: null, read: "Not readable" };
 }
 
 /** Keep only known fields and supported operators from an untrusted saved/posted query. */
@@ -127,13 +152,16 @@ export function sanitizeQuery(raw: unknown): ReportQuery {
   }) : [];
   const so = (r.sort ?? null) as { field?: unknown; dir?: unknown } | null;
   const sort = so && FIELD_BY_ID.has(String(so.field)) ? { field: String(so.field), dir: (so.dir === 1 ? 1 : -1) as 1 | -1 } : undefined;
-  return { fields: fields.length ? fields : [...DEFAULT_FIELDS], filters, search: String(r.search ?? "").slice(0, 200), sort };
+  const topN = Math.floor(Number(r.top));
+  const top = Number.isFinite(topN) && topN >= 1 ? Math.min(TOP_MAX, topN) : undefined;
+  return { fields: fields.length ? fields : [...DEFAULT_FIELDS], filters, search: String(r.search ?? "").slice(0, 200), sort, top };
 }
 
 export function describeFilters(q: ReportQuery): string[] {
   const out = q.filters.filter((f) => f.op === "empty" || f.op === "not_empty" || String(f.value ?? "").trim())
     .map((f) => `${FIELD_BY_ID.get(f.field)?.label ?? f.field} ${OPS[f.op]}${f.op === "empty" || f.op === "not_empty" ? "" : ` ${f.value}`}`);
   if (q.search?.trim()) out.push(`Search: "${q.search.trim()}"`);
+  if (q.top) out.push(`Top ${q.top.toLocaleString()} by ${FIELD_BY_ID.get(q.sort?.field ?? "lifetime")?.label ?? "Lifetime giving"} (${q.sort?.dir === 1 ? "lowest" : "highest"} first)`);
   return out;
 }
 

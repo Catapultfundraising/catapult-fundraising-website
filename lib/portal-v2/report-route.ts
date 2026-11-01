@@ -3,7 +3,7 @@ import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 import { campaignRecords } from "@/lib/portal-v2/campaign-records";
 import { overlaidIndex, type Data, type Prospect } from "@/lib/portal-v2/records-route";
-import { FIELD_BY_ID, XLSX_MAX_ROWS, queryErrors, reportNotes, runReport, sanitizeQuery, usesCampaign, type ReportRow } from "@/lib/portal-v2/report-fields";
+import { parseCapacity, FIELD_BY_ID, XLSX_MAX_ROWS, queryErrors, reportNotes, runReport, sanitizeQuery, usesCampaign, type ReportRow } from "@/lib/portal-v2/report-fields";
 import type { PortalClient, PortalGift, PortalState } from "@/lib/portal-v2/clients";
 
 type Tracking = { prospects: Record<string, { status?: string; solicitor?: string; solicitor2?: string }> };
@@ -57,12 +57,15 @@ export function buildReportRows(data: NonNullable<Data>, state: PortalState | nu
       cptid: r.cptid, name: r.name, kind: r.kind ?? "", flags: (rec?.flags ?? (p ? ["Added on the dashboard"] : [])).join("; "),
       lifetime: r.lifetime || 0, gifts: r.gifts || 0, largest: r.largest || 0, first, last: r.last || "", years: r.years || 0, band: r.band || "",
       ds: w?.rating?.value || x.ds || pick(screened, RATING_KEYS), capacity: w?.capacity?.value || x.capacity || pick(screened, CAP_KEYS),
+      capacityMin: null, capacityRead: "",
       campaignPledged: state ? Math.round((cm?.pledged ?? 0) * 100) / 100 : null, campaignReceived: state ? Math.round((cm?.received ?? 0) * 100) / 100 : null,
       status: t?.status ?? "", solicitor: t?.solicitor ?? "", solicitor2: sec.get(r.cptid) ?? t?.solicitor2 ?? "",
     };
     for (const k of CONTACT) row[k] = c[k] ?? (k === "street" ? c.address ?? "" : "");
     // Index city is only a fallback when nobody (client file or staff) has set a city; a staff-cleared city stays blank.
     if (!("city" in c)) row.city = r.city || "";
+    const cap = parseCapacity(String(row.capacity ?? ""));
+    row.capacityMin = cap.min; row.capacityRead = cap.read;
     return row;
   });
 }
