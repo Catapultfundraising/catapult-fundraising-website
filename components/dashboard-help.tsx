@@ -5,23 +5,27 @@ import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { ArrowLeft, CircleHelp, Search, X } from "lucide-react";
 import { searchTopics, sectionTopicsFor, taskTopicsFor, topicForTab, type HelpClient, type HelpTopic } from "@/lib/dashboard-help";
 
+/** Optional topic catalog for dashboards outside the five client set (e.g. the fictional sample dashboard). */
+export interface HelpCatalog { sections: HelpTopic[]; tasks: HelpTopic[]; search: (q: string) => HelpTopic[]; topicForTab: (tab?: string) => HelpTopic | undefined }
+
 /** Help button + indexed, searchable how-to panel for the employee data dashboards. Read-only: no network calls. */
-export function DashboardHelp({ client, currentTab }: { client: HelpClient; currentTab?: string }) {
+export function DashboardHelp({ client, catalog, currentTab }: { client?: HelpClient; catalog?: HelpCatalog; currentTab?: string }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
   const [selected, setSelected] = useState<string | null>(null);
   const [mobileList, setMobileList] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
 
-  const sections = useMemo(() => sectionTopicsFor(client), [client]);
-  const tasks = useMemo(() => taskTopicsFor(client), [client]);
-  const results = useMemo(() => (q.trim() ? searchTopics(client, q) : null), [client, q]);
+  const forTab = (tab?: string) => (catalog ? catalog.topicForTab(tab) : client ? topicForTab(client, tab) : undefined);
+  const sections = useMemo(() => catalog?.sections ?? (client ? sectionTopicsFor(client) : []), [client, catalog]);
+  const tasks = useMemo(() => catalog?.tasks ?? (client ? taskTopicsFor(client) : []), [client, catalog]);
+  const results = useMemo(() => (q.trim() ? (catalog ? catalog.search(q) : client ? searchTopics(client, q) : []) : null), [client, catalog, q]);
   const byId = useMemo(() => new Map([...sections, ...tasks].map((t) => [t.id, t])), [sections, tasks]);
-  const topic = (selected && byId.get(selected)) || topicForTab(client, currentTab) || sections[0];
+  const topic = (selected && byId.get(selected)) || forTab(currentTab) || sections[0];
 
   // Opening always starts on the section the user is looking at.
   const onOpenChange = (o: boolean) => {
-    if (o) { setSelected(topicForTab(client, currentTab)?.id ?? sections[0]?.id ?? null); setQ(""); setMobileList(false); }
+    if (o) { setSelected(forTab(currentTab)?.id ?? sections[0]?.id ?? null); setQ(""); setMobileList(false); }
     setOpen(o);
   };
   const pick = (id: string) => { setSelected(id); setMobileList(false); };
