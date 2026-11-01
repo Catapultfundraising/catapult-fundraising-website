@@ -4,8 +4,7 @@
 // No fetch, no API routes, no client stores: everything runs in the browser. Edits live in sessionStorage.
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import * as DialogPrimitive from "@radix-ui/react-dialog";
-import { ArrowDown, ArrowUp, X } from "lucide-react";
-import Image from "next/image";
+import { ArrowDown, ArrowUp, Search, X } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { RecordNav, NameLink, SafeBoundary, HistoryList, cmpValues, isoToUs, parseUsDateClient, todayUs, DateInput, type HistoryItem } from "@/components/dashboard-shared";
 import { DashboardHelp } from "@/components/dashboard-help";
@@ -383,7 +382,7 @@ function CampaignGifts() {
         <Stat label="Committed" value={usd(t.committed)} /><Stat label="Received" value={usd(t.received)} /><Stat label="Outstanding" value={usd(t.outstanding)} /><Stat label="Commitments" value={num(t.commitments)} />
       </div>
       <Card><H sub="Every campaign commitment. Received + Outstanding = Committed.">Campaign gifts and pledges</H>
-        <Table title="Campaign Gifts" rows={rows} id={byId} cols={[nameCol, { key: "date", label: "Pledge date", get: (d) => isoToUs(d.pledge!.date) }, { key: "yrs", label: "Years", get: (d) => d.pledge!.years },
+        <Table title="Campaign Donors" rows={rows} id={byId} cols={[nameCol, { key: "date", label: "Pledge date", get: (d) => isoToUs(d.pledge!.date) }, { key: "yrs", label: "Years", get: (d) => d.pledge!.years },
           { key: "amt", label: "Pledged", get: (d) => d.pledge!.amount, money: true }, { key: "paid", label: "Received", get: paid, money: true }, { key: "out", label: "Outstanding", get: outstanding, money: true }, { key: "sol", label: "Solicitor", get: (d) => d.solicitor }]} />
       </Card>
     </div>
@@ -557,38 +556,52 @@ export function DemoDataDashboard() {
   return (
     <Demo.Provider value={ctx}>
     <RecordNav.Provider value={nav}>
-    <main className="min-h-screen overflow-x-hidden bg-[rgb(var(--paper))]">
-      <div role="status" data-testid="demo-banner" className="bg-[rgb(var(--brass))] px-4 py-2 text-center text-xs font-medium text-[rgb(var(--navy))] sm:text-sm">
-        <strong>SAMPLE DASHBOARD · FICTIONAL DATA.</strong> {DEMO_ORG_LABEL} is invented; no real donors or organizations. Changes stay in this browser tab only.
-        <button type="button" onClick={ctx.reset} className="ml-2 rounded border border-[rgb(var(--navy))] px-2 py-0.5 text-xs font-semibold hover:bg-[rgb(var(--navy))] hover:text-white">Reset demo</button>
-      </div>
-      <header className="bg-[rgb(var(--navy))] px-4 py-5 text-white sm:px-6 sm:py-8">
+    <main className="min-h-screen bg-[rgb(var(--paper))]">
+      <header className="bg-[rgb(var(--navy))] px-6 py-8 text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4">
-          <div className="min-w-0">
-            <span className="mb-3 inline-flex h-14 items-center overflow-hidden rounded-md bg-[rgb(var(--paper))] px-1"><Image src="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/ccdcb7df-f854-4cf8-a390-1d9eb56ecd9d.png" alt="Catapult Fundraising" width={768} height={512} className="h-32 w-auto max-w-none object-contain" priority /></span>
-            <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">Prepared by Catapult Fundraising · Sample</p>
+          <div>
+            <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">Prepared by Catapult Fundraising</p>
             <h1 className="font-display mt-1 text-3xl">{DEMO_ORG_LABEL}</h1>
-            <p className="mt-1 text-sm text-white/70">Fictional source data as of {DEMO_AS_OF}</p>
+            <p className="mt-1 text-sm text-white/70">Source data as of {DEMO_AS_OF}</p>
+            <p className="text-xs text-white/60">Snapshot refreshed {DEMO_AS_OF}</p>
           </div>
-          <div className="relative w-full sm:w-80">
-            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search fictional donors..." aria-label="Search all donors" className="w-full rounded-md border border-white/20 bg-white/10 px-3 py-2 text-sm text-white placeholder:text-white/50" />
+          <div className="relative w-full max-w-md">
+            <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-white/60" />
+            <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Look up a donor by name, city or CPTID" aria-label="Search all donors" className="w-full rounded-lg border border-white/20 bg-white/10 py-2 pl-9 pr-3 text-sm text-white outline-none placeholder:text-white/60 focus:border-[rgb(var(--brass))]" />
             {!!hits.length && (
-              <ul className="absolute right-0 z-30 mt-1 w-full overflow-hidden rounded-md bg-white text-sm text-[rgb(var(--ink))] shadow-lg">
-                {hits.map((d) => <li key={d.cptid}><button type="button" onClick={() => { setRec(d.cptid); setQ(""); }} className="block w-full px-3 py-2 text-left hover:bg-[rgb(var(--brass))]/10">{d.name} <span className="text-xs text-[rgb(var(--ink))]/50">{d.city}</span></button></li>)}
-              </ul>
+              <div className="absolute z-40 mt-1 w-full overflow-hidden rounded-lg border border-[rgb(var(--line))] bg-white text-[rgb(var(--ink))] shadow-lg">
+                {hits.map((d) => (
+                  <button key={d.cptid} type="button" onClick={() => { setRec(d.cptid); setQ(""); }} className="flex w-full items-center justify-between gap-3 px-3 py-2 text-left text-sm hover:bg-[rgb(var(--paper))]">
+                    <span><span className="font-medium text-[rgb(var(--navy))]">{d.name}</span><span className="ml-2 text-xs text-[rgb(var(--ink))]/55">{[d.type, d.city, `CPTID ${d.cptid}`].filter(Boolean).join(" · ")}</span></span>
+                    <span className="tabular-nums text-xs">{usd(lifetime(d))}</span>
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         </div>
       </header>
       <nav className="sticky top-0 z-10 border-b border-[rgb(var(--line))] bg-white">
-        <div className="mx-auto flex max-w-7xl items-center gap-2 px-4 sm:px-6">
+        <div className="mx-auto flex max-w-7xl items-center gap-2 px-6">
           <div className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
-            {DEMO_TABS.map((t) => <button key={t} type="button" onClick={() => setTab(t)} className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium ${t === tab ? "border-[rgb(var(--brass))] text-[rgb(var(--navy))]" : "border-transparent text-[rgb(var(--ink))]/60"}`}>{t}</button>)}
+          {DEMO_TABS.map((t) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium ${t === tab ? "border-[rgb(var(--brass))] text-[rgb(var(--navy))]" : "border-transparent text-[rgb(var(--ink))]/60"}`}
+            >
+              {t}
+            </button>
+          ))}
           </div>
           <DashboardHelp catalog={helpCatalog} currentTab={tab} />
         </div>
       </nav>
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
+      <div className="mx-auto max-w-7xl px-6 py-8">
+        <p role="status" data-testid="demo-banner" className="mb-6 flex flex-wrap items-center gap-2 rounded-lg border border-[rgb(var(--brass))]/40 bg-[rgb(var(--brass))]/10 px-3 py-2 text-xs text-[rgb(var(--ink))]/80">
+          <span><strong className="text-[rgb(var(--navy))]">Sample dashboard · fictional data.</strong> {DEMO_ORG_LABEL} is invented; no real donors or organizations. Changes stay in this browser tab only.</span>
+          <button type="button" onClick={ctx.reset} className="rounded border border-[rgb(var(--line))] bg-white px-2 py-0.5 font-semibold text-[rgb(var(--navy))] hover:border-[rgb(var(--brass))]">Reset demo</button>
+        </p>
         <SafeBoundary key={`${tab}-${rev}`} label={`The ${tab} tab`}>
           {tab === "Overview" && <Overview />}
           {tab === "Donor Lookup" && <Lookup />}
@@ -596,8 +609,8 @@ export function DemoDataDashboard() {
           {tab === "Gift Chart + GC2P" && <GiftChartTab />}
           {tab === "Prospects" && <Prospects />}
           {tab === "Reports" && <Reports />}
-          {tab === "Committee" && <Committee />}
-          {tab === "Campaign Gifts" && <CampaignGifts />}
+          {tab === "Board" && <Committee />}
+          {tab === "Campaign Donors" && <CampaignGifts />}
           {tab === "Database Health" && <Health />}
           {tab === "Add + Upload" && <AddUpload />}
           {tab === "Prospect Ratings" && <Ratings />}

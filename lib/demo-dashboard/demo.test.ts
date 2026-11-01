@@ -78,9 +78,8 @@ t("export PDF uses exact brand colours only", () => {
   for (const c of ["#0E1E31", "#B28C46", "#5A6675", "#DCE1E7"]) assert.ok(s.includes(c), c);
   for (const h of s.match(/#[0-9a-fA-F]{6}\b/g) ?? []) assert.ok(["#0E1E31", "#B28C46", "#5A6675", "#DCE1E7", "#FFFFFF"].includes(h), h);
 });
-t("bare route exception is exactly /demo-dashboard; client pages keep site chrome", () => {
-  assert.equal(isBareRoute("/demo-dashboard"), true);
-  for (const p of ["/demo-dashboard/x", "/demo", "/demo-dashboards", "/", "/pvas/data-dashboard", "/jag/data-dashboard", "/csnf/data-dashboard", "/baq/data-dashboard", "/wcbhc/data-dashboard", "/research", "/blog"]) assert.equal(isBareRoute(p), false, p);
+t("demo dashboard keeps the shared site chrome like the client dashboards", () => {
+  for (const p of ["/demo-dashboard", "/demo-dashboard/x", "/demo", "/demo-dashboards", "/", "/pvas/data-dashboard", "/jag/data-dashboard", "/csnf/data-dashboard", "/baq/data-dashboard", "/wcbhc/data-dashboard", "/research", "/blog"]) assert.equal(isBareRoute(p), false, p);
   assert.equal(isBareRoute("/csnf"), true); assert.equal(isBareRoute("/csnfvip/x"), true);
 });
 t("reset clears notes and saved setups and remounts the tab; downloads need columns", () => {
