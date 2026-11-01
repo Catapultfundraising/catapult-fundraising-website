@@ -99,9 +99,10 @@ const ALL_TOPICS: HelpTopic[] = [
       "Use the search box to narrow by name, CPTID, city or email.",
       "Click a column heading to sort.",
       "Optional: enter a number in \u201cKeep only the top __ rows after filters and sort\u201d.",
-      "Click PDF or Excel to download exactly what the table shows.",
+      "Click PDF or Excel. The file includes every matching row (not just the preview), with your selected fields, filters, sort and top-rows limit, within the size limits below.",
     ],
     notes: [
+      "The on-screen table previews up to the first 500 matching rows; the record count shows the full total.",
       "A filter with an invalid number or date is outlined in red and the list does not update until it is fixed.",
       "Capacity is shown as written. \u201cCapacity minimum (parsed)\u201d reads common ranges (for example $500K-$1M as $500,000) and is blank when the text can't be read.",
       "PDF downloads are limited to 5,000 rows and Excel to 60,000. Add a filter if a list is larger."
@@ -229,7 +230,10 @@ const ALL_TOPICS: HelpTopic[] = [
       "Duplicate records: pick the record to keep, enter your name, then merge.",
       "Change log: see every upload and change. An upload can be undone from here.",
     ],
-    notes: ["Prospects added here are listed at the bottom. Click Edit to fix a name, address or contact detail."],
+    notes: [
+      "Adding an individual with a first name, last name and state automatically requests a DonorSearch wealth screening; results appear on the record within about 15 minutes.",
+      "Prospects added here are listed at the bottom. Click Edit to fix a name, address or contact detail.",
+    ],
     related: ["merge-delete", "troubleshooting"],
   },
   {
@@ -250,6 +254,19 @@ const ALL_TOPICS: HelpTopic[] = [
   },
 
   // ---------- Shared tasks ----------
+  {
+    id: "getting-started", kind: "task", title: "Getting started",
+    summary: "What the header dates mean and a few rules before you edit.",
+    steps: [
+      "\u201cSource data as of\u201d is the date of the client data the dashboard was built from. \u201cSnapshot refreshed\u201d is when the dashboard last rebuilt it.",
+      "Changes made on the dashboard (edits, gifts, uploads) show right away, even before the next refresh.",
+      "CPTID is the dashboard's record number. It is not necessarily the ID in the client's own database (that is the Client ID).",
+      "Before editing, check the name, address and CPTID to be sure you have the right person.",
+      "Dashboard changes are saved in the dashboard. They are not written back to the client's own database.",
+      "Capacity is a wealth estimate. It is not a pledge or an ask amount.",
+    ],
+    related: ["record", "gifts-pledges"],
+  },
   {
     id: "record", kind: "task", title: "Open and edit a donor record",
     summary: "Clickable names across the dashboard open the same donor record.",

@@ -30,7 +30,7 @@ assert.equal(topicForTab("wcbhc", "Board"), undefined);
 // 3. Required shared how-tos exist everywhere.
 for (const c of CLIENTS) {
   const ids = taskTopicsFor(c).map((t) => t.id);
-  for (const id of ["record", "gifts-pledges", "documents", "merge-delete", "reports-build", "shared-lists", "downloads", "troubleshooting"]) assert.ok(ids.includes(id), `${c}: ${id}`);
+  for (const id of ["getting-started", "record", "gifts-pledges", "documents", "merge-delete", "reports-build", "shared-lists", "downloads", "troubleshooting"]) assert.ok(ids.includes(id), `${c}: ${id}`);
 }
 
 // 4. Related links resolve; ids unique.
