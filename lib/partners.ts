@@ -12,6 +12,7 @@ export interface Partner {
   notify: string[];
   intro: string;
   serviceChoices?: string[];
+  serviceChoiceGroups?: { label: string; prefix: string }[];
   followUpChoices?: { label: string; notify?: string[] }[];
   privacyNotice?: string;
   deck?: { href: string; title: string; description: string };
@@ -29,7 +30,7 @@ export const PARTNERS: Partner[] = [
     notify: ["anthonya@catapultfr.com"],
     leadSource: "Turning Donor Relationships into Charitable Gift Annuities | November 4, 2026",
     intro:
-      "Thank you for joining Anthony Alonso and Diane Tuntland. Get the presentation, explore free fundraising tools, and keep building your planned giving program. Tell us which services interest you and whether you would like either firm to follow up.",
+      "Thank you for joining Anthony Alonso and Diane Tuntland. Get the presentation, explore free fundraising tools, and start building your CGA program. Tell us which services interest you and whether you would like either firm to follow up.",
     serviceChoices: [
       "Catapult: Legacy Call / Planned Giving",
       "Catapult: CGA Prospect Identification and Donor Outreach",
@@ -43,12 +44,17 @@ export const PARTNERS: Partner[] = [
       "Endowment Partners: Governance",
       "Endowment Partners: Donor Stewardship",
     ],
+    serviceChoiceGroups: [
+      { label: "Catapult Fundraising", prefix: "Catapult: " },
+      { label: "Endowment Partners", prefix: "Endowment Partners: " },
+    ],
     followUpChoices: [
       { label: "Catapult Fundraising" },
       { label: "Endowment Partners", notify: ["diane@endowmentpartners.com"] },
+      { label: "Both", notify: ["diane@endowmentpartners.com"] },
     ],
     privacyNotice:
-      "Catapult Fundraising will receive your details and service interests to provide these resources and respond to your requests. If you select Endowment Partners for follow-up, your details and selections will also be shared with Diane Tuntland at Endowment Partners. Follow-up is optional and is not required to download the slides.",
+      "Catapult Fundraising will receive your details and service interests to provide these resources and respond to your requests. If you select Endowment Partners or Both for follow-up, your details and selections will also be shared with Diane Tuntland at Endowment Partners. Follow-up is optional and is not required to download the slides.",
     deck: {
       href: "/downloads/turning-donor-relationships-into-charitable-gift-annuities.pdf",
       title: "Turning Donor Relationships into Charitable Gift Annuities",

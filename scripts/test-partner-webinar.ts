@@ -9,6 +9,10 @@ assert.equal(partner.hubspotValue, "endowment_partners_cga");
 assert.equal(partner.assignOwnerId, "36164952");
 assert.deepEqual(selectedPartnerChoices(["A", "A", "bad", 7], ["A"]), ["A"]);
 assert.deepEqual(selectedPartnerChoices("A", ["A"]), []);
+assert.deepEqual(partner.serviceChoiceGroups?.map((group) => group.label), ["Catapult Fundraising", "Endowment Partners"]);
+assert.ok(partner.intro.includes("and start building your CGA program."));
+assert.deepEqual(partnerNotificationRecipients(partner, ["Both"]), ["anthonya@catapultfr.com", "diane@endowmentpartners.com"]);
+assert.deepEqual(partnerNotificationRecipients(partner, ["Both", "Endowment Partners", "Catapult Fundraising"]), ["anthonya@catapultfr.com", "diane@endowmentpartners.com"]);
 assert.deepEqual(partnerNotificationRecipients(partner, []), ["anthonya@catapultfr.com"]);
 assert.deepEqual(partnerNotificationRecipients(partner, ["Endowment Partners"]), ["anthonya@catapultfr.com", "diane@endowmentpartners.com"]);
 assert.deepEqual(partnerNotificationRecipients(partner, ["attacker@example.com"]), ["anthonya@catapultfr.com"]);
@@ -50,7 +54,7 @@ async function scenario(opts: { existing?: boolean; followUp?: string[]; failure
   assert.equal(response.status, 200);
   const result = await response.json();
   const mail = captured.find((c) => c.url === "https://api.resend.com/emails")!;
-  assert.deepEqual(mail.body.to, (opts.followUp ?? []).includes("Endowment Partners")
+  assert.deepEqual(mail.body.to, (opts.followUp ?? []).some((choice) => ["Endowment Partners", "Both"].includes(choice))
     ? ["anthonya@catapultfr.com", "diane@endowmentpartners.com"]
     : ["anthonya@catapultfr.com"]);
   assert.ok(mail.body.html.includes("Legacy Call"));
@@ -78,6 +82,8 @@ async function main() {
   await scenario({});
   await scenario({ existing: true, followUp: ["Catapult Fundraising", "Endowment Partners"] });
   await scenario({ existing: true, followUp: ["Endowment Partners"] });
+  await scenario({ followUp: ["Both"] });
+  await scenario({ followUp: ["Both", "Endowment Partners", "Catapult Fundraising"] });
   await scenario({ followUp: ["attacker@example.com"] });
   await scenario({ failure: true });
   const invalid = await POST(new NextRequest("http://localhost/api/partner-lead", {

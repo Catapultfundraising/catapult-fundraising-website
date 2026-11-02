@@ -51,15 +51,6 @@ export default function EndowmentPartnersResourcesPage() {
     <>
       <section className="border-b border-[rgb(var(--line))] bg-[rgb(var(--paper))]">
         <div className="mx-auto max-w-6xl px-6 py-10 sm:py-14">
-          <div className="mb-10 flex items-center gap-8 border-b border-[rgb(var(--line))] pb-6">
-            <Link href="/" aria-label="Catapult Fundraising home">
-              <Image src="/webinars/cga/catapult-logo.png" alt="Catapult Fundraising" width={1600} height={376} className="h-auto w-36 sm:w-52" priority />
-            </Link>
-            <span className="text-2xl text-[rgb(var(--ink))]/40" aria-hidden="true">+</span>
-            <a href={EP_URL} target="_blank" rel="noopener noreferrer" aria-label="Visit Endowment Partners">
-              <Image src="/webinars/cga/endowment-partners-logo-official.png" alt="Endowment Partners, LLC" width={700} height={715} className="h-24 w-auto sm:h-28" priority />
-            </a>
-          </div>
           <div className="grid items-center gap-10 lg:grid-cols-[1.45fr_1fr]">
             <div>
               <p className="text-sm font-semibold text-[rgb(var(--brass))]">Joint webinar resources · November 4, 2026</p>
@@ -85,7 +76,7 @@ export default function EndowmentPartnersResourcesPage() {
         </div>
       </section>
       <section id="webinar-resources" className="scroll-mt-28 bg-[rgb(var(--paper))] px-6 py-14 lg:py-20">
-        <PartnerSignup partnerSlug={SLUG} partnerName={partner.name} bookingUrl={BOOKING_URL} articles={articles} tools={TOOLS} serviceChoices={partner.serviceChoices} deck={partner.deck} followUpChoices={partner.followUpChoices?.map((choice) => choice.label)} privacyNotice={partner.privacyNotice} compact readingList="Practical articles on planned giving, Legacy Call, loyal donors and starting the legacy conversation." />
+        <PartnerSignup partnerSlug={SLUG} partnerName={partner.name} bookingUrl={BOOKING_URL} articles={articles} tools={TOOLS} serviceChoices={partner.serviceChoices} serviceChoiceGroups={partner.serviceChoiceGroups} deck={partner.deck} followUpChoices={partner.followUpChoices?.map((choice) => choice.label)} privacyNotice={partner.privacyNotice} compact readingList="Practical articles on planned giving, Legacy Call, loyal donors and starting the legacy conversation." />
       </section>
       <section className="border-t border-[rgb(var(--line))] bg-white px-6 py-14">
         <div className="mx-auto max-w-6xl">
