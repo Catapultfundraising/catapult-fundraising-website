@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getPartner } from "@/lib/partners";
+import { selectedPartnerChoices, partnerNotificationRecipients } from "@/lib/partner-lead-options";
 
 /**
  * Lead capture for referral-partner signup pages (/partners/{slug}).
@@ -17,7 +18,7 @@ function esc(v: string) {
   return v.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
-type Fields = { name: string; firstname: string; lastname: string; email: string; org: string; title: string; city: string; state: string; utm: string; interests: string[] };
+type Fields = { name: string; firstname: string; lastname: string; email: string; org: string; title: string; city: string; state: string; utm: string; interests: string[]; followUp: string[] };
 
 async function syncHubSpot(
   token: string,
@@ -38,6 +39,7 @@ async function syncHubSpot(
     f.title ? `Title: ${f.title}` : "",
     f.city || f.state ? `Location: ${[f.city, f.state].filter(Boolean).join(", ")}` : "",
     f.interests.length ? `Requested service information: ${f.interests.join(", ")}` : "",
+    f.followUp.length ? `Requested follow-up from: ${f.followUp.join(", ")}` : "",
     f.utm ? `Tracking: ${f.utm}` : "",
   ]
     .filter(Boolean)
@@ -115,6 +117,7 @@ async function notify(to: string[], f: Fields, partnerName: string) {
     ["Location", [f.city, f.state].filter(Boolean).join(", ")],
     ["Referred by", partnerName],
     ["Interested services", f.interests.join(", ")],
+    ["Requested follow-up from", f.followUp.join(", ")],
   ];
   const html = `<h2>New signup from ${esc(partnerName)}'s webinar</h2>
 <table cellpadding="6" style="border-collapse:collapse">${rows
@@ -161,12 +164,9 @@ export async function POST(req: NextRequest) {
     state: String(body.state || "").trim().slice(0, 40),
     title: String(body.title || "").trim(),
     utm: String(body.utm || "").slice(0, 300),
-    interests: Array.isArray(body.interests)
-      ? body.interests
-          .filter((value): value is string => typeof value === "string")
-          .filter((value) => partner.serviceChoices?.includes(value))
-          .slice(0, partner.serviceChoices?.length ?? 0)
-      : [],
+    interests: selectedPartnerChoices(body.interests, partner.serviceChoices),
+    followUp: selectedPartnerChoices(body.followUp, partner.followUpChoices?.map((choice) => choice.label)),
+
   };
   f.name = `${f.firstname} ${f.lastname}`.trim();
   if (!f.firstname || !f.lastname || !EMAIL_RE.test(f.email)) {
@@ -188,7 +188,7 @@ export async function POST(req: NextRequest) {
           return false;
         })
       : Promise.resolve(false),
-    notify(partner.notify, f, partner.name).catch(() => false),
+    notify(partnerNotificationRecipients(partner, f.followUp), f, partner.name).catch(() => false),
   ]);
   return NextResponse.json({ ok: true, hubspotSynced, emailSent });
 }

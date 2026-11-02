@@ -23,6 +23,10 @@ export function PartnerSignup(props: {
   articles: ArticleCard[];
   tools: ToolCard[];
   serviceChoices?: string[];
+  serviceChoiceGroups?: { label: string; prefix: string }[];
+  followUpChoices?: string[];
+  privacyNotice?: string;
+  compact?: boolean;
   deck?: { href: string; title: string; description: string };
   eventWord?: string;
   readingList?: string;
@@ -59,6 +63,7 @@ export function PartnerSignup(props: {
           state: fd.get("state"),
           company: fd.get("company"),
           interests: fd.getAll("interests"),
+          followUp: fd.getAll("followUp"),
           utm,
           startedAt,
         }),
@@ -112,16 +117,35 @@ export function PartnerSignup(props: {
           </div>
           <div className="space-y-2"><Label htmlFor="email">Work email *</Label><Input id="email" name="email" type="email" required className={FIELD_CLASS} /></div>
           <div className="space-y-2"><Label htmlFor="org">Organization</Label><Input id="org" name="org" className={FIELD_CLASS} /></div>
+          {!props.compact && (<>
           <div className="space-y-2"><Label htmlFor="title">Title</Label><Input id="title" name="title" className={FIELD_CLASS} /></div>
           <div className="grid gap-5 sm:grid-cols-[1.6fr_1fr]">
             <div className="space-y-2"><Label htmlFor="city">City</Label><Input id="city" name="city" autoComplete="address-level2" className={FIELD_CLASS} /></div>
             <div className="space-y-2"><Label htmlFor="state">State</Label><Input id="state" name="state" autoComplete="address-level1" className={FIELD_CLASS} /></div>
           </div>
+          </>)}
           {props.serviceChoices && props.serviceChoices.length > 0 && (
             <fieldset className="space-y-3">
               <legend className="text-sm font-semibold text-[rgb(var(--navy))]">
                 Would you like more information about any of our services? <span className="font-normal text-[rgb(var(--ink))]/60">(optional)</span>
               </legend>
+              {props.serviceChoiceGroups?.length ? (
+                <div className="space-y-5">
+                  {props.serviceChoiceGroups.map((group) => (
+                    <fieldset key={group.prefix} className="space-y-3 border-t border-[rgb(var(--line))] pt-3">
+                      <legend className="px-1 text-sm font-semibold text-[rgb(var(--navy))]">{group.label}</legend>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        {props.serviceChoices!.filter((service) => service.startsWith(group.prefix)).map((service) => (
+                          <label key={service} className="flex cursor-pointer items-start gap-2 text-sm text-[rgb(var(--ink))]/80">
+                            <input type="checkbox" name="interests" value={service} className="mt-1 accent-[rgb(var(--brass))]" />
+                            <span>{service.slice(group.prefix.length)}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </fieldset>
+                  ))}
+                </div>
+              ) : (
               <div className="grid gap-2 sm:grid-cols-2">
                 {props.serviceChoices.map((service) => (
                   <label key={service} className="flex cursor-pointer items-start gap-2 text-sm text-[rgb(var(--ink))]/80">
@@ -135,8 +159,23 @@ export function PartnerSignup(props: {
                   </label>
                 ))}
               </div>
+              )}
             </fieldset>
           )}
+          {props.followUpChoices && props.followUpChoices.length > 0 && (
+            <fieldset className="space-y-3">
+              <legend className="text-sm font-semibold text-[rgb(var(--navy))]">
+                Who would you like to hear from? <span className="font-normal text-[rgb(var(--ink))]/60">(optional)</span>
+              </legend>
+              {props.followUpChoices.map((choice) => (
+                <label key={choice} className="flex cursor-pointer items-start gap-2 text-sm text-[rgb(var(--ink))]/80">
+                  <input type="checkbox" name="followUp" value={choice} className="mt-1 accent-[rgb(var(--brass))]" />
+                  <span>{choice}</span>
+                </label>
+              ))}
+            </fieldset>
+          )}
+          {props.privacyNotice && <p className="text-xs leading-relaxed text-[rgb(var(--ink))]/70">{props.privacyNotice}</p>}
           <input type="text" name="company" tabIndex={-1} autoComplete="off" aria-hidden="true" className="hidden" />
           <button type="submit" disabled={busy} className={`${GOLD_BTN} w-full`}>
             {busy ? "Submitting..." : "Get access"} <ArrowRight className="h-5 w-5" />
