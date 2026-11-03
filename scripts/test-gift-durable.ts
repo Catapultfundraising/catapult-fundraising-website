@@ -174,7 +174,7 @@ test("[ROUTE] table scope, unknown op, context body, preview preflight/projectio
   const post = (body: Record<string, unknown>) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` }, body: JSON.stringify(body) }));
   const T = REG.table;
   assert.equal((await post({ op: "durableGiftPlan", client: "jag", table: "unrelated_table", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).status, 400);
-  assert.equal((await post({ op: "durableGiftContext", client: "jag", table: "unrelated_table" })).status, 400);
+  { const r0 = await post({ op: "durableGiftContext", client: "jag", table: "unrelated_table" }); assert.equal(r0.status, 200); assert.equal((await r0.json()).available, false, "F1b: other table => available:false (+lookupAvailable), never a registration"); }
   assert.equal((await post({ op: "durableGiftContext", client: "jag", table: T, extra: 1 })).status, 400);
   assert.equal((await post({ op: "durableGiftNope", client: "jag", table: T })).status, 400);
   for (const query of [{ kind: "locators", locators: Array.from({ length: 51 }, (_, i) => i + 1) }, { kind: "gifts", giftIds: ["PROV-0123456789abcdef0123456789abcdef"] }, { kind: "persons", persons: [1, 1] }, { kind: "history", person: 7001, after: -1 }, { kind: "locators", locators: [1], x: 1 }])
@@ -427,4 +427,46 @@ test("F1a size caps on real serialized bytes: 4 MB plan response, 8 MB recovery 
   const csv = `Donor,${longH}\r\n7001,1\r\n`;
   assert.throws(() => L.buildDurablePlan({ client: "jag", csv, mapping: { Donor: "@person", [longH]: "N0" }, decisions: [{ o: 0, d: "new" }], actor: "Pat", fileName: "w.csv", fileDate: null, secret: SECRET, now: NOW }), (e: unknown) => e instanceof L.DurableGiftError && e.status === 413 && /header too large/.test((e as Error).message), "header > 1.6 MB refused");
   L.__setGiftRegistrationsForTests([REG]);
+});
+
+test("[ROUTE] F1b proof projection: pending only for canonical backend non-confirm; malformed/contradictory/failed => 502 unavailable (same id); context lookupAvailable", async () => {
+  let reply: unknown = {}; let status = 200; const calls: unknown[] = [];
+  globalThis.fetch = (async (_u: unknown, init: { body: string }) => { calls.push(JSON.parse(init.body)); return Response.json(reply, { status }); }) as unknown as typeof fetch;
+  const { POST } = await import("../app/api/research-source-import/route");
+  const D = await import("../lib/portal-v2/gift-durable"); const P = await import("../lib/portal-v2/gift-identity-plan"); D.__setGiftRegistrationsForTests([REG]);
+  const post = (body: Record<string, unknown>) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` }, body: JSON.stringify(body) }));
+  const T = REG.table;
+  const pl = await (await post({ op: "durableGiftPlan", client: "jag", table: T, csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).json();
+  const rq = P.jobRequestId(pl.jobId, 0);
+  const proof = () => post({ op: "durableGiftProof", client: "jag", table: T, token: pl.token, manifest: pl.manifest, batchIndex: 0 });
+  for (const r of [{ found: false, confirmed: false }, { found: false, confirmed: false, note: "No committed outcome" }]) {
+    reply = r; const x = await proof(); const j = await x.json();
+    assert.equal(x.status, 200); assert.equal(j.state, "pending"); assert.equal(j.requestId, rq); assert.ok(!String(j.note).includes("No committed outcome\u0000"));
+  }
+  for (const r of [{}, { found: true }, { found: false, confirmed: false, outcome: {} }, { found: false, confirmed: false, extra: 1 }, { found: true, confirmed: true, outcome: { bad: 1 } }, { found: false, confirmed: false, note: 5 }, [], null]) {
+    reply = r; const x = await proof(); const j = await x.json();
+    assert.equal(x.status, 502, JSON.stringify(r)); assert.equal(j.state, "unavailable"); assert.equal(j.requestId, rq); assert.ok(!("proof" in j));
+  }
+  status = 500; reply = { found: false, confirmed: false }; { const x = await proof(); assert.equal(x.status, 502); assert.equal((await x.json()).state, "unavailable"); } status = 200;
+  // context: available only for the matching registration; otherwise false + lookupAvailable (allowlisted client)
+  const c1 = await (await post({ op: "durableGiftContext", client: "jag", table: T })).json(); assert.equal(c1.available, true); assert.equal(c1.lookupAvailable, true);
+  const c2 = await (await post({ op: "durableGiftContext", client: "jag", table: "old_table" })); assert.equal(c2.status, 200); const c2j = await c2.json(); assert.equal(c2j.available, false); assert.equal(c2j.lookupAvailable, true);
+  D.__setGiftRegistrationsForTests([]);
+  const c3 = await (await post({ op: "durableGiftContext", client: "jag", table: T })).json(); assert.equal(c3.available, false); assert.equal(c3.lookupAvailable, true);
+  const c4 = await (await post({ op: "durableGiftContext", client: "zzz", table: T })).json(); assert.notEqual(c4.lookupAvailable, true);
+  void calls;
+});
+
+test("F1b exact bytes: BOM+CRLF text kept by the panel reader gives fileDigest == sha256(original bytes); invalid UTF-8 refused", async () => {
+  const L = await lib();
+  const bytes = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from(CSV, "utf8")]);
+  const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes);
+  assert.equal(text.charCodeAt(0), 0xfeff, "BOM kept");
+  const p = L.buildDurablePlan({ client: "jag", csv: text, mapping: MAP, decisions: DEC, actor: "Pat Example", fileName: "jag gifts_2026.csv", fileDate: null, secret: SECRET, now: NOW });
+  assert.equal((p.recovery.header as unknown as { fileDigest: string }).fileDigest, createHash("sha256").update(bytes).digest("hex"));
+  assert.equal(p.summary.total, 4, "parser strips the BOM for ordinals");
+  assert.throws(() => new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(Buffer.from([0x41, 0xff, 0x42])));
+  const fs = await import("node:fs"); const panel = fs.readFileSync("app/research/source-import/DurableGiftPanel.tsx", "utf8");
+  assert.ok(panel.includes("ignoreBOM: true") && !/\bfl\.text\(\)/.test(panel), "panel reads exact bytes, never File.text()");
+  assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie/.test(panel), "no browser storage");
 });

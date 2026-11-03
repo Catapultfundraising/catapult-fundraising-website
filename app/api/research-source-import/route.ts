@@ -226,8 +226,11 @@ export async function POST(req: NextRequest) {
       if (typeof b.table !== "string") return bad("table must be text");
       try {
         if (b.op === "durableGiftContext" && !exactBody(b, ["op", "client", "table"])) return bad("bad durableGiftContext body");
+        // context: available only for the actual matching registration; otherwise false + lookupAvailable (allowlisted
+        // client, configured read transport) so an earlier job stays reachable read-only after drift/removal
+        if (b.op === "durableGiftContext" && !(g && table === g.table)) return NextResponse.json({ available: false, lookupAvailable: (CSV_CLIENTS as readonly string[]).includes(client) && sourcePreviewConfigured(), reason: "No reviewed gift registration for this client and table" });
         if (g && table !== g.table) return bad("This table has no reviewed gift registration");
-        if (b.op === "durableGiftContext") return NextResponse.json(g ? { available: true, configured: sourcePreviewConfigured(), saveAvailable: sourceApplyConfigured(), registrationId: g.id, columns: g.columns.map((c) => c.col), colDefs: g.columns.map((c) => ({ col: c.col, ty: c.ty, len: c.len, p: c.p, s: c.s })), required: g.required, rowCap: previewRowCap(g.columns.length), newAllowed: g.locatorVerifiedUnique && !!g.rowAllocator } : { available: false, reason: "No reviewed gift registration for this client" });
+        if (b.op === "durableGiftContext") return NextResponse.json(g ? { lookupAvailable: sourcePreviewConfigured(), available: true, configured: sourcePreviewConfigured(), saveAvailable: sourceApplyConfigured(), registrationId: g.id, columns: g.columns.map((c) => c.col), colDefs: g.columns.map((c) => ({ col: c.col, ty: c.ty, len: c.len, p: c.p, s: c.s })), required: g.required, rowCap: previewRowCap(g.columns.length), newAllowed: g.locatorVerifiedUnique && !!g.rowAllocator } : { available: false, reason: "No reviewed gift registration for this client" });
         if (!g) return bad("No reviewed gift registration for this client", 404);
         if (b.op === "durableGiftPlan") {
           if (!exactBody(b, ["op", "client", "table", "csv", "mapping", "decisions", "actor", "fileName", "fileDate"]) || typeof b.csv !== "string") return bad("bad durableGiftPlan body");
@@ -268,9 +271,15 @@ export async function POST(req: NextRequest) {
           if (!Number.isSafeInteger(b.batchIndex) || (b.batchIndex as number) < 0 || (b.batchIndex as number) >= m.batchCount) return bad("bad batch index");
           const rq = jobRequestId(t.jobId, b.batchIndex as number);
           const out = await postToEngage(fetch, process.env, { op: "giftStatus", client, requestId: rq }, rq);
-          if (!out.ok) return NextResponse.json({ confirmed: false, error: "Status unavailable (unconfirmed); try again", requestId: rq }, { status: 502 });
+          if (!out.ok) return NextResponse.json({ confirmed: false, state: "unavailable", error: "Status unavailable (unconfirmed); try again", requestId: rq }, { status: 502 });
           const proof = proofFor({ client, token: b.token, manifest: b.manifest, batchIndex: b.batchIndex, status: out.body, secret, now });
-          return NextResponse.json(proof ? { confirmed: true, proof, requestId: rq } : { confirmed: false, requestId: rq, note: "No verified committed outcome for this batch. This does not prove nothing was saved." });
+          if (proof) return NextResponse.json({ confirmed: true, proof, requestId: rq });
+          // pending ONLY for the owning backend's canonical non-confirm shape (found:false, confirmed:false, optional note,
+          // no outcome); the note is never parsed or relayed. Anything else is unavailable: no resend permission.
+          const s0 = out.body as Record<string, unknown> | null;
+          const canonical = !!s0 && typeof s0 === "object" && !Array.isArray(s0) && Object.keys(s0).every((k) => k === "found" || k === "confirmed" || k === "note") && s0.found === false && s0.confirmed === false && (s0.note === undefined || typeof s0.note === "string");
+          return canonical ? NextResponse.json({ confirmed: false, state: "pending", requestId: rq, note: "No committed outcome is recorded for this batch. This does not prove nothing was saved; only the same request may be resent." })
+            : NextResponse.json({ confirmed: false, state: "unavailable", requestId: rq, error: "Status unavailable or inconsistent (unconfirmed); try again" }, { status: 502 });
         }
         if (b.op === "durableGiftJobStatus") {
           const jid = String(b.jobId || ""); if (!exactBody(b, ["op", "client", "table", "jobId"]) || !/^[a-f0-9]{64}$/.test(jid)) return bad("bad jobId");

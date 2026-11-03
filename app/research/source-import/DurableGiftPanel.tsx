@@ -11,6 +11,7 @@ import { Loader2 } from "lucide-react";
 import { createScopeFence } from "@/lib/portal-v2/scope-fence";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
 import { normalize, type NormDest } from "@/lib/portal-v2/source-normalize";
+import { verifyRecoveryFile } from "@/lib/portal-v2/gift-hash-browser";
 
 const label = "text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]";
 const input = "mt-1 w-full rounded-lg border border-[rgb(var(--line))] bg-white px-3 py-2 text-sm text-[rgb(var(--navy))] focus:border-[rgb(var(--brass))] focus:outline-none";
@@ -18,13 +19,17 @@ const navyBtn = "inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy)
 const linkBtn = "font-semibold text-[rgb(var(--brass))] underline disabled:opacity-50";
 const MAX = 2 * 1024 * 1024;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
-type Ctx = { available: boolean; configured?: boolean; saveAvailable?: boolean; registrationId?: string; columns?: string[]; colDefs?: (NormDest & { col: string })[]; required?: string[]; rowCap?: number; newAllowed?: boolean };
+type Ctx = { available: boolean; lookupAvailable?: boolean; configured?: boolean; saveAvailable?: boolean; registrationId?: string; columns?: string[]; colDefs?: (NormDest & { col: string })[]; required?: string[]; rowCap?: number; newAllowed?: boolean };
 type Choice = { d: "held" | "new" | "adopt" | "correct"; target: string };
 type Cell = { v: string | null; readable: true } | { readable: false };
 type PRow = { locator: number; matches?: number; person?: number | null; personReadable?: boolean; values?: Record<string, Cell>; giftId?: string | null; identityConflict?: boolean; donorMismatch?: boolean; baseline?: Record<string, { present: boolean; provenance: string | null; equalsCurrent: boolean | null }> | null };
 type Check = { ok: boolean; reasons: string[]; expected?: Record<string, string | null> };
-type Plan = { token: string; jobId: string; manifest: { batches: unknown[] }; batches: { ordinal: number; action: string; giftId?: string; locator?: number }[][]; summary: { batches: number; decided: number; held: number; total: number } };
-type BatchState = "pending" | "saved" | "unconfirmed" | "refused";
+type Plan = { token: string; jobId: string; recovery?: { header: Record<string, unknown>; headerMac: string }; manifest: { batches: unknown[] }; batches: { ordinal: number; action: string; giftId?: string; locator?: number }[][]; summary: { batches: number; decided: number; held: number; total: number } };
+type BatchState = "unknown" | "pending" | "saved" | "unconfirmed" | "refused";
+const REC_MAX = 8_000_000;
+/** exact bytes -> text: strict UTF-8, BOM KEPT (so sha256(text) equals sha256(original bytes)); invalid UTF-8 refused */
+async function readExact(fl: File) { const buf = await fl.arrayBuffer(); const text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(buf); const d = await crypto.subtle.digest("SHA-256", buf); return { text, digest: Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("") }; }
+const downloadJson = (obj: unknown, name: string) => { const url = URL.createObjectURL(new Blob([JSON.stringify(obj)], { type: "application/json" })); const a = document.createElement("a"); a.href = url; a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(url), 0); };
 type Hist = { o: number; rows: PRow[]; next: number | null; hasMore: boolean };
 type JobLook = { jobId: string; client: string; state: string; note: string; committedBatches?: number[]; missingBatches?: number[] };
 const PAGE = 25;
@@ -71,22 +76,24 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
   const [page, setPage] = useState(0);
   const [hist, setHist] = useState<Hist | null>(null);
   const [lookId, setLookId] = useState(""); const [look, setLook] = useState<JobLook | null>(null);
+  const [restored, setRestored] = useState<Record<string, unknown> | null>(null); const [drift, setDrift] = useState(false);
+  const [downloadedFor, setDownloadedFor] = useState(""); const [orig, setOrig] = useState<{ text: string; digest: string } | null>(null);
   const [busy, setBusy] = useState(false); const [writing, setWriting] = useState(false); const [err, setErr] = useState(""); const [note, setNote] = useState("");
 
   // scope lock: a dispatched save/status or any unconfirmed batch keeps the parent client/table selectors locked
-  const locked = writing || batch.some((s) => s === "unconfirmed");
+  const locked = writing || batch.some((s) => s === "unconfirmed" || s === "unknown");
   useEffect(() => { onLockChange?.(locked); }, [locked, onLockChange]);
   useEffect(() => () => onLockChange?.(false), [onLockChange]);
 
   /** any scope/input change: fence all pending async work and drop derived state */
-  const invalidate = () => { fence.bump(); inflight.current = false; setChecks([]); setPlan(null); setConfirm(false); setBatch([]); setProofs({}); setHist(null); setErr(""); setNote(""); setBusy(false); };
+  const invalidate = () => { fence.bump(); setRestored(null); setDrift(false); setOrig(null); inflight.current = false; setChecks([]); setPlan(null); setConfirm(false); setBatch([]); setProofs({}); setHist(null); setErr(""); setNote(""); setBusy(false); };
   useEffect(() => {
     const tk = fence.token();
     call({ op: "durableGiftContext", client, table }).then((r) => tk.run(() => setCtx(r.ok ? (r.j as Ctx) : { available: false }))).catch(() => tk.run(() => setCtx({ available: false })));
     return () => fence.bump();
   }, [client, table, fence]);
-  if (!ctx?.available) return null;
-  const cols = ctx.columns ?? [];
+  const C: Ctx = ctx ?? { available: false };
+  const cols = C.columns ?? [];
   const headers = csv?.grid[0] ?? [];
   const rows = csv ? csv.grid.slice(1) : []; // ordinal = index, exactly as the server's strict parser numbers rows
   const personH = Object.keys(mapping).find((h) => mapping[h] === "@person");
@@ -107,7 +114,9 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
     if (!fl) return;
     if (fl.size > MAX) { setErr("Choose a CSV file of 2 MB or smaller"); return; }
     const tk = fence.token();
-    const text = await fl.text(); if (!tk.live()) return; // file read fenced: a newer selection wins
+    let text: string;
+    try { text = (await readExact(fl)).text; } catch { if (tk.live()) setErr("File is not valid UTF-8 text"); return; }
+    if (!tk.live()) return; // file read fenced: a newer selection wins
     let grid: string[][];
     try { grid = parseCsv(text); } catch (e) { setErr((e as Error).message); return; } // same strict parser as the server
     if (grid.length < 2) { setErr("CSV needs a header and at least one row"); return; }
@@ -128,7 +137,7 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
   /** advisory checks from read-only previews (sequential chunks of rowCap); the commit re-checks everything under lock */
   const runChecks = () => once(async (tk) => {
     if (!personH) throw new Error("Map the donor CPTID column first");
-    const R = ctx.rowCap ?? 1; const pi = headers.indexOf(personH);
+    const R = C.rowCap ?? 1; const pi = headers.indexOf(personH);
     const people = new Map<number, { masterMatches: number; portalOverlay: boolean; portalProspect: boolean }>();
     const byLoc = new Map<number, PRow>(), byGift = new Map<string, { found: boolean; locator?: number }>();
     let overrides = false;
@@ -145,15 +154,15 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
     await chunks("locators", "locators", locs, (j) => { for (const r of (j.rows as PRow[]) ?? []) byLoc.set(r.locator, r); });
     const gids = [...new Set(choices.filter((c) => c.d === "correct" && UUID.test(c.target)).map((c) => c.target))];
     await chunks("gifts", "giftIds", gids, (j) => { for (const g of (j.gifts as { giftId: string; found: boolean; locator?: number }[]) ?? []) byGift.set(g.giftId, g); for (const r of (j.rows as PRow[]) ?? []) byLoc.set(r.locator, r); });
-    const defs = new Map((ctx.colDefs ?? []).map((d) => [d.col, d]));
+    const defs = new Map((C.colDefs ?? []).map((d) => [d.col, d]));
     const out: Check[] = rows.map((r, i) => {
       const c = choices[i]; if (c.d === "held") return { ok: true, reasons: [] };
       const reasons: string[] = []; const donor = exactInt(r[pi]); const p = donor === null ? undefined : people.get(donor);
       if (donor === null) reasons.push("donor CPTID is not an exact whole number");
       if (!p || p.masterMatches !== 1) reasons.push("donor not found exactly once in the client master");
       if (c.d === "new") {
-        if (!ctx.newAllowed) reasons.push("new gifts are not enabled for this registration");
-        for (const col of ctx.required ?? []) { const h = Object.keys(mapping).find((k) => mapping[k] === col); if (!h || r[headers.indexOf(h)] === "") reasons.push(`required ${col} missing`); }
+        if (!C.newAllowed) reasons.push("new gifts are not enabled for this registration");
+        for (const col of C.required ?? []) { const h = Object.keys(mapping).find((k) => mapping[k] === col); if (!h || r[headers.indexOf(h)] === "") reasons.push(`required ${col} missing`); }
         if (p?.portalOverlay || p?.portalProspect) reasons.push("donor has portal edits");
         if (overrides) reasons.push("client has active portal gift edits");
         return { ok: !reasons.length, reasons };
@@ -206,7 +215,8 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
   /** sequential batches; a batch is unconfirmed from the moment it is dispatched until a validated reply arrives */
   const saveAll = () => once(async (tk) => {
     const st = [...batch];
-    if (st.includes("unconfirmed")) { setNote("A batch is unconfirmed: check its status first."); return; }
+    if (st.includes("unconfirmed") || st.includes("unknown")) { setNote("A batch is unconfirmed or unchecked: check its status first."); return; }
+    if (downloadedFor !== plan!.jobId) { setNote("Download the recovery file first."); return; }
     for (let i = 0; i < plan!.batches.length; i++) {
       if (st[i] === "saved") continue;
       const requestId = await sha32(`${plan!.jobId}:${i}`); if (!tk.live()) return;
@@ -217,7 +227,7 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
         status = res.status; const t = await res.text(); try { const x = JSON.parse(t); j = isObj(x) ? x : null; } catch { j = null; }
       } catch { j = null; }
       if (!tk.live()) return;
-      if (status === 200 && j && committedFor(j, { requestId, client, registrationId: ctx.registrationId, rows: plan!.batches[i] })) { st[i] = "saved"; setBatch([...st]); continue; }
+      if (status === 200 && j && committedFor(j, { requestId, client, registrationId: C.registrationId, rows: plan!.batches[i] })) { st[i] = "saved"; setBatch([...st]); continue; }
       if (j && ((status === 400 && j.code === "refused") || (status === 503 && (j.code === "refused" || j.code === "disabled")))) {
         st[i] = "refused"; setBatch([...st]);
         throw new Error(j.code === "disabled" ? "Saving gift IDs is turned off. Nothing in this batch was saved." : `Batch ${i + 1}: Engage refused this batch; nothing in it was saved.`);
@@ -227,25 +237,76 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
     tk.run(() => setNote("All batches committed (verified replies)."));
   }, true);
 
+  /** saved = signed proof bound to the derived request id; pending = ONLY the route's canonical 200 pending state with the
+   *  same id (resend of the same request permitted; never means "not saved"); anything else = unconfirmed */
+  const classify = (r: Awaited<ReturnType<typeof call>>, want: string): "saved" | "pending" | "unconfirmed" =>
+    r.ok && r.j.requestId === want && r.j.confirmed === true && typeof r.j.proof === "string" && r.j.proof ? "saved"
+      : r.status === 200 && r.j.requestId === want && r.j.confirmed === false && r.j.state === "pending" ? "pending" : "unconfirmed";
+
+  /** restore from an explicitly chosen recovery file: local checks, renew (same job), then status for EVERY batch before any send */
+  const onRecovery = async (el: HTMLInputElement, lookupOnly = false) => {
+    const fl = el.files?.[0]; el.value = ""; if (!fl) return;
+    if (inflight.current || locked) return;
+    const tk = fence.token();
+    if (fl.size > REC_MAX) { setErr("Recovery file is larger than 8 MB"); return; }
+    let f: Record<string, unknown>;
+    try { const x: unknown = JSON.parse((await readExact(fl)).text); if (!isObj(x)) throw 0; f = x; } catch { if (tk.live()) setErr("Not a readable recovery file"); return; }
+    if (!tk.live()) return;
+    const v = await verifyRecoveryFile(f); if (!tk.live()) return;
+    if (!v.ok) { setErr(`Recovery file refused: ${v.reason}`); return; }
+    const h = f.header as Record<string, unknown>;
+    if (h.client !== client || h.table !== table) { setErr(`This recovery file is for ${String(h.client).toUpperCase()} / ${String(h.table)}`); return; }
+    if (lookupOnly) { setLookId(String(h.jobId)); setLook(null); setNote("Job ID filled from the recovery file (read-only lookup)."); return; }
+    invalidate(); setCsv(null); setMapping({}); setChoices([]);
+    await once(async (t2) => {
+      const rn = await t2.guard(call({ op: "durableGiftRenew", client, table, header: h, headerMac: f.headerMac, jobToken: f.jobToken }));
+      if (rn.status === 409 || rn.status === 404) { t2.run(() => { setDrift(true); setLookId(String(h.jobId)); }); return; }
+      if (!rn.ok || typeof rn.j.token !== "string" || !rn.j.token || rn.j.jobId !== h.jobId) throw new Error("Not restored: the renewal reply was not valid for this job.");
+      const m = h.manifest as { decided: unknown[]; held: unknown[]; totalOrdinals: number; batchCount: number; batches: unknown[] };
+      const p: Plan = { token: rn.j.token as string, jobId: String(h.jobId), manifest: m, batches: (f.parts as { rows: Plan["batches"][number] }[]).map((x) => x.rows), summary: { batches: m.batchCount, decided: m.decided.length, held: m.held.length, total: m.totalOrdinals } };
+      const st: BatchState[] = p.batches.map(() => "unknown"); const pr: Record<number, string> = {};
+      t2.run(() => { setPlan(p); setRestored(h); setDownloadedFor(p.jobId); setBatch([...st]); setConfirm(false); });
+      for (let i = 0; i < p.batches.length; i++) {
+        const want = await sha32(`${p.jobId}:${i}`);
+        let r: Awaited<ReturnType<typeof call>> | null = null;
+        try { r = await t2.guard(call({ op: "durableGiftProof", client, table, token: p.token, manifest: p.manifest, batchIndex: i })); } catch (e) { if (!t2.live()) throw e; }
+        const c = r ? classify(r, want) : "unconfirmed";
+        st[i] = c; if (c === "saved") pr[i] = r!.j.proof as string;
+        t2.run(() => { setBatch([...st]); setProofs({ ...pr }); });
+      }
+      t2.run(() => setNote(st.includes("unconfirmed") ? "Restored. Some batches are unconfirmed: check their status again before saving." : "Restored. Every batch status was checked; pending batches can be resent with the same request ids."));
+    }, true);
+  };
+
+  const downloadRecovery = () => { if (!plan?.recovery) return; downloadJson({ header: plan.recovery.header, headerMac: plan.recovery.headerMac, jobToken: plan.token, parts: plan.batches.map((rows, index) => ({ index, rows })) }, `${(csv?.name ?? "gifts").replace(/\.csv$/i, "")}-recovery-${plan.jobId.slice(0, 12)}.json`); setDownloadedFor(plan.jobId); };
+
+  const onOrig = async (el: HTMLInputElement) => {
+    const fl = el.files?.[0]; el.value = ""; if (!fl || inflight.current) return; const tk = fence.token();
+    try { const x = await readExact(fl); if (!tk.live()) return; if (x.digest !== restored?.fileDigest) { setOrig(null); setErr("This is not the planned original file (byte digest differs)"); return; } setOrig(x); setErr(""); }
+    catch { if (tk.live()) setErr("File is not valid UTF-8 text"); }
+  };
+
   /** status of ONE batch via a signed proof; never resends */
   const checkBatch = (i: number) => once(async (tk) => {
     const want = await sha32(`${plan!.jobId}:${i}`);
     let r: Awaited<ReturnType<typeof call>>;
     try { r = await tk.guard(call({ op: "durableGiftProof", ...scope, token: plan!.token, manifest: plan!.manifest, batchIndex: i })); }
     catch (e) { if (tk.live()) throw new Error(`Batch ${i + 1}: status unavailable; still unconfirmed.`); throw e; }
-    tk.run(() => { if (r.ok && r.j.requestId === want && r.j.confirmed === true && typeof r.j.proof === "string" && r.j.proof) { setProofs((p) => ({ ...p, [i]: r.j.proof as string })); setBatch((b) => b.map((x, k) => (k === i ? "saved" : x))); setNote(`Batch ${i + 1} confirmed saved.`); }
-      else if (r.ok && r.j.requestId === want && r.j.confirmed === false) { setBatch((b) => b.map((x, k) => (k === i && x === "unconfirmed" ? "pending" : x))); setNote(`Batch ${i + 1}: no verified committed outcome yet. This does not prove nothing was saved. Save batches resends THIS batch with the same request id (Engage replays it if it was committed).`); }
-      else setErr(`Batch ${i + 1}: status unavailable or not for this batch; still unconfirmed.`); });
+    tk.run(() => { const c = classify(r, want);
+      if (c === "saved") { setProofs((p) => ({ ...p, [i]: r.j.proof as string })); setBatch((b) => b.map((x, k) => (k === i ? "saved" : x))); setNote(`Batch ${i + 1} confirmed saved.`); }
+      else if (c === "pending") { setBatch((b) => b.map((x, k) => (k === i && (x === "unconfirmed" || x === "unknown") ? "pending" : x))); setNote(`Batch ${i + 1}: no verified committed outcome yet. This does not prove nothing was saved. Save batches resends THIS batch with the same request id (Engage replays it if it was committed).`); }
+      else { setBatch((b) => b.map((x, k) => (k === i && x === "unknown" ? "unconfirmed" : x))); setErr(`Batch ${i + 1}: status unavailable or not for this batch; still unconfirmed.`); } });
   }, true);
 
   const lookupJob = () => once(async (tk) => {
     const id = lookId.trim(); if (!/^[a-f0-9]{64}$/.test(id)) throw new Error("Enter the full 64-character job ID");
-    const r = await tk.guard(call({ op: "durableGiftJobStatus", ...scope, jobId: id }));
+    const r = await tk.guard(call({ op: "durableGiftJobLookup", client, jobId: id }));
     tk.run(() => setLook(r.ok && r.j.jobId === id && r.j.client === client && typeof r.j.state === "string" && typeof r.j.note === "string" ? (r.j as unknown as JobLook) : { jobId: id, client, state: "unavailable", note: "Job status unavailable; outcome unconfirmed." }));
   });
 
   const exportCopy = () => once(async (tk) => {
-    const r = await tk.guard(call({ op: "durableGiftExport", ...scope, csv: csv!.text, token: plan!.token, manifest: plan!.manifest, proofs: Object.values(proofs) }));
+    const text = restored ? orig?.text : csv?.text; if (text === undefined) throw new Error("Choose the original CSV file first");
+    const r = await tk.guard(call({ op: "durableGiftExport", ...scope, csv: text, token: plan!.token, manifest: plan!.manifest, proofs: Object.values(proofs) }));
     if (!r.ok) throw new Error(errText(r.j));
     tk.run(() => { save(String(r.j.csv), String(r.j.fileName)); setNote(`Review copy downloaded: ${r.j.proven} verified IDs; held or unconfirmed rows left blank.`); });
   });
@@ -254,15 +315,34 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
   const states = batch.reduce((a, s) => ({ ...a, [s]: (a[s] ?? 0) + 1 }), {} as Record<string, number>);
   const shown = rows.slice(page * PAGE, page * PAGE + PAGE).map((r, k) => ({ r, o: page * PAGE + k }));
   const lockedNote = locked ? " Client and table are locked until every sent batch is confirmed or checked." : "";
+  const lookupJsx = (
+    <div className="mt-4 text-sm" data-testid="durable-lookup"><span className={label}>Look up a job (read-only)</span>
+      <span className="mt-1 flex flex-wrap gap-2"><input className={`${input} font-mono text-xs sm:max-w-xl`} aria-label="Job ID to look up" value={lookId} disabled={busy} onChange={(e) => { setLookId(e.target.value); setLook(null); }} placeholder="64-character job ID" />
+        <button type="button" className={linkBtn} disabled={busy} onClick={() => { void lookupJob(); }}>Look up job status</button></span>
+      {look && <p className="mt-1" role="status" data-testid="durable-lookup-result">Job {look.jobId} ({look.client.toUpperCase()}): {look.state}: {look.note}</p>}</div>);
+  if (!C.available) {
+    if (!C.lookupAvailable) return null;
+    // no reviewed registration for this client/table (or it changed): read-only whole-job lookup only; no proofs, no saves
+    return (
+      <details className="mt-8 rounded-2xl border border-[rgb(var(--line))] bg-white p-5" data-testid="durable-lookup-only">
+        <summary className="cursor-pointer font-serif text-lg text-[rgb(var(--navy))]">Catapult Gift ID job lookup (read-only)</summary>
+        <p className="mt-2 max-w-3xl text-sm text-[rgb(var(--ink))]/70">No reviewed gift registration matches this client and table, so saving and per-batch proofs are unavailable. You can still look up an earlier job by its full ID.</p>
+        <label className="mt-3 block text-sm"><span className={label}>Fill the job ID from a recovery file (read locally only)</span><input type="file" accept=".json,application/json" aria-label="Recovery file for lookup" className={input} disabled={busy} onChange={(e) => { void onRecovery(e.currentTarget, true); }} /></label>
+        {lookupJsx}
+        {err && <p role="alert" className="mt-3 text-sm text-red-700">{err}</p>}{note && <p role="status" className="mt-2 text-sm">{note}</p>}
+      </details>);
+  }
   return (
     <details className="mt-8 rounded-2xl border border-[rgb(var(--line))] bg-white p-5" data-testid="durable-gift">
       <summary className="cursor-pointer font-serif text-lg text-[rgb(var(--navy))]">Catapult Gift IDs (review only)</summary>
-      <p className="mt-2 max-w-3xl text-sm text-[rgb(var(--ink))]/70">Choose, row by row, whether a gift is new, an existing row to adopt, or a correction to an existing Catapult Gift ID. Everything starts held. Checks are advisory; each save re-checks under lock. {ctx.saveAvailable ? "" : "Saving is turned off."} A reload cannot resume a save; look up the job by its full ID below first.{lockedNote}</p>
-      <div className="mt-4 grid gap-4 md:grid-cols-3">
+      <p className="mt-2 max-w-3xl text-sm text-[rgb(var(--ink))]/70">Choose, row by row, whether a gift is new, an existing row to adopt, or a correction to an existing Catapult Gift ID. Everything starts held. Checks are advisory; each save re-checks under lock. {C.saveAvailable ? "" : "Saving is turned off."} A reload cannot resume a save; look up the job by its full ID below first.{lockedNote}</p>
+      <label className="mt-4 block text-sm md:max-w-md"><span className={label}>Restore from recovery file (.json)</span><input type="file" accept=".json,application/json" aria-label="Restore from recovery file" className={input} disabled={busy || locked} onChange={(e) => { void onRecovery(e.currentTarget); }} /></label>
+      {drift && <p role="alert" className="mt-3 max-w-3xl text-sm text-red-700" data-testid="durable-drift">Gift registration changed or was removed since planning. Saving and per-batch proofs are unavailable. Only the read-only job lookup below is available until the registration is reviewed and restored or migrated. Do not plan the file again to repeat these writes.</p>}
+      {!restored && !drift && <div className="mt-4 grid gap-4 md:grid-cols-3">
         <label className="block md:col-span-1"><span className={label}>Gift export (CSV)</span><input type="file" accept=".csv,text/csv" aria-label="Durable gift export" className={input} disabled={busy || locked} onChange={(e) => { void onFile(e.currentTarget); }} /></label>
         <label className="block"><span className={label}>Your name (as stated)</span><input className={input} aria-label="Your name" value={actor} disabled={busy || locked} onChange={(e) => { setActor(e.target.value); invalidate(); }} /></label>
         <label className="block"><span className={label}>Source export date (optional)</span><input type="date" className={input} aria-label="Source export date" value={fileDate} disabled={busy || locked} onChange={(e) => { setFileDate(e.target.value); invalidate(); }} /></label>
-      </div>
+      </div>}
       {headers.length > 0 && (
         <div className="mt-4"><span className={label}>Columns</span>
           <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{headers.map((h) => (
@@ -302,23 +382,24 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
       {err && <p role="alert" className="mt-3 text-sm text-red-700">{err}</p>}
       {plan && (
         <div className="mt-4 text-sm text-[rgb(var(--navy))]" data-testid="durable-plan">
+          {restored && <p className="mb-2" data-testid="durable-restored">Restored job (read-only): {String(restored.fileName)}, entered by {String(restored.actor)} (as stated), source date {restored.fileDate ? String(restored.fileDate) : "unknown"}. Decisions come from the recovery file and cannot be edited here.</p>}
           <p><b>{plan.summary.decided}</b> rows will be saved in <b>{plan.summary.batches}</b> batch{plan.summary.batches === 1 ? "" : "es"}; <b>{plan.summary.held}</b> will stay held (not saved).</p>
           <label className="mt-2 block"><span className={label}>Job ID (copy it to look the job up later)</span>
             <span className="mt-1 flex gap-2"><input readOnly className={`${input} font-mono text-xs`} aria-label="Job ID" value={plan.jobId} onFocus={(e) => e.currentTarget.select()} />
               <button type="button" className={linkBtn} onClick={() => { void navigator.clipboard?.writeText(plan.jobId).catch(() => undefined); }}>Copy</button></span></label>
           <p className="mt-1" data-testid="durable-progress">{!batch.length ? "" : states.saved === batch.length && plan.summary.held === 0 ? "Complete." : `Partial: ${states.saved ?? 0} of ${batch.length} batches saved; ${states.unconfirmed ?? 0} unconfirmed; ${plan.summary.held} rows held.`}</p>
           <label className="mt-2 flex items-center gap-2"><input type="checkbox" checked={confirm} disabled={busy || locked} onChange={(e) => setConfirm(e.target.checked)} aria-label="Confirm whole-file save" />I reviewed the whole file: {plan.summary.decided} rows will be saved and {plan.summary.held} will stay held.</label>
+          {!restored && <div className="mt-2"><button type="button" className={linkBtn} disabled={busy || !plan.recovery} onClick={downloadRecovery}>Download recovery file</button>
+            <span className="ml-2 text-xs text-[rgb(var(--ink))]/70">Contains donor gift rows and original snapshots. Store it like the source export. It is not saved in this browser. Required before saving.</span></div>}
+          {restored && <label className="mt-2 block"><span className={label}>Original CSV (for the review copy)</span><input type="file" accept=".csv,text/csv" aria-label="Original CSV" className={input} disabled={busy || locked} onChange={(e) => { void onOrig(e.currentTarget); }} /></label>}
           <div className="mt-3 flex flex-wrap gap-3">
-            <button type="button" className={navyBtn} disabled={busy || !confirm || !ctx.saveAvailable || batch.includes("unconfirmed")} onClick={() => { void saveAll(); }}>Save batches</button>
-            <button type="button" className={navyBtn} disabled={busy || !Object.keys(proofs).length} onClick={() => { void exportCopy(); }}>Download review copy</button></div>
-          {!ctx.saveAvailable && <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">Saving gift IDs is turned off.</p>}
-          <ul className="mt-3 space-y-1" data-testid="durable-batches">{batch.map((s, i) => <li key={i} data-state={s}>Batch {i + 1}: {s === "saved" ? "saved" : s === "unconfirmed" ? "unconfirmed (may or may not be saved)" : s === "refused" ? "refused by Engage (nothing saved)" : "not sent yet"} {s !== "pending" && s !== "refused" && !proofs[i] && <button type="button" className={linkBtn} disabled={busy} onClick={() => { void checkBatch(i); }}>Check status</button>}{proofs[i] && " (verified)"}</li>)}</ul>
+            <button type="button" className={navyBtn} disabled={busy || !confirm || !C.saveAvailable || batch.includes("unconfirmed") || batch.includes("unknown") || downloadedFor !== plan.jobId} onClick={() => { void saveAll(); }}>Save batches</button>
+            <button type="button" className={navyBtn} disabled={busy || !Object.keys(proofs).length || (!!restored && !orig)} onClick={() => { void exportCopy(); }}>Download review copy</button></div>
+          {!C.saveAvailable && <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">Saving gift IDs is turned off.</p>}
+          <ul className="mt-3 space-y-1" data-testid="durable-batches">{batch.map((s, i) => <li key={i} data-state={s}>Batch {i + 1}: {s === "saved" ? "saved" : s === "unconfirmed" ? "unconfirmed (may or may not be saved)" : s === "unknown" ? "status not checked yet" : s === "refused" ? "refused by Engage (nothing saved)" : "not sent yet"} {s !== "pending" && s !== "refused" && !proofs[i] && <button type="button" className={linkBtn} disabled={busy} onClick={() => { void checkBatch(i); }}>Check status</button>}{proofs[i] && " (verified)"}</li>)}</ul>
           {note && <p role="status" className="mt-2">{note}</p>}
         </div>)}
-      <div className="mt-4 text-sm" data-testid="durable-lookup"><span className={label}>Look up a job</span>
-        <span className="mt-1 flex flex-wrap gap-2"><input className={`${input} font-mono text-xs sm:max-w-xl`} aria-label="Job ID to look up" value={lookId} disabled={busy} onChange={(e) => { setLookId(e.target.value); setLook(null); }} placeholder="64-character job ID" />
-          <button type="button" className={linkBtn} disabled={busy} onClick={() => { void lookupJob(); }}>Look up job status</button></span>
-        {look && <p className="mt-1" role="status" data-testid="durable-lookup-result">Job {look.jobId} ({look.client.toUpperCase()}): {look.state}: {look.note}</p>}</div>
+      {lookupJsx}
     </details>
   );
 }

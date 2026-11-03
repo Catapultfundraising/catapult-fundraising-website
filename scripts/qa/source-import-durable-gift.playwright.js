@@ -36,7 +36,7 @@ const outcome = (i) => ({ committed: true, requestId: rid(i), outcome: { request
     let w = resp("durableGiftContext"); await sel0.selectOption("jag"); const real = await (await w).json(); await frames();
     ok(real.available === false && await p.locator("[data-testid=durable-gift]").count() === 0, `${vp.name}: actual route with empty registry => durable panel absent (production state)`);
     // 2) fictional mocked registration (test-only interception)
-    const sent = []; let inFlight = 0, maxInFlight = 0; let deferPersons = null, deferCommit = null; const faults = []; let deferLook = null; let proofReply = { confirmed: false, requestId: rid(1) };
+    const sent = []; let inFlight = 0, maxInFlight = 0; let deferPersons = null, deferCommit = null; const faults = []; let deferLook = null; let proofReply = { confirmed: false, state: "pending", requestId: rid(1) };
     await p.route("**" + API, async (route) => {
       const bd = bdy(route.request()); if (!String(bd.op || "").startsWith("durableGift")) return route.continue();
       sent.push(bd);
@@ -53,7 +53,7 @@ const outcome = (i) => ({ committed: true, requestId: rid(i), outcome: { request
           { locator: 12, person: 7002, personReadable: true, values: { ...VALUES, Gift_Amount: { v: "4", readable: true }, Gift_Date: { v: "2026-01-06T00:00:00", readable: true } }, giftId: UUID, baseline: { Gift_Amount: SRC, Gift_Date: UNK, Record_Type: UNK } },
           { locator: 13, person: 7005, personReadable: true, values: { ...VALUES, Gift_Amount: { v: "3", readable: true }, Record_Type: { v: "Pledge", readable: true } }, giftId: UUID2, baseline: { Gift_Amount: SRC, Gift_Date: SRC, Record_Type: MAN } }], giftOverridesActive: false });
       }
-      if (bd.op === "durableGiftPlan") return J({ token: "tok", jobId: JOB, manifest: { batches: [{}, {}] }, batches: BATCHES, summary: { batches: 2, decided: 3, held: 2, total: 5 } });
+      if (bd.op === "durableGiftPlan") return J({ token: "tok", jobId: JOB, recovery: { header: { jobId: JOB }, headerMac: "m" }, manifest: { batches: [{}, {}] }, batches: BATCHES, summary: { batches: 2, decided: 3, held: 2, total: 5 } });
       if (bd.op === "durableGiftCommit") {
         inFlight++; maxInFlight = Math.max(maxInFlight, inFlight);
         try {
@@ -72,7 +72,7 @@ const outcome = (i) => ({ committed: true, requestId: rid(i), outcome: { request
         } finally { inFlight--; }
       }
       if (bd.op === "durableGiftProof") return J(proofReply);
-      if (bd.op === "durableGiftJobStatus") { if (deferLook) { const g = deferLook; deferLook = null; await g.p; } return J({ jobId: bd.jobId, client: "jag", confirmed: true, state: "partial", batchCount: 2, committedBatches: [0, 1], missingBatches: [], heldRows: 2, decidedRows: 3, note: "All batches committed; 2 rows were held and not imported, so the file is not fully imported." }); }
+      if (bd.op === "durableGiftJobLookup") { if (deferLook) { const g = deferLook; deferLook = null; await g.p; } return J({ jobId: bd.jobId, client: "jag", confirmed: true, state: "partial", batchCount: 2, committedBatches: [0, 1], missingBatches: [], heldRows: 2, decidedRows: 3, note: "All batches committed; 2 rows were held and not imported, so the file is not fully imported." }); }
       if (bd.op === "durableGiftExport") return J({ fileName: "fictional-gifts-catapult-gift-ids.csv", csv: "x", proven: 1, held: 2, unconfirmed: 2 });
       return J({ error: "unknown" }, 400);
     });
@@ -117,6 +117,9 @@ const outcome = (i) => ({ committed: true, requestId: rid(i), outcome: { request
     const saveBtn = plan.locator("button", { hasText: "Save batches" });
     ok(await saveBtn.isDisabled(), `${vp.name}: save needs the whole-file confirmation`);
     await plan.locator("input[aria-label='Confirm whole-file save']").check();
+    ok(await saveBtn.isDisabled(), `${vp.name}: save also needs the recovery file downloaded first`);
+    { const dlr = p.waitForEvent("download"); await plan.locator("button", { hasText: "Download recovery file" }).click(); const d0 = await dlr;
+      ok(/-recovery-ffffffffffff\.json$/.test(d0.suggestedFilename()) && !(await saveBtn.isDisabled()), `${vp.name}: after the recovery download Save is enabled`); }
     const commits = () => sent.filter((x) => x.op === "durableGiftCommit");
     const li = (i) => plan.locator("[data-testid=durable-batches] li").nth(i);
     const idle = () => plan.locator("button:has-text('Save batches'):not([disabled]), li[data-state=unconfirmed] button:has-text('Check status'):not([disabled])").first().waitFor();
@@ -137,7 +140,7 @@ const outcome = (i) => ({ committed: true, requestId: rid(i), outcome: { request
         const c = commits();
         ok(await li(1).getAttribute("data-state") === "unconfirmed" && JSON.stringify(c[c.length - 1]) === body1 && c.filter((x) => x.batchIndex === 0).length === 1 && await saveBtn.isDisabled(), `${vp.name}: ${f} => unconfirmed (no "nothing saved"); resend only after status, identical body; saved batch never resent`);
       }
-      for (const wrong of [{ confirmed: true, proof: "proof-x", requestId: rid(0) }, { confirmed: false, requestId: rid(0) }, { confirmed: true, proof: "proof-y" }]) {
+      for (const wrong of [{ confirmed: true, proof: "proof-x", requestId: rid(0) }, { confirmed: false, state: "pending", requestId: rid(0) }, { confirmed: true, proof: "proof-y" }]) {
         proofReply = wrong; w = resp("durableGiftProof"); await li(1).locator("button", { hasText: "Check status" }).click(); await w;
         await p.locator("[role=alert]", { hasText: "not for this batch" }).waitFor(); await li(1).locator("button:has-text('Check status'):not([disabled])").waitFor();
         ok(await li(1).getAttribute("data-state") === "unconfirmed" && await saveBtn.isDisabled() && await outer.isDisabled(), `${vp.name}: status reply ${JSON.stringify(wrong)} (wrong/missing request id) => still unconfirmed, no resend, scope locked`);
@@ -148,7 +151,7 @@ const outcome = (i) => ({ committed: true, requestId: rid(i), outcome: { request
       // 6) job lookup by full ID
       const lk = sec.locator("input[aria-label='Job ID to look up']"); await lk.fill(JOB);
       let relL; deferLook = { p: new Promise((r) => { relL = r; }) };
-      const lq = p.waitForRequest((r) => isOp(r, "durableGiftJobStatus")); w = resp("durableGiftJobStatus"); await sec.locator("button", { hasText: "Look up job status" }).click(); await lq; await frames();
+      const lq = p.waitForRequest((r) => isOp(r, "durableGiftJobLookup")); w = resp("durableGiftJobLookup"); await sec.locator("button", { hasText: "Look up job status" }).click(); await lq; await frames();
       ok(await lk.isDisabled(), `${vp.name}: job ID input locked while a lookup is pending (old reply cannot install under a new ID)`);
       relL(); await w; await sec.locator("[data-testid=durable-lookup-result]").waitFor();
       const lt = await sec.locator("[data-testid=durable-lookup-result]").innerText();
