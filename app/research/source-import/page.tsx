@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
+import BaselineAttest from "./BaselineAttest";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
 import { createScopeFence, StaleScope } from "@/lib/portal-v2/scope-fence";
 import { buildAllocManifest, allocReserveRequestId, type AllocContext, type AllocManifest } from "@/lib/portal-v2/source-allocator";
@@ -308,6 +309,7 @@ export default function SourceImportPage() {
           {(saveMsg || unconfirmed) && <p role="status" className="mt-3 text-sm text-[rgb(var(--navy))]">{saveMsg} {unconfirmed && requestId && <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={checkStatus}>Check status</button>} {unconfirmed && token && <button type="button" className="ml-2 font-semibold text-[rgb(var(--brass))] underline" disabled={busy || profBusy} onClick={save}>Send the same request again (safe: never saves twice)</button>}</p>}
           <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Registry from builder commit {result.registry.builder_commit.slice(0, 7)}, SQL metadata {result.registry.sql_metadata_checked_at.slice(0, 10)}. Historical evidence, not live acceptance.</p>
         </section>)}
+      {client && <BaselineAttest key={`${client}/${table}`} client={client} table={table} />}
     </main>
   );
 }

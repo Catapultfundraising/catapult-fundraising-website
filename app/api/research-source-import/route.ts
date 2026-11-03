@@ -10,6 +10,7 @@ import { approvedAllocators, verifyAllocChunk, identityConfigDigest, reservePayl
 import { preparedDigest as preparedDigestOf, verifySourceTokenPayloadForAlloc } from "@/lib/portal-v2/source-alloc-server";
 import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2/source-mapping-profile";
 import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
+import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId } from "@/lib/portal-v2/source-baseline-attest";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -25,6 +26,7 @@ const nodeSha = async (x: string) => createHash("sha256").update(x, "utf8").dige
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const clientsNow = () => [...new Set([...SOURCE_FIELDS.map((f) => f.c), ...approvedPrepared().map((p) => p.client)])];
 
+const exactBody = (o: Record<string, unknown>, ks: string[]) => JSON.stringify(Object.keys(o).sort()) === JSON.stringify([...ks].sort());
 function sameOrigin(req: NextRequest) {
   if (!(req.headers.get("content-type") || "").toLowerCase().startsWith("application/json")) return false;
   const origin = req.headers.get("origin"); const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
@@ -170,6 +172,32 @@ export async function POST(req: NextRequest) {
       const jid = String(b.jobId || ""); if (!/^[a-f0-9]{64}$/.test(jid)) return bad("bad jobId");
       const out = await postToEngage(fetch, process.env, { op: "jobStatus", client, jobId: jid }, "");
       return out.ok ? NextResponse.json(out.body) : bad("Status unavailable; try again", 502);
+    }
+    // Baseline attestation (review only): read-only gateway to backend baselinePreview/baselineStatus. No apply op exists.
+    if (b.op === "baselineContext") {
+      const r = attestDestination(client, table);
+      return NextResponse.json(r.ok ? { available: true, configured: sourcePreviewConfigured(), key: r.dest.key, keyKind: r.dest.keyKind, columns: r.dest.cols, personRequired: !!r.dest.personLink, linkRequired: !!r.dest.xw } : { available: false, reason: r.reason });
+    }
+    if (b.op === "baselinePreview") {
+      if (!exactBody(b, ["op", "client", "table", "fileB64", "draft"])) return bad("bad baselinePreview body");
+      const r = attestDestination(client, table); if (!r.ok) return bad(r.reason);
+      if (typeof b.fileB64 !== "string" || b.fileB64.length > Math.ceil(CSV_MAX_BYTES / 3) * 4 + 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(b.fileB64)) return bad("Choose a CSV file of 2 MB or smaller");
+      const bytes = Buffer.from(b.fileB64, "base64"); if (!bytes.length || bytes.length > CSV_MAX_BYTES) return bad("Choose a CSV file of 2 MB or smaller");
+      let csvText: string; try { csvText = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return bad("File must be UTF-8 text"); }
+      const grid = parseCsv(csvText); const { headers } = rowsFromGrid(grid); validateHeadersAndMapping(headers, {});
+      const dr = validateDraft(b.draft, r.dest, headers); const prior = buildPrior(grid, r.dest, dr); const packet = buildPacket(r.dest, dr, bytes);
+      if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
+      const out = await postToEngage(fetch, process.env, { op: "baselinePreview", packet, prior }, "");
+      if (!out.ok) return bad(!out.unconfirmed && out.status === 400 && typeof out.body?.error === "string" && out.body.error.length <= 300 ? `Backend refused: ${out.body.error}` : "Preview unavailable; nothing was saved. Try again.", out.unconfirmed ? 502 : 400);
+      const plan = summarizePlan(out.body);
+      return NextResponse.json({ plan, priorRows: prior.length, priorDigest: priorDigest(prior), fileSha256: packet.priorFile.sha256, export: exportText(packet, prior, dr, plan) });
+    }
+    if (b.op === "baselineStatus") {
+      if (!exactBody(b, ["op", "client", "table", "requestId"]) || !validRequestId(b.requestId)) return bad("bad requestId");
+      const r = attestDestination(client, table); if (!r.ok) return bad(r.reason);
+      if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
+      const out = await postToEngage(fetch, process.env, { op: "baselineStatus", client, table, requestId: b.requestId }, b.requestId);
+      return out.ok ? NextResponse.json(summarizeStatus(out.body)) : bad("Status unavailable (unconfirmed); try again", 502);
     }
     if (b.op === "tables") {
       return NextResponse.json({ registry: REGISTRY_META, applyEnabled: sourceApplyEnabled(), tables: clientTables(client) });
