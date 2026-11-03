@@ -61,8 +61,8 @@ const SHEETS: Sheet[] = [
     icon: FolderOpen,
     title: "Presentation Folder",
     description:
-      "Print-ready two-pocket presentation folder — front, back, and interior spread with business card slits, packaged as a single print-vendor handoff PDF.",
-    href: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/65b2e7da-f119-43dd-89a6-bbc6084ea890.pdf",
+      "High-resolution front and back cover artwork for a 9 × 12-inch folder, with bleed and printer notes. Printer handles the folder template, pockets and business-card slits.",
+    href: "/one-sheets/print/Catapult-Presentation-Folder-Artwork-2026-11-03.pdf",
   },
   {
     icon: BookOpen,
