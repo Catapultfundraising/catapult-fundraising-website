@@ -65,7 +65,9 @@ test("export: header row first, original columns kept in order, appended warning
   for (const [i, row] of g.slice(1).entries()) { assert.equal(row[4], r.rows[i].pid); assert.equal(row[5], STATUS); assert.equal(row[8], WARNING); assert.match(row[7], /pending reconciliation/); }
   assert.equal(g[1][6], "proposed new (unverified, not recorded)"); assert.equal(g[3][6], "held");
   assert.equal(g[1][3], "'=SUM(A1)"); assert.equal(g[2][3], "' @cmd"); assert.equal(g[5][3], "'-5"); assert.equal(g[4][3], "multi\nline"); assert.equal(g[1][0], "9001");
-  assert.equal(x.escapedCells, 3); assert.equal(x.fileName, "gifts_2026.PROVISIONAL-REVIEW-COPY.csv");
+  assert.equal(x.escapedCells, 3); assert.equal(x.fileName, "gifts-2026.PROVISIONAL-REVIEW-COPY.csv"); assert.equal(x.sidecarName, "gifts-2026.PROVISIONAL-REVIEW-COPY.meta.json");
+  for (const [n, want] of [["jag_gift__history 2026.csv", "jag-gift-history-2026"], ["__.csv", "export"], ["a  b_c.csv", "a-b-c"]] as const)
+    assert.equal(exportGift({ client: "jag", table: "raw_master_giving_history", bytes: enc(CSV), grid: parseCsv(CSV), mapping: MAP, decisions: dec, token: r.token, secret: S, now: NOW + 1000, fileName: n }).fileName, `${want}.PROVISIONAL-REVIEW-COPY.csv`);
   const m = JSON.parse(x.sidecar); assert.equal(m.escapedCells, 3); assert.equal(m.held, 5); assert.deepEqual(m.operatorProposalsNotRecorded, { held: 3, "proposed-new": 1, "proposed-existing": 1 });
   assert.ok(!x.sidecar.includes("9001") && !x.sidecar.includes("SUM"), "metadata only, no donor values"); assert.ok(x.sidecar.length < 65536);
 });

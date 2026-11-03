@@ -1,3 +1,4 @@
+// Download names never contain underscores (house file-naming rule).
 // REVIEW-ONLY provisional gift-ID preview for JAG (raw_master_giving_history), whose latest export has no Transaction
 // column. Entirely local staging: no SQL, no upstream reads, no persistence, no reservation, no apply.
 //  - CPTID is checked for SYNTAX only. Donor existence, donor link, gift history and ownership are UNVERIFIED.
@@ -150,7 +151,7 @@ export function exportGift(o: { client: string; table: string; bytes: Uint8Array
   if (Buffer.byteLength(csv, "utf8") > GIFT_EXPORT_MAX_BYTES) bad("Review copy would exceed 4 MB");
   const dCount: Record<string, number> = { held: 0, "proposed-new": 0, "proposed-existing": 0 }; for (const d of dec) dCount[d]++;
   const reasons: Record<string, number> = {}; for (const r of rows) for (const x of r.reasons) reasons[x] = (reasons[x] ?? 0) + 1;
-  const base = typeof o.fileName === "string" ? o.fileName.replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9._-]+/g, "_").slice(0, 80) || "export" : "export";
+  const base = typeof o.fileName === "string" ? o.fileName.replace(/\.[^.]*$/, "").replace(/[^A-Za-z0-9.-]+/g, "-").replace(/-{2,}/g, "-").replace(/^[-.]+|[-.]+$/g, "").slice(0, 80) || "export" : "export";
   const sidecar = JSON.stringify({
     kind: "jag-gift-provisional-preview/v1", warning: "REVIEW COPY ONLY. Provisional preview IDs are not identities and must not be stored, sent back or reused. Nothing was recorded. Formula-like cells were prefixed with an apostrophe, so this copy is not exact and not reimport-safe; the original file is unchanged.",
     client: s.c, table: s.t, originalFileSha256: fileSha, sessionDigest: sha(String(o.token)), rows: rows.length, held: rows.length, operatorProposalsNotRecorded: dCount,
