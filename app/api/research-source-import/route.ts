@@ -3,6 +3,8 @@ import { isResearchAuthed } from "@/lib/research-auth";
 import { parseCsv, CSV_MAX_BYTES, CsvError, demoAllowed } from "@/lib/portal-v2/csv-updates";
 import { approvedPrepared, clientTables, parseKey, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
 import { REGISTRY_META, SOURCE_FIELDS } from "@/lib/portal-v2/source-registry";
+import { createHash } from "node:crypto";
+import { verifyJobChunk, JobError, JOB_CHUNK_MAX_BYTES, JOB_MANIFEST_MAX_BYTES } from "@/lib/portal-v2/source-jobs";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -11,6 +13,7 @@ import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceA
 // Existing clients have no persisted baseline, so live updates stay held until a reviewed baseline workflow exists.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+const nodeSha = async (x: string) => createHash("sha256").update(x, "utf8").digest("hex");
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const clientsNow = () => [...new Set([...SOURCE_FIELDS.map((f) => f.c), ...approvedPrepared().map((p) => p.client)])];
 
@@ -21,10 +24,37 @@ function sameOrigin(req: NextRequest) {
   try { return new URL(origin).host === host; } catch { return false; }
 }
 
+async function livePreviewResponse(client: string, table: string, dests: ReturnType<typeof registryDests>, headers: string[], rows: Record<string, string>[], mappingIn: unknown, fileNameIn: unknown, fileDateIn: unknown, csvIn: string, job?: Parameters<typeof livePreview>[2]["job"]) {
+  const mapping = validateHeadersAndMapping(headers, mappingIn);
+  const keyCol = dests.find((d) => d.key)?.key ?? "";
+  const kh = Object.keys(mapping).find((h) => mapping[h] === keyCol);
+  if (!kh) return bad(`Map a column to the key ${keyCol}`);
+  const mapped = Object.values(mapping).filter(Boolean);
+  if (new Set(mapped).size !== mapped.length) return bad("A destination is mapped twice");
+  if (rows.length > SOURCE_MAX_OPS) return bad(`One preview handles at most ${SOURCE_MAX_OPS} rows; larger files are uploaded as a batched job`, 413);
+  const keys = [...new Set(rows.map((r) => parseKey(r[kh])).filter((k): k is number => k !== null))];
+  const cols = mapped.filter((c) => dests.some((d) => d.col === c && d.st === "candidate" && c !== keyCol));
+  if (!keys.length || !cols.length) return bad("Map the key and at least one reviewable field");
+  // Source-as-of date: explicit only. Blank = unknown (never today).
+  const fileDate = fileDateIn == null || fileDateIn === "" ? null : typeof fileDateIn === "string" && /^\d{4}-\d{2}-\d{2}$/.test(fileDateIn) && !Number.isNaN(Date.parse(fileDateIn + "T00:00:00Z")) && new Date(fileDateIn + "T00:00:00Z").toISOString().startsWith(fileDateIn) ? fileDateIn : "bad";
+  if (fileDate === "bad") return bad("Source date must be a real date (YYYY-MM-DD) or left blank for unknown");
+  const fileName = typeof fileNameIn === "string" && fileNameIn.trim() && fileNameIn.length <= 300 ? fileNameIn.trim() : "";
+  if (!fileName) return bad("File name missing; choose the file again");
+  const out = await postToEngage(fetch, process.env, { op: "previewState", client, table, keys, cols }, "");
+  if (!out.ok) return bad(out.unconfirmed ? "Engage did not answer; try again" : String(out.body.error || "Preview failed"), 502);
+  const prepared = approvedPrepared().find((p) => p.client === client); // server registration only, never request input
+  const st = out.body as unknown as EngageState;
+  const mode = prepared && st.destinationEmpty === true ? "first-load" as const : "update" as const;
+  const lp = livePreview({ client, table, mode, mapping, rows, headers, prepared }, st, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET, ...(job ? { job } : {}) });
+  const { dest: _d, ...result } = lp.result;
+  return NextResponse.json({ headers, result, mode, token: lp.token, requestId: lp.requestId, job: lp.job ?? null, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
+}
+
 export async function POST(req: NextRequest) {
   if (!process.env.RESEARCH_PASSWORD || !process.env.RESEARCH_AUTH_SECRET || !(await isResearchAuthed(req))) return bad("unauthorized", 401);
   if (!sameOrigin(req)) return bad("JSON same-origin requests only", 403);
-  const MAX_BODY = CSV_MAX_BYTES + 64_000;
+  // job batches carry <=500 rows + the whole-file manifest; stays under the ~4.5 MB deployed request-body limit
+  const MAX_BODY = JOB_CHUNK_MAX_BYTES + JOB_MANIFEST_MAX_BYTES - 200_000;
   if (Number(req.headers.get("content-length") || 0) > MAX_BODY) return bad("Request too large", 413);
   const text = await req.text().catch(() => "");
   if (Buffer.byteLength(text, "utf8") > MAX_BODY) return bad("Request too large", 413);
@@ -51,6 +81,12 @@ export async function POST(req: NextRequest) {
         return out.ok ? NextResponse.json(out.body) : bad("Status unavailable; try again", 502);
       }
     }
+    if (b.op === "jobStatus") {
+      if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
+      const jid = String(b.jobId || ""); if (!/^[a-f0-9]{64}$/.test(jid)) return bad("bad jobId");
+      const out = await postToEngage(fetch, process.env, { op: "jobStatus", client, jobId: jid }, "");
+      return out.ok ? NextResponse.json(out.body) : bad("Status unavailable; try again", 502);
+    }
     if (b.op === "tables") {
       return NextResponse.json({ registry: REGISTRY_META, applyEnabled: sourceApplyEnabled(), tables: clientTables(client) });
     }
@@ -69,29 +105,7 @@ export async function POST(req: NextRequest) {
         if (!sourcePreviewConfigured()) return bad("Live source preview is not configured (needs the reviewed source_import store and dedicated Engage connection)", 501);
         if (!csvIn || Buffer.byteLength(csvIn, "utf8") > CSV_MAX_BYTES) return bad("Choose a CSV file of 2 MB or smaller");
         const { headers, rows } = rowsFromGrid(parseCsv(csvIn));
-        const mapping = validateHeadersAndMapping(headers, b.mapping);
-        const keyCol = dests.find((d) => d.key)?.key ?? "";
-        const kh = Object.keys(mapping).find((h) => mapping[h] === keyCol);
-        if (!kh) return bad(`Map a column to the key ${keyCol}`);
-        const mapped = Object.values(mapping).filter(Boolean);
-        if (new Set(mapped).size !== mapped.length) return bad("A destination is mapped twice");
-        if (rows.length > SOURCE_MAX_OPS) return bad(`Live preview handles at most ${SOURCE_MAX_OPS} rows per file; split the file`, 413);
-        const keys = [...new Set(rows.map((r) => parseKey(r[kh])).filter((k): k is number => k !== null))];
-        const cols = mapped.filter((c) => dests.some((d) => d.col === c && d.st === "candidate" && c !== keyCol));
-        if (!keys.length || !cols.length) return bad("Map the key and at least one reviewable field");
-        // Source-as-of date: explicit only. Blank = unknown (never today).
-        const fileDate = b.fileDate == null || b.fileDate === "" ? null : typeof b.fileDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.fileDate) && !Number.isNaN(Date.parse(b.fileDate + "T00:00:00Z")) && new Date(b.fileDate + "T00:00:00Z").toISOString().startsWith(b.fileDate) ? b.fileDate : "bad";
-        if (fileDate === "bad") return bad("Source date must be a real date (YYYY-MM-DD) or left blank for unknown");
-        const fileName = typeof b.fileName === "string" && b.fileName.trim() && b.fileName.length <= 300 ? b.fileName.trim() : "";
-        if (!fileName) return bad("File name missing; choose the file again");
-        const out = await postToEngage(fetch, process.env, { op: "previewState", client, table, keys, cols }, "");
-        if (!out.ok) return bad(out.unconfirmed ? "Engage did not answer; try again" : String(out.body.error || "Preview failed"), 502);
-        const prepared = approvedPrepared().find((p) => p.client === client); // server registration only, never request input
-        const st = out.body as unknown as EngageState;
-        const mode = prepared && st.destinationEmpty === true ? "first-load" as const : "update" as const;
-        const lp = livePreview({ client, table, mode, mapping, rows, headers, prepared }, st, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET });
-        const { dest: _d, ...result } = lp.result;
-        return NextResponse.json({ headers, result, mode, token: lp.token, requestId: lp.requestId, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
+        return await livePreviewResponse(client, table, dests, headers, rows, b.mapping, b.fileName, b.fileDate, csvIn);
       }
       if (!demoAllowed()) return bad("Demo data is only available in local development", 403);
       if (!csvIn || Buffer.byteLength(csvIn, "utf8") > CSV_MAX_BYTES) return bad("Choose a CSV file of 2 MB or smaller");
@@ -101,6 +115,21 @@ export async function POST(req: NextRequest) {
       const st = demoSourceState(client, table);
       const { dest: _d, ...result } = reconcile({ client, table, mode: "update", mapping, rows, headers, ...st });
       return NextResponse.json({ headers, result });
+    }
+    if (b.op === "jobPreview") {
+      if (b.demo === true) {
+        if (!demoAllowed()) return bad("Demo data is only available in local development", 403);
+        const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor || "") });
+        const { demoSourceState } = await import("@/lib/portal-v2/source-demo");
+        const { dest: _d, ...result } = reconcile({ client, table, mode: "update", mapping: validateHeadersAndMapping(v.manifest.headers, v.mapping), rows: v.rows, headers: v.manifest.headers, ...demoSourceState(client, table) });
+        return NextResponse.json({ result, token: null, requestId: v.requestId, job: null, applyAvailable: false });
+      }
+      // One bounded batch of a large file. Whole-file identity/keys are re-verified on every batch; nothing is stored here.
+      if (!sourcePreviewConfigured()) return bad("Live source preview is not configured (needs the reviewed source_import store and dedicated Engage connection)", 501);
+      if (typeof b.actor !== "string" || !b.actor.trim() || b.actor.length > 200) return bad("Enter your name (recorded as the shared-login author)");
+      const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: b.actor });
+      const ref = { jobId: b.jobId as string, batchIndex: v.index, batchCount: v.batchCount, totalRows: v.manifest.totalRows };
+      return await livePreviewResponse(client, table, dests, v.manifest.headers, v.rows, v.mapping, v.manifest.fileName, v.manifest.fileDate, "", { ref, requestId: v.requestId, fileDigest: v.fileDigest });
     }
     if (b.op === "apply") {
       if (!sourceApplyConfigured()) return bad("Saving source data is turned off", 403);
@@ -113,7 +142,7 @@ export async function POST(req: NextRequest) {
     }
     return bad("unknown op");
   } catch (e) {
-    if (e instanceof SourceError || e instanceof CsvError) return bad((e as Error).message);
+    if (e instanceof SourceError || e instanceof CsvError || e instanceof JobError) return bad((e as Error).message);
     return bad("Preview failed", 500);
   }
 }

@@ -31,7 +31,9 @@ export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "cu
   return { baseline, current, overlays, heldKeys, ...(s.personLink ? { personOf } : {}) };
 }
 
-export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[] }
+export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[]; job?: SourceJobRef }
+/** Large-file job binding (source-jobs.ts): requestId = sha256(jobId:batchIndex)[0:32]; fileDigest = ordered content digest. */
+export interface SourceJobRef { jobId: string; batchIndex: number; batchCount: number; totalRows: number; heldRows: number }
 const key = (secret: string | undefined) => { if (!secret || secret.length < 24) throw new SourceError("Source import is not configured"); return createHmac("sha256", secret).update("source-import/v1").digest(); };
 export const fileDigest = (csv: string) => createHash("sha256").update(csv, "utf8").digest("hex");
 export const newSourceRequestId = () => randomBytes(16).toString("hex");
@@ -54,7 +56,7 @@ export function verifySourceToken(token: unknown, secret: string | undefined, no
 }
 
 /** Builds the reconciliation + signed token from Engage state. Returns no token when nothing is applicable. */
-export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number }) {
+export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number; job?: { ref: Omit<SourceJobRef, "heldRows">; requestId: string; fileDigest: string } }) {
   const inputs = stateToInputs(state);
   if (base.prepared) {
     const want = preparedDigest(base.prepared, base.table);
@@ -63,9 +65,10 @@ export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "ove
   // first load: empty prepared destination (Engage-reported) => no baseline/current; otherwise later updates
   const result: ReconResult = reconcile(base.mode === "first-load" ? { ...base, ...inputs, baseline: null, current: new Map() } : { ...base, ...inputs });
   const ops = planWrites(result);
-  const requestId = newSourceRequestId();
-  const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops }, meta.secret) : null;
-  return { result, ops: ops.length, token, requestId };
+  const requestId = meta.job ? meta.job.requestId : newSourceRequestId();
+  const job = meta.job ? { ...meta.job.ref, heldRows: result.counts.held + result.counts.invalid } : undefined;
+  const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: meta.job ? meta.job.fileDigest : fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops, ...(job ? { job } : {}) }, meta.secret) : null;
+  return { result, ops: ops.length, token, requestId, ...(job ? { job } : {}) };
 }
 
 export function applyRequestBody(token: unknown, actor: unknown, secret: string | undefined, now = Date.now()) {
