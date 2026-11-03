@@ -9,7 +9,7 @@ const API = "/api/research-source-import";
   const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 }, extraHTTPHeaders: { "x-forwarded-proto": "https" } });
   await ctx.addCookies([{ name: "catapult_research_auth", value: cookie, url: "http://localhost:3100" }]);
   const ext = []; const log = []; let hold = null; let onHeld = null; const held = [];
-  await ctx.route((u) => !u.href.startsWith("http://localhost:3100"), (route) => { ext.push(new URL(route.request().url()).origin); return route.abort(); });
+  await ctx.route((u) => new URL(u.href).origin !== "http://localhost:3100", (route) => { ext.push(new URL(route.request().url()).origin); return route.abort(); });
   const p = await ctx.newPage();
   await p.route("**" + API, async (route) => {
     const body = JSON.parse(route.request().postData() || "{}"); log.push({ op: body.op, client: body.client, table: body.table, fileName: body.fileName });
@@ -36,7 +36,7 @@ const API = "/api/research-source-import";
   await p.waitForFunction(() => window.__pending.length === 1);
   await pick("csnf");
   const before = log.length;
-  await p.evaluate(async () => { window.__pending.shift()(); await window.__readDone; await new Promise((r) => setTimeout(r, 0)); });
+  await p.evaluate(async () => { window.__pending.shift()(); await window.__readDone; });
   await settle();
   const txt = await p.innerText("body");
   assert(!txt.includes("old-pvas.csv"), "deferred file read after client change: old filename not installed");
