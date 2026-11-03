@@ -196,6 +196,10 @@ export interface ReconInput {
   linkOf?: Map<Key, string | null>; // crosswalk tables: record key -> canonical current link value
   overlays: OverlayMark[];
   prepared?: PreparedClient;
+  /** approved gift insert policy for this person-linked table (server registry only), else new IDs stay held */
+  insertPolicy?: { digest: string; required: string[] } | null;
+  /** Engage resolution of each row's SOURCE person link (new linked records): exact link, resolved person, in master */
+  sourceLink?: Map<Key, { link: string; person: number | null; inMaster: boolean }>;
 }
 export type FieldOutcome = "apply" | "unchanged" | "converged" | "conflict" | "protected" | "held" | "invalid" | "blank";
 export interface ReconField { col: string; outcome: FieldOutcome; latest: string | null; baseline: string | null; current: string | null; reason?: string }
@@ -259,7 +263,27 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
     const hk = inp.heldKeys?.get(key); if (hk) return push({ line, key, outcome: "held", reason: hk, fields });
     const cur = inp.current.get(key); const base = inp.baseline?.get(key);
 
-    if (dest.personLink && !cur) return push({ line, key, outcome: "held", reason: "new records for this table are held (update-only; row-order / new-person policy pending)", fields });
+    if (dest.personLink && !cur) {
+      // NEW record on a person-linked table: only under an approved policy, with the source link resolved to exactly
+      // one existing master person, no portal protection for that person, no baseline/collision, all required values.
+      const pol = inp.insertPolicy;
+      if (!pol || mode !== "update") return push({ line, key, outcome: "held", reason: "new records for this table are held (no approved insert policy for this group)", fields });
+      if (!personHeader) return push({ line, key, outcome: "held", reason: `map the source ${dest.personLink} column; new records need a verified person link`, fields });
+      const sl = dest.xw ? canonLink(dest.xw.fromKind, r[personHeader]) : (() => { const n = parseKey(r[personHeader]); return n === null ? null : String(n); })();
+      const res = inp.sourceLink?.get(key);
+      if (sl === null) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} missing or invalid`, fields });
+      if (!res || res.link !== sl) return push({ line, key, outcome: "held", reason: "source person link was not checked by Engage; preview again", fields });
+      if (res.person === null) return push({ line, key, outcome: "held", reason: dest.xw ? `source ${dest.personLink} is unmapped or ambiguous in ${dest.xw.table} (must resolve to exactly one CPTID)` : "source person invalid", fields });
+      if (!res.inMaster) return push({ line, key, outcome: "held", reason: "person not found exactly once in the client master", fields });
+      if (inp.overlays.some((o) => o.key === res.person)) return push({ line, key, outcome: "held", reason: "person has portal edits or was created in the portal (protected)", fields });
+      if (!baselineKnown) return push({ line, key, outcome: "held", reason: "no baseline: cannot tell a new source record from an unknown one", fields });
+      if (base) return push({ line, key, outcome: "held", reason: "record was in baseline but is gone from destination", fields });
+      for (const n of norm) fields.push({ col: n.d.col, outcome: n.v === null ? "blank" : "apply", latest: n.v, baseline: null, current: null });
+      const blankReq = pol.required.filter((c) => !norm.some((n) => n.d.col === c && n.v !== null));
+      if (blankReq.length) return push({ line, key, outcome: "held", reason: `required source value missing: ${blankReq.join(", ")} (never guessed)`, fields });
+      counts.applyValues += norm.filter((n) => n.v !== null).length;
+      return push({ line, key, person: res.person, ...(dest.xw ? { link: sl } : {}), outcome: "insert", fields });
+    }
     if (dest.personLink && person == null) return push({ line, key, outcome: "held", reason: dest.xw ? `person link missing, unmapped or ambiguous in ${dest.xw.table} (must resolve to exactly one CPTID)` : "person link missing or unreadable", fields });
     if (dest.personLink) {
       if (!personHeader) return push({ line, key, outcome: "held", reason: `map the source ${dest.personLink} column; person link must be verified`, fields });

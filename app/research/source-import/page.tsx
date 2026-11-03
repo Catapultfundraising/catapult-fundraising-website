@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
 import { createScopeFence, StaleScope } from "@/lib/portal-v2/scope-fence";
-import { buildJobManifest, summarizeJob, JOB_BATCH_ROWS, type BatchStatus, type JobManifest } from "@/lib/portal-v2/source-jobs";
+import { buildJobManifest, summarizeJob, JOB_BATCH_ROWS, jobBatchRows, jobWriteCols, type BatchStatus, type JobManifest } from "@/lib/portal-v2/source-jobs";
 
 const webSha = async (x: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(x)))).map((b) => b.toString(16).padStart(2, "0")).join("");
 type JobBatch = BatchStatus & { token?: string | null; requestId?: string; would?: number; values?: number };
@@ -35,7 +35,7 @@ export default function SourceImportPage() {
   const [table, setTable] = useState("");
   const [dests, setDests] = useState<Dest[]>([]);
   const [csv, setCsv] = useState(""); const [headers, setHeaders] = useState<string[]>([]);
-  const [clients, setClients] = useState<string[]>([]);
+  const [clients, setClients] = useState<string[]>([]); const [preparedClients, setPreparedClients] = useState<string[]>([]);
   const [fresh, setFresh] = useState<{ summary: string; rows: { table: string; label: string }[] } | null>(null);
   const [fileName, setFileName] = useState(""); const [fileDate, setFileDate] = useState(""); // blank = unknown, never today
   const [mapping, setMapping] = useState<Record<string, string>>({});
@@ -54,7 +54,7 @@ export default function SourceImportPage() {
   const fence = useRef(createScopeFence()).current;
   const guard = <T,>(p: Promise<T>) => fence.token().guard(p);
   const onErr = (e: Error) => { if (!(e instanceof StaleScope)) setErr(e.message); };
-  useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => setClients(j.clients ?? [])).catch((e) => setErr(e.message)); }, []);
+  useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => { setClients(j.clients ?? []); setPreparedClients(j.prepared ?? []); }).catch((e) => setErr(e.message)); }, []);
   const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
   const clearFile = () => { setBigRows(null); setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
   // ONE effect for client/table so scope is invalidated once, before any request of the new scope starts.
@@ -82,7 +82,8 @@ export default function SourceImportPage() {
     if (!tk.live()) return;
     if (text === null) { setErr("Could not read the file"); return; }
     let grid: string[][]; try { grid = parseCsv(text); } catch (e) { setErr((e as Error).message); return; }
-    if ((f.size <= SMALL_MAX_BYTES && grid.length - 1 <= JOB_BATCH_ROWS)) return useCsv(text, f.name);
+    const worst = jobBatchRows(jobWriteCols(dests, Object.fromEntries(dests.map((d) => [d.col, d.col])), preparedClients.includes(client)));
+    if ((f.size <= SMALL_MAX_BYTES && grid.length - 1 <= Math.min(JOB_BATCH_ROWS, worst))) return useCsv(text, f.name);
     const hs = grid[0] ?? []; const norm = hs.map((h) => h.trim().toLowerCase());
     if (!hs.length || norm.some((h) => !h) || new Set(norm).size !== norm.length) { setErr("Every column needs a unique header"); return; }
     setFileName(f.name); setHeaders(hs);
@@ -96,7 +97,7 @@ export default function SourceImportPage() {
     if (!bigRows || running.current) return; running.current = true; setBusy(true); const tk = fence.token(); const live = tk.live; setErr(""); setBatches([]); setConfirmed(false);
     try {
       const keyCol = dests.find((d) => d.key)?.key ?? "";
-      const j = await buildJobManifest(webSha, { client, table, keyCol, keyKind: (dests.find((d) => d.key)?.kk ?? "int") as "int" | "bigint" | "text", mapping, headers, rows: bigRows, fileName, fileDate: fileDate || null, actor, registryRev: "" + (await call({ op: "tables", client })).registry.rev });
+      const j = await buildJobManifest(webSha, { client, table, keyCol, keyKind: (dests.find((d) => d.key)?.kk ?? "int") as "int" | "bigint" | "text", mapping, headers, rows: bigRows, fileName, fileDate: fileDate || null, actor, registryRev: "" + (await call({ op: "tables", client })).registry.rev, batchRows: jobBatchRows(jobWriteCols(dests, mapping, preparedClients.includes(client))) });
       if (!live()) return; setJob(j);
       const done = demo ? new Map() : await committed(j.jobId).catch(() => new Map());
       const list: JobBatch[] = j.manifest.batchHashes.map((_, i) => { const c = done.get(i); return c ? { index: i, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows } : { index: i, state: "pending" }; });
@@ -105,10 +106,10 @@ export default function SourceImportPage() {
         if (!live()) return;
         if (b.state !== "pending") continue;
         try {
-          const r = await call({ op: "jobPreview", demo, client, table, actor, manifest: j.manifest, jobId: j.jobId, batchIndex: b.index, rows: bigRows.slice(b.index * JOB_BATCH_ROWS, (b.index + 1) * JOB_BATCH_ROWS) });
+          const r = await call({ op: "jobPreview", demo, client, table, actor, manifest: j.manifest, jobId: j.jobId, batchIndex: b.index, rows: bigRows.slice(b.index * j.manifest.batchRows, (b.index + 1) * j.manifest.batchRows) });
           if (!live()) return;
           const held = r.job?.heldRows ?? r.result.rows.filter((x: { outcome: string; fields: { outcome: string }[] }) => x.outcome === "held" || x.outcome === "invalid" || x.fields.some((f) => ["held", "conflict", "protected", "invalid"].includes(f.outcome))).length;
-          setBatch(b.index, r.token ? { state: "previewed", token: r.token, requestId: r.requestId, heldRows: held, would: r.result.counts.update, values: r.result.counts.applyValues } : { state: held ? "held_only" : "verified_unchanged", heldRows: held, would: 0 });
+          setBatch(b.index, r.token ? { state: "previewed", token: r.token, requestId: r.requestId, heldRows: held, would: r.result.counts.update + (r.result.counts.insert ?? 0), values: r.result.counts.applyValues } : { state: held ? "held_only" : "verified_unchanged", heldRows: held, would: 0 });
           setApplyAvailable(r.applyAvailable === true || applyAvailable);
         } catch (e) { if (!live()) return; setBatch(b.index, { state: "failed", error: (e as Error).message }); }
       }
@@ -177,7 +178,7 @@ export default function SourceImportPage() {
           <p className="mt-2 text-sm text-[rgb(var(--navy))]" role="status">{jobSum.label}</p>
           <p className="mt-1 text-sm text-[rgb(var(--ink))]/70">{batches.reduce((n, b) => n + (b.would ?? 0), 0)} rows would update ({batches.reduce((n, b) => n + (b.values ?? 0), 0)} values) across {batches.length} batches · {jobSum.heldRows} rows held or invalid · each batch is checked again against current data when saved</p>
           <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead><tr className="text-xs uppercase text-[rgb(var(--ink))]/60"><th className="px-3 py-2">Batch</th><th className="px-3 py-2">Rows</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Would update / held</th></tr></thead>
-            <tbody>{batches.map((b) => <tr key={b.index} className="border-t border-[rgb(var(--line))]"><td className="px-3 py-2">{b.index + 1}</td><td className="px-3 py-2">{b.index * JOB_BATCH_ROWS + 2}–{Math.min((b.index + 1) * JOB_BATCH_ROWS, job.manifest.totalRows) + 1}</td>
+            <tbody>{batches.map((b) => <tr key={b.index} className="border-t border-[rgb(var(--line))]"><td className="px-3 py-2">{b.index + 1}</td><td className="px-3 py-2">{b.index * job.manifest.batchRows + 2}–{Math.min((b.index + 1) * job.manifest.batchRows, job.manifest.totalRows) + 1}</td>
               <td className="px-3 py-2 font-semibold text-[rgb(var(--navy))]">{({ pending: "Not previewed", previewed: "Ready", saved: "Saved", saved_with_holds: "Saved (some rows or fields held)", held_only: "Nothing to save (held rows)", verified_unchanged: "Already up to date (checked at preview)", unconfirmed: "Not confirmed", failed: "Failed" } as Record<string, string>)[b.state]}{b.error && <span className="block text-xs font-normal text-[rgb(var(--ink))]/60">{b.error}</span>}</td>
               <td className="px-3 py-2">{b.state === "saved" || b.state === "saved_with_holds" ? `${b.savedRecords ?? 0} saved` : `${b.would ?? "—"}`} / {b.heldRows ?? "—"}</td></tr>)}</tbody></table></div>
           {applyAvailable && batches.some((b) => b.state === "previewed") && (
@@ -191,7 +192,7 @@ export default function SourceImportPage() {
       {err && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{err}</p>}
       {result && (
         <section className={`${card} mt-4`}>
-          <p className="text-sm text-[rgb(var(--ink))]/70">{result.counts.update} rows would update ({result.counts.applyValues} values) · {result.counts.held} held · {result.counts.invalid} invalid · {result.counts.unchanged} unchanged · {result.counts.conflicts} conflicts · {result.counts.protectedValues} protected · {result.notInSource.length} dashboard records not in file (never deleted)</p>
+          <p className="text-sm text-[rgb(var(--ink))]/70">{result.counts.update} rows would update{result.counts.insert ? ` · ${result.counts.insert} new records would be added` : ""} ({result.counts.applyValues} values) · {result.counts.held} held · {result.counts.invalid} invalid · {result.counts.unchanged} unchanged · {result.counts.conflicts} conflicts · {result.counts.protectedValues} protected · {result.notInSource.length} dashboard records not in file (never deleted)</p>
           <h3 className={`${label} mt-4`}>Columns</h3>
           <ul className="mt-2 text-sm">{result.columns.map((c) => <li key={c.header}><span className="text-[rgb(var(--navy))]">{c.header}</span> → {c.col ?? "ignored"}: <b>{c.state}</b> <span className="text-[rgb(var(--ink))]/60">{c.reason}</span></li>)}</ul>
           <div className="mt-4 overflow-x-auto"><table className="w-full min-w-[720px] text-left text-sm"><thead><tr className="text-xs uppercase text-[rgb(var(--ink))]/60"><th className="px-3 py-2">Line</th><th className="px-3 py-2">Key</th><th className="px-3 py-2">Result</th><th className="px-3 py-2">Fields (baseline / current / file)</th></tr></thead>

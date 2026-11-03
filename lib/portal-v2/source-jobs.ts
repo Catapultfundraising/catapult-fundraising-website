@@ -1,13 +1,28 @@
 // Large-file source import jobs (REVIEW-ONLY; same gates as source-import-apply.ts).
 // The browser parses the whole CSV locally and builds a manifest that binds the ordered content (per-batch hashes),
 // every row key (cross-batch duplicate detection), mapping, registry revision, source date and actor.
-// jobId = sha256(manifest). Each 500-row batch is then uploaded as its own bounded request (well under the
+// jobId = sha256(manifest). Each work-bounded batch (rows = jobBatchRows(columns written), <= 500) is then uploaded as its own bounded request (well under the
 // platform request-body limit), previewed against current state, and saved with requestId = sha256(jobId:index)[0:32].
 import { parseKeyOf, type Key, type KeyKind } from "./source-keys";
 // Pure module: runs in the browser (WebCrypto) and on the server (node:crypto) with an injected hash.
 
 export type Sha = (s: string) => Promise<string>;
-export const JOB_BATCH_ROWS = 500;
+export const JOB_BATCH_ROWS = 500; // hard maximum rows per batch (Engage SOURCE_MAX_OPS)
+/** Per-request execution budget, IDENTICAL to Engage lib/sourceImport.ts. Measured on real Basic-tier SQL (T16): ~0.34-0.48 s
+ *  per inserted record incl. baseline+audit (~40-50 ms per sequential statement). 900 statements ~= 45 s per request,
+ *  inside maxDuration 120 s (Engage) / 150 s (website route). Rows per batch therefore depend on columns written. */
+export const SOURCE_MAX_WRITE_STATEMENTS = 900;
+export const JOB_MAX_BATCHES = 2000;
+export const statementsPerRecord = (cols: number, linkedInsert = false) => 1 + 2 * cols + (linkedInsert ? 1 : 0);
+export const jobBatchRows = (cols: number) => Math.max(1, Math.min(JOB_BATCH_ROWS, Math.floor(SOURCE_MAX_WRITE_STATEMENTS / statementsPerRecord(Math.max(1, cols), true))));
+/** Columns a job batch may write per record: all non-key prepared columns for a prepared (first-load capable) client,
+ *  otherwise the mapped reviewable (candidate) non-key columns. Same rule in browser and route. */
+export function jobWriteCols(dests: { col: string; st: string; key: string }[], mapping: Record<string, string>, prepared: boolean) {
+  const key = dests.find((d) => d.key)?.key ?? "";
+  if (prepared) return dests.filter((d) => d.col !== key).length;
+  const mapped = new Set(Object.values(mapping).filter(Boolean));
+  return dests.filter((d) => d.col !== key && d.st === "candidate" && mapped.has(d.col)).length;
+}
 export const JOB_MAX_ROWS = 50_000;
 export const JOB_CHUNK_MAX_BYTES = 3_500_000; // per request; deployed functions accept ~4.5 MB bodies
 export const JOB_MANIFEST_MAX_BYTES = 1_000_000;
@@ -27,7 +42,10 @@ export async function contentDigest(sha: Sha, m: JobManifest) { return sha(m.bat
 export async function batchRequestId(sha: Sha, jobId: string, index: number) { return (await sha(`${jobId}:${index}`)).slice(0, 32); }
 
 /** Whole-file checks before any upload: row cap, mapped key, every key valid and unique ACROSS the file. */
-export async function buildJobManifest(sha: Sha, p: { client: string; table: string; keyCol: string; keyKind?: KeyKind; mapping: Record<string, string>; headers: string[]; rows: Record<string, string>[]; fileName: string; fileDate: string | null; actor: string; registryRev: string }) {
+export async function buildJobManifest(sha: Sha, p: { client: string; table: string; keyCol: string; keyKind?: KeyKind; mapping: Record<string, string>; headers: string[]; rows: Record<string, string>[]; fileName: string; fileDate: string | null; actor: string; registryRev: string; batchRows?: number }) {
+  const BR = p.batchRows ?? JOB_BATCH_ROWS;
+  if (!Number.isSafeInteger(BR) || BR < 1 || BR > JOB_BATCH_ROWS) throw new JobError("Bad batch size");
+  if (Math.ceil(p.rows.length / BR) > JOB_MAX_BATCHES) throw new JobError(`This file needs more than ${JOB_MAX_BATCHES} batches at ${BR} rows each; split the file or map fewer columns`);
   if (!p.rows.length) throw new JobError("The file has no data rows");
   if (p.rows.length > JOB_MAX_ROWS) throw new JobError(`At most ${JOB_MAX_ROWS.toLocaleString()} rows per file`);
   const kh = Object.keys(p.mapping).find((h) => p.mapping[h] === p.keyCol);
@@ -38,8 +56,8 @@ export async function buildJobManifest(sha: Sha, p: { client: string; table: str
   keys.forEach((k) => { if (k !== null) { if (seen.has(k)) dup.add(k); seen.set(k, (seen.get(k) ?? 0) + 1); } });
   if (dup.size) throw new JobError(`${dup.size} ID${dup.size === 1 ? "" : "s"} appear more than once in the file; nothing will be uploaded until the file has one row per ID`, { duplicateKeys: [...dup].slice(0, 50) });
   const batchHashes: string[] = [];
-  for (let i = 0; i < p.rows.length; i += JOB_BATCH_ROWS) batchHashes.push(await batchHash(sha, p.headers, p.rows.slice(i, i + JOB_BATCH_ROWS)));
-  const m: JobManifest = { v: 1, client: p.client, table: p.table, mapping: Object.entries(p.mapping).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)), headers: p.headers, fileName: p.fileName, fileDate: p.fileDate, actor: p.actor.trim(), registryRev: p.registryRev, keyKind: kk, totalRows: p.rows.length, batchRows: JOB_BATCH_ROWS, batchHashes, keys };
+  for (let i = 0; i < p.rows.length; i += BR) batchHashes.push(await batchHash(sha, p.headers, p.rows.slice(i, i + BR)));
+  const m: JobManifest = { v: 1, client: p.client, table: p.table, mapping: Object.entries(p.mapping).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)), headers: p.headers, fileName: p.fileName, fileDate: p.fileDate, actor: p.actor.trim(), registryRev: p.registryRev, keyKind: kk, totalRows: p.rows.length, batchRows: BR, batchHashes, keys };
   if (JSON.stringify(m).length > JOB_MANIFEST_MAX_BYTES) throw new JobError("File manifest too large; split the file");
   return { manifest: m, jobId: await jobIdOf(sha, m), invalidKeyRows: keys.filter((k) => k === null).length };
 }
@@ -47,14 +65,14 @@ export async function buildJobManifest(sha: Sha, p: { client: string; table: str
 const isStr = (x: unknown): x is string => typeof x === "string";
 /** Server-side: re-derive jobId from the supplied manifest, re-check whole-file key uniqueness, and verify this
  *  chunk is exactly batch `index` of the bound content. Rejects anything changed (a resumed file must be identical). */
-export async function verifyJobChunk(sha: Sha, raw: unknown, jobId: unknown, index: unknown, rows: unknown, expect: { client: string; table: string; registryRev: string; actor: string; keyCol: string; keyKind?: KeyKind }) {
+export async function verifyJobChunk(sha: Sha, raw: unknown, jobId: unknown, index: unknown, rows: unknown, expect: { client: string; table: string; registryRev: string; actor: string; keyCol: string; keyKind?: KeyKind; batchRows?: number }) {
   const m = raw as JobManifest;
   if (!m || typeof m !== "object" || m.v !== 1 || !Array.isArray(m.headers) || !m.headers.every(isStr) || !Array.isArray(m.mapping) || !m.mapping.every((e) => Array.isArray(e) && e.length === 2 && isStr(e[0]) && isStr(e[1])) || !Array.isArray(m.batchHashes) || !Array.isArray(m.keys)) throw new JobError("Malformed job manifest");
   if (JSON.stringify(m).length > JOB_MANIFEST_MAX_BYTES) throw new JobError("Job manifest too large");
   if (m.client !== expect.client || m.table !== expect.table) throw new JobError("Job is for another client or table");
   if (m.registryRev !== expect.registryRev) throw new JobError("Field registry changed since this job started; start the upload again");
   if (m.actor !== expect.actor.trim()) throw new JobError("Job was started under another author name");
-  if (m.batchRows !== JOB_BATCH_ROWS || !Number.isSafeInteger(m.totalRows) || m.totalRows < 1 || m.totalRows > JOB_MAX_ROWS || m.keys.length !== m.totalRows || m.batchHashes.length !== batchCount(m)) throw new JobError("Job manifest sizes are inconsistent");
+  if (m.batchRows !== (expect.batchRows ?? JOB_BATCH_ROWS) || m.batchHashes.length > JOB_MAX_BATCHES || !Number.isSafeInteger(m.totalRows) || m.totalRows < 1 || m.totalRows > JOB_MAX_ROWS || m.keys.length !== m.totalRows || m.batchHashes.length !== batchCount(m)) throw new JobError("Job manifest sizes are inconsistent");
   if (new Set(m.headers).size !== m.headers.length) throw new JobError("Duplicate headers in job manifest");
   if (m.keyKind !== (expect.keyKind ?? "int")) throw new JobError("Job key type does not match this table");
   const ks = m.keys.filter((k) => k !== null);
@@ -64,14 +82,15 @@ export async function verifyJobChunk(sha: Sha, raw: unknown, jobId: unknown, ind
   const i = index as number;
   if (!Array.isArray(rows) || !rows.every((r) => r && typeof r === "object" && !Array.isArray(r) && Object.values(r).every(isStr))) throw new JobError("Batch rows malformed");
   const rs = rows as Record<string, string>[];
-  const want = Math.min(JOB_BATCH_ROWS, m.totalRows - i * JOB_BATCH_ROWS);
+  const BR = m.batchRows;
+  const want = Math.min(BR, m.totalRows - i * BR);
   if (rs.length !== want) throw new JobError(`Batch ${i + 1} must have ${want} rows`);
   if ((await batchHash(sha, m.headers, rs)) !== m.batchHashes[i]) throw new JobError(`Batch ${i + 1} content differs from the file this job was started with`);
   const mapping = Object.fromEntries(m.mapping) as Record<string, string>;
   // the ACTUAL keys in this chunk must equal the manifest's ordered key slice (a forged unique manifest cannot hide duplicates)
   const kh = Object.keys(mapping).find((h) => mapping[h] === expect.keyCol);
   if (!kh || !m.headers.includes(kh)) throw new JobError(`Map a column to the key ${expect.keyCol}`);
-  const slice = m.keys.slice(i * JOB_BATCH_ROWS, i * JOB_BATCH_ROWS + rs.length);
+  const slice = m.keys.slice(i * BR, i * BR + rs.length);
   if (rs.some((r, j) => parseKeyOf(m.keyKind, r[kh]) !== slice[j])) throw new JobError(`Batch ${i + 1} keys differ from the file's key list`);
   return { manifest: m, mapping, index: i, rows: rs, requestId: await batchRequestId(sha, jobId as string, i), fileDigest: await contentDigest(sha, m), batchCount: m.batchHashes.length };
 }

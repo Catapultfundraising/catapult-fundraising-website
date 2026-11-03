@@ -66,7 +66,7 @@ test("token binds file name/date and prepared approval; expired token still forw
   assert.equal(v.payload.fileName, "export Oct.csv"); assert.equal(v.payload.fileDate, null); assert.equal(v.payload.preparedDigest, null);
   const late = applyRequestBody(lp.token, "Pat", SECRET, 1000 + 16 * 60_000);
   assert.equal(late.request.requestId, lp.requestId);
-  assert.deepEqual(Object.keys(late.request).sort(), ["actor", "client", "fileDate", "fileDigest", "fileName", "mode", "ops", "preparedDigest", "previewExp", "previewHash", "registryRev", "requestId", "table"]);
+  assert.deepEqual(Object.keys(late.request).sort(), ["actor", "client", "fileDate", "fileDigest", "fileName", "insertPolicyDigest", "mode", "ops", "preparedDigest", "previewExp", "previewHash", "registryRev", "requestId", "table"]);
 });
 test("source additions: PVAS DonorSearch additions held (preflight); no token", () => {
   const add = livePreview({ ...base, rows: [{ ID: "202", Q: "N" }] }, state({ current: [], baseline: [] }), meta);
@@ -102,7 +102,7 @@ test("PVAS notes (update-only, person-linked): two notes one person, person-leve
   assert.ok(livePreview({ ...nb, rows }, ns({ overlayKeys: [501] }), meta).token);
   // missing person link, unknown note ID (insert) and duplicate note IDs are held/invalid
   assert.equal(livePreview({ ...nb, rows }, ns({ current: [{ key: 501, person: null, values: { Note_Order_Newest_to_Oldest: "1" }, unreadable: [] }] }), meta).result.rows[0].outcome, "held");
-  assert.match(livePreview({ ...nb, rows: [{ NoteID: "999", Person: "9001", Order: "1" }] }, ns(), meta).result.rows[0].reason!, /update-only/);
+  assert.match(livePreview({ ...nb, rows: [{ NoteID: "999", Person: "9001", Order: "1" }] }, ns(), meta).result.rows[0].reason!, /update-only|no approved insert policy/);
   assert.deepEqual(livePreview({ ...nb, rows: [rows[0], rows[0]] }, ns(), meta).result.rows.map((r) => r.outcome), ["invalid", "invalid"]);
   // source person link: mismatch (note re-linked 9001 -> 9002 in source) and absent/unmapped/blank all hold; never written
   const mm = livePreview({ ...nb, rows: [{ NoteID: "501", Person: "9002", Order: "2" }] }, ns(), meta);
@@ -131,7 +131,7 @@ test("WCBHC gifts (update-only, person-linked): Transaction_ID key, CPTID verifi
   // person mismatch, manual portal edit on the person, new gift ID: all held
   assert.equal(livePreview({ ...gb, rows: [{ GiftID: "71", Person: "5002", Amt: "150" }] }, gs(), meta).token, null);
   assert.equal(livePreview({ ...gb, rows: [rows[0]] }, gs({ overlayKeys: [5001] }), meta).token, null);
-  assert.match(livePreview({ ...gb, rows: [{ GiftID: "999", Person: "5001", Amt: "1" }] }, gs(), meta).result.rows[0].reason!, /update-only/);
+  assert.match(livePreview({ ...gb, rows: [{ GiftID: "999", Person: "5001", Amt: "1" }] }, gs(), meta).result.rows[0].reason!, /update-only|no approved insert policy/);
   const cg = livePreview({ client: "wcbhc", table: "giving_history", mode: "update", mapping: { T: "Transaction_ID", P: "CPTID", A: "Gift_Amount" }, rows: [{ T: "9001", P: "44", A: "500" }] },
     { registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [], current: [{ key: 9001, person: 44, values: { Gift_Amount: "250" }, unreadable: [] }], baseline: [{ key: 9001, col: "Gift_Amount", value: "250" }], overlayKeys: [], prospectKeys: [] }, meta);
   assert.deepEqual(verifySourceToken(cg.token, SECRET, 2000).payload.ops.map((o) => [o.key, o.person]), [[9001, 44]]);

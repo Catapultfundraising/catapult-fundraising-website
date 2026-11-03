@@ -4,6 +4,7 @@
 // The browser never sees the bearer secret or SQL credentials; previews are HMAC-bound and expire in 15 minutes.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { REGISTRY_META, SOURCE_FIELDS } from "./source-registry";
+import { insertPolicyDigest, insertPolicyFor, type GiftInsertPolicy } from "./source-insert-policy";
 import { planWrites, preparedDigest, type Key, reconcile, SOURCE_TRANSPORT_APPROVED, SourceError, type ReconInput, type ReconResult, type WriteOp } from "./source-reconcile";
 
 type Env = Record<string, string | undefined>;
@@ -13,9 +14,9 @@ const secretOk = (env: Env) => (env.PORTAL_WRITE_SECRET ?? "").length >= 24;
 export const sourcePreviewConfigured = (env: Env = process.env) => env.SOURCE_IMPORT_PREVIEW === "enabled" && !!url(env) && secretOk(env);
 export const sourceApplyConfigured = (env: Env = process.env, transportApproved: boolean = SOURCE_TRANSPORT_APPROVED) => transportApproved && env.SOURCE_IMPORT_APPLY === "enabled" && sourcePreviewConfigured(env);
 
-export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: Key[]; current: { key: Key; person?: number | null; link?: string | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: Key; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
+export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: Key[]; current: { key: Key; person?: number | null; link?: string | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: Key; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[]; insertPolicyDigest?: string | null; sourceLinks?: { key: Key; link: string; person: number | null; inMaster: boolean }[] }
 /** Engage preview state -> reconciliation inputs. Only source-provenance baseline rows count; unreadable values are omitted (=> held). */
-export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf"> {
+export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf" | "sourceLink"> {
   if (s.registryRev !== REGISTRY_META.rev) throw new SourceError("Engage registry revision differs from this website; deploy both together");
   if (!Array.isArray(s.duplicateKeys) || !Array.isArray(s.current)) throw new SourceError("Engage preview state is malformed");
   const heldKeys = new Map<Key, string>(s.duplicateKeys.map((k) => [k, "destination has more than one row for this ID"]));
@@ -29,12 +30,17 @@ export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "cu
   for (const b of s.baseline) baseline.set(b.key, { ...(baseline.get(b.key) ?? {}), [b.col]: b.value });
   const overlays = [...s.overlayKeys.map((key) => ({ key, col: "portal_updates", provenance: "unknown" as const })), ...s.prospectKeys.map((key) => ({ key, col: null, provenance: "unknown" as const }))];
   for (const k of heldKeys.keys()) current.delete(k);
-  return { baseline, current, overlays, heldKeys, ...(s.personLink ? { personOf, linkOf } : {}) };
+  const sourceLink = new Map<Key, { link: string; person: number | null; inMaster: boolean }>();
+  for (const x of s.sourceLinks ?? []) {
+    if (sourceLink.has(x.key)) throw new SourceError("Engage reported a source link twice");
+    sourceLink.set(x.key, { link: String(x.link), person: Number.isSafeInteger(x.person) && (x.person as number) > 0 ? (x.person as number) : null, inMaster: x.inMaster === true });
+  }
+  return { baseline, current, overlays, heldKeys, ...(s.personLink ? { personOf, linkOf, sourceLink } : {}) };
 }
 
-export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[]; job?: SourceJobRef }
+export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[]; job?: SourceJobRef; insertPolicyDigest: string | null }
 /** Large-file job binding (source-jobs.ts): requestId = sha256(jobId:batchIndex)[0:32]; fileDigest = ordered content digest. */
-export interface SourceJobRef { jobId: string; batchIndex: number; batchCount: number; totalRows: number; heldRows: number }
+export interface SourceJobRef { jobId: string; batchIndex: number; batchCount: number; batchRows: number; totalRows: number; heldRows: number }
 const key = (secret: string | undefined) => { if (!secret || secret.length < 24) throw new SourceError("Source import is not configured"); return createHmac("sha256", secret).update("source-import/v1").digest(); };
 export const fileDigest = (csv: string) => createHash("sha256").update(csv, "utf8").digest("hex");
 export const newSourceRequestId = () => randomBytes(16).toString("hex");
@@ -57,20 +63,24 @@ export function verifySourceToken(token: unknown, secret: string | undefined, no
 }
 
 /** Builds the reconciliation + signed token from Engage state. Returns no token when nothing is applicable. */
-export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number; job?: { ref: Omit<SourceJobRef, "heldRows">; requestId: string; fileDigest: string } }) {
+export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf" | "sourceLink" | "insertPolicy">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number; job?: { ref: Omit<SourceJobRef, "heldRows">; requestId: string; fileDigest: string }; policies?: readonly GiftInsertPolicy[] }) {
   const inputs = stateToInputs(state);
+  // gift insert policy: server registry only; Engage must report the SAME reviewed policy digest (deploy both together)
+  const pol = base.mode === "update" ? insertPolicyFor(base.client, base.table, meta.policies) : null;
+  const ipd = pol ? insertPolicyDigest(pol) : null;
+  if ((state.insertPolicyDigest ?? null) !== ipd) throw new SourceError("Engage has a different gift insert policy for this table; deploy both together");
   if (base.prepared) {
     const want = preparedDigest(base.prepared, base.table);
     if (state.preparedDigest !== want) throw new SourceError("Engage has a different reviewed registration for this new client; deploy both together");
   }
   // first load: empty prepared destination (Engage-reported) => no baseline/current; otherwise later updates
-  const result: ReconResult = reconcile(base.mode === "first-load" ? { ...base, ...inputs, baseline: null, current: new Map() } : { ...base, ...inputs });
+  const result: ReconResult = reconcile(base.mode === "first-load" ? { ...base, ...inputs, baseline: null, current: new Map() } : { ...base, ...inputs, insertPolicy: pol ? { digest: ipd!, required: pol.required } : null });
   const ops = planWrites(result);
   const requestId = meta.job ? meta.job.requestId : newSourceRequestId();
   // a row counts as held when it is held/invalid OR any mapped field was not applied (held/conflict/protected/invalid)
   const heldRows = result.rows.filter((r) => r.outcome === "held" || r.outcome === "invalid" || r.fields.some((f) => ["held", "conflict", "protected", "invalid"].includes(f.outcome))).length;
   const job = meta.job ? { ...meta.job.ref, heldRows } : undefined;
-  const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: meta.job ? meta.job.fileDigest : fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops, ...(job ? { job } : {}) }, meta.secret) : null;
+  const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: meta.job ? meta.job.fileDigest : fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops, ...(job ? { job } : {}), insertPolicyDigest: ipd }, meta.secret) : null;
   return { result, ops: ops.length, token, requestId, ...(job ? { job } : {}) };
 }
 
@@ -82,10 +92,13 @@ export function applyRequestBody(token: unknown, actor: unknown, secret: string 
 }
 
 export type ApplyOutcome = { ok: true; body: Record<string, unknown> } | { ok: false; unconfirmed: true; requestId: string } | { ok: false; unconfirmed: false; status: number; body: Record<string, unknown> };
-/** One POST, no automatic retry. Network failure / 5xx / unreadable reply => unconfirmed (check status with the same requestId). */
-export async function postToEngage(fetchImpl: typeof fetch, env: Env, body: Record<string, unknown>, requestId: string): Promise<ApplyOutcome> {
+/** Engage route maxDuration is 120 s; the website route allows 150 s, so the website gives up at 125 s and reports UNCONFIRMED
+ *  (the Engage transaction either committed or rolled back; status lookup with the same requestId tells which). */
+export const ENGAGE_TIMEOUT_MS = 125_000;
+/** One POST, no automatic retry. Network failure / timeout / 5xx / unreadable reply => unconfirmed (check status with the same requestId). */
+export async function postToEngage(fetchImpl: typeof fetch, env: Env, body: Record<string, unknown>, requestId: string, timeoutMs = ENGAGE_TIMEOUT_MS): Promise<ApplyOutcome> {
   let res: Response;
-  try { res = await fetchImpl(url(env), { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${env.PORTAL_WRITE_SECRET}` }, body: JSON.stringify(body), cache: "no-store" }); }
+  try { res = await fetchImpl(url(env), { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${env.PORTAL_WRITE_SECRET}` }, body: JSON.stringify(body), cache: "no-store", signal: AbortSignal.timeout(timeoutMs) }); }
   catch { return { ok: false, unconfirmed: true, requestId }; }
   const j = (await res.json().catch(() => null)) as Record<string, unknown> | null;
   if (!j || res.status >= 500) return res.status === 503 && j?.code === "disabled" ? { ok: false, unconfirmed: false, status: 503, body: j } : { ok: false, unconfirmed: true, requestId };

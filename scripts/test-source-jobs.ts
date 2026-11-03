@@ -3,7 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
-import { buildJobManifest, verifyJobChunk, batchRequestId, summarizeJob, JobError, JOB_BATCH_ROWS, JOB_CHUNK_MAX_BYTES, JOB_MANIFEST_MAX_BYTES } from "../lib/portal-v2/source-jobs";
+import { buildJobManifest, verifyJobChunk, batchRequestId, summarizeJob, JobError, JOB_BATCH_ROWS, JOB_CHUNK_MAX_BYTES, JOB_MANIFEST_MAX_BYTES , jobBatchRows } from "../lib/portal-v2/source-jobs";
 import { REGISTRY_META } from "../lib/portal-v2/source-registry";
 
 const sha = async (s: string) => createHash("sha256").update(s, "utf8").digest("hex");
@@ -53,7 +53,7 @@ test("job summary: complete only when all batches saved with zero held rows; par
 Object.assign(process.env, { RESEARCH_PASSWORD: "localpw", RESEARCH_AUTH_SECRET: "localsec", SOURCE_IMPORT_PREVIEW: "enabled", ENGAGE_SOURCE_IMPORT_URL: "https://engage.invalid/api/source-import", PORTAL_WRITE_SECRET: "w".repeat(32) });
 const COOKIE = createHash("sha256").update("localpw:localsec").digest("hex");
 test("route jobPreview: batch token carries derived requestId + job ref + content digest; jobStatus forwarded; tampered batch 400", async () => {
-  const rows = mkRows(1200, 101); const { manifest, jobId } = await buildJobManifest(sha, P(rows));
+  const rows = mkRows(1200, 101); const BR = jobBatchRows(1); const { manifest, jobId } = await buildJobManifest(sha, { ...P(rows), batchRows: BR });
   const calls: Record<string, unknown>[] = [];
   globalThis.fetch = (async (_u: unknown, init: { body: string }) => {
     const b = JSON.parse(init.body); calls.push(b);
@@ -64,15 +64,15 @@ test("route jobPreview: batch token carries derived requestId + job ref + conten
   const { POST } = await import("../app/api/research-source-import/route");
   const { verifySourceToken } = await import("../lib/portal-v2/source-import-apply");
   const post = (body: Record<string, unknown>) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` }, body: JSON.stringify(body) }));
-  const res = await post({ op: "jobPreview", client: "pvas", table: "donorsearch_results", actor: "Pat Example", manifest, jobId, batchIndex: 1, rows: rows.slice(500, 1000) });
+  const res = await post({ op: "jobPreview", client: "pvas", table: "donorsearch_results", actor: "Pat Example", manifest, jobId, batchIndex: 1, rows: rows.slice(BR, 2 * BR) });
   const j = await res.json(); assert.equal(res.status, 200, JSON.stringify(j));
-  assert.equal((calls.at(-1) as { keys: number[] }).keys.length, 500);
+  assert.equal((calls.at(-1) as { keys: number[] }).keys.length, BR);
   const tok = verifySourceToken(j.token, "w".repeat(32)).payload;
   assert.equal(tok.requestId, (await sha(`${jobId}:1`)).slice(0, 32));
-  assert.deepEqual(tok.job, { jobId, batchIndex: 1, batchCount: 3, totalRows: 1200, heldRows: 1 });
+  assert.deepEqual(tok.job, { jobId, batchIndex: 1, batchCount: Math.ceil(1200 / BR), batchRows: BR, totalRows: 1200, heldRows: 1 });
   assert.equal(tok.fileDigest, await sha(manifest.batchHashes.join(","))); assert.equal(tok.fileDate, "2026-11-01"); assert.equal(tok.fileName, "weekly-export.csv");
-  assert.equal(tok.ops.length, 499, "manual-edited record held, not written");
-  const bad = await post({ op: "jobPreview", client: "pvas", table: "donorsearch_results", actor: "Pat Example", manifest, jobId, batchIndex: 1, rows: rows.slice(0, 500) });
+  assert.equal(tok.ops.length, BR - 1, "manual-edited record held, not written");
+  const bad = await post({ op: "jobPreview", client: "pvas", table: "donorsearch_results", actor: "Pat Example", manifest, jobId, batchIndex: 1, rows: rows.slice(0, BR) });
   assert.equal(bad.status, 400);
   const st = await (await post({ op: "jobStatus", client: "pvas", jobId })).json();
   assert.equal(st.found, true); assert.equal(calls.at(-1)!.op, "jobStatus");
@@ -97,7 +97,7 @@ test("livePreview heldRows: a row updating one field while another mapped field 
   const { SOURCE_FIELDS } = await import("../lib/portal-v2/source-registry");
   const heldCol = SOURCE_FIELDS.find((f) => f.c === "pvas" && f.t === "donorsearch_results" && f.st === "held")!.col;
   const st = { registryRev: REGISTRY_META.rev, duplicateKeys: [], current: [{ key: 101, values: { [COL]: "A" }, unreadable: [] }, { key: 102, values: { [COL]: "A" }, unreadable: [] }], baseline: [{ key: 101, col: COL, value: "A" }, { key: 102, col: COL, value: "A" }], overlayKeys: [], prospectKeys: [] };
-  const lp = livePreview({ client: "pvas", table: "donorsearch_results", mode: "update", mapping: { ID: "CPTID", Q: COL, H: heldCol }, rows: [{ ID: "101", Q: "B", H: "x" }, { ID: "102", Q: "B", H: "" }] }, st, { fileName: "f.csv", csv: "", fileDate: null, secret: "w".repeat(32), now: 1, job: { ref: { jobId: "a".repeat(64), batchIndex: 0, batchCount: 1, totalRows: 2 }, requestId: "b".repeat(32), fileDigest: "c".repeat(64) } });
+  const lp = livePreview({ client: "pvas", table: "donorsearch_results", mode: "update", mapping: { ID: "CPTID", Q: COL, H: heldCol }, rows: [{ ID: "101", Q: "B", H: "x" }, { ID: "102", Q: "B", H: "" }] }, st, { fileName: "f.csv", csv: "", fileDate: null, secret: "w".repeat(32), now: 1, job: { ref: { jobId: "a".repeat(64), batchIndex: 0, batchCount: 1, batchRows: 500, totalRows: 2 }, requestId: "b".repeat(32), fileDigest: "c".repeat(64) } });
   assert.deepEqual(lp.result.rows.map((r) => r.outcome), ["update", "update"]);
   assert.equal(lp.job!.heldRows, 1);
 });
@@ -107,17 +107,18 @@ test("prepared new client job: batches after the first stay first-load while Eng
     tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }] }] };
   process.env.SOURCE_PREPARED_TEST_HOOK = "1"; __setPreparedForTests([prepared]);
   const rows = Array.from({ length: 1200 }, (_, i) => ({ ID: String(i + 1), N: `Org ${i + 1}` }));
-  const { manifest, jobId } = await buildJobManifest(sha, { client: "fictional_x", table: "master", keyCol: "CPTID", mapping: { ID: "CPTID", N: "Account_Name" }, headers: ["ID", "N"], rows, fileName: "initial.csv", fileDate: null, actor: "Pat Example", registryRev: REGISTRY_META.rev });
+  const { manifest, jobId } = await buildJobManifest(sha, { client: "fictional_x", table: "master", keyCol: "CPTID", mapping: { ID: "CPTID", N: "Account_Name" }, headers: ["ID", "N"], rows, fileName: "initial.csv", fileDate: null, actor: "Pat Example", registryRev: REGISTRY_META.rev, batchRows: jobBatchRows(1) });
+  const BR = jobBatchRows(1);
   let onlyJob = false; const seen: Record<string, unknown>[] = [];
   globalThis.fetch = (async (_u: unknown, init: { body: string }) => { const b = JSON.parse(init.body); seen.push(b);
     return Response.json({ registryRev: REGISTRY_META.rev, destinationEmpty: false, destinationOnlyJob: onlyJob, preparedDigest: preparedDigest(prepared, "master"), duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [] }); }) as unknown as typeof fetch;
   const { POST } = await import("../app/api/research-source-import/route");
   const post = (i: number) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` },
-    body: JSON.stringify({ op: "jobPreview", client: "fictional_x", table: "master", actor: "Pat Example", manifest, jobId, batchIndex: i, rows: rows.slice(i * 500, (i + 1) * 500) }) }));
+    body: JSON.stringify({ op: "jobPreview", client: "fictional_x", table: "master", actor: "Pat Example", manifest, jobId, batchIndex: i, rows: rows.slice(i * BR, (i + 1) * BR) }) }));
   onlyJob = true;
   const r = await (await post(1)).json();
   assert.equal(seen.at(-1)!.jobId, jobId);
-  assert.equal(r.mode, "first-load"); assert.equal(r.result.counts.insert, 500);
+  assert.equal(r.mode, "first-load"); assert.equal(r.result.counts.insert, BR);
   onlyJob = false; // destination now holds non-job data => not first-load (inserts would be held as additions)
   const r2 = await (await post(2)).json();
   assert.equal(r2.mode, "update"); // later prepared additions go through update mode (per-key existence/baseline collision checks), not first-load

@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { parseCsv, CSV_MAX_BYTES, CsvError, demoAllowed } from "@/lib/portal-v2/csv-updates";
-import { approvedPrepared, clientTables, parseKey, parseKeyOf, clientKeyKind, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
+import { canonLink, resolveDestination, approvedPrepared, clientTables, parseKey, parseKeyOf, clientKeyKind, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
 import { REGISTRY_META, SOURCE_FIELDS } from "@/lib/portal-v2/source-registry";
 import { createHash } from "node:crypto";
-import { verifyJobChunk, JobError, JOB_CHUNK_MAX_BYTES, JOB_MANIFEST_MAX_BYTES } from "@/lib/portal-v2/source-jobs";
+import { verifyJobChunk, JobError, JOB_CHUNK_MAX_BYTES, JOB_MANIFEST_MAX_BYTES, jobBatchRows, jobWriteCols } from "@/lib/portal-v2/source-jobs";
+import { insertPolicyFor } from "@/lib/portal-v2/source-insert-policy";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -13,6 +14,9 @@ import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceA
 // Existing clients have no persisted baseline, so live updates stay held until a reviewed baseline workflow exists.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// Engage /api/source-import has maxDuration 120 s and each request is capped by write statements (~45 s measured budget);
+// this route waits up to 125 s for Engage (then reports UNCONFIRMED, never success) and must outlive that wait.
+export const maxDuration = 150;
 const nodeSha = async (x: string) => createHash("sha256").update(x, "utf8").digest("hex");
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
 const clientsNow = () => [...new Set([...SOURCE_FIELDS.map((f) => f.c), ...approvedPrepared().map((p) => p.client)])];
@@ -32,6 +36,9 @@ async function livePreviewResponse(client: string, table: string, dests: ReturnT
   const mapped = Object.values(mapping).filter(Boolean);
   if (new Set(mapped).size !== mapped.length) return bad("A destination is mapped twice");
   if (rows.length > SOURCE_MAX_OPS) return bad(`One preview handles at most ${SOURCE_MAX_OPS} rows; larger files are uploaded as a batched job`, 413);
+  const isPrepared = approvedPrepared().some((p) => p.client === client);
+  const budgetRows = jobBatchRows(jobWriteCols(dests, mapping, isPrepared));
+  if (!job && rows.length > budgetRows) return bad(`With these columns one request can save at most ${budgetRows} rows; upload the file as a batched job`, 413);
   const kind = clientKeyKind(client, table);
   const keys = [...new Set(rows.map((r) => parseKeyOf(kind, r[kh])).filter((k) => k !== null))];
   const cols = mapped.filter((c) => dests.some((d) => d.col === c && d.st === "candidate" && c !== keyCol));
@@ -41,7 +48,14 @@ async function livePreviewResponse(client: string, table: string, dests: ReturnT
   if (fileDate === "bad") return bad("Source date must be a real date (YYYY-MM-DD) or left blank for unknown");
   const fileName = typeof fileNameIn === "string" && fileNameIn.trim() && fileNameIn.length <= 300 ? fileNameIn.trim() : "";
   if (!fileName) return bad("File name missing; choose the file again");
-  const out = await postToEngage(fetch, process.env, { op: "previewState", client, table, keys, cols, ...(job ? { jobId: job.ref.jobId } : {}) }, "");
+  // approved gift insert policy (server registry only): send each row's canonical SOURCE person link for Engage to resolve
+  let newLinks: { key: unknown; link: string }[] | undefined;
+  if (insertPolicyFor(client, table)) {
+    const rd = resolveDestination(client, table);
+    const ph = rd.personLink ? Object.keys(mapping).find((h) => mapping[h] === rd.personLink) : undefined;
+    if (ph) newLinks = rows.flatMap((r) => { const k = parseKeyOf(kind, r[kh]); const l = rd.xw ? canonLink(rd.xw.fromKind, r[ph]) : (() => { const n = parseKey(r[ph]); return n === null ? null : String(n); })(); return k !== null && l !== null ? [{ key: k, link: l }] : []; });
+  }
+  const out = await postToEngage(fetch, process.env, { op: "previewState", client, table, keys, cols, ...(job ? { jobId: job.ref.jobId } : {}), ...(newLinks ? { newLinks } : {}) }, "");
   if (!out.ok) return bad(out.unconfirmed ? "Engage did not answer; try again" : String(out.body.error || "Preview failed"), 502);
   const prepared = approvedPrepared().find((p) => p.client === client); // server registration only, never request input
   const st = out.body as unknown as EngageState;
@@ -50,6 +64,13 @@ async function livePreviewResponse(client: string, table: string, dests: ReturnT
   const lp = livePreview({ client, table, mode, mapping, rows, headers, prepared }, st, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET, ...(job ? { job } : {}) });
   const { dest: _d, ...result } = lp.result;
   return NextResponse.json({ headers, result, mode, token: lp.token, requestId: lp.requestId, job: lp.job ?? null, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
+}
+
+/** Work-bounded batch size for a job, derived from the (untrusted) manifest mapping; verifyJobChunk then requires equality. */
+function jobRowsFor(client: string, dests: ReturnType<typeof registryDests>, manifest: unknown) {
+  const mm = (manifest as { mapping?: unknown } | null)?.mapping;
+  const jm = Array.isArray(mm) && mm.every((e) => Array.isArray(e) && e.length === 2 && typeof e[0] === "string" && typeof e[1] === "string") ? Object.fromEntries(mm as [string, string][]) : {};
+  return jobBatchRows(jobWriteCols(dests, jm, approvedPrepared().some((p) => p.client === client)));
 }
 
 export async function POST(req: NextRequest) {
@@ -119,9 +140,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ headers, result });
     }
     if (b.op === "jobPreview") {
+      const BR = jobRowsFor(client, dests, b.manifest);
       if (b.demo === true) {
         if (!demoAllowed()) return bad("Demo data is only available in local development", 403);
-        const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor || ""), keyCol: dests.find((d) => d.key)?.key ?? "", keyKind: clientKeyKind(client, table) });
+        const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor || ""), keyCol: dests.find((d) => d.key)?.key ?? "", keyKind: clientKeyKind(client, table), batchRows: BR });
         const { demoSourceState } = await import("@/lib/portal-v2/source-demo");
         const { dest: _d, ...result } = reconcile({ client, table, mode: "update", mapping: validateHeadersAndMapping(v.manifest.headers, v.mapping), rows: v.rows, headers: v.manifest.headers, ...demoSourceState(client, table) });
         return NextResponse.json({ result, token: null, requestId: v.requestId, job: null, applyAvailable: false });
@@ -129,8 +151,8 @@ export async function POST(req: NextRequest) {
       // One bounded batch of a large file. Whole-file identity/keys are re-verified on every batch; nothing is stored here.
       if (!sourcePreviewConfigured()) return bad("Live source preview is not configured (needs the reviewed source_import store and dedicated Engage connection)", 501);
       if (typeof b.actor !== "string" || !b.actor.trim() || b.actor.length > 200) return bad("Enter your name (recorded as the shared-login author)");
-      const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: b.actor, keyCol: dests.find((d) => d.key)?.key ?? "", keyKind: clientKeyKind(client, table) });
-      const ref = { jobId: b.jobId as string, batchIndex: v.index, batchCount: v.batchCount, totalRows: v.manifest.totalRows };
+      const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: b.actor, keyCol: dests.find((d) => d.key)?.key ?? "", keyKind: clientKeyKind(client, table), batchRows: BR });
+      const ref = { jobId: b.jobId as string, batchIndex: v.index, batchCount: v.batchCount, batchRows: BR, totalRows: v.manifest.totalRows };
       return await livePreviewResponse(client, table, dests, v.manifest.headers, v.rows, v.mapping, v.manifest.fileName, v.manifest.fileDate, "", { ref, requestId: v.requestId, fileDigest: v.fileDigest });
     }
     if (b.op === "apply") {
