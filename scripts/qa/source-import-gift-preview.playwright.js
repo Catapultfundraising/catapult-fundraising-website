@@ -68,6 +68,7 @@ const CSV = "Donor No,Amount,Year,Appeal\r\n" + rows.join("\r\n") + "\r\n";
     w = resp("giftStage"); const rq2 = p.waitForRequest((r) => r.url().endsWith(API) && JSON.parse(r.postData() || "{}").op === "giftStage"); await btn.click(); await rq2;
     const w2 = resp("giftContext"); await outer.selectOption("raw_master_giving_history"); await w2; rel2(); await w; await frames();
     ok(await sec.locator("[data-testid=gift-stage]").count() === 0 && await sec.locator("select[aria-label='Map Donor No']").count() === 0, `${vp.name}: deferred preview released after outer table change is ignored`);
+    ok(await p.locator("[data-testid=gift-preview]").count() === 1 && await p.locator("[data-testid=baseline-attest]").count() === 1, `${vp.name}: exactly one baseline and one gift section after table changes (unique sibling keys)`);
     ok(sent.every((o) => o !== "apply" && o !== "preview"), `${vp.name}: no apply/source preview ops sent`);
     await ctx.close();
   }
