@@ -32,12 +32,15 @@ export default function SourceImportPage() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
+  const [token, setToken] = useState<string | null>(null); const [requestId, setRequestId] = useState("");
+  const [applyAvailable, setApplyAvailable] = useState(false); const [actor, setActor] = useState("");
+  const [saveMsg, setSaveMsg] = useState(""); const [unconfirmed, setUnconfirmed] = useState(false);
   // Every request carries a sequence number; responses from an older client/table/file selection are ignored.
   const seq = useRef(0);
   const guard = <T,>(p: Promise<T>) => { const n = ++seq.current; return p.then((v) => { if (n !== seq.current) throw new Error("stale"); return v; }); };
   const onErr = (e: Error) => { if (e.message !== "stale") setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); }, []);
-  const reset = () => { setResult(null); setErr(""); };
+  const reset = () => { setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
   const clearFile = () => { setCsv(""); setHeaders([]); setMapping({}); };
   useEffect(() => { setTables([]); setTable(""); setDests([]); clearFile(); reset(); if (client) guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setDests([]); clearFile(); reset(); if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr); }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -50,7 +53,13 @@ export default function SourceImportPage() {
   };
   const onFile = async (f: File | undefined) => { reset(); clearFile(); if (f) useCsv(await f.text()); };
   const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); useCsv(t, Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); };
-  const preview = () => { setBusy(true); reset(); guard(call({ op: "preview", client, table, csv, mapping, demo })).then((j) => setResult(j.result)).catch(onErr).finally(() => setBusy(false)); };
+  const preview = () => { setBusy(true); reset(); guard(call({ op: "preview", client, table, csv, mapping, demo })).then((j) => { setResult(j.result); setToken(j.token ?? null); setRequestId(j.requestId ?? ""); setApplyAvailable(j.applyAvailable === true); }).catch(onErr).finally(() => setBusy(false)); };
+  // Apply (hidden unless the server reports it configured). One request, never retried automatically; lost reply => Check status.
+  const save = () => { setBusy(true); setSaveMsg(""); call({ op: "apply", client, table, token, actor }).then((j) => {
+      if (j.unconfirmed) { setUnconfirmed(true); setSaveMsg("Save not confirmed. Use Check status; do not upload again."); }
+      else { setToken(null); setSaveMsg(j.replayed ? "Already saved earlier (same request)." : `Saved ${j.records} records (${j.values} values).`); }
+    }).catch((e) => { setUnconfirmed(true); setSaveMsg(`Save not confirmed (${(e as Error).message}). Use Check status; do not upload again.`); }).finally(() => setBusy(false)); };
+  const checkStatus = () => { call({ op: "status", client, table, requestId }).then((j) => { setUnconfirmed(!j.found); setSaveMsg(j.found ? "Saved: this request committed." : "Not saved under this request. Preview again before saving."); if (j.found) setToken(null); }).catch((e) => setSaveMsg(`Status unavailable (${(e as Error).message}); try again.`)); };
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -82,6 +91,12 @@ export default function SourceImportPage() {
           <div className="mt-4 overflow-x-auto"><table className="w-full text-left text-sm"><thead><tr className="text-xs uppercase text-[rgb(var(--ink))]/60"><th className="px-3 py-2">Line</th><th className="px-3 py-2">Key</th><th className="px-3 py-2">Result</th><th className="px-3 py-2">Fields (baseline / current / file)</th></tr></thead>
             <tbody>{result.rows.map((r) => <tr key={r.line} className="border-t border-[rgb(var(--line))] align-top"><td className="px-3 py-2">{r.line}</td><td className="px-3 py-2">{r.key ?? "—"}</td><td className="px-3 py-2 font-semibold text-[rgb(var(--navy))]">{r.outcome}{r.reason && <span className="block text-xs font-normal text-[rgb(var(--ink))]/60">{r.reason}</span>}</td>
               <td className="px-3 py-2 text-xs">{r.fields.map((f) => <div key={f.col}><b>{f.col}</b>: {f.baseline ?? "∅"} / {f.current ?? "∅"} / {f.latest ?? "∅"} — {OUT[f.outcome] ?? f.outcome}{f.reason ? ` (${f.reason})` : ""}</div>)}</td></tr>)}</tbody></table></div>
+          {applyAvailable && token && (
+            <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-[rgb(var(--line))] pt-4">
+              <label className="block text-sm"><span className={label}>Your name</span><input className={input} value={actor} onChange={(e) => setActor(e.target.value)} placeholder="Recorded as author (shared login)" /></label>
+              <button type="button" className={navyBtn} disabled={busy || !actor.trim() || unconfirmed} onClick={save}>Save {result.counts.applyValues} values</button>
+            </div>)}
+          {(saveMsg || unconfirmed) && <p role="status" className="mt-3 text-sm text-[rgb(var(--navy))]">{saveMsg} {unconfirmed && requestId && <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={checkStatus}>Check status</button>}</p>}
           <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Registry from builder commit {result.registry.builder_commit.slice(0, 7)}, SQL metadata {result.registry.sql_metadata_checked_at.slice(0, 10)}. Historical evidence, not live acceptance.</p>
         </section>)}
     </main>

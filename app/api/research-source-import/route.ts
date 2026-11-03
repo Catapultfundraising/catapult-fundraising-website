@@ -3,11 +3,12 @@ import { isResearchAuthed } from "@/lib/research-auth";
 import { parseCsv, CSV_MAX_BYTES, CsvError, demoAllowed } from "@/lib/portal-v2/csv-updates";
 import { reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled } from "@/lib/portal-v2/source-reconcile";
 import { REGISTRY_META, SOURCE_FIELDS } from "@/lib/portal-v2/source-registry";
+import { applyRequestBody, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
-// Staff-only source CSV reconciliation PREVIEW (/research/source-import). Read-only. There is no apply op:
-// raw source writes stay OFF until a reviewed transport/migration and real-SQL acceptance exist.
-// Live preview is not wired because no approved baseline store exists (missing baseline => everything held);
-// only the local fictional demo computes a preview.
+// Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
+// transport/migration and real-SQL acceptance exist.
+// Live preview/apply are wired but hidden: unconfigured by default (see source-import-apply.ts); apply also hard-gated.
+// Existing clients have no persisted baseline, so live updates stay held until a reviewed baseline workflow exists.
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
@@ -48,7 +49,24 @@ export async function POST(req: NextRequest) {
     if (!dests.length) return bad("Choose a table");
     if (b.op === "fields") return NextResponse.json({ fields: dests });
     if (b.op === "preview") {
-      if (b.demo !== true) return bad("Live source preview is not available: no approved baseline store or source transport yet", 501);
+      if (b.demo !== true) {
+        if (!sourcePreviewConfigured()) return bad("Live source preview is not configured (needs the reviewed source_import store and dedicated Engage connection)", 501);
+        if (!csvIn || Buffer.byteLength(csvIn, "utf8") > CSV_MAX_BYTES) return bad("Choose a CSV file of 2 MB or smaller");
+        const { headers, rows } = rowsFromGrid(parseCsv(csvIn));
+        const mapping = validateHeadersAndMapping(headers, b.mapping);
+        const keyCol = dests.find((d) => d.key)?.key ?? "";
+        const kh = Object.keys(mapping).find((h) => mapping[h] === keyCol);
+        if (!kh) return bad(`Map a column to the key ${keyCol}`);
+        const keys = [...new Set(rows.map((r) => Number(String(r[kh]).trim())).filter((k) => Number.isSafeInteger(k) && k > 0))].slice(0, 500);
+        const cols = Object.values(mapping).filter((c) => dests.some((d) => d.col === c && d.st === "candidate" && c !== keyCol));
+        if (!keys.length || !cols.length) return bad("Map the key and at least one reviewable field");
+        const fileDate = typeof b.fileDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(b.fileDate) ? b.fileDate : null;
+        const out = await postToEngage(fetch, process.env, { op: "previewState", client, table, keys, cols }, "");
+        if (!out.ok) return bad(out.unconfirmed ? "Engage did not answer; try again" : String(out.body.error || "Preview failed"), 502);
+        const lp = livePreview({ client, table, mode: "update", mapping, rows }, out.body as unknown as EngageState, { fileName: String(b.fileName || "upload.csv"), csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET });
+        const { dest: _d, ...result } = lp.result;
+        return NextResponse.json({ headers, result, token: lp.token, requestId: lp.requestId, applyAvailable: sourceApplyConfigured() && !!lp.token });
+      }
       if (!demoAllowed()) return bad("Demo data is only available in local development", 403);
       if (!csvIn || Buffer.byteLength(csvIn, "utf8") > CSV_MAX_BYTES) return bad("Choose a CSV file of 2 MB or smaller");
       const { headers, rows } = rowsFromGrid(parseCsv(csvIn));
@@ -57,6 +75,20 @@ export async function POST(req: NextRequest) {
       const st = demoSourceState(client, table);
       const { dest: _d, ...result } = reconcile({ client, table, mode: "update", mapping, rows, ...st });
       return NextResponse.json({ headers, result });
+    }
+    if (b.op === "apply" || b.op === "status") {
+      if (!sourceApplyConfigured()) return bad("Saving source data is turned off", 403);
+      if (b.op === "status") {
+        const rid = String(b.requestId || ""); if (!/^[a-f0-9]{32}$/.test(rid)) return bad("bad requestId");
+        const out = await postToEngage(fetch, process.env, { op: "status", client, requestId: rid }, rid);
+        return out.ok ? NextResponse.json(out.body) : bad("Status unavailable; try again", 502);
+      }
+      const body = applyRequestBody(b.token, b.actor, process.env.PORTAL_WRITE_SECRET);
+      if (body.client !== client) return bad("Preview token is for another client", 400);
+      const out = await postToEngage(fetch, process.env, body, String(body.request.requestId));
+      if (out.ok) return NextResponse.json(out.body);
+      if (out.unconfirmed) return NextResponse.json({ unconfirmed: true, requestId: out.requestId, error: "Save not confirmed. Check status before doing anything else." }, { status: 202 });
+      return NextResponse.json(out.body, { status: out.status });
     }
     return bad("unknown op");
   } catch (e) {
