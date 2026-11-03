@@ -1,7 +1,8 @@
 // Rendered local QA for the review-only JAG provisional gift-ID preview. Uses the ACTUAL local dev routes
 // (giftContext/giftStage/giftExport are local staging only: no SQL, no Engage). FICTIONAL data. Every origin other
 // than exactly http://localhost:3100 is aborted. One test-only interception defers a giftStage reply to prove stale
-// replies are ignored. No sleeps: readiness via responses/locators/animation frames.
+// replies are ignored. Inside the section, file/mapping inputs are locked while a preview is pending; the OUTER
+// client/table selectors stay interactive, so outer-table changes are tested to reset the section and drop late replies. No sleeps: readiness via responses/locators/animation frames.
 const { chromium } = require("playwright"); const crypto = require("crypto"); const fs = require("fs");
 const ok = (c, m) => { console.log(c ? "PASS" : "FAIL", m); if (!c) process.exitCode = 1; };
 const API = "/api/research-source-import"; const OUT = process.env.OUT || "/tmp/qa-gift"; fs.mkdirSync(OUT, { recursive: true });
@@ -25,10 +26,11 @@ const CSV = "Donor No,Amount,Year,Appeal\r\n" + rows.join("\r\n") + "\r\n";
     await p.goto(ORIGIN + "/research/source-import", { waitUntil: "load", timeout: 180000 });
     const nb = p.locator("text=Necessary Only"); await frames(); if (await nb.count()) await nb.first().click();
     const sel0 = p.locator("select").first(); await sel0.locator("option[value=jag]").waitFor({ state: "attached", timeout: 120000 });
-    let w = resp("giftContext"); await sel0.selectOption("jag"); await w;
+    let w = resp("giftContext"); const wt = resp("tables"); await sel0.selectOption("jag"); await w; await wt; await frames();
     const sec = p.locator("[data-testid=gift-preview]"); await sec.locator("summary").click();
     const fileIn = sec.locator("input[aria-label='Gift history export']");
     w = resp("inspect"); await fileIn.setInputFiles({ name: "jag-gifts-fictional.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) }); await w;
+    await sec.locator("select[aria-label='Map Donor No'] option[value=CPTID]").waitFor({ state: "attached" });
     const btn = sec.locator("button", { hasText: "Preview provisional IDs" });
     ok(await btn.isDisabled(), `${vp.name}: preview disabled until the CPTID column is mapped explicitly`);
     await sec.locator("select[aria-label='Map Donor No']").selectOption("CPTID"); await sec.locator("select[aria-label='Map Amount']").selectOption("Gift_Amount"); await sec.locator("select[aria-label='Map Year']").selectOption("Calendar_Year");
@@ -48,12 +50,24 @@ const CSV = "Donor No,Amount,Year,Appeal\r\n" + rows.join("\r\n") + "\r\n";
     const row2 = stg.locator("tbody tr").first(); ok(/HELD/.test(await row2.innerText()) && /1 new/.test(await stg.innerText()), `${vp.name}: proposal recorded as not-recorded proposal; row status stays HELD`);
     if (vp.name === "mobile390") { await stg.locator(".overflow-x-auto").evaluate((e) => { e.scrollLeft = e.scrollWidth; }); await frames(); }
     await p.evaluate(() => window.scrollTo(0, 0)); await frames();
-    const nb2 = p.locator("button", { hasText: "Necessary Only" }); if (await nb2.count()) { await nb2.first().click(); await nb2.first().waitFor({ state: "detached" }).catch(() => {}); }
+    const nb2 = p.locator("button", { hasText: "Necessary Only" }); if (await nb2.count()) { await nb2.first().click({ force: true }); await nb2.first().waitFor({ state: "detached" }).catch(() => {}); }
     await stg.evaluate((e) => window.scrollTo(0, e.getBoundingClientRect().top + window.scrollY - 200)); await frames();
     await p.screenshot({ path: `${OUT}/${vp.name}-view.png` });
     w = resp("giftExport"); const dl = p.waitForEvent("download"); await sec.locator("button", { hasText: "Download review copy" }).click(); await w; const d = await dl;
     const out = fs.readFileSync(await d.path(), "utf8"); const lines = out.split("\r\n");
     ok(lines[0].startsWith('"Donor No","Amount","Year","Appeal","Provisional Preview ID"') && lines.length === 608 && lines.slice(1, 607).every((l) => l.includes("HELD - pending reconciliation (not recorded)") && l.includes("PROVISIONAL preview ID")) && lines[2].includes("\"'=1+1\""), `${vp.name}: review copy has header row first, warnings on every row, formula escaped`);
+    // outer page table selector is NOT locked by this section: changing it must reset the section and drop late replies
+    const outer = p.locator("select").nth(1); await outer.locator("option[value=constituents]").waitFor({ state: "attached" });
+    w = resp("giftContext"); await outer.selectOption("constituents"); await w; await frames();
+    ok(await sec.locator("[data-testid=gift-stage]").count() === 0 && await sec.locator("select[aria-label='Map Donor No']").count() === 0, `${vp.name}: outer table change resets the gift section (no old preview/file/mapping)`);
+    if (!(await sec.getAttribute("open")) && !(await sec.evaluate((e) => e.open))) await sec.locator("summary").click();
+    w = resp("inspect"); await fileIn.setInputFiles({ name: "jag-gifts-fictional.csv", mimeType: "text/csv", buffer: Buffer.from(CSV) }); await w;
+    await sec.locator("select[aria-label='Map Donor No'] option[value=CPTID]").waitFor({ state: "attached" });
+    await sec.locator("select[aria-label='Map Donor No']").selectOption("CPTID");
+    let rel2; gate = { p: new Promise((r) => { rel2 = r; }) };
+    w = resp("giftStage"); const rq2 = p.waitForRequest((r) => r.url().endsWith(API) && JSON.parse(r.postData() || "{}").op === "giftStage"); await btn.click(); await rq2;
+    const w2 = resp("giftContext"); await outer.selectOption("raw_master_giving_history"); await w2; rel2(); await w; await frames();
+    ok(await sec.locator("[data-testid=gift-stage]").count() === 0 && await sec.locator("select[aria-label='Map Donor No']").count() === 0, `${vp.name}: deferred preview released after outer table change is ignored`);
     ok(sent.every((o) => o !== "apply" && o !== "preview"), `${vp.name}: no apply/source preview ops sent`);
     await ctx.close();
   }

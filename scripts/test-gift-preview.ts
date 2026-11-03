@@ -52,6 +52,7 @@ test("mapping validation: CPTID required, registry columns only, no double mappi
 
 test("formula neutralization covers leading whitespace/control variants; ordinary text unchanged", () => {
   for (const c of ["=1", "+1", "-1", "@x", " =1", "\t=1", "\n=1", "\r+1", "\u0001@x", "\t", "\nabc"]) assert.equal(neutralize(c).v, "'" + c, JSON.stringify(c));
+  for (const c of ["\u00a0=1+1", "\ufeff=1", "\u2003@x", "\u3000+1", "\u2028-1", "\u007f=1"]) assert.equal(neutralize(c).v, "'" + c, JSON.stringify(c));
   for (const c of ["Anne-Marie", "a=b", "25.00", "", "x@y.com"]) assert.equal(neutralize(c).changed, false);
 });
 
@@ -106,4 +107,11 @@ test("route: staff auth required, JAG-only, exact bodies, no upstream calls, exp
   const bad = await post({ op: "giftStage", client: "jag", table: "raw_master_giving_history", fileB64: Buffer.from("CPTID,Catapult Gift ID\r\n1,2\r\n").toString("base64"), mapping: { CPTID: "CPTID" } });
   assert.equal(bad.status, 400); assert.match((await bad.json()).error, /reserved/);
   assert.equal(fetches, 0, "no upstream/network calls");
+});
+
+test("export refuses ragged rows (no padding, truncation or unheaded extra cells); stage still holds them", () => {
+  for (const csv of ["CPTID,Memo\r\n1,ok,EXTRA\r\n", "CPTID,Memo\r\n1\r\n"]) {
+    const r = st(csv, { CPTID: "CPTID" }); assert.match(r.rows[0].reasons.join(), /different number of cells/);
+    assert.throws(() => exportGift({ client: "jag", table: "raw_master_giving_history", bytes: enc(csv), grid: parseCsv(csv), mapping: { CPTID: "CPTID" }, decisions: ["held"], token: r.token, secret: S, now: NOW, fileName: "r.csv" }), /different number of cells/);
+  }
 });

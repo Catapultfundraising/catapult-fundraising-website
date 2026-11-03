@@ -123,7 +123,8 @@ export function verifyGiftToken(token: unknown, secret: string | undefined, now:
 
 /** Leading-formula neutralization for the REVIEW COPY only (changes those cells; the copy is not exact). */
 export function neutralize(c: string): { v: string; changed: boolean } {
-  return /^[\u0000-\u0020\u007F]*[=+\-@]/.test(c) || /^[\t\r\n]/.test(c) ? { v: "'" + c, changed: true } : { v: c, changed: false };
+  // leading whitespace = JS \s (incl. NBSP, BOM, em space, other Unicode spaces) plus C0 controls and DEL
+  return /^[\s\u0000-\u001F\u007F]*[=+\-@]/.test(c) || /^[\t\r\n]/.test(c) ? { v: "'" + c, changed: true } : { v: c, changed: false };
 }
 const q = (c: string) => `"${c.replace(/"/g, '""')}"`;
 
@@ -138,12 +139,12 @@ export function exportGift(o: { client: string; table: string; bytes: Uint8Array
   if (rows.length !== s.rows) bad("Row count changed since preview; preview again");
   if (!Array.isArray(o.decisions) || o.decisions.length !== rows.length || o.decisions.some((d) => !(DECISIONS as readonly unknown[]).includes(d))) bad("Decisions must be held, proposed-new or proposed-existing for every row");
   const dec = o.decisions as Decision[];
+  // a ragged row cannot be represented under the header without padding/truncation: refuse rather than emit malformed CSV
+  if (o.grid.slice(1).some((r) => r.length !== headers.length)) bad("Some rows have a different number of cells than the header; fix the file before exporting a review copy");
   let escaped = 0; const esc = (c: string) => { const n = neutralize(c); if (n.changed) escaped++; return q(n.v); };
   const lines = [[...headers.map(esc), ...APPENDED.map(q)].join(",")];
   rows.forEach((r, i) => {
-    const cells = o.grid[i + 1];
-    const padded = headers.map((_, j) => cells[j] ?? ""); const extra = cells.slice(headers.length);
-    lines.push([...padded.map(esc), q(r.pid), q(STATUS), q(DECISION_TEXT[dec[i]]), q(r.reasons.join("; ")), q(WARNING), ...extra.map(esc)].join(","));
+    lines.push([...o.grid[i + 1].map(esc), q(r.pid), q(STATUS), q(DECISION_TEXT[dec[i]]), q(r.reasons.join("; ")), q(WARNING)].join(","));
   });
   const csv = (o.bytes[0] === 0xef && o.bytes[1] === 0xbb && o.bytes[2] === 0xbf ? "\ufeff" : "") + lines.join("\r\n") + "\r\n";
   if (Buffer.byteLength(csv, "utf8") > GIFT_EXPORT_MAX_BYTES) bad("Review copy would exceed 4 MB");
