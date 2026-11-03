@@ -55,7 +55,7 @@ export default function SourceImportPage() {
   const guard = <T,>(p: Promise<T>) => fence.token().guard(p);
   const onErr = (e: Error) => { if (!(e instanceof StaleScope)) setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => setClients(j.clients ?? [])).catch((e) => setErr(e.message)); }, []);
-  const reset = () => { fence.bump(); if (running.current) return; setJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
+  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
   const clearFile = () => { setBigRows(null); setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
   // ONE effect for client/table so scope is invalidated once, before any request of the new scope starts.
   const prevClient = useRef("");
@@ -110,9 +110,9 @@ export default function SourceImportPage() {
           const held = r.job?.heldRows ?? r.result.rows.filter((x: { outcome: string; fields: { outcome: string }[] }) => x.outcome === "held" || x.outcome === "invalid" || x.fields.some((f) => ["held", "conflict", "protected", "invalid"].includes(f.outcome))).length;
           setBatch(b.index, r.token ? { state: "previewed", token: r.token, requestId: r.requestId, heldRows: held, would: r.result.counts.update, values: r.result.counts.applyValues } : { state: held ? "held_only" : "verified_unchanged", heldRows: held, would: 0 });
           setApplyAvailable(r.applyAvailable === true || applyAvailable);
-        } catch (e) { setBatch(b.index, { state: "failed", error: (e as Error).message }); }
+        } catch (e) { if (!live()) return; setBatch(b.index, { state: "failed", error: (e as Error).message }); }
       }
-    } catch (e) { setErr((e as Error).message); } finally { running.current = false; setBusy(false); }
+    } catch (e) { if (live()) setErr((e as Error).message); } finally { running.current = false; if (live()) setBusy(false); }
   };
   // Sequential save, one batch at a time; stops at the first unconfirmed batch (no automatic retry, no new upload).
   const saveJob = async () => {
@@ -128,19 +128,19 @@ export default function SourceImportPage() {
         if (r.unconfirmed) { setBatch(b.index, { state: "unconfirmed" }); break; }
         setBatch(b.index, { state: b.heldRows ? "saved_with_holds" : "saved", savedRecords: Number(r.records ?? 0), token: null });
       }
-    } finally { running.current = false; setBusy(false); }
+    } finally { running.current = false; if (tk.live()) setBusy(false); }
   };
   const checkJob = async () => { if (!job) return; const tk = fence.token(); try { const done = await committed(job.jobId); if (!tk.live()) return; setBatches((bs) => bs.map((b) => { const c = done.get(b.index); return c ? { ...b, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows, token: null } : b.state === "unconfirmed" ? { ...b, error: "still unconfirmed (may be in progress); check again" } : b; })); } catch (e) { if (tk.live()) setErr(`Status unavailable (${(e as Error).message})`); } };
   const jobSum = job ? summarizeJob(job.manifest.batchHashes.length, batches) : null;
   const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); useCsv(t, "fictional-demo.csv", Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); };
   const loadBigDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 1).map((d) => d.col); const hs = ["Constituent number", ...cols]; reset(); clearFile(); setFileName("fictional-large-demo.csv"); setHeaders(hs);
     setBigRows(Array.from({ length: 1200 }, (_, i) => Object.fromEntries([["Constituent number", String(i < 3 ? 900001 + i : 910000 + i)], ...cols.map((c) => [c, "B"])]))); setMapping(Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : h]))); if (!actor) setActor("Demo Reviewer"); };
-  const preview = () => { setBusy(true); reset(); guard(call({ op: "preview", client, table, csv, mapping, demo, fileName, fileDate: fileDate || null })).then((j) => { setResult(j.result); setToken(j.token ?? null); setRequestId(j.requestId ?? ""); setApplyAvailable(j.applyAvailable === true); }).catch(onErr).finally(() => setBusy(false)); };
+  const preview = () => { reset(); setBusy(true); const tk = fence.token(); guard(call({ op: "preview", client, table, csv, mapping, demo, fileName, fileDate: fileDate || null })).then((j) => { setResult(j.result); setToken(j.token ?? null); setRequestId(j.requestId ?? ""); setApplyAvailable(j.applyAvailable === true); }).catch(onErr).finally(() => { if (tk.live()) setBusy(false); }); };
   // Apply (hidden unless the server reports it configured). One request, never retried automatically; lost reply => Check status.
   const save = () => { setBusy(true); setSaveMsg(""); const tk = fence.token(); call({ op: "apply", client, table, token, actor }).then((j) => { if (!tk.live()) return;
       if (j.unconfirmed) { setUnconfirmed(true); setSaveMsg("Save not confirmed. Use Check status; do not upload again."); }
       else { setToken(null); setSaveMsg(j.replayed ? "Already saved earlier (same request)." : `Saved ${j.records} records (${j.values} values).`); }
-    }).catch((e) => { if (!tk.live()) return; setUnconfirmed(true); setSaveMsg(`Save not confirmed (${(e as Error).message}). Use Check status; do not upload again.`); }).finally(() => setBusy(false)); };
+    }).catch((e) => { if (!tk.live()) return; setUnconfirmed(true); setSaveMsg(`Save not confirmed (${(e as Error).message}). Use Check status; do not upload again.`); }).finally(() => { if (tk.live()) setBusy(false); }); };
   const checkStatus = () => { const tk = fence.token(); call({ op: "status", client, table, requestId }).then((j) => { if (!tk.live()) return; setUnconfirmed(!j.found); if (j.found) { setToken(null); setSaveMsg("Saved: this request committed."); } else setSaveMsg("Still unconfirmed: Engage has no committed record of this request yet (it may still be in progress). Check again shortly; do not upload again."); }).catch((e) => tk.run(() => setSaveMsg(`Status unavailable (${(e as Error).message}); try again.`))); };
 
   return (
