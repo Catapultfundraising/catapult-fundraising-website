@@ -27,6 +27,10 @@ const AUTH: Record<PortalClient, (r: NextRequest) => Promise<boolean>> = {
 const RECORDS: Record<PortalClient, () => Promise<{ index: { cptid: number; name: string; city?: string }[] } | null>> = {
   pvas: getPvasRecords, csnf: getCsnfRecords, jag: getJagRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords,
 };
+/** Base snapshot (records blob) with its asOf date, for the staff CSV contact updater (read-only). */
+export async function recordsFor(client: PortalClient) {
+  return (await RECORDS[client]()) as unknown as { asOf?: string; records?: Record<string, { name: string; contact?: Record<string, string> }> } | null;
+}
 // CPTIDs at or above this are placeholders in client data (PVAS has a 999999); they never set the next id.
 const PLACEHOLDER_CPTID = 900_000;
 
