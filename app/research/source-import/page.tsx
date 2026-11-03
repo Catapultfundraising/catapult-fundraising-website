@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import BaselineAttest from "./BaselineAttest";
+import GiftPreview from "./GiftPreview";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
 import { createScopeFence, StaleScope } from "@/lib/portal-v2/scope-fence";
 import { buildAllocManifest, allocReserveRequestId, type AllocContext, type AllocManifest } from "@/lib/portal-v2/source-allocator";
@@ -310,6 +311,7 @@ export default function SourceImportPage() {
           <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Registry from builder commit {result.registry.builder_commit.slice(0, 7)}, SQL metadata {result.registry.sql_metadata_checked_at.slice(0, 10)}. Historical evidence, not live acceptance.</p>
         </section>)}
       {client && <BaselineAttest key={`${client}/${table}`} client={client} table={table} />}
+      {client === "jag" && <GiftPreview key="jag-gift-preview" client="jag" table="raw_master_giving_history" />}
     </main>
   );
 }

@@ -11,6 +11,7 @@ import { preparedDigest as preparedDigestOf, verifySourceTokenPayloadForAlloc } 
 import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2/source-mapping-profile";
 import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
 import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId, validateAttestHeaders } from "@/lib/portal-v2/source-baseline-attest";
+import { stageGift, exportGift, giftColumns, GiftPreviewError, GIFT_CLIENT, GIFT_TABLE, GIFT_PERSON_COL } from "@/lib/portal-v2/gift-preview";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -201,6 +202,31 @@ export async function POST(req: NextRequest) {
       if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
       const out = await postToEngage(fetch, process.env, { op: "baselineStatus", client, table, requestId: b.requestId }, b.requestId);
       return out.ok ? NextResponse.json(summarizeStatus(out.body)) : bad("Status unavailable (unconfirmed); try again", 502);
+    }
+    // Provisional JAG gift-ID preview (review only): local staging of the uploaded file, no upstream reads, no writes.
+    if (typeof b.op === "string" && b.op.startsWith("gift")) {
+      if (typeof b.client !== "string" || typeof b.table !== "string") return bad("client and table must be text");
+      if (client !== GIFT_CLIENT || table !== GIFT_TABLE) return bad("Provisional gift preview is available only for JAG gift history");
+      if (b.op === "giftContext") { if (!exactBody(b, ["op", "client", "table"])) return bad("bad giftContext body"); return NextResponse.json({ columns: giftColumns(), personCol: GIFT_PERSON_COL }); }
+      const giftFile = () => {
+        if (typeof b!.fileB64 !== "string" || b!.fileB64.length > Math.ceil(CSV_MAX_BYTES / 3) * 4 + 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(b!.fileB64)) throw new GiftPreviewError("Choose a CSV file of 2 MB or smaller");
+        const bytes = Buffer.from(b!.fileB64, "base64"); if (!bytes.length || bytes.length > CSV_MAX_BYTES) throw new GiftPreviewError("Choose a CSV file of 2 MB or smaller");
+        let t: string; try { t = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { throw new GiftPreviewError("File must be UTF-8 text"); }
+        return { bytes, grid: parseCsv(t) };
+      };
+      try {
+        if (b.op === "giftStage") {
+          if (!exactBody(b, ["op", "client", "table", "fileB64", "mapping"])) return bad("bad giftStage body");
+          const f = giftFile();
+          return NextResponse.json(stageGift({ client, table, ...f, mapping: b.mapping, secret: process.env.RESEARCH_AUTH_SECRET, now: Date.now() }));
+        }
+        if (b.op === "giftExport") {
+          if (!exactBody(b, ["op", "client", "table", "fileB64", "mapping", "decisions", "token", "fileName"])) return bad("bad giftExport body");
+          const f = giftFile();
+          return NextResponse.json(exportGift({ client, table, ...f, mapping: b.mapping, decisions: b.decisions, token: b.token, fileName: b.fileName, secret: process.env.RESEARCH_AUTH_SECRET, now: Date.now() }));
+        }
+      } catch (e) { if (e instanceof GiftPreviewError || e instanceof CsvError) return bad(e.message); return bad("Preview failed", 500); }
+      return bad("unknown op");
     }
     if (b.op === "tables") {
       return NextResponse.json({ registry: REGISTRY_META, applyEnabled: sourceApplyEnabled(), tables: clientTables(client) });
