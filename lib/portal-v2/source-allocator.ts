@@ -36,15 +36,22 @@ export interface AllocManifest {
   allocatorDigest: string; preparedDigest: string; identityConfigDigest: string;
   totalRows: number; batchRows: number; batchHashes: string[]; exts: string[]; extDigests: string[];
 }
-export interface AllocContext { allocatorDigest: string; preparedDigest: string; identityConfigDigest: string; keyCol: string; externalKeyCol: string; identityCols: string[]; sourceSystem: string; batchRows: number }
+export interface AllocContext { allocatorDigest: string; preparedDigest: string; identityConfigDigest: string; keyCol: string; externalKeyCol: string; identityCols: string[]; sourceSystem: string; batchRows: number; /** non-key prepared master columns (mapping targets) */ columns: string[]; masterTable: string; saveAvailable?: boolean }
 const rowArray = (h: string[], r: Record<string, string>) => h.map((x) => r[x] ?? "");
 const batchHash = (sha: Sha, h: string[], rows: Record<string, string>[]) => sha(JSON.stringify(rows.map((r) => rowArray(h, r))));
 export const allocJobId = (sha: Sha, m: AllocManifest) => sha(JSON.stringify(m));
+/** Must equal Engage reservePayloadHash (stored with the reservation; compared by allocPreview). */
+export const reservePayloadHash = (sha: Sha, client: string, jobId: string, batchIndex: number, exts: string[], digests: string[]) => sha(JSON.stringify(["reserve/v1", client, jobId, batchIndex, exts.map((e, i) => [e, digests[i]])]));
 export const allocReserveRequestId = async (sha: Sha, jobId: string, i: number) => (await sha(`${jobId}:reserve:${i}`)).slice(0, 32);
 export const allocBatchRequestId = async (sha: Sha, jobId: string, i: number) => (await sha(`${jobId}:${i}`)).slice(0, 32);
 
-function colHeaders(mapping: Record<string, string>, ctx: AllocContext) {
+function colHeaders(mapping: Record<string, string>, ctx: AllocContext, headers?: string[]) {
   const inv: Record<string, string> = {};
+  for (const [h, c] of Object.entries(mapping)) {
+    if (typeof c !== "string") throw new AllocError("Mapping values must be column names");
+    if (headers && !headers.includes(h)) throw new AllocError(`Mapped header ${h} is not in the file`);
+    if (c && c !== ctx.keyCol && !ctx.columns.includes(c)) throw new AllocError(`${c} is not a column of the reviewed destination`);
+  }
   for (const [h, c] of Object.entries(mapping)) if (c) { if (inv[c]) throw new AllocError(`${c} is mapped twice`); inv[c] = h; }
   if (inv[ctx.keyCol]) throw new AllocError(`Do not map ${ctx.keyCol}: CPTIDs for a new client are assigned by the shared allocator`);
   if (!inv[ctx.externalKeyCol]) throw new AllocError(`Map the source ID column to ${ctx.externalKeyCol}`);
@@ -59,7 +66,9 @@ export async function buildAllocManifest(sha: Sha, p: { client: string; table: s
   if (!p.rows.length) throw new AllocError("The file has no data rows");
   if (p.rows.length > 50_000) throw new AllocError("At most 50,000 rows per file");
   if (!p.actor.trim()) throw new AllocError("Enter your name (recorded as the shared-login author)");
-  const inv = colHeaders(p.mapping, p.ctx);
+  const hs = p.headers.map((h) => h.trim().toLowerCase());
+  if (!p.headers.length || hs.some((h) => !h) || new Set(hs).size !== hs.length) throw new AllocError("Every column needs a unique header");
+  const inv = colHeaders(p.mapping, p.ctx, p.headers);
   const eh = inv[p.ctx.externalKeyCol];
   const exts: string[] = []; const bad: number[] = []; const seen = new Set<string>(); const dup = new Set<string>();
   p.rows.forEach((r, i) => { const e = canonExt(r[eh]); if (e === null) bad.push(i + 2); else { if (seen.has(e)) dup.add(e); seen.add(e); } exts.push(e ?? ""); });
@@ -94,11 +103,16 @@ export async function verifyAllocChunk(sha: Sha, raw: unknown, jobId: unknown, i
   const i = index as number;
   if (!Array.isArray(rows) || !rows.every((r) => r && typeof r === "object" && !Array.isArray(r) && Object.values(r).every(isStr))) throw new AllocError("Batch rows malformed");
   const rs = rows as Record<string, string>[];
+  const hs = m.headers.map((h) => h.trim().toLowerCase());
+  if (!m.headers.length || hs.some((h) => !h) || new Set(hs).size !== hs.length) throw new AllocError("Every column needs a unique header");
+  const hset = JSON.stringify([...m.headers].sort());
+  if (rs.some((r) => JSON.stringify(Object.keys(r).sort()) !== hset)) throw new AllocError("Batch rows must have exactly the file's columns");
+  colHeaders(Object.fromEntries(m.mapping) as Record<string, string>, expect.ctx, m.headers);
   const want = Math.min(m.batchRows, m.totalRows - i * m.batchRows);
   if (rs.length !== want) throw new AllocError(`Batch ${i + 1} must have ${want} rows`);
   if ((await batchHash(sha, m.headers, rs)) !== m.batchHashes[i]) throw new AllocError(`Batch ${i + 1} content differs from the file this job was started with`);
   const mapping = Object.fromEntries(m.mapping) as Record<string, string>;
-  const inv = colHeaders(mapping, expect.ctx);
+  const inv = colHeaders(mapping, expect.ctx, m.headers);
   const off = i * m.batchRows;
   for (let j = 0; j < rs.length; j++) {
     if (canonExt(rs[j][inv[expect.ctx.externalKeyCol]]) !== m.exts[off + j]) throw new AllocError(`Batch ${i + 1} source IDs differ from the file's ID list`);

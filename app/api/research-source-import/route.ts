@@ -6,7 +6,7 @@ import { REGISTRY_META, SOURCE_FIELDS } from "@/lib/portal-v2/source-registry";
 import { createHash } from "node:crypto";
 import { verifyJobChunk, JobError, JOB_CHUNK_MAX_BYTES, JOB_MANIFEST_MAX_BYTES, jobBatchRows, jobWriteCols } from "@/lib/portal-v2/source-jobs";
 import { insertPolicyFor } from "@/lib/portal-v2/source-insert-policy";
-import { approvedAllocators, verifyAllocChunk, identityConfigDigest, AllocError, type AllocContext } from "@/lib/portal-v2/source-allocator";
+import { approvedAllocators, verifyAllocChunk, identityConfigDigest, reservePayloadHash, AllocError, type AllocContext } from "@/lib/portal-v2/source-allocator";
 import { preparedDigest as preparedDigestOf, verifySourceTokenPayloadForAlloc } from "@/lib/portal-v2/source-alloc-server";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
@@ -75,8 +75,13 @@ async function livePreviewResponse(client: string, table: string, dests: ReturnT
 
 /** Server allocator context for a client (null = not registered). Identity columns must be listed non-key master columns. */
 function allocCtx(client: string): AllocContext | null {
-  const cfg = approvedAllocators().find((a) => a.client === client);
-  if (!cfg) return null;
+  const hits = approvedAllocators().filter((a) => a.client === client);
+  if (!hits.length) return null;
+  if (hits.length > 1) throw new AllocError("More than one allocator registration for this client");
+  const cfg = hits[0];
+  if (!/^[A-Za-z0-9._-]{8,80}$/.test(String(cfg.approvalId)) || !Number.isSafeInteger(cfg.approvalVersion) || cfg.approvalVersion < 1 || !Number.isSafeInteger(cfg.forbiddenFrom) || cfg.forbiddenFrom < 2 || cfg.forbiddenFrom > 2147483647
+    || typeof cfg.sourceSystem !== "string" || !/^[A-Za-z0-9._-]{1,64}$/.test(cfg.sourceSystem) || typeof cfg.externalKeyCol !== "string" || !Array.isArray(cfg.identityCols) || !cfg.identityCols.every((c) => typeof c === "string") || new Set(cfg.identityCols).size !== cfg.identityCols.length)
+    throw new AllocError("Allocator registration is invalid");
   const prep = approvedPrepared().find((p) => p.client === client);
   const t = prep?.tables.find((x) => x.table === cfg.masterTable);
   if (!prep || !t) throw new AllocError("Allocator registration has no matching approved prepared master");
@@ -85,7 +90,7 @@ function allocCtx(client: string): AllocContext | null {
   const pd = preparedDigestOf(prep, cfg.masterTable);
   const allocatorDigest = createHash("sha256").update(JSON.stringify(["cptid-alloc/v2", cfg.approvalId, cfg.approvalVersion, cfg.client, cfg.masterTable, cfg.sourceSystem, cfg.forbiddenFrom, pd])).digest("hex");
   const icd = createHash("sha256").update(JSON.stringify(["identity-config/v1", cfg.approvalId, cfg.approvalVersion, cfg.sourceSystem, cfg.externalKeyCol, cfg.identityCols])).digest("hex");
-  return { allocatorDigest, preparedDigest: pd, identityConfigDigest: icd, keyCol: t.key, externalKeyCol: cfg.externalKeyCol, identityCols: [...cfg.identityCols], sourceSystem: cfg.sourceSystem, batchRows: jobBatchRows(t.columns.length - 1) };
+  return { allocatorDigest, preparedDigest: pd, identityConfigDigest: icd, keyCol: t.key, externalKeyCol: cfg.externalKeyCol, identityCols: [...cfg.identityCols], sourceSystem: cfg.sourceSystem, batchRows: jobBatchRows(t.columns.length - 1), columns: cols.filter((c) => c !== t.key), masterTable: cfg.masterTable };
 }
 function allocCtxOrBad(client: string, table: string) {
   const ctx = allocCtx(client);
@@ -135,7 +140,8 @@ export async function POST(req: NextRequest) {
     }
     if (b.op === "allocConfig") {
       const ctx = allocCtx(client);
-      return ctx ? NextResponse.json(ctx) : bad("No reviewed shared-allocator registration for this client", 404);
+      // only for the reviewed master table; saveAvailable mirrors the hard server gate (false by default)
+      return ctx && ctx.masterTable === table ? NextResponse.json({ ...ctx, saveAvailable: sourceApplyConfigured() }) : bad("No reviewed shared-allocator registration for this table", 404);
     }
     if (b.op === "allocReserveStatus") {
       // read-only; available whenever the read path is configured, even with saving turned off
@@ -201,6 +207,7 @@ export async function POST(req: NextRequest) {
       if (!sourceApplyConfigured()) return bad("Saving source data is turned off", 403);
       const ctx = allocCtxOrBad(client, table);
       const v = await verifyAllocChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor ?? ""), ctx });
+      validateHeadersAndMapping(v.manifest.headers, v.mapping); // same header/mapping rules as preview, BEFORE reserving
       const request = { client, jobId: b.jobId as string, requestId: v.reserveRequestId, batchIndex: v.index, rows: v.exts.map((e, j) => ({ externalKey: e, identityDigest: v.extDigests[j] })) };
       const out = await postToEngage(fetch, process.env, { op: "reserveIds", request }, v.reserveRequestId);
       if (out.ok) return NextResponse.json({ ...out.body, reserveRequestId: v.reserveRequestId });
@@ -214,8 +221,10 @@ export async function POST(req: NextRequest) {
       const v = await verifyAllocChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor ?? ""), ctx });
       const st = await postToEngage(fetch, process.env, { op: "reserveStatus", client, requestId: v.reserveRequestId }, v.reserveRequestId);
       if (!st.ok) return bad("Reservation status unavailable; try again", 502);
-      const res = st.body as { found?: boolean; result?: { rows?: { externalKey: unknown; cptid: unknown; status: unknown }[] } };
+      const res = st.body as { found?: boolean; payloadHash?: unknown; result?: { rows?: { externalKey: unknown; cptid: unknown; status: unknown }[] } };
       if (res.found !== true || !Array.isArray(res.result?.rows)) return bad("This batch has no confirmed CPTID reservation yet; reserve it first (or check its status)", 409);
+      // the stored reservation must be for EXACTLY this client/job/batch/source IDs/identity digests
+      if (res.payloadHash !== await reservePayloadHash(nodeSha, client, b.jobId as string, v.index, v.exts, v.extDigests)) return bad("Stored reservation was made for a different payload; this batch cannot use it", 409);
       const rr = res.result!.rows!;
       if (rr.length !== v.exts.length || rr.some((r, j) => r.externalKey !== v.exts[j])) return bad("Stored reservation does not match this batch's source IDs", 409);
       const KH = "__reserved_cptid";
@@ -229,11 +238,11 @@ export async function POST(req: NextRequest) {
       });
       if (!rows2.length) return NextResponse.json({ result: null, token: null, held: extraHeld, error: "Every row in this batch is held by the reservation check" });
       const ref = { jobId: b.jobId as string, batchIndex: v.index, batchCount: v.batchCount, batchRows: ctx.batchRows, totalRows: v.manifest.totalRows };
-      return await livePreviewResponse(client, table, dests, [...v.manifest.headers, KH], rows2, { ...v.mapping, [KH]: ctx.keyCol }, v.manifest.fileName, v.manifest.fileDate, "", { ref, requestId: v.requestId, fileDigest: v.fileDigest }, { digest: ctx.allocatorDigest, extOf, extraHeld });
+      return await livePreviewResponse(client, table, dests, [...v.manifest.headers, KH], rows2, { ...v.mapping, [KH]: ctx.keyCol }, v.manifest.fileName, v.manifest.fileDate, "", { ref, requestId: v.requestId, fileDigest: v.fileDigest }, { digest: ctx.allocatorDigest, identityConfigDigest: ctx.identityConfigDigest, extOf, extraHeld });
     }
     if (b.op === "apply") {
       if (!sourceApplyConfigured()) return bad("Saving source data is turned off", 403);
-      verifySourceTokenPayloadForAlloc(b.token, client, (c) => allocCtx(c)?.allocatorDigest ?? null);
+      verifySourceTokenPayloadForAlloc(b.token, client, (c) => { const x = allocCtx(c); return x ? { allocatorDigest: x.allocatorDigest, identityConfigDigest: x.identityConfigDigest } : null; });
       const body = applyRequestBody(b.token, b.actor, process.env.PORTAL_WRITE_SECRET);
       if (body.client !== client) return bad("Preview token is for another client", 400);
       const out = await postToEngage(fetch, process.env, body, String(body.request.requestId));

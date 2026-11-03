@@ -3,7 +3,7 @@
 const { chromium } = require("playwright"); const crypto = require("crypto");
 const ok = (c, m) => { console.log(c ? "PASS" : "FAIL", m); if (!c) process.exitCode = 1; };
 const API = "/api/research-source-import";
-const CTX = { allocatorDigest: "a".repeat(64), preparedDigest: "b".repeat(64), identityConfigDigest: "c".repeat(64), keyCol: "CPTID", externalKeyCol: "Source_ID", identityCols: ["Source_ID", "Account_Name"], sourceSystem: "fictional_crm", batchRows: 2 };
+const CTX = { allocatorDigest: "a".repeat(64), preparedDigest: "b".repeat(64), identityConfigDigest: "c".repeat(64), keyCol: "CPTID", externalKeyCol: "Source_ID", identityCols: ["Source_ID", "Account_Name"], sourceSystem: "fictional_crm", batchRows: 2, columns: ["Source_ID", "Account_Name", "City"], masterTable: "master", saveAvailable: true /* mocked: real default is false */ };
 const DESTS = ["CPTID", "Source_ID", "Account_Name", "City"].map((c) => ({ col: c, ty: c === "CPTID" ? "int" : "nvarchar", st: "candidate", why: "prepared destination", key: c === "CPTID" ? "CPTID" : "" }));
 const csv = (dup) => "Source_ID,Account_Name,City\n" + ["S-1", "S-2", "S-3", "S-4", dup ? "S-1" : "S-5"].map((s, i) => `${s},Org ${i + 1},Springfield`).join("\n") + "\n";
 (async () => {
@@ -18,7 +18,7 @@ const csv = (dup) => "Source_ID,Account_Name,City\n" + ["S-1", "S-2", "S-3", "S-
   const gate = (op) => new Promise((res) => { gates[op] = res; });
   const arrived = (op) => new Promise((res) => { waiters[op] = res; });
   await p.route("**" + API, async (route) => {
-    const bd = JSON.parse(route.request().postData() || "{}"); sent.push({ op: bd.op, client: bd.client, batchIndex: bd.batchIndex, jobId: bd.jobId });
+    const bd = JSON.parse(route.request().postData() || "{}"); sent.push({ op: bd.op, client: bd.client, batchIndex: bd.batchIndex, jobId: bd.jobId, requestId: bd.requestId });
     if (waiters[bd.op]) { const w = waiters[bd.op]; delete waiters[bd.op]; w(); }
     const J = (json, status = 200) => route.fulfill({ status, json });
     switch (bd.op) {
@@ -28,7 +28,7 @@ const csv = (dup) => "Source_ID,Account_Name,City\n" + ["S-1", "S-2", "S-3", "S-
       case "fields": return J({ fields: DESTS });
       case "allocConfig": return bd.client === "fictional_x" ? J(CTX) : J({ error: "none" }, 404);
       case "jobStatus": return J({ found: false });
-      case "allocReserve": { const r = plan.reserve.shift() || { json: { rows: [] } }; if (r.hold) await gate("allocReserve"); return J(r.json, r.status || 200); }
+      case "allocReserve": { const r = plan.reserve.shift() || { json: { rows: [] } }; if (r.hold) await gate("allocReserve"); if (r.abort) return route.abort("connectionreset"); return J(r.json, r.status || 200); }
       case "allocPreview": return J({ token: "synthetic-token-" + bd.batchIndex, requestId: "e".repeat(32), job: { heldRows: 0 }, result: { counts: {} } });
       case "apply": return J({ records: 2, values: 4 });
       case "allocReserveStatus": { if (plan.status.hold) await gate("allocReserveStatus"); return J(plan.status.json); }
@@ -68,12 +68,31 @@ const csv = (dup) => "Source_ID,Account_Name,City\n" + ["S-1", "S-2", "S-3", "S-
   const jobs = new Set(sent.filter((s) => s.op === "allocReserve").map((s) => s.jobId));
   plan.reserve = [{ json: { rows: [] } }, { json: { rows: [] } }];
   w = resp("apply"); await p.locator("button", { hasText: "Reserve CPTIDs and save ready batches" }).click(); await w;
-  await p.locator("text=All 3 batches saved").waitFor({ timeout: 30000 }).catch(() => undefined);
+  await p.locator("text=All 3 batches saved").waitFor({ timeout: 30000 }); ok(true, "final whole-file status: All 3 batches saved");
   const r1 = sent.filter((s) => s.op === "allocReserve" && s.batchIndex === 1);
   ok(r1.length === 2 && r1[0].jobId === r1[1].jobId && jobs.size === 1, "resume re-sends batch 1 under the same job identity (no regenerated job, no new reservation identity)");
   await p.evaluate(() => window.scrollTo(0, 0)); await frames();
   await p.screenshot({ path: "/tmp/alloc-desktop.png", fullPage: true });
+  await p.setViewportSize({ width: 390, height: 844 }); await frames(); await p.evaluate(() => window.scrollTo(0, 0)); await frames();
+  await p.screenshot({ path: "/tmp/alloc-mobile.png", fullPage: true });
+  const tw = p.locator("[aria-label='Large file plan'] .overflow-x-auto").first();
+  await tw.evaluate((e) => { e.scrollLeft = e.scrollWidth; }); await tw.scrollIntoViewIfNeeded(); await frames();
+  await p.screenshot({ path: "/tmp/alloc-mobile-right.png" });
+  await p.setViewportSize({ width: 1440, height: 1000 }); await frames();
+  // E) network failure of a reservation request: outcome unknown => unconfirmed with the deterministic request id; status uses it
+  await pick("pvas"); await pick("fictional_x", "master"); await load(false); await p.locator("button", { hasText: /^Preview whole file/ }).click();
+  await p.getByRole("heading", { name: "Whole-file plan" }).waitFor();
+  plan.reserve = [{ abort: true }];
+  await p.locator("text=I reviewed the whole-file plan").click();
+  await p.locator("button", { hasText: "Reserve CPTIDs and save ready batches" }).click(); await p.locator("text=outcome unknown").waitFor();
+  ok(await p.locator("button", { hasText: "Check status" }).isVisible(), "aborted reservation request: unconfirmed + Check status (not 'failed')");
+  plan.status = { hold: false, json: { found: false } };
+  const ws = resp("allocReserveStatus"); await p.locator("button", { hasText: "Check status" }).click(); await ws;
+  const jid = sent.filter((x) => x.op === "allocReserve").at(-1).jobId;
+  const want = crypto.createHash("sha256").update(`${jid}:reserve:0`).digest("hex").slice(0, 32);
+  ok(sent.filter((x) => x.op === "allocReserveStatus").at(-1).requestId === want, "status lookup uses the deterministic reservation request id computed before dispatch");
   // D) deferred reservation status that returns after a client change does not render into the new selection
+  plan.status = { hold: false, json: { found: true } };
   await pick("pvas"); await pick("fictional_x", "master"); await load(false);
   await p.locator("button", { hasText: /^Preview whole file/ }).click(); await p.getByRole("heading", { name: "Whole-file plan" }).waitFor();
   plan.reserve = [{ json: { unconfirmed: true, reserveRequestId: "d".repeat(32) }, status: 202 }];

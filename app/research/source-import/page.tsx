@@ -5,7 +5,7 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
 import { createScopeFence, StaleScope } from "@/lib/portal-v2/scope-fence";
-import { buildAllocManifest, type AllocContext, type AllocManifest } from "@/lib/portal-v2/source-allocator";
+import { buildAllocManifest, allocReserveRequestId, type AllocContext, type AllocManifest } from "@/lib/portal-v2/source-allocator";
 import { buildJobManifest, summarizeJob, JOB_BATCH_ROWS, jobBatchRows, jobWriteCols, type BatchStatus, type JobManifest } from "@/lib/portal-v2/source-jobs";
 
 const webSha = async (x: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(x)))).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -71,7 +71,7 @@ export default function SourceImportPage() {
     if (clientChanged) { setTables([]); if (client) { guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); guard(call({ op: "provenance", client })).then(setFresh).catch((e) => { if (!(e instanceof StaleScope)) setFresh(null); }); } else setFresh(null); }
     setAllocCfg(null);
     if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr);
-    if (client && table && preparedClients.includes(client)) guard(call({ op: "allocConfig", client })).then((c: AllocContext & { masterTable?: string }) => setAllocCfg(c)).catch(() => undefined);
+    if (client && table && preparedClients.includes(client)) guard(call({ op: "allocConfig", client, table })).then((c: AllocContext & { masterTable?: string }) => setAllocCfg(c)).catch(() => undefined);
   }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const useCsv = (t: string, name: string, preset?: Record<string, string>) => {
@@ -109,7 +109,7 @@ export default function SourceImportPage() {
       const done = await committed(j.jobId).catch(() => new Map());
       if (!live()) return;
       setBatches(j.manifest.batchHashes.map((_, i) => { const c = done.get(i); return c ? { index: i, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows } : { index: i, state: "previewed" as const, would: Math.min(j.manifest.batchRows, j.manifest.totalRows - i * j.manifest.batchRows) }; }));
-      setApplyAvailable(true); // the server still refuses reservation/saving while writes are turned off
+      setApplyAvailable(allocCfg.saveAvailable === true); // hard server gate (off by default): no save controls when off
     } catch (e) { if (live()) setErr((e as Error).message); } finally { running.current = false; if (live()) setBusy(false); }
   };
   const saveAllocJob = async () => {
@@ -121,14 +121,16 @@ export default function SourceImportPage() {
         if (b.state !== "previewed") continue;
         const chunk = { client, table, actor, manifest: j.manifest, jobId: j.jobId, batchIndex: b.index, rows: (bigRows ?? []).slice(b.index * j.manifest.batchRows, (b.index + 1) * j.manifest.batchRows) };
         let r: Record<string, unknown>;
+        const rrid = await allocReserveRequestId(webSha, j.jobId, b.index); // deterministic: known BEFORE dispatch
+        if (!tk.live()) break;
         try { r = await call({ op: "allocReserve", ...chunk }); }
-        catch (e) { if (!tk.live()) break; setBatch(b.index, { state: "failed", error: (e as Error).message }); break; }
+        catch (e) { if (!tk.live()) break; setBatch(b.index, { state: "unconfirmed", reserveRequestId: rrid, error: `CPTID reservation outcome unknown (${(e as Error).message}); check status, or send the same batch again` }); break; }
         if (!tk.live()) break;
         if (r.unconfirmed) { setBatch(b.index, { state: "unconfirmed", reserveRequestId: String(r.reserveRequestId ?? ""), error: "CPTID reservation not confirmed" }); break; }
         let p: Record<string, unknown>;
         try { p = await call({ op: "allocPreview", ...chunk }); } catch (e) { if (!tk.live()) break; setBatch(b.index, { state: "failed", error: (e as Error).message }); break; }
         if (!tk.live()) break;
-        if (!p.token) { setBatch(b.index, { state: "held_only", heldRows: Number((p as { held?: number }).held ?? 0), would: 0 }); continue; }
+        if (!p.token) { const h = Number((p as { held?: number }).held ?? (p.job as { heldRows?: number } | null)?.heldRows ?? 0); setBatch(b.index, { state: h ? "held_only" : "verified_unchanged", heldRows: h, would: 0 }); continue; }
         const held = Number((p.job as { heldRows?: number } | null)?.heldRows ?? 0);
         let a: Record<string, unknown>;
         try { a = await call({ op: "apply", client, table, token: p.token, actor }); }
