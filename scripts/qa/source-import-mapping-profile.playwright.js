@@ -80,6 +80,24 @@ fs.mkdirSync(OUT, { recursive: true });
   const after = sent.filter((s) => s.op === "mappingProfile" && s.action === "check").length;
   ok(after === before && (await sel(0).inputValue()) === "baq" && !(await p.locator("text=Mapping profile applied").count()), "deferred profile file read after client change: no check sent, nothing installed");
 
+
+  // 7) same scope, delayed READ: token/Save cleared at once, preview/save/profile controls disabled, then applied
+  await pick("pvas", "donorsearch_results"); await loadDemo();
+  let w2 = resp("preview"); await p.locator("button", { hasText: /^Preview$/ }).click(); await w2;
+  await p.evaluate(() => { const o = File.prototype.text; window.__rel = null; File.prototype.text = function () { const f = this; return new Promise((res) => { window.__rel = () => { File.prototype.text = o; o.call(f).then(res); }; }); }; });
+  await profIn.setInputFiles(fileOf("profile.json", prof)); await p.waitForFunction(() => typeof window.__rel === "function"); await frames();
+  const duringRead = { save: await p.locator("button", { hasText: /^Save \d+ values$/ }).count(), preview: await p.locator("button", { hasText: /^Preview$/ }).isDisabled(), prof: await profIn.isDisabled(), map: await mapSelects().first().isDisabled() };
+  w2 = resp("mappingProfile", "check"); await p.evaluate(() => window.__rel()); await w2; await p.locator("text=Mapping profile applied").waitFor();
+  ok(duringRead.save === 0 && duringRead.preview && duringRead.prof && duringRead.map && !(await profIn.isDisabled()), "same-scope delayed read: old token cleared immediately; preview/save/profile/mapping locked until done (no overlap)");
+
+  // 8) same scope, delayed CHECK vs preview/save: preview locked while checking; reply applies without a stale token
+  w2 = resp("preview"); await p.locator("button", { hasText: /^Preview$/ }).click(); await w2;
+  let rel2; holdCheck = new Promise((r) => { rel2 = r; }); const arr2 = new Promise((r) => { checkArrived = r; });
+  const late2 = resp("mappingProfile", "check"); await profIn.setInputFiles(fileOf("profile.json", prof)); await arr2; await frames();
+  const duringCheck = { save: await p.locator("button", { hasText: /^Save \d+ values$/ }).count(), preview: await p.locator("button", { hasText: /^Preview$/ }).isDisabled() };
+  rel2(); await late2; await p.locator("text=Mapping profile applied").waitFor();
+  ok(duringCheck.save === 0 && duringCheck.preview && !(await p.locator("button", { hasText: /^Save \d+ values$/ }).count()) && !(await p.locator("button", { hasText: /^Preview$/ }).isDisabled()), "same-scope delayed check: no preview/save during check; applied mapping has no stale token");
+
   // mobile capture
   await p.setViewportSize({ width: 390, height: 900 }); await pick("pvas", "donorsearch_results"); await loadDemo();
   w = resp("mappingProfile", "check"); await profIn.setInputFiles(fileOf("profile.json", prof)); await w; await p.locator("text=Mapping profile applied").waitFor();

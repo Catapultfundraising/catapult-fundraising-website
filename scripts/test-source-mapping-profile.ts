@@ -19,7 +19,7 @@ test("build -> check round trip; metadata only; held stays held; extra file head
   assert.ok(!/Springfield|900001|token|actor|requestId/i.test(text));
   assert.deepEqual(Object.keys(p).sort(), ["client", "ctx", "destsDigest", "headers", "keyCol", "keyKind", "kind", "mapping", "profileHash", "registryRev", "table", "v"]);
   const r = checkProfile(text, ctx0(), [...H, "Notes extra"]);
-  assert.deepEqual(r.mapping, { ...M, "Notes extra": "" });
+  assert.deepEqual({ ...r.mapping }, { ...M, "Notes extra": "" });
   assert.deepEqual(r.unmapped, ["Notes extra"]); assert.deepEqual(r.held, ["SEC"]);
   assert.equal(buildProfile(ctx0(), H, M).profileHash, p.profileHash, "byte-stable");
 });
@@ -83,4 +83,20 @@ test("route op mappingProfile: auth, same-origin, current server context only, t
   const unsup = fields.find((f) => f.st === "unsupported");
   if (unsup) assert.equal((await post({ op: "mappingProfile", action: "build", client: "pvas", table: "board_info", headers: hs, mapping: { Constituent: keyCol, Town: unsup.col } })).status, 400);
   assert.equal((await post({ op: "mappingProfile", action: "nope", client: "pvas", table: "board_info" })).status, 400);
+});
+
+test("10b899e review regressions: reserved header names, oversize build, string-typed digests", async () => {
+  const { buildProfile, checkProfile } = await import("../lib/portal-v2/source-mapping-profile");
+  for (const h of ["__proto__", "constructor", " Prototype "]) assert.throws(() => buildProfile(ctx0(), [h, "Town"], JSON.parse(`{${JSON.stringify(h)}:"CPTID","Town":"City"}`)), /not allowed/);
+  const p = buildProfile(ctx0(), H, M);
+  const forged = JSON.stringify({ ...p, headers: ["__proto__", ...p.headers.slice(1)] });
+  assert.throws(() => checkProfile(forged, ctx0(), H), /not allowed/);
+  assert.throws(() => checkProfile(JSON.stringify(p), ctx0(), ["__proto__", "Town", "Sec"]), /not allowed/);
+  const big = Array.from({ length: 500 }, (_, i) => `${String(i).padStart(3, "0")}${"x".repeat(197)}`);
+  assert.throws(() => buildProfile(ctx0(), big, { [big[0]]: "CPTID" }), /too large to save/);
+  const ok = buildProfile(ctx0(), H, M); assert.ok(Buffer.byteLength(JSON.stringify(ok, null, 2)) <= 65536);
+  const arr = { ...p, registryRev: [p.registryRev] };
+  assert.throws(() => checkProfile(JSON.stringify(arr), ctx0(), H), /digests are invalid/);
+  const out = checkProfile(JSON.stringify(p), ctx0(), H);
+  assert.equal(Object.getPrototypeOf(out.mapping), null);
 });

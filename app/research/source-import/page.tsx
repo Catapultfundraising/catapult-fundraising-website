@@ -44,7 +44,7 @@ export default function SourceImportPage() {
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
   const [token, setToken] = useState<string | null>(null); const [requestId, setRequestId] = useState("");
   const [applyAvailable, setApplyAvailable] = useState(false); const [actor, setActor] = useState("");
-  const [profileMsg, setProfileMsg] = useState("");
+  const [profileMsg, setProfileMsg] = useState(""); const [profBusy, setProfBusy] = useState(false); // profile read/check in progress
   const [saveMsg, setSaveMsg] = useState(""); const [unconfirmed, setUnconfirmed] = useState(false);
   // Large files (>500 rows or >2 MB): parsed in the browser, bound into a whole-file manifest, uploaded in 500-row batches.
   const [bigRows, setBigRows] = useState<Record<string, string>[] | null>(null);
@@ -60,7 +60,7 @@ export default function SourceImportPage() {
   const guard = <T,>(p: Promise<T>) => fence.token().guard(p);
   const onErr = (e: Error) => { if (!(e instanceof StaleScope)) setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => { setClients(j.clients ?? []); setPreparedClients(j.prepared ?? []); }).catch((e) => setErr(e.message)); }, []);
-  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setAllocJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); setProfileMsg(""); };
+  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setAllocJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); setProfileMsg(""); setProfBusy(false); };
   const clearFile = () => { setBigRows(null); setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
   // ONE effect for client/table so scope is invalidated once, before any request of the new scope starts.
   const prevClient = useRef("");
@@ -106,17 +106,19 @@ export default function SourceImportPage() {
     }).catch(onErr); };
   const loadProfile = async (input: HTMLInputElement) => {
     const f = input.files?.[0]; input.value = ""; // allow choosing the same file again
-    if (!f) return;
-    const tkRead = fence.token();
-    const text = f.size > 65536 ? null : await f.text().catch(() => null);
-    if (!tkRead.live()) return; // client/table/file changed while reading
-    reset(); // invalidates preview, token, plan, confirmation
-    if (text === null) { setErr("Mapping profile must be a JSON file of 64 KB or smaller"); return; }
-    const hs = headers;
-    guard(call({ op: "mappingProfile", action: "check", client, table, headers: hs, profile: text })).then((j: { mapping: Record<string, string>; unmapped: string[]; held: string[] }) => {
+    if (!f || profBusy || busy) return;
+    // Synchronously: invalidate any preview/token/older profile op, then own this operation (busy until done).
+    reset(); setProfBusy(true);
+    const tk = fence.token();
+    try {
+      const text = f.size > 65536 ? null : await f.text().catch(() => null);
+      if (!tk.live()) return; // scope or another operation took over while reading
+      if (text === null) { setErr("Mapping profile must be a JSON file of 64 KB or smaller"); return; }
+      const j: { mapping: Record<string, string>; unmapped: string[]; held: string[] } = await tk.guard(call({ op: "mappingProfile", action: "check", client, table, headers, profile: text }));
       setMapping(j.mapping);
       setProfileMsg(`Mapping profile applied. ${j.unmapped.length ? `Not in the profile, left unmapped: ${j.unmapped.join(", ")}. ` : ""}${j.held.length ? `Held fields (shown in preview, not saved): ${j.held.join(", ")}. ` : ""}Preview again before saving.`);
-    }).catch(onErr);
+    } catch (err) { if (tk.live()) onErr(err as Error); }
+    finally { if (tk.live()) setProfBusy(false); }
   };
   const setBatch = (i: number, patch: Partial<JobBatch>) => setBatches((bs) => bs.map((b) => (b.index === i ? { ...b, ...patch } : b)));
   const committed = async (jobId: string) => { const st = await call({ op: "jobStatus", client, jobId }); return new Map<number, { state: string; savedRecords: number; heldRows: number }>((st.found ? st.batches : []).map((b: { index: number; state: string; savedRecords: number; heldRows: number }) => [b.index, b])); };
@@ -244,11 +246,11 @@ export default function SourceImportPage() {
       <section className={`${card} mt-6 grid gap-4 sm:grid-cols-3`}>
         <label className="block"><span className={label}>Client</span><select className={input} value={client} disabled={busy} onChange={(e) => setClient(e.target.value)}><option value="">Choose…</option>{clients.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}</select></label>
         <label className="block"><span className={label}>Dashboard table</span><select className={input} value={table} disabled={busy || !tables.length} onChange={(e) => setTable(e.target.value)}><option value="">Choose…</option>{tables.map((t) => <option key={t.table} value={t.table}>{t.table} ({t.candidate ? `${t.candidate} reviewable fields` : "all held"})</option>)}</select></label>
-        <label className="block"><span className={label}>CSV file</span><input key={`${client}/${table}`} type="file" accept=".csv,text/csv" className={input} disabled={busy || !table} onChange={(e) => onFile(e.target.files?.[0])} /></label>
+        <label className="block"><span className={label}>CSV file</span><input key={`${client}/${table}`} type="file" accept=".csv,text/csv" className={input} disabled={busy || profBusy || !table} onChange={(e) => onFile(e.target.files?.[0])} /></label>
         <label className="block"><span className={label}>Source export date</span><input type="date" className={input} disabled={busy} value={fileDate} onChange={(e) => { setFileDate(e.target.value); reset(); }} /><span className="mt-1 block text-xs text-[rgb(var(--ink))]/50">Leave blank if unknown; it is recorded as unknown, never today.</span></label>
         {fileName && <p className="text-xs text-[rgb(var(--ink))]/60 sm:col-span-2">File: {fileName}</p>}
-        {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" disabled={busy} onClick={loadDemo}>Load fictional demo file</button>}
-        {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" disabled={busy} onClick={loadBigDemo}>Load fictional 1,200-row demo file</button>}
+        {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" disabled={busy || profBusy} onClick={loadDemo}>Load fictional demo file</button>}
+        {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" disabled={busy || profBusy} onClick={loadBigDemo}>Load fictional 1,200-row demo file</button>}
       </section>
       {fresh && (
         <details className={`${card} mt-4 text-sm`}><summary className="cursor-pointer text-[rgb(var(--navy))]"><span className={label}>Source dates</span> {fresh.summary}</summary>
@@ -258,16 +260,16 @@ export default function SourceImportPage() {
           <h2 className={label}>Column mapping</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">{headers.map((h) => (
             <label key={h} className="block text-sm"><span className="text-[rgb(var(--navy))]">{h}</span>
-              <select className={input} disabled={busy} value={mapping[h] ?? ""} onChange={(e) => { setMapping({ ...mapping, [h]: e.target.value }); reset(); }}>
+              <select className={input} disabled={busy || profBusy} value={mapping[h] ?? ""} onChange={(e) => { setMapping({ ...mapping, [h]: e.target.value }); reset(); }}>
                 <option value="">Ignore this column</option>{dests.map((d) => <option key={d.col} value={d.col}>{d.col}{d.key === d.col ? " (key)" : d.st !== "candidate" ? ` — ${d.st}` : ""}</option>)}
               </select></label>))}</div>
           <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
-            <button type="button" className="font-semibold text-[rgb(var(--brass))] underline disabled:opacity-50" disabled={busy || !Object.values(mapping).some(Boolean)} onClick={downloadProfile}>Download mapping profile</button>
-            <label className={`font-semibold text-[rgb(var(--brass))] underline ${busy ? "opacity-50" : "cursor-pointer"}`}>Load mapping profile<input type="file" accept=".json,application/json" className="sr-only" aria-label="Load mapping profile" disabled={busy} onChange={(e) => { void loadProfile(e.currentTarget); }} /></label>
+            <button type="button" className="font-semibold text-[rgb(var(--brass))] underline disabled:opacity-50" disabled={busy || profBusy || !Object.values(mapping).some(Boolean)} onClick={downloadProfile}>Download mapping profile</button>
+            <label className={`font-semibold text-[rgb(var(--brass))] underline ${busy || profBusy ? "opacity-50" : "cursor-pointer"}`}>Load mapping profile<input type="file" accept=".json,application/json" className="sr-only" aria-label="Load mapping profile" disabled={busy || profBusy} onChange={(e) => { void loadProfile(e.currentTarget); }} /></label>
             <span className="text-xs text-[rgb(var(--ink))]/60">Saves column choices only, no data. Checked against the current server rules each time; it does not make held fields saveable.</span>
           </div>
           {profileMsg && <p role="status" className="mt-2 text-sm text-[rgb(var(--navy))]">{profileMsg}</p>}
-          <button type="button" className={`${navyBtn} mt-4`} disabled={busy || (!!bigRows && !actor.trim()) || (allocCfg ? !Object.values(mapping).includes(allocCfg.externalKeyCol) : !Object.values(mapping).includes(dests.find((d) => d.key)?.key ?? "~"))} onClick={bigRows ? previewJob : preview}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{bigRows ? `Preview whole file (${bigRows.length.toLocaleString()} rows, ${Math.ceil(bigRows.length / (allocCfg ? allocCfg.batchRows : jobBatchRows(jobWriteCols(dests, mapping, preparedClients.includes(client)))))} batches)` : "Preview"}</button>
+          <button type="button" className={`${navyBtn} mt-4`} disabled={busy || profBusy || (!!bigRows && !actor.trim()) || (allocCfg ? !Object.values(mapping).includes(allocCfg.externalKeyCol) : !Object.values(mapping).includes(dests.find((d) => d.key)?.key ?? "~"))} onClick={bigRows ? previewJob : preview}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{bigRows ? `Preview whole file (${bigRows.length.toLocaleString()} rows, ${Math.ceil(bigRows.length / (allocCfg ? allocCfg.batchRows : jobBatchRows(jobWriteCols(dests, mapping, preparedClients.includes(client)))))} batches)` : "Preview"}</button>
           {bigRows && <label className="ml-3 inline-block text-sm align-bottom"><span className={label}>Your name</span><input className={input} disabled={busy} value={actor} onChange={(e) => { setActor(e.target.value); reset(); }} placeholder="Recorded as author (shared login)" /></label>}
         </section>)}
       {plan && jobSum && (
@@ -282,10 +284,10 @@ export default function SourceImportPage() {
           {applyAvailable && batches.some((b) => b.state === "previewed") && (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[rgb(var(--line))] pt-4">
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> I reviewed the whole-file plan; save ready batches one at a time</label>
-              <button type="button" className={navyBtn} disabled={busy || !confirmed || jobSum.unconfirmed > 0} onClick={allocJob ? saveAllocJob : saveJob}>{allocJob ? "Reserve CPTIDs and save ready batches" : "Save ready batches"}</button>
+              <button type="button" className={navyBtn} disabled={busy || profBusy || !confirmed || jobSum.unconfirmed > 0} onClick={allocJob ? saveAllocJob : saveJob}>{allocJob ? "Reserve CPTIDs and save ready batches" : "Save ready batches"}</button>
             </div>)}
           {jobSum.unconfirmed > 0 && <p className="mt-3 text-sm text-[rgb(var(--navy))]">A batch was not confirmed. <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={allocJob ? checkAlloc : checkJob}>Check status</button> before anything else; do not upload again.</p>}
-          {allocJob && batches.filter((x) => x.state === "unconfirmed" && x.reserveRequestId).map((x) => <p key={x.index} className="mt-2 text-sm text-[rgb(var(--navy))]">Batch {x.index + 1}: <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" disabled={busy} onClick={() => resendAlloc(x.index)}>Send the same batch again</button> (same request; never reserves twice)</p>)}
+          {allocJob && batches.filter((x) => x.state === "unconfirmed" && x.reserveRequestId).map((x) => <p key={x.index} className="mt-2 text-sm text-[rgb(var(--navy))]">Batch {x.index + 1}: <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" disabled={busy || profBusy} onClick={() => resendAlloc(x.index)}>Send the same batch again</button> (same request; never reserves twice)</p>)}
           {allocJob && <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">New-client initial load: CPTIDs are assigned by the shared allocator per source ID ({allocCfg?.externalKeyCol}); the same file always gets the same CPTIDs. Rows whose source identity changed or is reserved elsewhere are held.</p>}
           <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Job {plan.jobId.slice(0, 12)} · re-choosing the identical file resumes it; a changed file, date, mapping or name starts a different job.</p>
         </section>)}
@@ -301,9 +303,9 @@ export default function SourceImportPage() {
           {applyAvailable && token && (
             <div className="mt-4 flex flex-wrap items-end gap-3 border-t border-[rgb(var(--line))] pt-4">
               <label className="block text-sm"><span className={label}>Your name</span><input className={input} value={actor} onChange={(e) => setActor(e.target.value)} placeholder="Recorded as author (shared login)" /></label>
-              <button type="button" className={navyBtn} disabled={busy || !actor.trim() || unconfirmed} onClick={save}>Save {result.counts.applyValues} values</button>
+              <button type="button" className={navyBtn} disabled={busy || profBusy || !actor.trim() || unconfirmed} onClick={save}>Save {result.counts.applyValues} values</button>
             </div>)}
-          {(saveMsg || unconfirmed) && <p role="status" className="mt-3 text-sm text-[rgb(var(--navy))]">{saveMsg} {unconfirmed && requestId && <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={checkStatus}>Check status</button>} {unconfirmed && token && <button type="button" className="ml-2 font-semibold text-[rgb(var(--brass))] underline" disabled={busy} onClick={save}>Send the same request again (safe: never saves twice)</button>}</p>}
+          {(saveMsg || unconfirmed) && <p role="status" className="mt-3 text-sm text-[rgb(var(--navy))]">{saveMsg} {unconfirmed && requestId && <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={checkStatus}>Check status</button>} {unconfirmed && token && <button type="button" className="ml-2 font-semibold text-[rgb(var(--brass))] underline" disabled={busy || profBusy} onClick={save}>Send the same request again (safe: never saves twice)</button>}</p>}
           <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Registry from builder commit {result.registry.builder_commit.slice(0, 7)}, SQL metadata {result.registry.sql_metadata_checked_at.slice(0, 10)}. Historical evidence, not live acceptance.</p>
         </section>)}
     </main>

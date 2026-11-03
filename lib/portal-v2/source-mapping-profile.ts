@@ -13,6 +13,7 @@ export const PROFILE_VERSION = 1;
 export const PROFILE_MAX_BYTES = 65536;
 const MAX_HEADERS = 500;
 const MAX_HEADER_LEN = 200;
+const RESERVED = new Set(["__proto__", "constructor", "prototype"]);
 // eslint-disable-next-line no-control-regex
 const CTRL = /[\u0000-\u001F\u007F]/;
 
@@ -45,6 +46,7 @@ export const profileHashOf = (p: Omit<MappingProfile, "profileHash">) => sha(bod
 function checkHeaders(headers: unknown): string[] {
   if (!Array.isArray(headers) || !headers.length || headers.length > MAX_HEADERS) throw new SourceError("Profile/file headers must be a list of 1 to 500 names");
   for (const h of headers) if (typeof h !== "string" || !h.trim() || h.length > MAX_HEADER_LEN || CTRL.test(h)) throw new SourceError("Every header must be plain text of 1 to 200 characters");
+  for (const h of headers as string[]) if (RESERVED.has(h.trim().toLowerCase())) throw new SourceError(`Header name not allowed in a mapping profile: ${h}`);
   const n = (headers as string[]).map(norm);
   if (new Set(n).size !== n.length) throw new SourceError("Duplicate column headers (after trimming and ignoring case)");
   return [...(headers as string[])];
@@ -84,7 +86,10 @@ export function buildProfile(ctx: ProfileContext, headersIn: unknown, mappingIn:
   const { pairs } = checkMapping(ctx, headers, pairsFromObject(mappingIn));
   const p: Omit<MappingProfile, "profileHash"> = { kind: PROFILE_KIND, v: PROFILE_VERSION, client: ctx.client, table: ctx.table, registryRev: ctx.registryRev, keyCol: ctx.keyCol, keyKind: ctx.keyKind,
     destsDigest: destsDigest(ctx.dests), ctx: { prepared: ctx.preparedDigest, allocator: ctx.allocatorDigest, insertPolicy: ctx.insertPolicyDigest }, headers, mapping: pairs };
-  return { ...p, profileHash: profileHashOf(p) };
+  const out = { ...p, profileHash: profileHashOf(p) };
+  // the downloaded file (pretty-printed, as the page writes it) must itself pass parseProfile's 64 KiB bound
+  if (Buffer.byteLength(JSON.stringify(out, null, 2), "utf8") > PROFILE_MAX_BYTES) throw new SourceError("This mapping is too large to save as a profile (over 64 KB); use fewer or shorter column names");
+  return out;
 }
 
 const TOP = ["kind", "v", "client", "table", "registryRev", "keyCol", "keyKind", "destsDigest", "ctx", "headers", "mapping", "profileHash"];
@@ -102,7 +107,8 @@ export function parseProfile(text: unknown): MappingProfile {
   const o = j as Record<string, unknown>;
   if (o.kind !== PROFILE_KIND || o.v !== PROFILE_VERSION) throw new SourceError("Not a supported mapping profile version");
   for (const k of ["client", "table", "keyCol", "keyKind"]) if (!str(o[k], 128)) throw new SourceError(`Profile ${k} is invalid`);
-  if (!/^[a-f0-9]{64}$/.test(String(o.registryRev)) || !/^[a-f0-9]{64}$/.test(String(o.destsDigest)) || !/^[a-f0-9]{64}$/.test(String(o.profileHash))) throw new SourceError("Profile digests are invalid");
+  const hex = (x: unknown) => typeof x === "string" && /^[a-f0-9]{64}$/.test(x);
+  if (!hex(o.registryRev) || !hex(o.destsDigest) || !hex(o.profileHash)) throw new SourceError("Profile digests are invalid");
   const c = o.ctx;
   if (!c || typeof c !== "object" || Array.isArray(c) || !exactKeys(c, CTXK) || !CTXK.every((k) => dig((c as Record<string, unknown>)[k]))) throw new SourceError("Profile context is invalid");
   const headers = checkHeaders(o.headers);
@@ -130,7 +136,7 @@ export function checkProfile(text: unknown, ctx: ProfileContext, fileHeadersIn: 
   const { pairs, held } = checkMapping(ctx, p.headers, p.mapping);
   const missing = p.headers.filter((h) => !fileHeaders.includes(h));
   if (missing.length) throw new SourceError(`This file is missing columns the profile expects: ${missing.join(", ")}`);
-  const mapping: Record<string, string> = {};
+  const mapping: Record<string, string> = Object.create(null); // own data only (reserved names are also refused above)
   for (const h of fileHeaders) mapping[h] = "";
   for (const [h, d] of pairs) mapping[h] = d;
   const unmapped = fileHeaders.filter((h) => !p.headers.includes(h));
