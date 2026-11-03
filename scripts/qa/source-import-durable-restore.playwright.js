@@ -13,14 +13,16 @@ const ORIG = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("Donor,
 // every 10th ordinal held; others mix new / adopt (old expected snapshot) / correct (old expected snapshot + Gift ID)
 const OLD = (i) => ({ Gift_Amount: String(5 + (i % 7)), Record_Type: "Old é" });
 const HELD = Array.from({ length: 606 }, (_, i) => i).filter((i) => i % 10 === 0);
-const ROWS = Array.from({ length: 606 }, (_, i) => i).filter((i) => i % 10 !== 0).map((i) => i % 10 === 1 ? { ordinal: i, action: "adopt", locator: 5000 + i, person: 8000 + i, values: { Gift_Amount: "1" }, expected: OLD(i) }
+const ROWS = Array.from({ length: 606 }, (_, i) => i).filter((i) => i % 10 !== 0).map((i) => i % 10 === 1 ? { ordinal: i, action: "adopt", locator: 5000 + i, person: 8000 + i, values: {}, expected: OLD(i) }
   : i % 10 === 2 ? { ordinal: i, action: "correct", giftId: `aaaa${String(i).padStart(4, "0")}-0000-4000-8000-000000000000`, person: 8000 + i, values: { Gift_Amount: "2" }, expected: OLD(i) }
   : { ordinal: i, action: "new", person: 8000 + i, values: { Gift_Amount: "1", Record_Type: "Gift é" }, expected: null });
 const BR = 29; const PARTS = []; for (let i = 0; i < ROWS.length; i += BR) PARTS.push(ROWS.slice(i, i + BR));
 const HASH = PARTS.map((rows) => sha(JSON.stringify(rows.map((r) => sha(JSON.stringify(canon(r)))))));
 const JOB = "c".repeat(64); const rid = (i) => sha(`${JOB}:${i}`).slice(0, 32);
 const TABLES = {}; // the table the page actually sends for this client (taken from its own context request)
-const header = (client) => ({ v: 1, type: "durable-gift-recovery/v1", client, table: TABLES[client] ?? "", registrationId: "fict_gifts", registrationVersion: 1, registrationDigest: "d".repeat(64), jobId: JOB, manifest: { batches: HASH.map((hash, i) => ({ first: i * BR, last: Math.min(605, i * BR + BR - 1), hash })), decided: ROWS.map((r) => ({ o: r.ordinal })), held: HELD, totalOrdinals: 606, batchCount: PARTS.length, batchRows: BR }, mapping: { Donor: "@person", Amount: "Gift_Amount" }, mappingDigest: "e".repeat(64), fileDigest: sha(ORIG), fileName: "fictional-606.csv", fileDate: null, actor: "Pat Example", batchRows: BR, batchCount: PARTS.length, partHashes: HASH, createdAt: 1 });
+const header = (client) => ({ v: 1, type: "durable-gift-recovery/v1", client, table: TABLES[client] ?? "", registrationId: "fict_gifts", registrationVersion: 1, registrationDigest: "d".repeat(64), jobId: JOB, manifest: { batches: HASH.map((hash, i) => ({ first: i * BR, last: Math.min(ROWS.length - 1, i * BR + BR - 1), hash })), decided: ROWS.map((r) => ({ o: r.ordinal, a: r.action, t: r.giftId ?? null, l: r.locator ?? null, p: r.person, h: sha(JSON.stringify(canon(r))) })), held: HELD, totalOrdinals: 606, batchCount: PARTS.length, batchRows: BR }, mapping: { Donor: "@person", Amount: "Gift_Amount" }, mappingDigest: "e".repeat(64), fileDigest: sha(ORIG), fileName: "fictional-606.csv", fileDate: null, actor: "Pat Example", batchRows: BR, batchCount: PARTS.length, partHashes: HASH, createdAt: 1 });
+// FICTIONAL packet: headerMac/jobToken are stubs and the manifest only mirrors the owning field names; it is NOT a valid
+// backend/server-signed packet. Renew/proof/commit are answered by this script's interception, never a real server.
 const FILE = (client = "jag") => ({ header: header(client), headerMac: "A".repeat(43), jobToken: "old.tok", parts: PARTS.map((rows, index) => ({ index, rows })) });
 const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(o)) });
 (async () => {
@@ -60,7 +62,7 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
       if (bd.op === "durableGiftCommit") { commitN++; const i = bd.batchIndex; const rows = PARTS[i];
         return J({ committed: true, requestId: rid(i), outcome: { requestId: rid(i), client: "jag", registrationId: "fict_gifts", committed: true, counts: { new: rows.filter((r) => r.action === "new").length, adopt: rows.filter((r) => r.action === "adopt").length, correct: rows.filter((r) => r.action === "correct").length }, rows: rows.map((r, k) => ({ ordinal: r.ordinal, action: r.action, giftId: r.giftId ?? `${String(i).padStart(4, "0")}${String(k).padStart(4, "0")}-0000-4000-8000-000000000000`, locator: r.locator ?? 1000 + r.ordinal })) } }); }
       if (bd.op === "durableGiftPreview") return J({ rows: [], giftOverridesActive: true }); // "changed live" data: restore must never consult it
-      if (bd.op === "durableGiftJobLookup") return J({ jobId: bd.jobId, client: bd.client, confirmed: true, state: "partial", batchCount: PARTS.length, committedBatches: [1], missingBatches: Array.from({ length: PARTS.length }, (_, i) => i).filter((i) => i !== 1), heldRows: 0, decidedRows: 606, note: "Partial." });
+      if (bd.op === "durableGiftJobLookup") return J({ jobId: bd.jobId, client: bd.client, confirmed: true, state: "partial", batchCount: PARTS.length, committedBatches: [1], missingBatches: Array.from({ length: PARTS.length }, (_, i) => i).filter((i) => i !== 1), heldRows: HELD.length, decidedRows: ROWS.length, note: "Partial." });
       if (bd.op === "durableGiftExport") return J({ fileName: "fictional-606-catapult-gift-ids.csv", csv: "x", proven: PARTS[1].length, held: HELD.length, unconfirmed: ROWS.length - PARTS[1].length });
       return J({ error: "unknown" }, 400);
     });
