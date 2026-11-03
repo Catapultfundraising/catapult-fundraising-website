@@ -28,7 +28,13 @@ test("registry is fail-closed and bound to provenance", () => {
   for (const t of ["raw_master_giving_history", "notes", "Daily_Results", "gc2p_prospects"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t && !(f.c === "pvas" && t === "notes")).every((f) => f.st !== "candidate"), t);
   assert.deepEqual(SOURCE_FIELDS.filter((f) => f.c === "pvas" && f.t === "notes" && f.st === "candidate").map((f) => f.col).sort(), ["ID", "Note", "Note_Order_Newest_to_Oldest"]);
   assert.ok(SOURCE_FIELDS.filter((f) => f.c === "pvas" && f.t === "notes").every((f) => f.k === "ID" && f.pl === "CPTID"));
-  assert.ok(SOURCE_FIELDS.filter((f) => f.st === "candidate" && !(f.c === "pvas" && f.t === "notes")).every((f) => f.k.toLowerCase() === "cptid"));
+  const LINKED = new Set(["pvas.notes", "wcbhc.giving_history", "wcbhc.non_campaign_giving_history"]);
+  assert.ok(SOURCE_FIELDS.filter((f) => f.st === "candidate" && !LINKED.has(`${f.c}.${f.t}`)).every((f) => f.k.toLowerCase() === "cptid"));
+  // linked gift groups: record key + immutable CPTID person link (never writable); other gift tables stay held
+  assert.ok(SOURCE_FIELDS.filter((f) => f.c === "wcbhc" && f.t === "giving_history").every((f) => f.k === "Transaction_ID" && f.pl === "CPTID"));
+  assert.ok(SOURCE_FIELDS.filter((f) => f.c === "wcbhc" && f.t === "non_campaign_giving_history").every((f) => f.k === "ID" && f.pl === "CPTID"));
+  assert.ok(SOURCE_FIELDS.filter((f) => f.col === "CPTID" && LINKED.has(`${f.c}.${f.t}`)).every((f) => f.st === "held"));
+  for (const [c, t] of [["csnf", "Raw_Data_Gift_File"], ["pvas", "givebutter_transactions"], ["pvas", "givebutter_pledges"], ["wcbhc", "committee_giving"], ["jag", "raw_master_giving_history"]]) assert.ok(SOURCE_FIELDS.filter((f) => f.c === c && f.t === t).every((f) => f.st !== "candidate"), `${c}.${t}`);
   for (const t of ["gc2p_prospects", "portfolio", "raw_master_giving_history", "Daily_Results"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t).every((f) => f.st !== "candidate"), t);
   for (const t of ["pir_links", "_load_log"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t).every((f) => f.st === "nonwritable"), t);
   for (const c of ["jag", "csnf", "pvas", "wcbhc", "baq"]) assert.ok(SOURCE_FIELDS.some((f) => f.c === c && f.st === "candidate"), "candidates for " + c);

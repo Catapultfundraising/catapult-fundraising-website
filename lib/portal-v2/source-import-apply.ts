@@ -13,7 +13,7 @@ const secretOk = (env: Env) => (env.PORTAL_WRITE_SECRET ?? "").length >= 24;
 export const sourcePreviewConfigured = (env: Env = process.env) => env.SOURCE_IMPORT_PREVIEW === "enabled" && !!url(env) && secretOk(env);
 export const sourceApplyConfigured = (env: Env = process.env, transportApproved: boolean = SOURCE_TRANSPORT_APPROVED) => transportApproved && env.SOURCE_IMPORT_APPLY === "enabled" && sourcePreviewConfigured(env);
 
-export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; preparedDigest?: string | null; duplicateKeys: number[]; current: { key: number; person?: number | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: number; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
+export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: number[]; current: { key: number; person?: number | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: number; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
 /** Engage preview state -> reconciliation inputs. Only source-provenance baseline rows count; unreadable values are omitted (=> held). */
 export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf"> {
   if (s.registryRev !== REGISTRY_META.rev) throw new SourceError("Engage registry revision differs from this website; deploy both together");
@@ -66,7 +66,9 @@ export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "ove
   const result: ReconResult = reconcile(base.mode === "first-load" ? { ...base, ...inputs, baseline: null, current: new Map() } : { ...base, ...inputs });
   const ops = planWrites(result);
   const requestId = meta.job ? meta.job.requestId : newSourceRequestId();
-  const job = meta.job ? { ...meta.job.ref, heldRows: result.counts.held + result.counts.invalid } : undefined;
+  // a row counts as held when it is held/invalid OR any mapped field was not applied (held/conflict/protected/invalid)
+  const heldRows = result.rows.filter((r) => r.outcome === "held" || r.outcome === "invalid" || r.fields.some((f) => ["held", "conflict", "protected", "invalid"].includes(f.outcome))).length;
+  const job = meta.job ? { ...meta.job.ref, heldRows } : undefined;
   const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: meta.job ? meta.job.fileDigest : fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops, ...(job ? { job } : {}) }, meta.secret) : null;
   return { result, ops: ops.length, token, requestId, ...(job ? { job } : {}) };
 }

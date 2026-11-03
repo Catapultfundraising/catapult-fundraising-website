@@ -46,7 +46,7 @@ export async function buildJobManifest(sha: Sha, p: { client: string; table: str
 const isStr = (x: unknown): x is string => typeof x === "string";
 /** Server-side: re-derive jobId from the supplied manifest, re-check whole-file key uniqueness, and verify this
  *  chunk is exactly batch `index` of the bound content. Rejects anything changed (a resumed file must be identical). */
-export async function verifyJobChunk(sha: Sha, raw: unknown, jobId: unknown, index: unknown, rows: unknown, expect: { client: string; table: string; registryRev: string; actor: string }) {
+export async function verifyJobChunk(sha: Sha, raw: unknown, jobId: unknown, index: unknown, rows: unknown, expect: { client: string; table: string; registryRev: string; actor: string; keyCol: string }) {
   const m = raw as JobManifest;
   if (!m || typeof m !== "object" || m.v !== 1 || !Array.isArray(m.headers) || !m.headers.every(isStr) || !Array.isArray(m.mapping) || !m.mapping.every((e) => Array.isArray(e) && e.length === 2 && isStr(e[0]) && isStr(e[1])) || !Array.isArray(m.batchHashes) || !Array.isArray(m.keys)) throw new JobError("Malformed job manifest");
   if (JSON.stringify(m).length > JOB_MANIFEST_MAX_BYTES) throw new JobError("Job manifest too large");
@@ -66,10 +66,15 @@ export async function verifyJobChunk(sha: Sha, raw: unknown, jobId: unknown, ind
   if (rs.length !== want) throw new JobError(`Batch ${i + 1} must have ${want} rows`);
   if ((await batchHash(sha, m.headers, rs)) !== m.batchHashes[i]) throw new JobError(`Batch ${i + 1} content differs from the file this job was started with`);
   const mapping = Object.fromEntries(m.mapping) as Record<string, string>;
+  // the ACTUAL keys in this chunk must equal the manifest's ordered key slice (a forged unique manifest cannot hide duplicates)
+  const kh = Object.keys(mapping).find((h) => mapping[h] === expect.keyCol);
+  if (!kh || !m.headers.includes(kh)) throw new JobError(`Map a column to the key ${expect.keyCol}`);
+  const slice = m.keys.slice(i * JOB_BATCH_ROWS, i * JOB_BATCH_ROWS + rs.length);
+  if (rs.some((r, j) => posInt(r[kh]) !== slice[j])) throw new JobError(`Batch ${i + 1} keys differ from the file's key list`);
   return { manifest: m, mapping, index: i, rows: rs, requestId: await batchRequestId(sha, jobId as string, i), fileDigest: await contentDigest(sha, m), batchCount: m.batchHashes.length };
 }
 
-export type BatchState = "pending" | "previewed" | "saved" | "saved_with_holds" | "held_only" | "unconfirmed" | "failed";
+export type BatchState = "pending" | "previewed" | "verified_unchanged" | "saved" | "saved_with_holds" | "held_only" | "unconfirmed" | "failed";
 export interface BatchStatus { index: number; state: BatchState; savedRecords?: number; heldRows?: number; error?: string }
 /** Whole-file status. "complete" ONLY when every batch saved and nothing was held; partial commits never imply completeness. */
 export function summarizeJob(batchTotal: number, statuses: BatchStatus[]) {
@@ -79,9 +84,12 @@ export function summarizeJob(batchTotal: number, statuses: BatchStatus[]) {
   const saved = c(["saved", "saved_with_holds"]), heldRows = all.reduce((n, s) => n + (s.heldRows ?? 0), 0);
   const unconfirmed = c(["unconfirmed"]), failed = c(["failed"]), pending = c(["pending", "previewed"]);
   const savedRecords = all.reduce((n, s) => n + (s.savedRecords ?? 0), 0);
-  const state = unconfirmed ? "unconfirmed" : saved === batchTotal && heldRows === 0 ? "complete" : pending || failed ? "partial" : "done_with_holds";
-  const label = state === "complete" ? `All ${batchTotal} batches saved; no rows held.`
+  const same = c(["verified_unchanged"]);
+  // verified_unchanged = checked at preview with nothing to change and nothing held; not stored by Engage (re-checked on resume)
+  const state = unconfirmed ? "unconfirmed" : saved + same === batchTotal && saved > 0 && heldRows === 0 ? "complete" : saved + same === batchTotal && heldRows === 0 ? "no_changes" : pending || failed ? "partial" : "done_with_holds";
+  const label = state === "complete" ? `All ${batchTotal} batches saved or already up to date${same ? ` (${same} had nothing to change at preview)` : ""}; no rows or fields held.`
+    : state === "no_changes" ? "Nothing in this file differs from current data (checked at preview); nothing saved."
     : state === "unconfirmed" ? `${unconfirmed} batch${unconfirmed === 1 ? "" : "es"} not confirmed. Check status before doing anything else. This file is NOT fully applied.`
-    : `${saved} of ${batchTotal} batches saved (${savedRecords} records); ${heldRows} rows held${failed ? `; ${failed} failed` : ""}${pending ? `; ${pending} not yet saved` : ""}. This file is NOT fully applied.`;
-  return { state, saved, pending, failed, unconfirmed, heldRows, savedRecords, label, batches: all };
+    : `${saved} of ${batchTotal} batches saved (${savedRecords} records); ${heldRows} rows held or partly held${same ? `; ${same} had nothing to change` : ""}${failed ? `; ${failed} failed` : ""}${pending ? `; ${pending} not yet saved` : ""}. This file is NOT fully applied.`;
+  return { state, saved, same, pending, failed, unconfirmed, heldRows, savedRecords, label, batches: all };
 }

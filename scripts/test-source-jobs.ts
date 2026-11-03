@@ -10,7 +10,7 @@ const sha = async (s: string) => createHash("sha256").update(s, "utf8").digest("
 const COL = "Quality_Score";
 const mkRows = (n: number, from = 1) => Array.from({ length: n }, (_, i) => ({ ID: String(from + i), Q: `Q${(from + i) % 7}` }));
 const P = (rows: Record<string, string>[]) => ({ client: "pvas", table: "donorsearch_results", keyCol: "CPTID", mapping: { ID: "CPTID", Q: COL }, headers: ["ID", "Q"], rows, fileName: "weekly-export.csv", fileDate: "2026-11-01", actor: "Pat Example", registryRev: REGISTRY_META.rev });
-const EXP = { client: "pvas", table: "donorsearch_results", registryRev: REGISTRY_META.rev, actor: "Pat Example" };
+const EXP = { client: "pvas", table: "donorsearch_results", registryRev: REGISTRY_META.rev, actor: "Pat Example", keyCol: "CPTID" };
 
 test("50,000-row file: 100 batches, manifest + one batch request stay under the deployed body limit", async () => {
   const rows = mkRows(50_000);
@@ -45,7 +45,7 @@ test("resume with a changed file / mapping / date / actor / registry is refused;
 test("job summary: complete only when all batches saved with zero held rows; partial/unconfirmed never complete", () => {
   assert.equal(summarizeJob(3, [{ index: 0, state: "saved" }, { index: 1, state: "saved" }, { index: 2, state: "saved" }]).state, "complete");
   const p = summarizeJob(3, [{ index: 0, state: "saved", savedRecords: 500 }, { index: 1, state: "saved_with_holds", savedRecords: 480, heldRows: 20 }]);
-  assert.equal(p.state, "partial"); assert.match(p.label, /2 of 3 batches saved \(980 records\); 20 rows held; 1 not yet saved\. This file is NOT fully applied/);
+  assert.equal(p.state, "partial"); assert.match(p.label, /2 of 3 batches saved \(980 records\); 20 rows held or partly held; 1 not yet saved\. This file is NOT fully applied/);
   assert.equal(summarizeJob(2, [{ index: 0, state: "saved" }, { index: 1, state: "held_only", heldRows: 500 }]).state, "done_with_holds");
   assert.equal(summarizeJob(2, [{ index: 0, state: "saved" }, { index: 1, state: "unconfirmed" }]).state, "unconfirmed");
 });
@@ -76,4 +76,58 @@ test("route jobPreview: batch token carries derived requestId + job ref + conten
   assert.equal(bad.status, 400);
   const st = await (await post({ op: "jobStatus", client: "pvas", jobId })).json();
   assert.equal(st.found, true); assert.equal(calls.at(-1)!.op, "jobStatus");
+});
+
+test("chunk keys must equal the manifest key slice: forged unique manifest cannot hide a cross-batch duplicate", async () => {
+  const rows = mkRows(1200); rows[1100] = { ID: "3", Q: "x" }; // actual duplicate of batch-0 key 3
+  const { manifest } = await buildJobManifest(sha, P(mkRows(1200)));
+  // attacker recomputes hashes for the duplicated content but keeps a unique key list
+  const { batchHash, jobIdOf } = await import("../lib/portal-v2/source-jobs");
+  const forged = { ...manifest, batchHashes: [...manifest.batchHashes.slice(0, 2), await batchHash(sha, ["ID", "Q"], rows.slice(1000))] };
+  await assert.rejects(verifyJobChunk(sha, forged, await jobIdOf(sha, forged), 2, rows.slice(1000), EXP), /keys differ from the file's key list/);
+});
+test("partial field holds count as held rows; verified-unchanged batches are distinct from held", () => {
+  assert.notEqual(summarizeJob(1, [{ index: 0, state: "saved_with_holds", heldRows: 1, savedRecords: 2 }]).state, "complete");
+  assert.equal(summarizeJob(2, [{ index: 0, state: "saved", savedRecords: 5 }, { index: 1, state: "verified_unchanged", heldRows: 0 }]).state, "complete");
+  assert.equal(summarizeJob(1, [{ index: 0, state: "verified_unchanged", heldRows: 0 }]).state, "no_changes");
+  assert.equal(summarizeJob(1, [{ index: 0, state: "held_only", heldRows: 3 }]).state, "done_with_holds");
+});
+test("livePreview heldRows: a row updating one field while another mapped field is held counts as held", async () => {
+  const { livePreview } = await import("../lib/portal-v2/source-import-apply");
+  const { SOURCE_FIELDS } = await import("../lib/portal-v2/source-registry");
+  const heldCol = SOURCE_FIELDS.find((f) => f.c === "pvas" && f.t === "donorsearch_results" && f.st === "held")!.col;
+  const st = { registryRev: REGISTRY_META.rev, duplicateKeys: [], current: [{ key: 101, values: { [COL]: "A" }, unreadable: [] }, { key: 102, values: { [COL]: "A" }, unreadable: [] }], baseline: [{ key: 101, col: COL, value: "A" }, { key: 102, col: COL, value: "A" }], overlayKeys: [], prospectKeys: [] };
+  const lp = livePreview({ client: "pvas", table: "donorsearch_results", mode: "update", mapping: { ID: "CPTID", Q: COL, H: heldCol }, rows: [{ ID: "101", Q: "B", H: "x" }, { ID: "102", Q: "B", H: "" }] }, st, { fileName: "f.csv", csv: "", fileDate: null, secret: "w".repeat(32), now: 1, job: { ref: { jobId: "a".repeat(64), batchIndex: 0, batchCount: 1, totalRows: 2 }, requestId: "b".repeat(32), fileDigest: "c".repeat(64) } });
+  assert.deepEqual(lp.result.rows.map((r) => r.outcome), ["update", "update"]);
+  assert.equal(lp.job!.heldRows, 1);
+});
+test("prepared new client job: batches after the first stay first-load while Engage reports the destination holds only this job", async () => {
+  const { __setPreparedForTests, preparedDigest } = await import("../lib/portal-v2/source-reconcile");
+  const prepared = { approvalId: "review-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03",
+    tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }] }] };
+  process.env.SOURCE_PREPARED_TEST_HOOK = "1"; __setPreparedForTests([prepared]);
+  const rows = Array.from({ length: 1200 }, (_, i) => ({ ID: String(i + 1), N: `Org ${i + 1}` }));
+  const { manifest, jobId } = await buildJobManifest(sha, { client: "fictional_x", table: "master", keyCol: "CPTID", mapping: { ID: "CPTID", N: "Account_Name" }, headers: ["ID", "N"], rows, fileName: "initial.csv", fileDate: null, actor: "Pat Example", registryRev: REGISTRY_META.rev });
+  let onlyJob = false; const seen: Record<string, unknown>[] = [];
+  globalThis.fetch = (async (_u: unknown, init: { body: string }) => { const b = JSON.parse(init.body); seen.push(b);
+    return Response.json({ registryRev: REGISTRY_META.rev, destinationEmpty: false, destinationOnlyJob: onlyJob, preparedDigest: preparedDigest(prepared, "master"), duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [] }); }) as unknown as typeof fetch;
+  const { POST } = await import("../app/api/research-source-import/route");
+  const post = (i: number) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` },
+    body: JSON.stringify({ op: "jobPreview", client: "fictional_x", table: "master", actor: "Pat Example", manifest, jobId, batchIndex: i, rows: rows.slice(i * 500, (i + 1) * 500) }) }));
+  onlyJob = true;
+  const r = await (await post(1)).json();
+  assert.equal(seen.at(-1)!.jobId, jobId);
+  assert.equal(r.mode, "first-load"); assert.equal(r.result.counts.insert, 500);
+  onlyJob = false; // destination now holds non-job data => not first-load (inserts would be held as additions)
+  const r2 = await (await post(2)).json();
+  assert.equal(r2.mode, "update"); // later prepared additions go through update mode (per-key existence/baseline collision checks), not first-load
+  __setPreparedForTests(null);
+});
+
+test("parent probe repro: 501-row file, chunk 1 actual ID 501 replaced by ID 1 with recomputed hash/jobId -> refused before preview", async () => {
+  const rows = mkRows(501); const { manifest } = await buildJobManifest(sha, P(rows));
+  const { batchHash, jobIdOf } = await import("../lib/portal-v2/source-jobs");
+  const bad = [{ ID: "1", Q: rows[500].Q }];
+  const forged = { ...manifest, batchHashes: [manifest.batchHashes[0], await batchHash(sha, ["ID", "Q"], bad)] };
+  await assert.rejects(verifyJobChunk(sha, forged, await jobIdOf(sha, forged), 1, bad, EXP), /keys differ/);
 });

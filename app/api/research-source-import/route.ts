@@ -40,11 +40,12 @@ async function livePreviewResponse(client: string, table: string, dests: ReturnT
   if (fileDate === "bad") return bad("Source date must be a real date (YYYY-MM-DD) or left blank for unknown");
   const fileName = typeof fileNameIn === "string" && fileNameIn.trim() && fileNameIn.length <= 300 ? fileNameIn.trim() : "";
   if (!fileName) return bad("File name missing; choose the file again");
-  const out = await postToEngage(fetch, process.env, { op: "previewState", client, table, keys, cols }, "");
+  const out = await postToEngage(fetch, process.env, { op: "previewState", client, table, keys, cols, ...(job ? { jobId: job.ref.jobId } : {}) }, "");
   if (!out.ok) return bad(out.unconfirmed ? "Engage did not answer; try again" : String(out.body.error || "Preview failed"), 502);
   const prepared = approvedPrepared().find((p) => p.client === client); // server registration only, never request input
   const st = out.body as unknown as EngageState;
-  const mode = prepared && st.destinationEmpty === true ? "first-load" as const : "update" as const;
+  // prepared client: empty destination, or (large initial-load job) destination holding ONLY this job's committed batches
+  const mode = prepared && (st.destinationEmpty === true || (!!job && st.destinationOnlyJob === true)) ? "first-load" as const : "update" as const;
   const lp = livePreview({ client, table, mode, mapping, rows, headers, prepared }, st, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET, ...(job ? { job } : {}) });
   const { dest: _d, ...result } = lp.result;
   return NextResponse.json({ headers, result, mode, token: lp.token, requestId: lp.requestId, job: lp.job ?? null, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
@@ -119,7 +120,7 @@ export async function POST(req: NextRequest) {
     if (b.op === "jobPreview") {
       if (b.demo === true) {
         if (!demoAllowed()) return bad("Demo data is only available in local development", 403);
-        const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor || "") });
+        const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor || ""), keyCol: dests.find((d) => d.key)?.key ?? "" });
         const { demoSourceState } = await import("@/lib/portal-v2/source-demo");
         const { dest: _d, ...result } = reconcile({ client, table, mode: "update", mapping: validateHeadersAndMapping(v.manifest.headers, v.mapping), rows: v.rows, headers: v.manifest.headers, ...demoSourceState(client, table) });
         return NextResponse.json({ result, token: null, requestId: v.requestId, job: null, applyAvailable: false });
@@ -127,7 +128,7 @@ export async function POST(req: NextRequest) {
       // One bounded batch of a large file. Whole-file identity/keys are re-verified on every batch; nothing is stored here.
       if (!sourcePreviewConfigured()) return bad("Live source preview is not configured (needs the reviewed source_import store and dedicated Engage connection)", 501);
       if (typeof b.actor !== "string" || !b.actor.trim() || b.actor.length > 200) return bad("Enter your name (recorded as the shared-login author)");
-      const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: b.actor });
+      const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: b.actor, keyCol: dests.find((d) => d.key)?.key ?? "" });
       const ref = { jobId: b.jobId as string, batchIndex: v.index, batchCount: v.batchCount, totalRows: v.manifest.totalRows };
       return await livePreviewResponse(client, table, dests, v.manifest.headers, v.rows, v.mapping, v.manifest.fileName, v.manifest.fileDate, "", { ref, requestId: v.requestId, fileDigest: v.fileDigest });
     }

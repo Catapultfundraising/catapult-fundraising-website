@@ -48,13 +48,14 @@ export default function SourceImportPage() {
   const [job, setJob] = useState<{ manifest: JobManifest; jobId: string } | null>(null);
   const [batches, setBatches] = useState<JobBatch[]>([]); const [confirmed, setConfirmed] = useState(false);
   const running = useRef(false); // blocks double-click / parallel dispatch
+  const gen = useRef(0); // bumped on any scope change; pending job loops stop when it moves
   useEffect(() => { const h = (e: BeforeUnloadEvent) => { if (running.current) { e.preventDefault(); e.returnValue = ""; } }; window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h); }, []);
   // Every request carries a sequence number; responses from an older client/table/file selection are ignored.
   const seq = useRef(0);
   const guard = <T,>(p: Promise<T>) => { const n = ++seq.current; return p.then((v) => { if (n !== seq.current) throw new Error("stale"); return v; }); };
   const onErr = (e: Error) => { if (e.message !== "stale") setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => setClients(j.clients ?? [])).catch((e) => setErr(e.message)); }, []);
-  const reset = () => { if (running.current) return; setJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
+  const reset = () => { gen.current++; if (running.current) return; setJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
   const clearFile = () => { setBigRows(null); setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
   useEffect(() => { setTables([]); setTable(""); setDests([]); clearFile(); reset(); if (client) { guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); call({ op: "provenance", client }).then(setFresh).catch(() => setFresh(null)); } else setFresh(null); }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setDests([]); clearFile(); reset(); if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr); }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -80,19 +81,22 @@ export default function SourceImportPage() {
   const committed = async (jobId: string) => { const st = await call({ op: "jobStatus", client, jobId }); return new Map<number, { state: string; savedRecords: number; heldRows: number }>((st.found ? st.batches : []).map((b: { index: number; state: string; savedRecords: number; heldRows: number }) => [b.index, b])); };
   // Whole-file plan: duplicate IDs anywhere in the file stop everything before any upload; saved batches (resume) are skipped.
   const previewJob = async () => {
-    if (!bigRows || running.current) return; running.current = true; setBusy(true); setErr(""); setBatches([]); setConfirmed(false);
+    if (!bigRows || running.current) return; running.current = true; setBusy(true); const g = gen.current; const live = () => g === gen.current; setErr(""); setBatches([]); setConfirmed(false);
     try {
       const keyCol = dests.find((d) => d.key)?.key ?? "";
       const j = await buildJobManifest(webSha, { client, table, keyCol, mapping, headers, rows: bigRows, fileName, fileDate: fileDate || null, actor, registryRev: "" + (await call({ op: "tables", client })).registry.rev });
-      setJob(j);
+      if (!live()) return; setJob(j);
       const done = demo ? new Map() : await committed(j.jobId).catch(() => new Map());
       const list: JobBatch[] = j.manifest.batchHashes.map((_, i) => { const c = done.get(i); return c ? { index: i, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows } : { index: i, state: "pending" }; });
-      setBatches(list);
+      if (!live()) return; setBatches(list);
       for (const b of list) {
+        if (!live()) return;
         if (b.state !== "pending") continue;
         try {
           const r = await call({ op: "jobPreview", demo, client, table, actor, manifest: j.manifest, jobId: j.jobId, batchIndex: b.index, rows: bigRows.slice(b.index * JOB_BATCH_ROWS, (b.index + 1) * JOB_BATCH_ROWS) });
-          setBatch(b.index, r.token ? { state: "previewed", token: r.token, requestId: r.requestId, heldRows: r.job?.heldRows ?? 0, would: r.result.counts.update, values: r.result.counts.applyValues } : { state: "held_only", heldRows: r.result.counts.held + r.result.counts.invalid, would: 0 });
+          if (!live()) return;
+          const held = r.job?.heldRows ?? r.result.rows.filter((x: { outcome: string; fields: { outcome: string }[] }) => x.outcome === "held" || x.outcome === "invalid" || x.fields.some((f) => ["held", "conflict", "protected", "invalid"].includes(f.outcome))).length;
+          setBatch(b.index, r.token ? { state: "previewed", token: r.token, requestId: r.requestId, heldRows: held, would: r.result.counts.update, values: r.result.counts.applyValues } : { state: held ? "held_only" : "verified_unchanged", heldRows: held, would: 0 });
           setApplyAvailable(r.applyAvailable === true || applyAvailable);
         } catch (e) { setBatch(b.index, { state: "failed", error: (e as Error).message }); }
       }
@@ -100,9 +104,10 @@ export default function SourceImportPage() {
   };
   // Sequential save, one batch at a time; stops at the first unconfirmed batch (no automatic retry, no new upload).
   const saveJob = async () => {
-    if (!job || running.current || !confirmed) return; running.current = true; setBusy(true);
+    if (!job || running.current || !confirmed) return; running.current = true; setBusy(true); const g = gen.current;
     try {
       for (const b of batches) {
+        if (g !== gen.current) break;
         if (b.state !== "previewed" || !b.token) continue;
         let r: Record<string, unknown>;
         try { r = await call({ op: "apply", client, table, token: b.token, actor }); }
@@ -131,13 +136,13 @@ export default function SourceImportPage() {
       <h1 className="mt-3 font-display text-3xl text-[rgb(var(--navy))]">Source file reconciliation</h1>
       <p className="mt-2 max-w-3xl text-sm text-[rgb(var(--ink))]/70">Preview only. Compares a source export with the last loaded baseline and the current dashboard data. Portal edits and records are protected; anything without a known baseline or verified key is held. Saving source data is turned off.{demo && " Showing fictional demo data."}</p>
       <section className={`${card} mt-6 grid gap-4 sm:grid-cols-3`}>
-        <label className="block"><span className={label}>Client</span><select className={input} value={client} onChange={(e) => setClient(e.target.value)}><option value="">Choose…</option>{clients.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}</select></label>
-        <label className="block"><span className={label}>Dashboard table</span><select className={input} value={table} disabled={!tables.length} onChange={(e) => setTable(e.target.value)}><option value="">Choose…</option>{tables.map((t) => <option key={t.table} value={t.table}>{t.table} ({t.candidate ? `${t.candidate} reviewable fields` : "all held"})</option>)}</select></label>
-        <label className="block"><span className={label}>CSV file</span><input key={`${client}/${table}`} type="file" accept=".csv,text/csv" className={input} disabled={!table} onChange={(e) => onFile(e.target.files?.[0])} /></label>
-        <label className="block"><span className={label}>Source export date</span><input type="date" className={input} value={fileDate} onChange={(e) => { setFileDate(e.target.value); reset(); }} /><span className="mt-1 block text-xs text-[rgb(var(--ink))]/50">Leave blank if unknown; it is recorded as unknown, never today.</span></label>
+        <label className="block"><span className={label}>Client</span><select className={input} value={client} disabled={busy} onChange={(e) => setClient(e.target.value)}><option value="">Choose…</option>{clients.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}</select></label>
+        <label className="block"><span className={label}>Dashboard table</span><select className={input} value={table} disabled={busy || !tables.length} onChange={(e) => setTable(e.target.value)}><option value="">Choose…</option>{tables.map((t) => <option key={t.table} value={t.table}>{t.table} ({t.candidate ? `${t.candidate} reviewable fields` : "all held"})</option>)}</select></label>
+        <label className="block"><span className={label}>CSV file</span><input key={`${client}/${table}`} type="file" accept=".csv,text/csv" className={input} disabled={busy || !table} onChange={(e) => onFile(e.target.files?.[0])} /></label>
+        <label className="block"><span className={label}>Source export date</span><input type="date" className={input} disabled={busy} value={fileDate} onChange={(e) => { setFileDate(e.target.value); reset(); }} /><span className="mt-1 block text-xs text-[rgb(var(--ink))]/50">Leave blank if unknown; it is recorded as unknown, never today.</span></label>
         {fileName && <p className="text-xs text-[rgb(var(--ink))]/60 sm:col-span-2">File: {fileName}</p>}
-        {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" onClick={loadDemo}>Load fictional demo file</button>}
-        {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" onClick={loadBigDemo}>Load fictional 1,200-row demo file</button>}
+        {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" disabled={busy} onClick={loadDemo}>Load fictional demo file</button>}
+        {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" disabled={busy} onClick={loadBigDemo}>Load fictional 1,200-row demo file</button>}
       </section>
       {fresh && (
         <details className={`${card} mt-4 text-sm`}><summary className="cursor-pointer text-[rgb(var(--navy))]"><span className={label}>Source dates</span> {fresh.summary}</summary>
@@ -147,11 +152,11 @@ export default function SourceImportPage() {
           <h2 className={label}>Column mapping</h2>
           <div className="mt-3 grid gap-3 sm:grid-cols-2">{headers.map((h) => (
             <label key={h} className="block text-sm"><span className="text-[rgb(var(--navy))]">{h}</span>
-              <select className={input} value={mapping[h] ?? ""} onChange={(e) => { setMapping({ ...mapping, [h]: e.target.value }); reset(); }}>
+              <select className={input} disabled={busy} value={mapping[h] ?? ""} onChange={(e) => { setMapping({ ...mapping, [h]: e.target.value }); reset(); }}>
                 <option value="">Ignore this column</option>{dests.map((d) => <option key={d.col} value={d.col}>{d.col}{d.key === d.col ? " (key)" : d.st !== "candidate" ? ` — ${d.st}` : ""}</option>)}
               </select></label>))}</div>
           <button type="button" className={`${navyBtn} mt-4`} disabled={busy || (!!bigRows && !actor.trim()) || !Object.values(mapping).includes(dests.find((d) => d.key)?.key ?? "~")} onClick={bigRows ? previewJob : preview}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{bigRows ? `Preview whole file (${bigRows.length.toLocaleString()} rows, ${Math.ceil(bigRows.length / JOB_BATCH_ROWS)} batches)` : "Preview"}</button>
-          {bigRows && <label className="ml-3 inline-block text-sm align-bottom"><span className={label}>Your name</span><input className={input} value={actor} onChange={(e) => { setActor(e.target.value); reset(); }} placeholder="Recorded as author (shared login)" /></label>}
+          {bigRows && <label className="ml-3 inline-block text-sm align-bottom"><span className={label}>Your name</span><input className={input} disabled={busy} value={actor} onChange={(e) => { setActor(e.target.value); reset(); }} placeholder="Recorded as author (shared login)" /></label>}
         </section>)}
       {job && jobSum && (
         <section className={`${card} mt-4`} aria-label="Large file plan">
@@ -160,7 +165,7 @@ export default function SourceImportPage() {
           <p className="mt-1 text-sm text-[rgb(var(--ink))]/70">{batches.reduce((n, b) => n + (b.would ?? 0), 0)} rows would update ({batches.reduce((n, b) => n + (b.values ?? 0), 0)} values) across {batches.length} batches · {jobSum.heldRows} rows held or invalid · each batch is checked again against current data when saved</p>
           <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead><tr className="text-xs uppercase text-[rgb(var(--ink))]/60"><th className="px-3 py-2">Batch</th><th className="px-3 py-2">Rows</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Would update / held</th></tr></thead>
             <tbody>{batches.map((b) => <tr key={b.index} className="border-t border-[rgb(var(--line))]"><td className="px-3 py-2">{b.index + 1}</td><td className="px-3 py-2">{b.index * JOB_BATCH_ROWS + 2}–{Math.min((b.index + 1) * JOB_BATCH_ROWS, job.manifest.totalRows) + 1}</td>
-              <td className="px-3 py-2 font-semibold text-[rgb(var(--navy))]">{({ pending: "Not previewed", previewed: "Ready", saved: "Saved", saved_with_holds: "Saved (some rows held)", held_only: "Nothing to save (all held/unchanged)", unconfirmed: "Not confirmed", failed: "Failed" } as Record<string, string>)[b.state]}{b.error && <span className="block text-xs font-normal text-[rgb(var(--ink))]/60">{b.error}</span>}</td>
+              <td className="px-3 py-2 font-semibold text-[rgb(var(--navy))]">{({ pending: "Not previewed", previewed: "Ready", saved: "Saved", saved_with_holds: "Saved (some rows or fields held)", held_only: "Nothing to save (held rows)", verified_unchanged: "Already up to date (checked at preview)", unconfirmed: "Not confirmed", failed: "Failed" } as Record<string, string>)[b.state]}{b.error && <span className="block text-xs font-normal text-[rgb(var(--ink))]/60">{b.error}</span>}</td>
               <td className="px-3 py-2">{b.state === "saved" || b.state === "saved_with_holds" ? `${b.savedRecords ?? 0} saved` : `${b.would ?? "—"}`} / {b.heldRows ?? "—"}</td></tr>)}</tbody></table></div>
           {applyAvailable && batches.some((b) => b.state === "previewed") && (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[rgb(var(--line))] pt-4">

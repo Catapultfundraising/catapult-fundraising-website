@@ -116,3 +116,24 @@ test("PVAS notes (update-only, person-linked): two notes one person, person-leve
   const r = livePreview({ ...nb, mapping: { ...nb.mapping, D: "Date" }, rows: [{ NoteID: "501", Person: "9001", Order: "2", D: "2026-01-01" }] }, ns(), meta);
   assert.deepEqual(r.result.columns.filter((c) => ["Person", "D"].includes(c.header)).map((c) => c.state), ["person-link", "held"]);
 });
+
+test("WCBHC gifts (update-only, person-linked): Transaction_ID key, CPTID verified; missing person held; no inserts", () => {
+  const gb = { client: "wcbhc", table: "non_campaign_giving_history", mode: "update" as const, mapping: { GiftID: "ID", Person: "CPTID", Amt: "Donation_Amount" } };
+  const gs = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [],
+    current: [{ key: 71, person: 5001, values: { Donation_Amount: "100" }, unreadable: [] }, { key: 72, person: 5001, values: { Donation_Amount: "25.5" }, unreadable: [] }, { key: 73, person: null, values: { Donation_Amount: "10" }, unreadable: [] }],
+    baseline: [71, 72, 73].map((k, i) => ({ key: k, col: "Donation_Amount", value: ["100", "25.5", "10"][i] })), overlayKeys: [], prospectKeys: [], ...over });
+  const rows = [{ GiftID: "71", Person: "5001", Amt: "150" }, { GiftID: "72", Person: "5001", Amt: "25.50" }, { GiftID: "73", Person: "", Amt: "12" }];
+  const lp = livePreview({ ...gb, rows }, gs(), meta);
+  assert.deepEqual(lp.result.rows.map((r) => r.outcome), ["update", "unchanged", "held"]);
+  const ops = verifySourceToken(lp.token, SECRET, 2000).payload.ops;
+  assert.deepEqual(ops.map((o) => [o.key, o.person, o.values]), [[71, 5001, { Donation_Amount: "150" }]]);
+  assert.match(lp.result.rows[2].reason!, /person link missing/);
+  // person mismatch, manual portal edit on the person, new gift ID: all held
+  assert.equal(livePreview({ ...gb, rows: [{ GiftID: "71", Person: "5002", Amt: "150" }] }, gs(), meta).token, null);
+  assert.equal(livePreview({ ...gb, rows: [rows[0]] }, gs({ overlayKeys: [5001] }), meta).token, null);
+  assert.match(livePreview({ ...gb, rows: [{ GiftID: "999", Person: "5001", Amt: "1" }] }, gs(), meta).result.rows[0].reason!, /update-only/);
+  const cg = livePreview({ client: "wcbhc", table: "giving_history", mode: "update", mapping: { T: "Transaction_ID", P: "CPTID", A: "Gift_Amount" }, rows: [{ T: "9001", P: "44", A: "500" }] },
+    { registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [], current: [{ key: 9001, person: 44, values: { Gift_Amount: "250" }, unreadable: [] }], baseline: [{ key: 9001, col: "Gift_Amount", value: "250" }], overlayKeys: [], prospectKeys: [] }, meta);
+  assert.deepEqual(verifySourceToken(cg.token, SECRET, 2000).payload.ops.map((o) => [o.key, o.person]), [[9001, 44]]);
+});
+
