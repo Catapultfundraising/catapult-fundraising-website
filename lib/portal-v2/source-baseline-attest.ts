@@ -19,6 +19,22 @@ const HEX64 = /^[a-f0-9]{64}$/;
 const HEX32 = /^[a-f0-9]{32}$/;
 const REF = /^[A-Za-z0-9._-]{8,80}$/;
 const INT_MAX = 2147483647;
+/** Exact backend classification categories (lib/sourceBaselineAttest.ts classify(), c836a12). Anything else is refused. */
+export const ATTEST_REASONS: readonly string[] = Object.freeze([
+  "duplicate key in prior export",
+  "a stored key differs only by trailing spaces (SQL treats them as equal)",
+  "unreadable raw key",
+  "duplicate destination rows",
+  "record not in current destination",
+  "baseline already exists (never overwritten)",
+  "source link/crosswalk does not resolve to the attested person under lock (changed, ambiguous or unreadable)",
+  "person link differs between prior export and current destination",
+  "portal edit exists for this person (protected)",
+  "portal-created person (protected)",
+  "prior value not canonical (never normalized)",
+  "current value missing or unreadable",
+  "current differs from attested prior export (possible manual edit)",
+]);
 
 /** canonical JSON + sha256 identical to backend lib/sourceBaselineAttest.ts (c836a12) */
 const canon = (x: unknown): unknown => Array.isArray(x) ? x.map(canon) : x && typeof x === "object" ? Object.fromEntries(Object.keys(x as object).sort().map((k) => [k, canon((x as Record<string, unknown>)[k])])) : x;
@@ -61,6 +77,11 @@ const realUtc = (v: string) => /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(v) 
 /** exact positive whole number text -> number, only when lossless (no leading zeros/sign/space/decimal point) */
 const exactInt = (s: string, max: number) => (/^[1-9]\d{0,15}$/.test(s) && Number.isSafeInteger(Number(s)) && Number(s) <= max ? Number(s) : null);
 
+/** Every header (mapped or not): non-blank, <=200 chars, no control characters, not a reserved object name. */
+export function validateAttestHeaders(headers: unknown): void {
+  if (!Array.isArray(headers) || !headers.length || headers.length > 500) bad("1-500 column headers required");
+  for (const h of headers as unknown[]) if (typeof h !== "string" || !txt(h, 200) || RESERVED.has(h.trim().toLowerCase())) bad(`Header not allowed: ${String(h).slice(0, 40)}`);
+}
 /** Strict draft validation. Every provenance/attestor field is user-supplied; nothing is defaulted. */
 export function validateDraft(raw: unknown, dest: AttestDest, headers: string[]): AttestDraft {
   if (!raw || typeof raw !== "object" || Array.isArray(raw) || JSON.stringify(Object.keys(raw).sort()) !== JSON.stringify(DRAFT_KEYS)) bad("Packet draft has missing or unknown fields");
@@ -75,14 +96,16 @@ export function validateDraft(raw: unknown, dest: AttestDest, headers: string[])
   if (!txt(d.attestedBy, 200)) bad("Attestor name required");
   if (!realUtc(d.attestedAt as string)) bad("Attestation time required as UTC YYYY-MM-DDTHH:MM:SSZ");
   if (!REF.test(d.reference as string)) bad("Reference required: 8-80 letters, digits, dot, dash or underscore");
+  validateAttestHeaders(headers);
   const hs = new Set(headers);
   const m = d.mapping;
   if (!m || typeof m !== "object" || Array.isArray(m)) bad("Mapping required");
-  const entries = Object.entries(m as Record<string, unknown>).filter(([, v]) => v !== "");
   const mapping: Record<string, string> = Object.create(null);
-  for (const [h, v] of entries) {
+  for (const [h, v] of Object.entries(m as Record<string, unknown>)) {
     if (RESERVED.has(h.trim().toLowerCase()) || !hs.has(h)) bad(`Unknown or disallowed header ${h}`);
-    if (typeof v !== "string" || !dest.cols.includes(v)) bad(`${h} must map to an approved column`);
+    if (typeof v !== "string") bad(`Mapping for ${h} must be text`);
+    if (v === "") continue;
+    if (!dest.cols.includes(v as string)) bad(`${h} must map to an approved column`);
     mapping[h] = v as string;
   }
   const cols = Object.values(mapping);
@@ -144,11 +167,13 @@ export function summarizePlan(body: unknown): PlanSummary {
   for (const r of b.rows as unknown[]) if (!isObj(r) || !exactKeys(r, ["key", "col", "value"]) || typeof r.key !== "string" || typeof r.col !== "string" || !(r.value === null || typeof r.value === "string")) bad("Unexpected preview response");
   const reasons = new Map<string, number>();
   for (const h of b.held as unknown[]) {
-    if (!isObj(h) || !(exactKeys(h, ["key", "reason"]) || exactKeys(h, ["key", "col", "reason"])) || !(typeof h.key === "string" || typeof h.key === "number") || typeof h.reason !== "string" || h.reason.length > 200 || CTRL.test(h.reason) || ("col" in h && typeof h.col !== "string")) bad("Unexpected preview response");
+    if (!isObj(h) || !(exactKeys(h, ["key", "reason"]) || exactKeys(h, ["key", "col", "reason"])) || !(typeof h.key === "string" || typeof h.key === "number") || typeof h.reason !== "string" || !ATTEST_REASONS.includes(h.reason) || ("col" in h && typeof h.col !== "string")) bad("Unexpected preview response");
     const rs = (h as Record<string, unknown>).reason as string; reasons.set(rs, (reasons.get(rs) ?? 0) + 1);
   }
   const c = b.counts as Record<string, unknown>;
   if (c.eligible !== (b.rows as unknown[]).length || c.held !== (b.held as unknown[]).length || Object.values(c).some((v) => !Number.isSafeInteger(v))) bad("Unexpected preview response");
+  for (const [k, v] of Object.entries(c)) if (k !== "eligible" && k !== "held" && (!ATTEST_REASONS.includes(k) || v !== (reasons.get(k) ?? -1))) bad("Unexpected preview response");
+  if ([...reasons].some(([k, n]) => c[k] !== n)) bad("Unexpected preview response");
   return { planDigest: b.planDigest as string, eligible: (b.rows as unknown[]).length, held: (b.held as unknown[]).length, reasons: [...reasons].sort(([a], [z]) => cmp(a, z)).map(([reason, count]) => ({ reason, count })) };
 }
 
@@ -175,7 +200,6 @@ export function summarizeStatus(body: unknown): { found: boolean; status: string
   if (!isObj(body) || typeof body.found !== "boolean") bad("Unexpected status response");
   const b = body as Record<string, unknown>;
   if (!b.found) return { found: false, status: null, message: "Unconfirmed: not committed yet, still in flight, or never received." };
-  const st = typeof b.status === "string" && b.status.length <= 40 && !CTRL.test(b.status) ? b.status : "unknown";
-  return { found: true, status: st, message: `Recorded with status: ${st}.` };
+  return b.status === "committed" ? { found: true, status: "committed", message: "Recorded as committed." } : { found: true, status: "unknown", message: "Recorded, but with an unrecognized status; treat as unconfirmed and ask a reviewer." };
 }
 export const validRequestId = (s: unknown): s is string => typeof s === "string" && HEX32.test(s);

@@ -31,7 +31,7 @@ const PLAN = { plan: { planDigest: "d".repeat(64), eligible: 3, held: 1, reasons
         case "baselineContext": return J(bd.table === "master" ? { available: true, configured: true, key: "CPTID", keyKind: "int", columns: ["CPTID", "City", "Region"], personRequired: false, linkRequired: false } : { available: true, configured: true, key: "ID", keyKind: "int", columns: ["ID", "Note"], personRequired: true, linkRequired: false });
         case "inspect": return J({ headers: bd.csv.split("\n")[0].split(","), rows: 2 });
         case "baselinePreview": if (deferPreview) await hold("preview"); return J(PLAN);
-        case "baselineStatus": if (deferStatus) await hold("status"); return J({ found: false, status: null, message: "Unconfirmed: not committed yet, still in flight, or never received." });
+        case "baselineStatus": { const d = deferStatus; deferStatus = false; if (d) await hold("status"); return J(d ? { found: true, status: "committed", message: "Recorded as committed." } : { found: false, status: null, message: "Unconfirmed: not committed yet, still in flight, or never received." }); }
         default: return J({ error: "unexpected op " + bd.op }, 400);
       }
     });
@@ -71,7 +71,21 @@ const PLAN = { plan: { planDigest: "d".repeat(64), eligible: 3, held: 1, reasons
       await rid.fill("a".repeat(32)); deferStatus = true; const sd = resp("baselineStatus"); const sq = p.waitForRequest((r) => r.url().endsWith(API) && JSON.parse(r.postData() || "{}").op === "baselineStatus"); await sec.locator("button", { hasText: "Check status" }).click(); await sq;
       await rid.fill("b".repeat(32)); gates.status(); await sd; await frames();
       ok(!(await sec.locator("[role=status]").count()), "late status reply after request id change is dropped");
-      deferStatus = false; const sd2 = resp("baselineStatus"); await sec.locator("button", { hasText: "Check status" }).click(); await sd2; await sec.locator("[role=status]").waitFor();
+      // pending status, then a DRAFT edit: the lookup is not owned by the draft, so Check status must stay usable
+      await rid.fill("c".repeat(32)); deferStatus = true; const sq2 = p.waitForRequest((r) => r.url().endsWith(API) && JSON.parse(r.postData() || "{}").op === "baselineStatus"); const sd3 = resp("baselineStatus");
+      await sec.locator("button", { hasText: "Check status" }).click(); await sq2;
+      await field("ticket or document id").fill("TICKET-0003"); gates.status(); await sd3; await frames();
+      const csEnabled = await sec.locator("button", { hasText: "Check status" }).isEnabled();
+      ok(csEnabled && /Recorded as committed/.test(await sec.locator("[role=status]").innerText()), "pending status then draft edit: reply still shown for the same request id, Check status enabled");
+      // pending status, then request id change + new lookup: old reply/finally ignored, new lookup owns state
+      await rid.fill("d".repeat(32)); deferStatus = true; const sq3 = p.waitForRequest((r) => r.url().endsWith(API) && JSON.parse(r.postData() || "{}").op === "baselineStatus"); const ridResp = (x) => p.waitForResponse((r) => r.url().endsWith(API) && bdy(r).op === "baselineStatus" && bdy(r).requestId === x, { timeout: 120000 }); const sOld = ridResp("d".repeat(32));
+      await sec.locator("button", { hasText: "Check status" }).click(); await sq3;
+      await rid.fill("e".repeat(32)); const en = await sec.locator("button", { hasText: "Check status" }).isEnabled();
+      const sNew = ridResp("e".repeat(32)); await sec.locator("button", { hasText: "Check status" }).click(); await sNew; await sec.locator("[role=status]").waitFor();
+      gates.status(); await sOld; await frames();
+      const st2 = await sec.locator("[role=status]").innerText();
+      ok(en && /Unconfirmed/.test(st2) && !/Recorded as committed/.test(st2) && await sec.locator("button", { hasText: "Check status" }).isEnabled(), "request id change cancels pending lookup promptly; new lookup wins; old reply/finally ignored");
+      const sd2 = resp("baselineStatus"); await sec.locator("button", { hasText: "Check status" }).click(); await sd2; await sec.locator("[role=status]").waitFor();
       const st = await sec.locator("[role=status]").innerText(); ok(/Unconfirmed/.test(st) && !/not saved/i.test(st), "found:false shown as unconfirmed, never 'not saved'");
       // deferred preview: inputs are locked while it runs; a table change meanwhile drops the late reply
       deferPreview = true; w = resp("baselinePreview"); const before = sent.filter((x) => x.op === "baselinePreview").length;

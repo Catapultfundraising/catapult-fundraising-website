@@ -10,7 +10,7 @@ import { approvedAllocators, verifyAllocChunk, identityConfigDigest, reservePayl
 import { preparedDigest as preparedDigestOf, verifySourceTokenPayloadForAlloc } from "@/lib/portal-v2/source-alloc-server";
 import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2/source-mapping-profile";
 import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
-import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId } from "@/lib/portal-v2/source-baseline-attest";
+import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId, validateAttestHeaders } from "@/lib/portal-v2/source-baseline-attest";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -174,6 +174,7 @@ export async function POST(req: NextRequest) {
       return out.ok ? NextResponse.json(out.body) : bad("Status unavailable; try again", 502);
     }
     // Baseline attestation (review only): read-only gateway to backend baselinePreview/baselineStatus. No apply op exists.
+    if (typeof b.op === "string" && b.op.startsWith("baseline") && (typeof b.client !== "string" || typeof b.table !== "string")) return bad("client and table must be text");
     if (b.op === "baselineContext") {
       const r = attestDestination(client, table);
       return NextResponse.json(r.ok ? { available: true, configured: sourcePreviewConfigured(), key: r.dest.key, keyKind: r.dest.keyKind, columns: r.dest.cols, personRequired: !!r.dest.personLink, linkRequired: !!r.dest.xw } : { available: false, reason: r.reason });
@@ -184,11 +185,13 @@ export async function POST(req: NextRequest) {
       if (typeof b.fileB64 !== "string" || b.fileB64.length > Math.ceil(CSV_MAX_BYTES / 3) * 4 + 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(b.fileB64)) return bad("Choose a CSV file of 2 MB or smaller");
       const bytes = Buffer.from(b.fileB64, "base64"); if (!bytes.length || bytes.length > CSV_MAX_BYTES) return bad("Choose a CSV file of 2 MB or smaller");
       let csvText: string; try { csvText = new TextDecoder("utf-8", { fatal: true }).decode(bytes); } catch { return bad("File must be UTF-8 text"); }
-      const grid = parseCsv(csvText); const { headers } = rowsFromGrid(grid); validateHeadersAndMapping(headers, {});
+      const grid = parseCsv(csvText); const { headers } = rowsFromGrid(grid); validateHeadersAndMapping(headers, {}); validateAttestHeaders(headers);
       const dr = validateDraft(b.draft, r.dest, headers); const prior = buildPrior(grid, r.dest, dr); const packet = buildPacket(r.dest, dr, bytes);
       if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
       const out = await postToEngage(fetch, process.env, { op: "baselinePreview", packet, prior }, "");
-      if (!out.ok) return bad(!out.unconfirmed && out.status === 400 && typeof out.body?.error === "string" && out.body.error.length <= 300 ? `Backend refused: ${out.body.error}` : "Preview unavailable; nothing was saved. Try again.", out.unconfirmed ? 502 : 400);
+      // never echo upstream text: fixed messages + typed codes only
+      if (!out.ok) return out.unconfirmed ? NextResponse.json({ error: "Preview unavailable; nothing was saved. Try again.", code: "upstream_unavailable" }, { status: 502 })
+        : NextResponse.json({ error: "Engage refused this packet (validation failed). Re-check registry revision, mapping and attestation fields.", code: "upstream_refused" }, { status: 400 });
       const plan = summarizePlan(out.body);
       return NextResponse.json({ plan, priorRows: prior.length, priorDigest: priorDigest(prior), fileSha256: packet.priorFile.sha256, export: exportText(packet, prior, dr, plan) });
     }

@@ -75,11 +75,13 @@ export default function BaselineAttest({ client, table }: { client: string; tabl
     const a = document.createElement("a"); a.href = url; a.download = `baseline-proposal-${client}-${table}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
+  // Status lookups are owned by their own sequence (independent of draft edits): a newer lookup or a request-id edit
+  // cancels the older one, whose reply and finally are ignored, so it can never lock or overwrite a newer lookup.
   const checkStatus = async () => {
-    const tk = fence.token(); const seq = ridSeq.current; const live = () => tk.live() && seq === ridSeq.current; setStBusy(true); setStatusMsg("");
+    const my = ++ridSeq.current; const live = () => my === ridSeq.current; setStBusy(true); setStatusMsg("");
     try { const j = await call({ op: "baselineStatus", client, table, requestId: rid.trim() }); if (live()) setStatusMsg(j.message); }
     catch (e) { if (live()) setStatusMsg(`Status unavailable (${(e as Error).message}); still unconfirmed.`); }
-    finally { if (tk.live()) setStBusy(false); }
+    finally { if (live()) setStBusy(false); }
   };
 
   const set = (k: keyof typeof f) => (e: { target: { value: string } }) => { setF({ ...f, [k]: e.target.value }); invalidate(); };
@@ -123,7 +125,7 @@ export default function BaselineAttest({ client, table }: { client: string; tabl
         </div>)}
       {table && ctx?.available && (
         <div className="mt-5 flex flex-wrap items-end gap-2 text-sm">
-          <label className="block"><span className={label}>Attestation request id</span><input className={input} aria-label="Attestation request id" value={rid} onChange={(e) => { ridSeq.current++; setRid(e.target.value); setStatusMsg(""); }} /></label>
+          <label className="block"><span className={label}>Attestation request id</span><input className={input} aria-label="Attestation request id" value={rid} onChange={(e) => { ridSeq.current++; setStBusy(false); setRid(e.target.value); setStatusMsg(""); }} /></label>
           <button type="button" className="font-semibold text-[rgb(var(--brass))] underline disabled:opacity-50" disabled={stBusy || !/^[a-f0-9]{32}$/.test(rid.trim())} onClick={() => { void checkStatus(); }}>Check status</button>
           {statusMsg && <p role="status" className="w-full text-[rgb(var(--navy))]">{statusMsg}</p>}
         </div>)}

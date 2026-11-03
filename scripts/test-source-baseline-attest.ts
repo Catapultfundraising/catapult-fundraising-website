@@ -99,6 +99,9 @@ test("draft validation refuses missing/defaulted provenance and bad mappings bef
   assert.equal((await post({ op: "baselinePreview", client: "baq", table: "master", fileB64: "%%%", draft: draft() })).status, 400);
   assert.equal((await post({ op: "baselinePreview", client: "baq", table: "master", fileB64: Buffer.from([0x49, 0x44, 0x0a, 0xff]).toString("base64"), draft: draft() })).status, 400, "invalid UTF-8");
   assert.equal((await post({ op: "baselinePreview", client: "baq", table: "master", fileB64: csv, draft: draft(), extra: 1 })).status, 400, "unknown body field");
+  for (const [c, o] of [["ID,Town,Bad\u0007\n7,X,y\n", {}], ["ID,Town,constructor\n7,X,y\n", {}], ["ID,Town," + "h".repeat(201) + "\n7,X,y\n", {}], ["ID,Town,Extra\n7,X,y\n", { mapping: { ID: "CPTID", Town: "City", Extra: 5 } }], ["ID,Town\n7,X\n", { mapping: { ID: "CPTID", Town: "City", Nope: "" } }]] as [string, Record<string, unknown>][]) {
+    const r = await post({ op: "baselinePreview", client: "baq", table: "master", fileB64: b64(c), draft: draft(o) }); assert.equal(r.status, 400, c.slice(0, 30) + JSON.stringify(o));
+  }
   const big = "ID,Town\n" + Array.from({ length: 501 }, (_, i) => `${i + 1},X`).join("\n");
   assert.match((await (await post({ op: "baselinePreview", client: "baq", table: "master", fileB64: b64(big), draft: draft() })).json()).error, /split the file/);
   assert.equal(calls.length, 0, "no network for any refused draft");
@@ -134,7 +137,10 @@ test("upstream responses are strictly validated and sanitized", async () => {
   engage = () => Response.json(plan({ rows: [{ key: "7", col: "City", value: "x", current: "secret" }] })); r = await go(); assert.equal(r.status, 400);
   engage = () => Response.json(plan({ counts: { eligible: 5, held: 1 } })); r = await go(); assert.equal(r.status, 400);
   engage = () => Response.json({ error: "boom with internal detail Server=tcp:x" }, { status: 500 }); r = await go(); assert.equal(r.status, 502); assert.ok(!JSON.stringify(await r.json()).includes("tcp"));
-  engage = () => Response.json({ error: "registry revision mismatch", code: "invalid" }, { status: 400 }); r = await go(); assert.match((await r.json()).error, /Backend refused: registry revision mismatch/);
+  engage = () => Response.json({ error: "registry revision mismatch Password=PRIVATE-TEST-MARKER", code: "invalid" }, { status: 400 }); r = await go(); { const t = await r.json(); assert.equal(r.status, 400); assert.equal(t.code, "upstream_refused"); assert.ok(!JSON.stringify(t).includes("PRIVATE")); }
+  engage = () => Response.json(plan({ held: [{ key: 8, reason: "Password=PRIVATE-TEST-MARKER" }], counts: { eligible: 1, held: 1, "Password=PRIVATE-TEST-MARKER": 1 } })); r = await go(); assert.equal(r.status, 400); assert.ok(!JSON.stringify(await r.json()).includes("PRIVATE"), "unknown reason refused, not echoed");
+  engage = () => Response.json(plan({ counts: { eligible: 1, held: 1, "current differs from attested prior export (possible manual edit)": 1, extra: 0 } })); r = await go(); assert.equal(r.status, 400, "unknown counts key refused");
+  engage = () => Response.json(plan({ counts: { eligible: 1, held: 1, "current differs from attested prior export (possible manual edit)": 2 } })); r = await go(); assert.equal(r.status, 400, "reason count mismatch refused");
   engage = () => { throw new Error("network"); }; r = await go(); assert.equal(r.status, 502); assert.match((await r.json()).error, /nothing was saved/);
 });
 
@@ -149,7 +155,17 @@ test("baselineStatus: scoped, found:false is unconfirmed, extra upstream fields 
   assert.deepEqual(calls[0], { op: "baselineStatus", client: "baq", table: "master", requestId: "b".repeat(32) });
   engage = () => Response.json({ found: true, status: "committed", result: { secret: "s" } });
   const c = await (await post({ op: "baselineStatus", client: "baq", table: "master", requestId: "b".repeat(32) })).json();
-  assert.deepEqual(c, { found: true, status: "committed", message: "Recorded with status: committed." });
+  assert.deepEqual(c, { found: true, status: "committed", message: "Recorded as committed." });
+  engage = () => Response.json({ found: true, status: "Password=PRIVATE-TEST-MARKER" });
+  const u = await (await post({ op: "baselineStatus", client: "baq", table: "master", requestId: "b".repeat(32) })).json();
+  assert.equal(u.status, "unknown"); assert.ok(!JSON.stringify(u).includes("PRIVATE"));
+  calls.length = 0;
+  for (const bad of [{ client: ["baq"], table: "master" }, { client: "baq", table: ["master"] }, { client: "baq", table: "master", requestId: ["b".repeat(32)] }]) {
+    const r = await post({ op: "baselineStatus", requestId: "b".repeat(32), ...bad }); assert.equal(r.status, 400, JSON.stringify(bad));
+  }
+  assert.equal((await post({ op: "baselineContext", client: ["baq"], table: "master" })).status, 400);
+  assert.equal((await post({ op: "baselinePreview", client: "baq", table: ["master"], fileB64: b64("ID,Town\n7,X\n"), draft: draft() })).status, 400);
+  assert.equal(calls.length, 0, "non-string scalars refused before network");
   engage = () => Response.json({ error: "x" }, { status: 503 });
   assert.equal((await post({ op: "baselineStatus", client: "baq", table: "master", requestId: "b".repeat(32) })).status, 502);
 });
