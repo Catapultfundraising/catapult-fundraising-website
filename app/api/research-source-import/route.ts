@@ -3,7 +3,7 @@ import { isResearchAuthed } from "@/lib/research-auth";
 import { parseCsv, CSV_MAX_BYTES, CsvError, demoAllowed } from "@/lib/portal-v2/csv-updates";
 import { APPROVED_PREPARED, parseKey, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
 import { REGISTRY_META, SOURCE_FIELDS } from "@/lib/portal-v2/source-registry";
-import { applyRequestBody, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
+import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
 // transport/migration and real-SQL acceptance exist.
@@ -35,6 +35,21 @@ export async function POST(req: NextRequest) {
   if (b.op === "clients") return NextResponse.json({ clients: CLIENTS, prepared: APPROVED_PREPARED.map((p) => p.client) });
   if (!CLIENTS.includes(client)) return bad("Choose a client");
   try {
+    if (b.op === "provenance") {
+      const tables = [...new Set(SOURCE_FIELDS.filter((f) => f.c === client).map((f) => f.t))];
+      if (!sourcePreviewConfigured()) return NextResponse.json({ configured: false, ...describeFreshness(tables, null) });
+      const out = await postToEngage(fetch, process.env, { op: "provenance", client }, "");
+      return NextResponse.json({ configured: true, ...describeFreshness(tables, out.ok ? (out.body.tables as never) : null), error: out.ok ? undefined : "Source dates unavailable" });
+    }
+    if (b.op === "status") {
+      // Status stays available whenever the read path is configured, even with saving turned off.
+      if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
+      {
+        const rid = String(b.requestId || ""); if (!/^[a-f0-9]{32}$/.test(rid)) return bad("bad requestId");
+        const out = await postToEngage(fetch, process.env, { op: "status", client, requestId: rid }, rid);
+        return out.ok ? NextResponse.json(out.body) : bad("Status unavailable; try again", 502);
+      }
+    }
     if (b.op === "tables") {
       const ts = [...new Set(SOURCE_FIELDS.filter((f) => f.c === client).map((f) => f.t))];
       return NextResponse.json({ registry: REGISTRY_META, applyEnabled: sourceApplyEnabled(), tables: ts.map((t) => ({ table: t, candidate: SOURCE_FIELDS.filter((f) => f.c === client && f.t === t && f.st === "candidate").length })) });
@@ -83,15 +98,6 @@ export async function POST(req: NextRequest) {
       const st = demoSourceState(client, table);
       const { dest: _d, ...result } = reconcile({ client, table, mode: "update", mapping, rows, headers, ...st });
       return NextResponse.json({ headers, result });
-    }
-    if (b.op === "status") {
-      // Status stays available whenever the read path is configured, even with saving turned off.
-      if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
-      {
-        const rid = String(b.requestId || ""); if (!/^[a-f0-9]{32}$/.test(rid)) return bad("bad requestId");
-        const out = await postToEngage(fetch, process.env, { op: "status", client, requestId: rid }, rid);
-        return out.ok ? NextResponse.json(out.body) : bad("Status unavailable; try again", 502);
-      }
     }
     if (b.op === "apply") {
       if (!sourceApplyConfigured()) return bad("Saving source data is turned off", 403);

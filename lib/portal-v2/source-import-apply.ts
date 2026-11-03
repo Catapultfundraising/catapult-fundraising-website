@@ -77,3 +77,14 @@ export async function postToEngage(fetchImpl: typeof fetch, env: Env, body: Reco
   if (!j || res.status >= 500) return res.status === 503 && j?.code === "disabled" ? { ok: false, unconfirmed: false, status: 503, body: j } : { ok: false, unconfirmed: true, requestId };
   return res.ok ? { ok: true, body: j } : { ok: false, unconfirmed: false, status: res.status, body: j };
 }
+
+export interface TableProvenance { table: string; fileDate: string | null; loadedAt: string; requestId: string; records: number }
+/** Per-table freshness labels for a client's builder tables. Never collapses to one date: tables without a guarded
+ *  import show "unknown (legacy load)", and a null source date shows "source date unknown". */
+export function describeFreshness(tables: string[], prov: TableProvenance[] | null) {
+  const by = new Map((prov ?? []).map((p) => [p.table, p]));
+  const rows = tables.map((t) => { const p = by.get(t); return { table: t, label: !p ? "unknown (no guarded import recorded)" : p.fileDate ? `source export ${p.fileDate}, loaded ${p.loadedAt.slice(0, 10)}` : `source date unknown, loaded ${p.loadedAt.slice(0, 10)}`, fileDate: p?.fileDate ?? null }; });
+  const dated = rows.filter((r) => r.fileDate);
+  const summary = !dated.length ? "Source dates unknown" : dated.length === rows.length && new Set(dated.map((r) => r.fileDate)).size === 1 ? `All tables from source export ${dated[0].fileDate}` : `Partial: ${dated.length} of ${rows.length} tables have a recorded source date`;
+  return { summary, rows };
+}

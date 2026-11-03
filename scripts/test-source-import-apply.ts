@@ -72,3 +72,12 @@ test("source additions: registry-approved table inserts, held tables do not get 
   const add = livePreview({ ...base, rows: [{ ID: "202", Q: "N" }] }, state({ current: [], baseline: [] }), meta);
   assert.equal(add.result.rows[0].outcome, "insert"); assert.ok(add.token);
 });
+
+test("freshness is per table and partial, never one date for everything", async () => {
+  const { describeFreshness } = await import("../lib/portal-v2/source-import-apply");
+  assert.equal(describeFreshness(["a", "b"], null).summary, "Source dates unknown");
+  const f = describeFreshness(["a", "b"], [{ table: "a", fileDate: "2026-10-01", loadedAt: "2026-11-03T10:00:00", requestId: "x", records: 1 }]);
+  assert.equal(f.summary, "Partial: 1 of 2 tables have a recorded source date");
+  assert.match(f.rows[1].label, /unknown/);
+  assert.equal(describeFreshness(["a"], [{ table: "a", fileDate: null, loadedAt: "2026-11-03T10:00:00", requestId: "x", records: 1 }]).rows[0].label, "source date unknown, loaded 2026-11-03");
+});

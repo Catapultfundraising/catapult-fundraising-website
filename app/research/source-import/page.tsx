@@ -29,6 +29,7 @@ export default function SourceImportPage() {
   const [dests, setDests] = useState<Dest[]>([]);
   const [csv, setCsv] = useState(""); const [headers, setHeaders] = useState<string[]>([]);
   const [clients, setClients] = useState<string[]>([]);
+  const [fresh, setFresh] = useState<{ summary: string; rows: { table: string; label: string }[] } | null>(null);
   const [fileName, setFileName] = useState(""); const [fileDate, setFileDate] = useState(""); // blank = unknown, never today
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [result, setResult] = useState<Result | null>(null);
@@ -43,7 +44,7 @@ export default function SourceImportPage() {
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => setClients(j.clients ?? [])).catch((e) => setErr(e.message)); }, []);
   const reset = () => { setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
   const clearFile = () => { setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
-  useEffect(() => { setTables([]); setTable(""); setDests([]); clearFile(); reset(); if (client) guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setTables([]); setTable(""); setDests([]); clearFile(); reset(); if (client) { guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); call({ op: "provenance", client }).then(setFresh).catch(() => setFresh(null)); } else setFresh(null); }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setDests([]); clearFile(); reset(); if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr); }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
   const useCsv = (t: string, name: string, preset?: Record<string, string>) => {
     reset(); clearFile(); setCsv(t); setFileName(name);
@@ -75,6 +76,9 @@ export default function SourceImportPage() {
         {fileName && <p className="text-xs text-[rgb(var(--ink))]/60 sm:col-span-2">File: {fileName}</p>}
         {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" onClick={loadDemo}>Load fictional demo file</button>}
       </section>
+      {fresh && (
+        <details className={`${card} mt-4 text-sm`}><summary className="cursor-pointer text-[rgb(var(--navy))]"><span className={label}>Source dates</span> {fresh.summary}</summary>
+          <ul className="mt-2 text-xs text-[rgb(var(--ink))]/70">{fresh.rows.map((r) => <li key={r.table}>{r.table}: {r.label}</li>)}</ul></details>)}
       {headers.length > 0 && (
         <section className={`${card} mt-4`}>
           <h2 className={label}>Column mapping</h2>

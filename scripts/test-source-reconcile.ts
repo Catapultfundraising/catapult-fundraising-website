@@ -26,7 +26,10 @@ test("registry is fail-closed and bound to provenance", () => {
   assert.ok(!SOURCE_FIELDS.some((f) => f.col === "row_id"));
   assert.ok(SOURCE_FIELDS.filter((f) => f.t === "Duplciate_Records").every((f) => f.st === "nonwritable"));
   for (const t of ["raw_master_giving_history", "notes", "Daily_Results", "gc2p_prospects"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t).every((f) => f.st !== "candidate"), t);
-  assert.ok(SOURCE_FIELDS.filter((f) => f.st === "candidate").every((f) => f.k === "CPTID"));
+  assert.ok(SOURCE_FIELDS.filter((f) => f.st === "candidate").every((f) => f.k.toLowerCase() === "cptid"));
+  for (const t of ["gc2p_prospects", "portfolio", "raw_master_giving_history", "Daily_Results"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t).every((f) => f.st !== "candidate"), t);
+  for (const t of ["pir_links", "_load_log"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t).every((f) => f.st === "nonwritable"), t);
+  for (const c of ["jag", "csnf", "pvas", "wcbhc", "baq"]) assert.ok(SOURCE_FIELDS.some((f) => f.c === c && f.st === "candidate"), "candidates for " + c);
   for (const c of ["jag", "csnf", "pvas", "wcbhc", "baq"]) assert.ok(SOURCE_FIELDS.some((f) => f.c === c), c);
 });
 
