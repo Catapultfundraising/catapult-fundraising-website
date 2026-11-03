@@ -88,11 +88,11 @@ test("a one-row CSV import never marks a table or dashboard refreshed", async ()
 });
 
 test("PVAS notes (update-only, person-linked): two notes one person, person-level protection, link checks, no inserts", () => {
-  const nb = { client: "pvas", table: "notes", mode: "update" as const, mapping: { NoteID: "ID", Order: "Note_Order_Newest_to_Oldest" } };
+  const nb = { client: "pvas", table: "notes", mode: "update" as const, mapping: { NoteID: "ID", Person: "CPTID", Order: "Note_Order_Newest_to_Oldest" } };
   const ns = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [],
     current: [{ key: 501, person: 9001, values: { Note_Order_Newest_to_Oldest: "1" }, unreadable: [] }, { key: 502, person: 9001, values: { Note_Order_Newest_to_Oldest: "2" }, unreadable: [] }],
     baseline: [{ key: 501, col: "Note_Order_Newest_to_Oldest", value: "1" }, { key: 502, col: "Note_Order_Newest_to_Oldest", value: "2" }], overlayKeys: [], prospectKeys: [], ...over });
-  const rows = [{ NoteID: "501", Order: "2" }, { NoteID: "502", Order: "1" }];
+  const rows = [{ NoteID: "501", Person: "9001", Order: "2" }, { NoteID: "502", Person: "9001", Order: "1" }];
   const ok = livePreview({ ...nb, rows }, ns(), meta);
   assert.deepEqual(ok.result.rows.map((r) => r.outcome), ["update", "update"]);
   const ops = verifySourceToken(ok.token, SECRET, 2000).payload.ops;
@@ -102,9 +102,17 @@ test("PVAS notes (update-only, person-linked): two notes one person, person-leve
   assert.ok(livePreview({ ...nb, rows }, ns({ overlayKeys: [501] }), meta).token);
   // missing person link, unknown note ID (insert) and duplicate note IDs are held/invalid
   assert.equal(livePreview({ ...nb, rows }, ns({ current: [{ key: 501, person: null, values: { Note_Order_Newest_to_Oldest: "1" }, unreadable: [] }] }), meta).result.rows[0].outcome, "held");
-  assert.match(livePreview({ ...nb, rows: [{ NoteID: "999", Order: "1" }] }, ns(), meta).result.rows[0].reason!, /update-only/);
+  assert.match(livePreview({ ...nb, rows: [{ NoteID: "999", Person: "9001", Order: "1" }] }, ns(), meta).result.rows[0].reason!, /update-only/);
   assert.deepEqual(livePreview({ ...nb, rows: [rows[0], rows[0]] }, ns(), meta).result.rows.map((r) => r.outcome), ["invalid", "invalid"]);
-  // CPTID and Date are not writable destinations for notes
-  const r = livePreview({ ...nb, mapping: { ...nb.mapping, P: "CPTID", D: "Date" }, rows: [{ NoteID: "501", Order: "2", P: "9002", D: "2026-01-01" }] }, ns(), meta);
-  assert.deepEqual(r.result.columns.filter((c) => ["P", "D"].includes(c.header)).map((c) => c.state), ["held", "held"]);
+  // source person link: mismatch (note re-linked 9001 -> 9002 in source) and absent/unmapped/blank all hold; never written
+  const mm = livePreview({ ...nb, rows: [{ NoteID: "501", Person: "9002", Order: "2" }] }, ns(), meta);
+  assert.equal(mm.token, null); assert.match(mm.result.rows[0].reason!, /does not match/);
+  const um = livePreview({ ...nb, mapping: { NoteID: "ID", Order: "Note_Order_Newest_to_Oldest" }, rows: [{ NoteID: "501", Order: "2" }] }, ns(), meta);
+  assert.equal(um.token, null); assert.match(um.result.rows[0].reason!, /map the source CPTID/);
+  const bl = livePreview({ ...nb, rows: [{ NoteID: "501", Person: "", Order: "2" }] }, ns(), meta);
+  assert.equal(bl.token, null); assert.match(bl.result.rows[0].reason!, /missing or invalid/);
+  // CPTID is the verified link (never in values); Date not writable
+  assert.ok(ops.every((o) => !("CPTID" in o.values)));
+  const r = livePreview({ ...nb, mapping: { ...nb.mapping, D: "Date" }, rows: [{ NoteID: "501", Person: "9001", Order: "2", D: "2026-01-01" }] }, ns(), meta);
+  assert.deepEqual(r.result.columns.filter((c) => ["Person", "D"].includes(c.header)).map((c) => c.state), ["person-link", "held"]);
 });

@@ -214,7 +214,7 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
   const keyCol = dest.key;
 
   const columns: ReconResult["columns"] = [];
-  const used = new Set<string>(); let keyHeader: string | null = null;
+  const used = new Set<string>(); let keyHeader: string | null = null; let personHeader: string | null = null;
   const writable: { d: Dest; header: string }[] = [];
   for (const [header, colRaw] of Object.entries(inp.mapping)) {
     if (typeof colRaw !== "string") throw new SourceError(`mapping for ${header} must be text`);
@@ -225,6 +225,7 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
     const d = dest.dests.find((x) => x.col === col);
     if (!d) { columns.push({ header, col, state: "unsupported", reason: "not a server-approved destination" }); continue; }
     if (col === keyCol) { keyHeader = header; columns.push({ header, col, state: "key", reason: "stable key" }); continue; }
+    if (dest.personLink && col === dest.personLink) { personHeader = header; columns.push({ header, col, state: "person-link", reason: "immutable person link: verified against the current record, never written" }); continue; }
     columns.push({ header, col, state: d.st, reason: d.why });
     if (d.st === "candidate") writable.push({ d, header });
   }
@@ -256,6 +257,12 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
 
     if (dest.personLink && !cur) return push({ line, key, outcome: "held", reason: "new records for this table are held (update-only; row-order / new-person policy pending)", fields });
     if (dest.personLink && person == null) return push({ line, key, outcome: "held", reason: "person link missing or unreadable", fields });
+    if (dest.personLink) {
+      if (!personHeader) return push({ line, key, outcome: "held", reason: `map the source ${dest.personLink} column; person link must be verified`, fields });
+      const sp = parseKey(r[personHeader]);
+      if (sp === null) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} missing or invalid`, fields });
+      if (sp !== person) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} does not match the current record's person; not re-linked`, fields });
+    }
     if (!cur) {
       if (marks.length) return push({ line, key, outcome: "held", reason: "ID collides with a portal record or edit; not renumbered", fields });
       if (mode === "update") {
