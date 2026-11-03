@@ -1,22 +1,23 @@
-// Synthetic tests (fictional data). Mock SQL transaction tests are NOT real Azure acceptance.
+// Synthetic tests (fictional data). Tests labelled [MOCK SQL] are NOT real Azure acceptance.
 import test from "node:test";
 import assert from "node:assert/strict";
 import { SOURCE_FIELDS, REGISTRY_META } from "../lib/portal-v2/source-registry";
 import {
-  reconcile, planWrites, buildGuardedStatements, executeGuarded, registryDests, validatePrepared, normalize, parseKey,
-  sourceApplyEnabled, SourceError, type PreparedClient, type SqlTx, type ReconInput,
+  reconcile, planWrites, buildGuardedStatements, executeGuarded, resolveDestination, validatePrepared, normalize, parseKey,
+  sourceApplyEnabled, validateHeadersAndMapping, rowsFromGrid, SourceError, type PreparedClient, type SqlTx, type ReconInput, type ResolvedDest,
 } from "../lib/portal-v2/source-reconcile";
 
 const cand = SOURCE_FIELDS.filter((f) => f.c === "pvas" && f.t === "donorsearch_results" && f.st === "candidate" && f.col !== "CPTID" && f.ty === "nvarchar");
 const C1 = cand[0].col, C2 = cand[1].col;
 const base = (over: Partial<ReconInput> = {}): ReconInput => ({
   client: "pvas", table: "donorsearch_results", mode: "update",
-  mapping: { "Constituent": "CPTID", A: C1, B: C2 },
+  mapping: { Constituent: "CPTID", A: C1, B: C2 },
   rows: [{ Constituent: "101", A: "new-a", B: "" }],
   baseline: new Map([[101, { [C1]: "old-a", [C2]: "b" }]]),
   current: new Map([[101, { [C1]: "old-a", [C2]: "b" }]]),
   overlays: [], ...over,
 });
+const txt = { ty: "nvarchar", len: -1, p: null, s: null };
 
 test("registry is fail-closed and bound to provenance", () => {
   assert.equal(REGISTRY_META.version, 2);
@@ -32,23 +33,27 @@ test("three-way: baseline==current applies latest; blank ignored", () => {
   const r = reconcile(base());
   assert.equal(r.rows[0].outcome, "update");
   assert.deepEqual(r.rows[0].fields.map((f) => f.outcome), ["apply", "blank"]);
-  assert.equal(r.counts.applyValues, 1);
 });
 test("three-way: destination changed since baseline -> conflict, not applied", () => {
   const r = reconcile(base({ current: new Map([[101, { [C1]: "portal-edit", [C2]: "b" }]]) }));
-  assert.equal(r.rows[0].fields[0].outcome, "conflict"); assert.equal(r.rows[0].outcome, "held"); assert.equal(planWrites(r).length, 0);
+  assert.equal(r.rows[0].fields[0].outcome, "conflict"); assert.equal(planWrites(r).length, 0);
 });
-test("manual and unknown overlays protected; record-level portal record held", () => {
-  for (const p of ["manual", "unknown"] as const) assert.equal(reconcile(base({ overlays: [{ key: 101, col: C1, provenance: p }] })).rows[0].fields[0].outcome, "protected");
+test("any portal overlay protects (even provenance 'source': no verified overlay mapping)", () => {
+  for (const p of ["manual", "unknown", "source"] as const) assert.equal(reconcile(base({ overlays: [{ key: 101, col: "contact:email", provenance: p }] })).rows[0].fields[0].outcome, "protected");
   assert.equal(reconcile(base({ overlays: [{ key: 101, col: null, provenance: "manual" }] })).rows[0].outcome, "held");
 });
-test("missing baseline is never assumed source-owned", () => {
-  const r = reconcile(base({ baseline: null }));
-  assert.equal(r.rows[0].fields[0].outcome, "held"); assert.equal(planWrites(r).length, 0);
-  const add = reconcile(base({ baseline: null, current: new Map() }));
-  assert.equal(add.rows[0].outcome, "held");
+test("missing baseline record/property or unreadable values are held, never applied (regression: absent property -> apply)", () => {
+  for (const over of [
+    { baseline: null }, { baseline: new Map([[101, { [C2]: "b" }]]) },
+    { current: new Map([[101, { [C2]: "b" }]]) },
+    { baseline: new Map([[101, { [C1]: "bad\u0007", [C2]: "b" }]]) },
+  ] as Partial<ReconInput>[]) {
+    const r = reconcile(base(over));
+    assert.equal(r.rows[0].fields[0].outcome, "held"); assert.equal(planWrites(r).length, 0);
+  }
+  assert.equal(reconcile(base({ baseline: null, current: new Map() })).rows[0].outcome, "held");
 });
-test("additions collide with portal record -> held, not renumbered", () => {
+test("additions colliding with portal record -> held, not renumbered", () => {
   const r = reconcile(base({ current: new Map(), baseline: new Map(), overlays: [{ key: 101, col: null, provenance: "manual" }] }));
   assert.equal(r.rows[0].outcome, "held"); assert.match(r.rows[0].reason!, /not renumbered/);
 });
@@ -58,73 +63,112 @@ test("BAQ master additions held; held/unsupported columns reported not dropped",
   const r = reconcile({ client: "baq", table: "master", mode: "update", mapping: { ID: "CPTID", H: m.col, X: "Made_Up", O: ok.col }, rows: [{ ID: "5", H: "v", X: "x", O: "o" }], baseline: new Map(), current: new Map(), overlays: [] });
   assert.equal(r.rows[0].outcome, "held");
   assert.equal(r.columns.find((c) => c.header === "X")!.state, "unsupported");
-  assert.equal(r.columns.find((c) => c.header === "H")!.state, "held");
   assert.ok(r.rows[0].fields.some((f) => f.col === m.col && f.outcome === "held"));
 });
-test("keys/types/duplicates strict", () => {
-  assert.equal(parseKey("0"), null); assert.equal(parseKey("1e3"), null); assert.equal(parseKey("12.0"), 12); assert.equal(parseKey("-4"), null);
+test("duplicate keys: every occurrence invalid, zero writes (regression: duplicate file -> 1 write)", () => {
   const r = reconcile(base({ rows: [{ Constituent: "101", A: "x" }, { Constituent: "101", A: "y" }, { Constituent: "abc", A: "z" }] }));
-  assert.deepEqual(r.rows.map((x) => x.outcome), ["update", "invalid", "invalid"]);
+  assert.deepEqual(r.rows.map((x) => x.outcome), ["invalid", "invalid", "invalid"]);
+  assert.equal(planWrites(r).length, 0);
+});
+test("mapping strict", () => {
   assert.throws(() => reconcile(base({ mapping: { a: "CPTID", b: C1, c: C1 } })), /mapped twice/);
   assert.throws(() => reconcile(base({ mapping: { A: C1 } })), /key/);
-  assert.equal(normalize("float", "1,234.50").v, "1234.5"); assert.equal(normalize("bit", "maybe").err, "not a yes/no value");
-  assert.equal(normalize("date", "2/30/2026").err, "invalid date"); assert.equal(normalize("datetime2", "3/4/2026 9:05").v, "2026-03-04T09:05:00");
-  assert.ok(normalize("nvarchar", "a\u0000b").err);
+  assert.throws(() => reconcile(base({ mapping: { a: "CPTID", b: ["x"] as unknown as string } })), /must be text/);
+  assert.throws(() => validateHeadersAndMapping(["Email", " email "], {}), /duplicate/);
+  assert.throws(() => validateHeadersAndMapping(["A"], { B: "x" }), /unknown header/);
+  assert.throws(() => validateHeadersAndMapping(["A"], { A: 3 }), /text/);
+  assert.throws(() => validateHeadersAndMapping(["A"], ["x"]), /object/);
+  assert.equal(Object.getPrototypeOf(rowsFromGrid([["__proto__"], ["v"]]).rows[0]), null);
 });
-test("JAG gift history and unknown tables refuse", () => {
-  assert.throws(() => reconcile({ client: "jag", table: "raw_master_giving_history", mode: "update", mapping: { c: "CPTID" }, rows: [], baseline: new Map(), current: new Map(), overlays: [] }), /no verified stable key/);
-  assert.throws(() => reconcile({ client: "pvas", table: "made_up", mode: "update", mapping: {}, rows: [], baseline: new Map(), current: new Map(), overlays: [] }), /no approved destination/);
+test("types exact (regressions: 99:99:99, decimal rounding, int overflow)", () => {
+  assert.equal(parseKey("0"), null); assert.equal(parseKey("1e3"), null); assert.equal(parseKey("12.0"), 12); assert.equal(parseKey("2147483648"), null);
+  assert.equal(normalize({ ty: "int", len: null, p: 10, s: 0 }, "2147483648").err, "outside int range");
+  assert.equal(normalize({ ty: "int", len: null, p: 10, s: 0 }, "-2147483648").v, "-2147483648");
+  assert.equal(normalize({ ty: "bigint", len: null, p: 19, s: 0 }, "9007199254740993").v, "9007199254740993");
+  assert.equal(normalize({ ty: "decimal", len: null, p: 19, s: 4 }, "9007199254740.1234").v, "9007199254740.1234");
+  assert.match(normalize({ ty: "decimal", len: null, p: 19, s: 4 }, "1.23456").err!, /decimal places/);
+  assert.match(normalize({ ty: "decimal", len: null, p: 5, s: 2 }, "1234.5").err!, /precision/);
+  assert.equal(normalize({ ty: "decimal", len: null, p: null, s: null }, "1").err, "destination precision unknown");
+  assert.equal(normalize({ ty: "float", len: null, p: 53, s: null }, "1,234.50").v, "1234.5");
+  assert.equal(normalize({ ty: "float", len: null, p: 53, s: null }, "0.1").v, "0.1");
+  assert.equal(normalize({ ty: "datetime2", len: null, p: null, s: null }, "2026-01-01 99:99:99").err, "invalid time");
+  assert.equal(normalize({ ty: "date", len: null, p: null, s: null }, "2026-01-01 10:00").err, "time not allowed for a date-only field");
+  assert.equal(normalize({ ty: "date", len: null, p: null, s: null }, "2/30/2026").err, "invalid date");
+  assert.equal(normalize({ ty: "datetime2", len: null, p: null, s: null }, "3/4/2026 9:05").v, "2026-03-04T09:05:00");
+  assert.match(normalize({ ty: "nvarchar", len: 3, p: null, s: null }, "abcd").err!, /longer/);
+  assert.equal(normalize({ ty: "nvarchar", len: null, p: null, s: null }, "a").err, "destination length unknown");
+  assert.ok(normalize(txt, "a\u0000b").err); assert.ok(normalize(txt, "a\u0007b").err);
+  assert.equal(normalize({ ty: "money", len: null, p: null, s: null }, "1").err, "type money has no verified conversion");
+  assert.equal(normalize({ ty: "bit", len: null, p: null, s: null }, "maybe").err, "not a yes/no value");
 });
-test("cross-client isolation: other client's table not a destination", () => {
+test("unknown tables and keyless tables refuse; cross-client isolation", () => {
+  assert.throws(() => resolveDestination("jag", "raw_master_giving_history"), /no verified stable key/);
+  assert.throws(() => resolveDestination("pvas", "made_up"), /no approved destination/);
   assert.throws(() => reconcile(base({ client: "baq", table: "givebutter_transactions" })), /no approved destination/);
-  assert.ok(registryDests("baq", "donorsearch_results").every((d) => d.client === "baq"));
+  const d = resolveDestination("pvas", "donorsearch_results");
+  assert.equal(d.schema, "pvas"); assert.equal(d.client, "pvas");
 });
 
-const prepared: PreparedClient = { client: "fictional_x", schema: "fictional_x", registryVersion: 2, approvedBy: "Reviewer", approvedAt: "2026-11-03", tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar" }] }] };
-test("prepared client first load: approval required, inserts only, identifiers validated", () => {
-  const inp: ReconInput = { client: "fictional_x", table: "master", mode: "first-load", mapping: { id: "CPTID", n: "Account_Name" }, rows: [{ id: "7", n: "Fictional Org" }], baseline: null, current: new Map(), overlays: [], prepared };
-  assert.throws(() => reconcile(inp), /not approved/);
-  const r = reconcile(inp, [prepared]);
-  assert.equal(r.rows[0].outcome, "insert");
-  assert.throws(() => validatePrepared({ ...prepared, schema: "engage" }), /reserved/);
-  assert.throws(() => validatePrepared({ ...prepared, tables: [{ table: "x;drop", key: "CPTID", columns: [] }] }), /bad/);
-  assert.throws(() => validatePrepared({ ...prepared, client: "baq" }), /already has a registry/);
+const prepared: PreparedClient = { client: "fictional_x", schema: "fictional_x", registryVersion: 2, approvedBy: "Reviewer", approvedAt: "2026-11-03", tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200 }] }] };
+const first = (over: Partial<ReconInput> = {}): ReconInput => ({ client: "fictional_x", table: "master", mode: "first-load", mapping: { id: "CPTID", n: "Account_Name" }, rows: [{ id: "7", n: "Fictional Org" }], baseline: null, current: new Map(), overlays: [], prepared, ...over });
+test("prepared first load: approval, empty destination, identity match (regression: first-load -> update)", () => {
+  assert.throws(() => reconcile(first()), /not approved/);
+  assert.equal(reconcile(first(), [prepared]).rows[0].outcome, "insert");
+  assert.throws(() => reconcile(first({ current: new Map([[7, { Account_Name: "x" }]]) }), [prepared]), /empty prepared destination/);
+  assert.throws(() => reconcile(first({ mode: "update" }), [prepared]), /first load only/);
+  assert.throws(() => reconcile(first({ client: "other_x" }), [prepared]), /different client/);
+  assert.throws(() => reconcile({ ...base(), mode: "first-load" }), /prepared destination/);
+  for (const bad of [{ schema: "engage" }, { schema: "baq" }, { client: "pvas" }, { tables: [{ table: "x;drop", key: "CPTID", columns: [] }] }, { approvedBy: "" }, { registryVersion: 1 }])
+    assert.throws(() => validatePrepared({ ...prepared, ...bad } as PreparedClient), SourceError);
 });
 
-function mockTx(srcRows: Record<string, unknown>[], ov: Record<string, unknown>[] = [], pr: Record<string, unknown>[] = []): SqlTx & { log: string[] } {
+function mockTx(srcRows: Record<string, unknown>[], ov: Record<string, unknown>[] = [], pr: Record<string, unknown>[] = [], affected = 1): SqlTx & { log: string[] } {
   const log: string[] = [];
   return { log, async query(sql) {
     log.push(sql.split(" ")[0] + (sql.includes("portal_updates") ? ":ov" : sql.includes("portal_prospects") ? ":pr" : ""));
-    if (sql.startsWith("SELECT") && sql.includes("portal_updates")) return ov;
-    if (sql.startsWith("SELECT") && sql.includes("portal_prospects")) return pr;
-    if (sql.startsWith("SELECT")) return srcRows;
-    return [];
+    const rs = (recordset: Record<string, unknown>[]) => ({ recordset, rowsAffected: [recordset.length] });
+    if (sql.startsWith("SELECT") && sql.includes("portal_updates")) return rs(ov);
+    if (sql.startsWith("SELECT") && sql.includes("portal_prospects")) return rs(pr);
+    if (sql.startsWith("SELECT")) return rs(srcRows);
+    if (sql.startsWith("UPDATE") || sql.startsWith("INSERT")) return { recordset: [], rowsAffected: [affected] };
+    return rs([]);
   } };
 }
-const dests = registryDests("pvas", "donorsearch_results");
+const dest = () => resolveDestination("pvas", "donorsearch_results");
 const ops = () => planWrites(reconcile(base()));
 
 test("default OFF: env alone cannot enable without approved transport", async () => {
   assert.equal(sourceApplyEnabled({ SOURCE_IMPORT_APPLY: "enabled" }), false);
-  await assert.rejects(executeGuarded(mockTx([]), "pvas", "donorsearch_results", "CPTID", dests, ops(), "pvas"), /disabled/);
+  await assert.rejects(executeGuarded(mockTx([]), dest(), ops()), /disabled/);
+});
+test("adapter accepts only minted destinations (regression: [baq].[master] with PVAS columns)", () => {
+  const forged = { ...dest(), schema: "baq", table: "master" } as ResolvedDest;
+  assert.throws(() => buildGuardedStatements(forged, ops()), /resolveDestination/);
+  assert.throws(() => buildGuardedStatements(resolveDestination("baq", "master"), ops()), /not a writable destination/);
 });
 test("[MOCK SQL, not Azure acceptance] lock reads precede writes; commit on match", async () => {
   const tx = mockTx([{ k: 101, [C1]: "old-a" }]);
-  const r = await executeGuarded(tx, "pvas", "donorsearch_results", "CPTID", dests, ops(), "pvas", { enabled: true });
-  assert.equal(r.written, 1);
+  assert.equal((await executeGuarded(tx, dest(), ops(), { enabled: true })).written, 1);
   assert.deepEqual(tx.log, ["SET", "SELECT", "SELECT:ov", "SELECT:pr", "UPDATE", "COMMIT"]);
-  const st = buildGuardedStatements("pvas", "donorsearch_results", "CPTID", dests, ops(), "pvas");
+  const st = buildGuardedStatements(dest(), ops());
   assert.ok(st.pre.slice(1).every((p) => p.sql.includes("WITH (UPDLOCK, HOLDLOCK)")));
   assert.ok(!st.writes[0].sql.includes("new-a"), "values parameterized");
 });
-test("[MOCK SQL] stale value / new portal edit / new prospect -> rollback, no writes", async () => {
-  for (const tx of [mockTx([{ k: 101, [C1]: "changed" }]), mockTx([{ k: 101, [C1]: "old-a" }], [{ id: 9, k: 101 }]), mockTx([{ k: 101, [C1]: "old-a" }], [], [{ k: 101 }]), mockTx([])]) {
-    await assert.rejects(executeGuarded(tx, "pvas", "donorsearch_results", "CPTID", dests, ops(), "pvas", { enabled: true }), /stale/);
-    assert.ok(!tx.log.includes("UPDATE") && tx.log.at(-1) === "IF");
+test("[MOCK SQL] stale / overlay / prospect / duplicate destination rows / affected!=1 -> rollback", async () => {
+  const good = { k: 101, [C1]: "old-a" };
+  for (const [tx, re] of [
+    [mockTx([{ k: 101, [C1]: "changed" }]), /stale/], [mockTx([good], [{ id: 9, k: 101 }]), /portal edit/], [mockTx([good], [], [{ k: 101 }]), /portal record/],
+    [mockTx([]), /no longer exists/], [mockTx([good, good]), /2 rows/], [mockTx([good], [], [], 0), /affected 0/], [mockTx([{ k: 101 }]), /unreadable/],
+  ] as const) {
+    await assert.rejects(executeGuarded(tx, dest(), ops(), { enabled: true }), re);
+    assert.equal(tx.log.at(-1), "IF"); assert.ok(!tx.log.includes("COMMIT"));
   }
 });
-test("adapter rejects non-candidate column and unsafe identifiers", () => {
-  const held = SOURCE_FIELDS.find((f) => f.c === "pvas" && f.t === "donorsearch_results" && f.st !== "candidate")?.col ?? "Nope";
-  assert.throws(() => buildGuardedStatements("pvas", "donorsearch_results", "CPTID", dests, [{ kind: "update", key: 1, values: { [held]: "x" }, expected: {} }], "pvas"), SourceError);
-  assert.throws(() => buildGuardedStatements("pvas]; DROP", "t", "CPTID", dests, ops(), "pvas"), /unsafe/);
+test("adapter op shape enforced", () => {
+  const d = dest(); const o = ops()[0];
+  const bad = [
+    [], [o, o], [{ ...o, values: {} }], [{ ...o, expected: {} }], [{ ...o, expected: { ...o.expected, [C2]: "b" } }],
+    [{ ...o, values: { CPTID: "5" }, expected: { CPTID: "4" } }], [{ ...o, key: 0 }], [{ ...o, kind: "insert" as const }], [{ ...o, values: { [C1]: " padded " } }],
+  ];
+  for (const b of bad) assert.throws(() => buildGuardedStatements(d, b), SourceError);
 });

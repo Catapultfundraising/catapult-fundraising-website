@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
@@ -32,18 +32,25 @@ export default function SourceImportPage() {
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
+  // Every request carries a sequence number; responses from an older client/table/file selection are ignored.
+  const seq = useRef(0);
+  const guard = <T,>(p: Promise<T>) => { const n = ++seq.current; return p.then((v) => { if (n !== seq.current) throw new Error("stale"); return v; }); };
+  const onErr = (e: Error) => { if (e.message !== "stale") setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); }, []);
   const reset = () => { setResult(null); setErr(""); };
-  useEffect(() => { setTables([]); setTable(""); reset(); if (client) call({ op: "tables", client }).then((j) => setTables(j.tables)).catch((e) => setErr(e.message)); }, [client]);
-  useEffect(() => { setDests([]); reset(); if (client && table) call({ op: "fields", client, table }).then((j) => setDests(j.fields)).catch((e) => setErr(e.message)); }, [client, table]);
-  const onFile = async (f: File | undefined) => {
-    reset(); if (!f) return;
-    const t = await f.text(); setCsv(t);
-    const h = (t.replace(/^\uFEFF/, "").split(/\r?\n/)[0] || "").split(",").map((x) => x.replace(/^"|"$/g, "").trim());
-    setHeaders(h); setMapping(Object.fromEntries(h.map((x) => [x, dests.find((d) => d.col.toLowerCase() === x.replace(/\W+/g, "_").toLowerCase())?.col ?? ""])));
+  const clearFile = () => { setCsv(""); setHeaders([]); setMapping({}); };
+  useEffect(() => { setTables([]); setTable(""); setDests([]); clearFile(); reset(); if (client) guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { setDests([]); clearFile(); reset(); if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr); }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
+  const useCsv = (t: string, preset?: Record<string, string>) => {
+    reset(); clearFile(); setCsv(t);
+    guard(call({ op: "inspect", client, table, csv: t })).then((j: { headers: string[] }) => {
+      setHeaders(j.headers);
+      setMapping(preset ?? Object.fromEntries(j.headers.map((x) => [x, dests.find((d) => d.col.toLowerCase() === x.trim().replace(/\W+/g, "_").toLowerCase())?.col ?? ""])));
+    }).catch(onErr);
   };
-  const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); setCsv(t); setHeaders(hs); setMapping(Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); reset(); };
-  const preview = async () => { setBusy(true); reset(); try { const j = await call({ op: "preview", client, table, csv, mapping, demo }); setResult(j.result); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); } };
+  const onFile = async (f: File | undefined) => { reset(); clearFile(); if (f) useCsv(await f.text()); };
+  const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); useCsv(t, Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); };
+  const preview = () => { setBusy(true); reset(); guard(call({ op: "preview", client, table, csv, mapping, demo })).then((j) => setResult(j.result)).catch(onErr).finally(() => setBusy(false)); };
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -53,7 +60,7 @@ export default function SourceImportPage() {
       <section className={`${card} mt-6 grid gap-4 sm:grid-cols-3`}>
         <label className="block"><span className={label}>Client</span><select className={input} value={client} onChange={(e) => setClient(e.target.value)}><option value="">Choose…</option>{CLIENTS.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}</select></label>
         <label className="block"><span className={label}>Dashboard table</span><select className={input} value={table} disabled={!tables.length} onChange={(e) => setTable(e.target.value)}><option value="">Choose…</option>{tables.map((t) => <option key={t.table} value={t.table}>{t.table} ({t.candidate ? `${t.candidate} reviewable fields` : "all held"})</option>)}</select></label>
-        <label className="block"><span className={label}>CSV file</span><input type="file" accept=".csv,text/csv" className={input} disabled={!table} onChange={(e) => onFile(e.target.files?.[0])} /></label>
+        <label className="block"><span className={label}>CSV file</span><input key={`${client}/${table}`} type="file" accept=".csv,text/csv" className={input} disabled={!table} onChange={(e) => onFile(e.target.files?.[0])} /></label>
         {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" onClick={loadDemo}>Load fictional demo file</button>}
       </section>
       {headers.length > 0 && (
