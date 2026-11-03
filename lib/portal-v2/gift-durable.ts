@@ -8,6 +8,7 @@
 // - Reload recovery is NOT implemented (same-session only). Baseline attestation of adopted gifts is NOT implemented.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { parseCsv } from "./csv-updates";
+import { normalize } from "./source-reconcile";
 import { neutralize, APPENDED } from "./gift-preview";
 import { planGiftJob, verifyGiftJob, validateGiftRequest, validValue, previewRowCap, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
 
@@ -104,7 +105,13 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
     if (d.d === "held") { held.push(i); return; }
     const person = exactInt(rows[i][idx(personH!)]); if (person === null) bad(`row ${i + 1}: donor CPTID is not an exact positive whole number`);
     const mapped: Record<string, string> = {};
-    for (const [h, c] of Object.entries(mapping)) if (c !== "@person") { const v = rows[i][idx(h)]; if (v !== "") mapped[c as string] = v; }
+    // SOURCE cells are canonicalized with the owning source-reconcile normalize (registered type/precision); blanks stay
+    // unchanged (no clears); a value that cannot be converted refuses the plan. Expected snapshots are NEVER normalized.
+    for (const [h, c] of Object.entries(mapping)) if (c !== "@person") {
+      const d = g!.columns.find((x) => x.col === c)!; const n = normalize(d as never, rows[i][idx(h)]);
+      if (n.err) bad(`row ${i + 1}, ${h}: ${n.err}`);
+      if (n.v !== null) mapped[c as string] = n.v;
+    }
     if (d.d === "new") { decided.push({ ordinal: i, action: "new", person: person!, values: mapped, expected: null }); return; }
     if (!isObj(d.expected)) bad(`row ${i + 1}: expected snapshot required`);
     const exp = d.expected as Record<string, string | null>;

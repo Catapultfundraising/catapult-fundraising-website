@@ -59,7 +59,7 @@ test("plan refusals: all held => nothing to save; donor not exact int; ragged ro
   await assert.rejects(plan({ mapping: { Amount: "Gift_Amount" } }), /donor CPTID/);
   await assert.rejects(plan({ mapping: { ...MAP, Type: "Gift_Amount" } }), /mapped twice/);
   // backend-equivalent row contract before signing
-  await assert.rejects(plan({ csv: CSV.replace("7001,100,", "7001,abc,") }), /invalid value for Gift_Amount/);
+  await assert.rejects(plan({ csv: CSV.replace("7001,100,", "7001,abc,") }), /not a number|invalid value for Gift_Amount/);
   await assert.rejects(plan({ csv: CSV.replace("7001,100,2026-01-05T00:00:00,", "7001,100,,") }), /required Gift_Date/);
   await assert.rejects(plan({ decisions: DEC.map((d) => (d.o === 2 ? { ...d, expected: {} } : d)) }), /expected must list exactly every registered column/);
   await assert.rejects(plan({ fileDate: "2026-02-31" }), /fileDate/);
@@ -222,4 +222,18 @@ test("projectPreview: strict rebuild per registration/query; malformed nested da
   assert.deepEqual(u.rows[0].values.Record_Type, { readable: false });
   const h = P({ ...base, rows: [{ ...okRow, person: 7002 }], hasMore: false, next: null }, { kind: "history", person: 7001 }) as { rows: { donorMismatch: boolean }[] };
   assert.equal(h.rows[0].donorMismatch, true, "query-donor drift held");
+});
+
+test("source cells are canonicalized with source-reconcile normalize; expected snapshots are kept exactly; bad conversion refuses", async () => {
+  const L = await lib();
+  const csv = "Donor,Amount,Date,Type\r\n7001,\"$1,100.50\",2026-01-05,Gift\r\n7001,100.00,1/6/2026,Pledge\r\n";
+  const p = await plan({ csv, decisions: [{ o: 0, d: "new" }, { o: 1, d: "correct", giftId: UUID1, expected: { Gift_Amount: "100", Gift_Date: "2026-01-06T00:00:00", Record_Type: "Gift" } }] });
+  const [a, b] = p.batches.flat();
+  assert.deepEqual(a.values, { Gift_Amount: "1100.5", Gift_Date: "2026-01-05T00:00:00", Record_Type: "Gift" });
+  assert.deepEqual(b.expected, { Gift_Amount: "100", Gift_Date: "2026-01-06T00:00:00", Record_Type: "Gift" }, "expected kept exactly");
+  assert.deepEqual(b.values, { Record_Type: "Pledge" }, "100.00 canonicalizes to 100 == expected, so only the real change is sent");
+  // a non-canonical expected snapshot is never normalized: it is refused by the backend-equivalent contract
+  await assert.rejects(plan({ csv, decisions: [{ o: 0, d: "held" }, { o: 1, d: "correct", giftId: UUID1, expected: { Gift_Amount: "100.0000", Gift_Date: "2026-01-06T00:00:00", Record_Type: "Gift" } }] }), /invalid expected for Gift_Amount/);
+  await assert.rejects(plan({ csv: csv.replace("100.00", "1.00001"), decisions: [{ o: 0, d: "held" }, { o: 1, d: "new" }] }), /decimal places/);
+  await assert.rejects(plan({ csv: csv.replace("1/6/2026", "13/45/2026"), decisions: [{ o: 0, d: "held" }, { o: 1, d: "new" }] }), /date/);
 });
