@@ -108,9 +108,12 @@ function profileContext(client: string, table: string): ProfileContext {
   const rd = resolveDestination(client, table, prep);
   const ac = allocCtx(client);
   const pol = insertPolicyFor(client, table);
-  return { client, table, registryRev: REGISTRY_META.rev, keyCol: rd.key, keyKind: rd.keyKind,
+  // allocator-registered master (reserved first load): the required key is the approved EXTERNAL source ID and CPTID
+  // is assigned by the shared allocator, so the caller may never map it. Server-owned context only.
+  const alloc = ac && ac.masterTable === table ? ac : null;
+  return { client, table, registryRev: REGISTRY_META.rev, keyCol: alloc ? alloc.externalKeyCol : rd.key, keyKind: alloc ? "external" : rd.keyKind, forbidden: alloc ? [rd.key] : [], required: alloc ? [...alloc.identityCols] : [],
     dests: rd.dests.map((d) => ({ col: d.col, ty: d.ty, len: d.len, p: d.p, s: d.s, st: d.st, key: d.col === rd.key ? rd.key : "" })),
-    preparedDigest: prep ? preparedDigestOf(prep, table) : null, allocatorDigest: ac && ac.masterTable === table ? ac.allocatorDigest : null, insertPolicyDigest: pol ? insertPolicyDigest(pol) : null };
+    preparedDigest: prep ? preparedDigestOf(prep, table) : null, allocatorDigest: alloc ? alloc.allocatorDigest : null, insertPolicyDigest: pol ? insertPolicyDigest(pol) : null };
 }
 /** Work-bounded batch size for a job, derived from the (untrusted) manifest mapping; verifyJobChunk then requires equality. */
 function jobRowsFor(client: string, dests: ReturnType<typeof registryDests>, manifest: unknown) {

@@ -100,3 +100,45 @@ test("10b899e review regressions: reserved header names, oversize build, string-
   const out = checkProfile(JSON.stringify(p), ctx0(), H);
   assert.equal(Object.getPrototypeOf(out.mapping), null);
 });
+
+test("actual route: prepared client and allocator-registered master (fictional, test hooks only)", async () => {
+  const { __setPreparedForTests } = await import("../lib/portal-v2/source-reconcile");
+  const { __setAllocatorsForTests } = await import("../lib/portal-v2/source-allocator");
+  const PREP = { approvalId: "review-2026-11-03-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03",
+    tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Source_ID", ty: "nvarchar", len: 200, required: true }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
+  const CFG = { approvalId: "alloc-fictional", approvalVersion: 1, client: "fictional_x", masterTable: "master", sourceSystem: "fictional_crm", forbiddenFrom: 900000, externalKeyCol: "Source_ID", identityCols: ["Source_ID", "Account_Name"] };
+  globalThis.fetch = (async () => { throw new Error("no network in this test"); }) as unknown as typeof fetch;
+  const { POST } = await import("../app/api/research-source-import/route");
+  const post = async (body: Record<string, unknown>) => { const r = await POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST",
+    headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` }, body: JSON.stringify(body) })); return { status: r.status, j: await r.json() }; };
+  const hs = ["Source ID", "Name", "City"]; const base = { op: "mappingProfile", client: "fictional_x", table: "master", headers: hs };
+  try {
+    // prepared, no allocator: CPTID is the key
+    __setPreparedForTests([PREP]); __setAllocatorsForTests(null);
+    let r = await post({ ...base, action: "build", mapping: { "Source ID": "Source_ID", Name: "Account_Name" } });
+    assert.equal(r.status, 400); assert.match(r.j.error, /key CPTID/);
+    r = await post({ ...base, action: "build", mapping: { "Source ID": "CPTID", Name: "Account_Name" } });
+    assert.equal(r.status, 200); assert.equal(r.j.profile.keyCol, "CPTID"); assert.match(r.j.profile.ctx.prepared, /^[a-f0-9]{64}$/); assert.equal(r.j.profile.ctx.allocator, null);
+    const prepProfile = JSON.stringify(r.j.profile);
+    // allocator registered: external source ID is the key, CPTID forbidden
+    __setAllocatorsForTests([CFG]);
+    const MAPA = { "Source ID": "Source_ID", Name: "Account_Name", City: "City" };
+    r = await post({ ...base, action: "build", mapping: MAPA });
+    assert.equal(r.status, 200, JSON.stringify(r.j)); assert.equal(r.j.profile.keyCol, "Source_ID"); assert.equal(r.j.profile.keyKind, "external"); assert.match(r.j.profile.ctx.allocator, /^[a-f0-9]{64}$/);
+    const allocProfile = JSON.stringify(r.j.profile);
+    r = await post({ ...base, action: "build", mapping: { ...MAPA, City: "CPTID" } });
+    assert.equal(r.status, 400); assert.match(r.j.error, /CPTID cannot be mapped: it is assigned by the server/);
+    r = await post({ ...base, action: "build", mapping: { "Source ID": "Source_ID", City: "City" } });
+    assert.equal(r.status, 400); assert.match(r.j.error, /required field: Account_Name/);
+    r = await post({ ...base, action: "check", profile: allocProfile });
+    assert.equal(r.status, 200); assert.deepEqual(r.j.mapping, MAPA);
+    r = await post({ ...base, action: "check", profile: prepProfile });
+    assert.equal(r.status, 400); assert.match(r.j.error, /out of date \(key, allocator registration changed\)/);
+    __setAllocatorsForTests([{ ...CFG, approvalVersion: 2 }]);
+    r = await post({ ...base, action: "check", profile: allocProfile });
+    assert.equal(r.status, 400); assert.match(r.j.error, /allocator registration/);
+    __setAllocatorsForTests([{ ...CFG, externalKeyCol: "Account_Name", identityCols: ["Account_Name"] }]);
+    r = await post({ ...base, action: "check", profile: allocProfile });
+    assert.equal(r.status, 400); assert.match(r.j.error, /key/);
+  } finally { __setAllocatorsForTests(null); __setPreparedForTests(null); }
+});

@@ -22,6 +22,10 @@ export type ProfileContext = {
   client: string; table: string; registryRev: string; keyCol: string; keyKind: string;
   dests: readonly ProfileDest[];
   preparedDigest: string | null; allocatorDigest: string | null; insertPolicyDigest: string | null;
+  /** server-owned columns the caller must never map (allocator first load: the CPTID key is assigned by the allocator) */
+  forbidden?: readonly string[];
+  /** server-owned columns that must be mapped (allocator first load: the approved identity columns) */
+  required?: readonly string[];
 };
 export type MappingProfile = {
   kind: string; v: number; client: string; table: string; registryRev: string; keyCol: string; keyKind: string;
@@ -62,6 +66,7 @@ function checkMapping(ctx: ProfileContext, headers: string[], pairs: [string, st
     if (d === "") continue;
     const dest = ctx.dests.find((x) => x.col === d);
     if (!dest) throw new SourceError(`Unknown destination field: ${d}`);
+    if (ctx.forbidden?.includes(d)) throw new SourceError(`${d} cannot be mapped: it is assigned by the server for this table`);
     if (dest.st === "unsupported" || dest.st === "nonwritable") throw new SourceError(`${d} cannot be mapped (${dest.st})`);
     if (dest.st !== "candidate" && dest.st !== "held") throw new SourceError(`${d} has an unknown state`);
     if (seenD.has(d)) throw new SourceError(`Destination mapped twice: ${d}`); seenD.add(d);
@@ -69,6 +74,8 @@ function checkMapping(ctx: ProfileContext, headers: string[], pairs: [string, st
     out.push([h, d]);
   }
   if (!ctx.keyCol || !seenD.has(ctx.keyCol)) throw new SourceError(`Map a column to the key ${ctx.keyCol || "(none: table has no verified key)"}`);
+  const missingReq = (ctx.required ?? []).filter((c) => !seenD.has(c));
+  if (missingReq.length) throw new SourceError(`Map a column to each required field: ${missingReq.join(", ")}`);
   out.sort((a, b) => headers.indexOf(a[0]) - headers.indexOf(b[0]));
   return { pairs: out, held };
 }
