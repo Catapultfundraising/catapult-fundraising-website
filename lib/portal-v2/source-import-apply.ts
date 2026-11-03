@@ -14,7 +14,7 @@ const secretOk = (env: Env) => (env.PORTAL_WRITE_SECRET ?? "").length >= 24;
 export const sourcePreviewConfigured = (env: Env = process.env) => env.SOURCE_IMPORT_PREVIEW === "enabled" && !!url(env) && secretOk(env);
 export const sourceApplyConfigured = (env: Env = process.env, transportApproved: boolean = SOURCE_TRANSPORT_APPROVED) => transportApproved && env.SOURCE_IMPORT_APPLY === "enabled" && sourcePreviewConfigured(env);
 
-export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: Key[]; current: { key: Key; person?: number | null; link?: string | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: Key; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[]; insertPolicyDigest?: string | null; sourceLinks?: { key: Key; link: string; person: number | null; inMaster: boolean }[] }
+export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: Key[]; current: { key: Key; person?: number | null; link?: string | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: Key; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[]; insertPolicyDigest?: string | null; sourceLinks?: { key: Key; link: string; person: number | null; inMaster: boolean }[]; baselineKeys?: Key[] }
 /** Engage preview state -> reconciliation inputs. Only source-provenance baseline rows count; unreadable values are omitted (=> held). */
 export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf" | "sourceLink"> {
   if (s.registryRev !== REGISTRY_META.rev) throw new SourceError("Engage registry revision differs from this website; deploy both together");
@@ -30,6 +30,9 @@ export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "cu
   for (const b of s.baseline) baseline.set(b.key, { ...(baseline.get(b.key) ?? {}), [b.col]: b.value });
   const overlays = [...s.overlayKeys.map((key) => ({ key, col: "portal_updates", provenance: "unknown" as const })), ...s.prospectKeys.map((key) => ({ key, col: null, provenance: "unknown" as const }))];
   for (const k of heldKeys.keys()) current.delete(k);
+  // any baseline row (any provenance) for an ID absent from the destination: never a new insertable record
+  if ((s.sourceLinks ?? []).length && !Array.isArray(s.baselineKeys)) throw new SourceError("Engage did not report baseline existence; deploy both together");
+  for (const k of s.baselineKeys ?? []) if (!current.has(k) && !heldKeys.has(k)) heldKeys.set(k, "ID already has a baseline row (any provenance) but no destination row; not added as new");
   const sourceLink = new Map<Key, { link: string; person: number | null; inMaster: boolean }>();
   for (const x of s.sourceLinks ?? []) {
     if (sourceLink.has(x.key)) throw new SourceError("Engage reported a source link twice");

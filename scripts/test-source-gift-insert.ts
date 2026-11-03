@@ -45,7 +45,7 @@ test("approved policy: verified new gift becomes an insert carrying person; Type
 });
 
 test("livePreview: Engage policy digest must match; token binds insertPolicyDigest; no policy => no insert token", () => {
-  const st: EngageState = { registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [], insertPolicyDigest: insertPolicyDigest(WC), sourceLinks: [{ key: 9001, link: "7001", person: 7001, inMaster: true }] };
+  const st: EngageState = { registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [], insertPolicyDigest: insertPolicyDigest(WC), sourceLinks: [{ key: 9001, link: "7001", person: 7001, inMaster: true }], baselineKeys: [] };
   const meta = { fileName: "fictional.csv", csv: "x", fileDate: null, secret: "s".repeat(32), now: 1_800_000_000_000 };
   const b = { client: "wcbhc", table: "giving_history", mode: "update" as const, mapping, rows: [row("9001", "7001")], headers: Object.keys(mapping) };
   const lp = livePreview(b, st, { ...meta, policies: [WC] });
@@ -74,4 +74,14 @@ test("work-bounded batches: rows per batch from columns written; budget math; 50
   assert.equal(v.rows.length, 50_000 - last * BR);
   await assert.rejects(verifyJobChunk(sha, manifest, jobId, 0, rows.slice(0, BR), { ...exp, batchRows: 500 }), /sizes are inconsistent/);
   await assert.rejects(buildJobManifest(sha, { client: "pvas", table: "t", keyCol: "ID", mapping: { ID: "ID" }, headers: ["ID"], rows, fileName: "f.csv", fileDate: null, actor: "Pat", registryRev: "r", batchRows: 20 }), /more than 2000 batches/);
+});
+
+test("baseline existence of ANY provenance (no destination row) holds the new key; missing baselineKeys fails closed", () => {
+  const st: EngageState = { registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [], insertPolicyDigest: insertPolicyDigest(WC), sourceLinks: [{ key: 9001, link: "7001", person: 7001, inMaster: true }], baselineKeys: [9001] };
+  const meta = { fileName: "fictional.csv", csv: "x", fileDate: null, secret: "s".repeat(32), now: 1_800_000_000_000, policies: [WC] };
+  const b = { client: "wcbhc", table: "giving_history", mode: "update" as const, mapping, rows: [row("9001", "7001")], headers: Object.keys(mapping) };
+  const lp = livePreview(b, st, meta);
+  assert.equal(lp.token, null); assert.equal(lp.result.rows[0].outcome, "held"); assert.match(lp.result.rows[0].reason ?? "", /baseline row/);
+  const { baselineKeys: _omit, ...noBk } = st; void _omit;
+  assert.throws(() => livePreview(b, noBk as EngageState, meta), /baseline existence/);
 });
