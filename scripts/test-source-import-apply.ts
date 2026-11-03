@@ -5,9 +5,9 @@ import { REGISTRY_META, SOURCE_FIELDS } from "../lib/portal-v2/source-registry";
 import { applyRequestBody, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, stateToInputs, verifySourceToken, type EngageState } from "../lib/portal-v2/source-import-apply";
 
 const SECRET = "x".repeat(32);
-const COL = SOURCE_FIELDS.find((f) => f.c === "pvas" && f.t === "donorsearch_results" && f.st === "candidate" && f.ty === "nvarchar")!.col;
+const COL = "Quality_Score";
 const ENV = { SOURCE_IMPORT_PREVIEW: "enabled", SOURCE_IMPORT_APPLY: "enabled", ENGAGE_SOURCE_IMPORT_URL: "https://engage.invalid/api/source-import", PORTAL_WRITE_SECRET: SECRET };
-const state = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, current: [{ key: 101, values: { [COL]: "A" }, unreadable: [] }], baseline: [{ key: 101, col: COL, value: "A" }], overlayKeys: [], prospectKeys: [], ...over });
+const state = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, duplicateKeys: [], current: [{ key: 101, values: { [COL]: "A" }, unreadable: [] }], baseline: [{ key: 101, col: COL, value: "A" }], overlayKeys: [], prospectKeys: [], ...over });
 const base = { client: "pvas", table: "donorsearch_results", mode: "update" as const, mapping: { ID: "CPTID", Q: COL }, rows: [{ ID: "101", Q: "B" }] };
 const meta = { fileName: "f.csv", csv: "ID,Q\n101,B\n", fileDate: "2026-11-01", secret: SECRET, now: 1000 };
 
@@ -51,4 +51,24 @@ test("lost response handling: network error / 5xx / unreadable -> unconfirmed wi
   const d = await postToEngage(f(async () => Response.json({ code: "disabled" }, { status: 503 })), ENV, {}, rid);
   assert.equal(d.ok, false); assert.equal((d as { unconfirmed: boolean }).unconfirmed, false);
   let calls = 0; await postToEngage(f(async () => { calls++; throw new Error("x"); }), ENV, {}, rid); assert.equal(calls, 1, "no automatic retry");
+});
+
+test("duplicate/twice-reported destination keys are held, never collapsed", () => {
+  const lp = livePreview(base, state({ duplicateKeys: [101], current: [] }), meta);
+  assert.equal(lp.result.rows[0].outcome, "held"); assert.match(lp.result.rows[0].reason!, /more than one row/);
+  const lp2 = livePreview(base, state({ current: [{ key: 101, values: { [COL]: "A" }, unreadable: [] }, { key: 101, values: { [COL]: "Z" }, unreadable: [] }] }), meta);
+  assert.equal(lp2.result.rows[0].outcome, "held"); assert.equal(lp2.token, null);
+  assert.throws(() => stateToInputs({ ...state(), duplicateKeys: undefined } as unknown as EngageState), /malformed/);
+});
+test("token binds file name/date and prepared approval; expired token still forwards for idempotent replay", () => {
+  const lp = livePreview(base, state(), { ...meta, fileName: "export Oct.csv", fileDate: null });
+  const v = verifySourceToken(lp.token, SECRET, 2000);
+  assert.equal(v.payload.fileName, "export Oct.csv"); assert.equal(v.payload.fileDate, null); assert.equal(v.payload.preparedApproval, null);
+  const late = applyRequestBody(lp.token, "Pat", SECRET, 1000 + 16 * 60_000);
+  assert.equal(late.request.requestId, lp.requestId);
+  assert.deepEqual(Object.keys(late.request).sort(), ["actor", "client", "fileDate", "fileDigest", "fileName", "mode", "ops", "preparedApproval", "previewExp", "previewHash", "registryRev", "requestId", "table"]);
+});
+test("source additions: registry-approved table inserts, held tables do not get a token", () => {
+  const add = livePreview({ ...base, rows: [{ ID: "202", Q: "N" }] }, state({ current: [], baseline: [] }), meta);
+  assert.equal(add.result.rows[0].outcome, "insert"); assert.ok(add.token);
 });

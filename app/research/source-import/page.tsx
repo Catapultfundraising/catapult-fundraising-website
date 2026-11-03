@@ -5,7 +5,6 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 
 // Staff-only source CSV reconciliation preview. Read-only: there is no save button because raw source writes are OFF.
-const CLIENTS = ["pvas", "csnf", "jag", "wcbhc", "baq"] as const;
 type Dest = { col: string; ty: string; st: string; why: string; key: string };
 type Field = { col: string; outcome: string; latest: string | null; baseline: string | null; current: string | null; reason?: string };
 type Result = { columns: { header: string; col: string | null; state: string; reason: string }[]; rows: { line: number; key: number | null; outcome: string; reason?: string; fields: Field[] }[]; notInSource: number[]; counts: Record<string, number>; registry: { builder_commit: string; sql_metadata_checked_at: string } };
@@ -29,6 +28,8 @@ export default function SourceImportPage() {
   const [table, setTable] = useState("");
   const [dests, setDests] = useState<Dest[]>([]);
   const [csv, setCsv] = useState(""); const [headers, setHeaders] = useState<string[]>([]);
+  const [clients, setClients] = useState<string[]>([]);
+  const [fileName, setFileName] = useState(""); const [fileDate, setFileDate] = useState(""); // blank = unknown, never today
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [result, setResult] = useState<Result | null>(null);
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
@@ -39,27 +40,27 @@ export default function SourceImportPage() {
   const seq = useRef(0);
   const guard = <T,>(p: Promise<T>) => { const n = ++seq.current; return p.then((v) => { if (n !== seq.current) throw new Error("stale"); return v; }); };
   const onErr = (e: Error) => { if (e.message !== "stale") setErr(e.message); };
-  useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); }, []);
+  useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => setClients(j.clients ?? [])).catch((e) => setErr(e.message)); }, []);
   const reset = () => { setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
-  const clearFile = () => { setCsv(""); setHeaders([]); setMapping({}); };
+  const clearFile = () => { setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
   useEffect(() => { setTables([]); setTable(""); setDests([]); clearFile(); reset(); if (client) guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => { setDests([]); clearFile(); reset(); if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr); }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
-  const useCsv = (t: string, preset?: Record<string, string>) => {
-    reset(); clearFile(); setCsv(t);
+  const useCsv = (t: string, name: string, preset?: Record<string, string>) => {
+    reset(); clearFile(); setCsv(t); setFileName(name);
     guard(call({ op: "inspect", client, table, csv: t })).then((j: { headers: string[] }) => {
       setHeaders(j.headers);
       setMapping(preset ?? Object.fromEntries(j.headers.map((x) => [x, dests.find((d) => d.col.toLowerCase() === x.trim().replace(/\W+/g, "_").toLowerCase())?.col ?? ""])));
     }).catch(onErr);
   };
-  const onFile = async (f: File | undefined) => { reset(); clearFile(); if (f) useCsv(await f.text()); };
-  const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); useCsv(t, Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); };
-  const preview = () => { setBusy(true); reset(); guard(call({ op: "preview", client, table, csv, mapping, demo })).then((j) => { setResult(j.result); setToken(j.token ?? null); setRequestId(j.requestId ?? ""); setApplyAvailable(j.applyAvailable === true); }).catch(onErr).finally(() => setBusy(false)); };
+  const onFile = async (f: File | undefined) => { reset(); clearFile(); if (f) useCsv(await f.text(), f.name); };
+  const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); useCsv(t, "fictional-demo.csv", Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); };
+  const preview = () => { setBusy(true); reset(); guard(call({ op: "preview", client, table, csv, mapping, demo, fileName, fileDate: fileDate || null })).then((j) => { setResult(j.result); setToken(j.token ?? null); setRequestId(j.requestId ?? ""); setApplyAvailable(j.applyAvailable === true); }).catch(onErr).finally(() => setBusy(false)); };
   // Apply (hidden unless the server reports it configured). One request, never retried automatically; lost reply => Check status.
   const save = () => { setBusy(true); setSaveMsg(""); call({ op: "apply", client, table, token, actor }).then((j) => {
       if (j.unconfirmed) { setUnconfirmed(true); setSaveMsg("Save not confirmed. Use Check status; do not upload again."); }
       else { setToken(null); setSaveMsg(j.replayed ? "Already saved earlier (same request)." : `Saved ${j.records} records (${j.values} values).`); }
     }).catch((e) => { setUnconfirmed(true); setSaveMsg(`Save not confirmed (${(e as Error).message}). Use Check status; do not upload again.`); }).finally(() => setBusy(false)); };
-  const checkStatus = () => { call({ op: "status", client, table, requestId }).then((j) => { setUnconfirmed(!j.found); setSaveMsg(j.found ? "Saved: this request committed." : "Not saved under this request. Preview again before saving."); if (j.found) setToken(null); }).catch((e) => setSaveMsg(`Status unavailable (${(e as Error).message}); try again.`)); };
+  const checkStatus = () => { call({ op: "status", client, table, requestId }).then((j) => { setUnconfirmed(!j.found); if (j.found) { setToken(null); setSaveMsg("Saved: this request committed."); } else setSaveMsg("Still unconfirmed: Engage has no committed record of this request yet (it may still be in progress). Check again shortly; do not upload again."); }).catch((e) => setSaveMsg(`Status unavailable (${(e as Error).message}); try again.`)); };
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">
@@ -67,9 +68,11 @@ export default function SourceImportPage() {
       <h1 className="mt-3 font-display text-3xl text-[rgb(var(--navy))]">Source file reconciliation</h1>
       <p className="mt-2 max-w-3xl text-sm text-[rgb(var(--ink))]/70">Preview only. Compares a source export with the last loaded baseline and the current dashboard data. Portal edits and records are protected; anything without a known baseline or verified key is held. Saving source data is turned off.{demo && " Showing fictional demo data."}</p>
       <section className={`${card} mt-6 grid gap-4 sm:grid-cols-3`}>
-        <label className="block"><span className={label}>Client</span><select className={input} value={client} onChange={(e) => setClient(e.target.value)}><option value="">Choose…</option>{CLIENTS.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}</select></label>
+        <label className="block"><span className={label}>Client</span><select className={input} value={client} onChange={(e) => setClient(e.target.value)}><option value="">Choose…</option>{clients.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}</select></label>
         <label className="block"><span className={label}>Dashboard table</span><select className={input} value={table} disabled={!tables.length} onChange={(e) => setTable(e.target.value)}><option value="">Choose…</option>{tables.map((t) => <option key={t.table} value={t.table}>{t.table} ({t.candidate ? `${t.candidate} reviewable fields` : "all held"})</option>)}</select></label>
         <label className="block"><span className={label}>CSV file</span><input key={`${client}/${table}`} type="file" accept=".csv,text/csv" className={input} disabled={!table} onChange={(e) => onFile(e.target.files?.[0])} /></label>
+        <label className="block"><span className={label}>Source export date</span><input type="date" className={input} value={fileDate} onChange={(e) => { setFileDate(e.target.value); reset(); }} /><span className="mt-1 block text-xs text-[rgb(var(--ink))]/50">Leave blank if unknown; it is recorded as unknown, never today.</span></label>
+        {fileName && <p className="text-xs text-[rgb(var(--ink))]/60 sm:col-span-2">File: {fileName}</p>}
         {demo && table && <button type="button" className="text-left text-sm font-semibold text-[rgb(var(--brass))] underline" onClick={loadDemo}>Load fictional demo file</button>}
       </section>
       {headers.length > 0 && (
@@ -96,7 +99,7 @@ export default function SourceImportPage() {
               <label className="block text-sm"><span className={label}>Your name</span><input className={input} value={actor} onChange={(e) => setActor(e.target.value)} placeholder="Recorded as author (shared login)" /></label>
               <button type="button" className={navyBtn} disabled={busy || !actor.trim() || unconfirmed} onClick={save}>Save {result.counts.applyValues} values</button>
             </div>)}
-          {(saveMsg || unconfirmed) && <p role="status" className="mt-3 text-sm text-[rgb(var(--navy))]">{saveMsg} {unconfirmed && requestId && <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={checkStatus}>Check status</button>}</p>}
+          {(saveMsg || unconfirmed) && <p role="status" className="mt-3 text-sm text-[rgb(var(--navy))]">{saveMsg} {unconfirmed && requestId && <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={checkStatus}>Check status</button>} {unconfirmed && token && <button type="button" className="ml-2 font-semibold text-[rgb(var(--brass))] underline" disabled={busy} onClick={save}>Send the same request again (safe: never saves twice)</button>}</p>}
           <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Registry from builder commit {result.registry.builder_commit.slice(0, 7)}, SQL metadata {result.registry.sql_metadata_checked_at.slice(0, 10)}. Historical evidence, not live acceptance.</p>
         </section>)}
     </main>

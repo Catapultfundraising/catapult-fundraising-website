@@ -4,7 +4,7 @@
 // acceptance. The registry is provisional (lexical builder references, historical metadata; see REGISTRY_META).
 // No SQL is built from user text: destination identity (schema/table/key/client) comes only from one resolved
 // server registration (registry or approved prepared client); columns only from that registration.
-import { REGISTRY_META, SOURCE_FIELDS, type SourceField } from "./source-registry";
+import { ADDITIONS_OK, REGISTRY_META, SOURCE_FIELDS, type SourceField } from "./source-registry";
 
 export class SourceError extends Error {}
 const IDENT = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
@@ -16,8 +16,9 @@ const REGISTRY_CLIENTS = [...new Set(SOURCE_FIELDS.map((f) => f.c))];
 
 // ---------- destinations ----------
 export type Dest = { col: string; ty: string; len: number | null; p: number | null; s: number | null; st: SourceField["st"]; why: string };
-export interface PreparedTable { table: string; key: string; columns: { col: string; ty: string; len?: number | null; p?: number | null; s?: number | null }[] }
-export interface PreparedClient { client: string; schema: string; registryVersion: number; approvedBy: string; approvedAt: string; tables: PreparedTable[] }
+export interface PreparedTable { table: string; key: string; columns: { col: string; ty: string; len?: number | null; p?: number | null; s?: number | null; required?: boolean }[] }
+/** approvalId must equal the Engage copy of the same reviewed registration (PreparedDest.approvalId). */
+export interface PreparedClient { approvalId: string; client: string; schema: string; registryVersion: number; approvedBy: string; approvedAt: string; tables: PreparedTable[] }
 /** Approved prepared (already provisioned, reviewed) new-client destinations. Empty until a review lands. Never browser input. */
 export const APPROVED_PREPARED: readonly PreparedClient[] = Object.freeze([]);
 const TYPES = new Set(["nvarchar", "varchar", "int", "bigint", "float", "decimal", "numeric", "bit", "date", "datetime2"]);
@@ -32,6 +33,7 @@ export function validatePrepared(p: PreparedClient): PreparedClient {
   const reserved = ["engage", "dbo", "sys", "information_schema", "source_import", "guest", ...REGISTRY_CLIENTS];
   if (reserved.includes(p.schema.toLowerCase()) || REGISTRY_CLIENTS.includes(p.client.toLowerCase())) errs.push("schema/client is reserved or already belongs to an existing client");
   if (p.registryVersion !== REGISTRY_META.version) errs.push("registry version mismatch");
+  if (!/^[A-Za-z0-9._-]{8,80}$/.test(p.approvalId || "")) errs.push("approval id required");
   if (!p.approvedBy?.trim() || !p.approvedAt?.trim()) errs.push("approval record required");
   if (!p.tables?.length) errs.push("no tables");
   const seenT = new Set<string>();
@@ -158,6 +160,8 @@ export interface ReconInput {
   client: string; table: string;
   mode: "update" | "first-load";
   mapping: Record<string, string>;
+  headers?: string[]; // every CSV header; unmapped ones are reported as ignored
+  heldKeys?: Map<number, string>; // keys the destination could not report unambiguously (duplicates, unreadable rows)
   rows: Record<string, string>[];
   baseline: Map<number, Record<string, string | null>> | null; // last loaded source export, or null when unknown
   current: Map<number, Record<string, string | null>>;
@@ -179,7 +183,6 @@ const has = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwn
 export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] = APPROVED_PREPARED): ReconResult {
   const { client, table, mode } = inp;
   if (mode === "first-load" && !inp.prepared) throw new SourceError("first load requires an approved prepared destination");
-  if (mode === "update" && inp.prepared) throw new SourceError("prepared destinations support first load only");
   const dest = resolveDestination(client, table, inp.prepared, approved);
   if (mode === "first-load" && (inp.current.size > 0 || inp.baseline !== null || inp.overlays.length)) throw new SourceError("first load requires an empty prepared destination; refusing to overwrite");
   if (inp.rows.length > SOURCE_MAX_ROWS) throw new SourceError(`at most ${SOURCE_MAX_ROWS} rows`);
@@ -200,10 +203,13 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
     columns.push({ header, col, state: d.st, reason: d.why });
     if (d.st === "candidate") writable.push({ d, header });
   }
+  for (const h of inp.headers ?? []) if (!Object.prototype.hasOwnProperty.call(inp.mapping, h)) columns.push({ header: h, col: null, state: "ignored", reason: "not mapped" });
   if (!keyHeader) throw new SourceError(`map a column to the key ${keyCol}`);
   const heldCols = columns.filter((c) => ["held", "nonwritable", "unsupported"].includes(c.state));
   const baselineKnown = inp.baseline !== null;
-  const additionsHeld = dest.dests.some((d) => /additions held/.test(d.why));
+  const additionsHeld = dest.source === "registry" && !ADDITIONS_OK.includes(`${client}.${table}`);
+  const requiredMissing = dest.source === "prepared" ? (inp.prepared!.tables.find((t) => t.table === table)!.columns.filter((c) => c.required && c.col !== keyCol && !writable.some((w) => w.d.col === c.col)).map((c) => c.col)) : [];
+  if (mode === "first-load" && requiredMissing.length) throw new SourceError(`map required columns: ${requiredMissing.join(", ")}`);
   const keyCount = new Map<number, number>();
   for (const r of inp.rows) { const k = parseKey(r[keyHeader]); if (k !== null) keyCount.set(k, (keyCount.get(k) ?? 0) + 1); }
 
@@ -218,6 +224,7 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
     const norm = writable.map(({ d, header }) => ({ d, ...normalize(d, r[header]) }));
     if (norm.some((n) => n.err)) { for (const n of norm) if (n.err) fields.push({ col: n.d.col, outcome: "invalid", latest: null, baseline: null, current: null, reason: n.err }); return push({ line, key, outcome: "invalid", reason: "invalid values", fields }); }
     const marks = inp.overlays.filter((o) => o.key === key);
+    const hk = inp.heldKeys?.get(key); if (hk) return push({ line, key, outcome: "held", reason: hk, fields });
     const cur = inp.current.get(key); const base = inp.baseline?.get(key);
 
     if (!cur) {
@@ -230,6 +237,9 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
       for (const n of norm) fields.push({ col: n.d.col, outcome: n.v === null ? "blank" : "apply", latest: n.v, baseline: null, current: null });
       const nv = norm.filter((n) => n.v !== null).length;
       if (!nv) return push({ line, key, outcome: "held", reason: "no values to insert", fields });
+      const reqCols = dest.source === "prepared" ? inp.prepared!.tables.find((t) => t.table === table)!.columns.filter((c) => c.required && c.col !== keyCol).map((c) => c.col) : [];
+      const blankReq = reqCols.filter((c) => !norm.some((n) => n.d.col === c && n.v !== null));
+      if (blankReq.length) { return push({ line, key, outcome: "invalid", reason: `required value missing: ${blankReq.join(", ")}`, fields }); }
       counts.applyValues += nv;
       return push({ line, key, outcome: "insert", fields });
     }

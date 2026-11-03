@@ -7,7 +7,8 @@ import {
   sourceApplyEnabled, validateHeadersAndMapping, rowsFromGrid, SourceError, type PreparedClient, type SqlTx, type ReconInput, type ResolvedDest,
 } from "../lib/portal-v2/source-reconcile";
 
-const cand = SOURCE_FIELDS.filter((f) => f.c === "pvas" && f.t === "donorsearch_results" && f.st === "candidate" && f.col !== "CPTID" && f.ty === "nvarchar");
+const cand = SOURCE_FIELDS.filter((f) => f.c === "pvas" && f.t === "donorsearch_results" && f.st === "candidate" && ["Quality_Score", "RFM_Total"].includes(f.col));
+assert.equal(cand.length, 2);
 const C1 = cand[0].col, C2 = cand[1].col;
 const base = (over: Partial<ReconInput> = {}): ReconInput => ({
   client: "pvas", table: "donorsearch_results", mode: "update",
@@ -20,7 +21,7 @@ const base = (over: Partial<ReconInput> = {}): ReconInput => ({
 const txt = { ty: "nvarchar", len: -1, p: null, s: null };
 
 test("registry is fail-closed and bound to provenance", () => {
-  assert.equal(REGISTRY_META.version, 2);
+  assert.equal(REGISTRY_META.version, 3);
   assert.match(REGISTRY_META.builder_commit, /^[0-9a-f]{40}$/);
   assert.ok(!SOURCE_FIELDS.some((f) => f.col === "row_id"));
   assert.ok(SOURCE_FIELDS.filter((f) => f.t === "Duplciate_Records").every((f) => f.st === "nonwritable"));
@@ -58,12 +59,13 @@ test("additions colliding with portal record -> held, not renumbered", () => {
   assert.equal(r.rows[0].outcome, "held"); assert.match(r.rows[0].reason!, /not renumbered/);
 });
 test("BAQ master additions held; held/unsupported columns reported not dropped", () => {
-  const m = SOURCE_FIELDS.find((f) => f.c === "baq" && f.t === "master" && f.st === "held")!;
+  const m = SOURCE_FIELDS.find((f) => f.c === "baq" && f.t === "master" && f.st !== "candidate")!;
   const ok = SOURCE_FIELDS.find((f) => f.c === "baq" && f.t === "master" && f.st === "candidate" && f.col !== "CPTID")!;
   const r = reconcile({ client: "baq", table: "master", mode: "update", mapping: { ID: "CPTID", H: m.col, X: "Made_Up", O: ok.col }, rows: [{ ID: "5", H: "v", X: "x", O: "o" }], baseline: new Map(), current: new Map(), overlays: [] });
   assert.equal(r.rows[0].outcome, "held");
   assert.equal(r.columns.find((c) => c.header === "X")!.state, "unsupported");
   assert.ok(r.rows[0].fields.some((f) => f.col === m.col && f.outcome === "held"));
+  assert.equal(r.columns.find((c) => c.header === "H")!.state, m.st);
 });
 test("duplicate keys: every occurrence invalid, zero writes (regression: duplicate file -> 1 write)", () => {
   const r = reconcile(base({ rows: [{ Constituent: "101", A: "x" }, { Constituent: "101", A: "y" }, { Constituent: "abc", A: "z" }] }));
@@ -109,16 +111,15 @@ test("unknown tables and keyless tables refuse; cross-client isolation", () => {
   assert.equal(d.schema, "pvas"); assert.equal(d.client, "pvas");
 });
 
-const prepared: PreparedClient = { client: "fictional_x", schema: "fictional_x", registryVersion: 2, approvedBy: "Reviewer", approvedAt: "2026-11-03", tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200 }] }] };
+const prepared: PreparedClient = { approvalId: "review-2026-11-03-fictional", client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03", tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200 }] }] };
 const first = (over: Partial<ReconInput> = {}): ReconInput => ({ client: "fictional_x", table: "master", mode: "first-load", mapping: { id: "CPTID", n: "Account_Name" }, rows: [{ id: "7", n: "Fictional Org" }], baseline: null, current: new Map(), overlays: [], prepared, ...over });
 test("prepared first load: approval, empty destination, identity match (regression: first-load -> update)", () => {
   assert.throws(() => reconcile(first()), /not approved/);
   assert.equal(reconcile(first(), [prepared]).rows[0].outcome, "insert");
   assert.throws(() => reconcile(first({ current: new Map([[7, { Account_Name: "x" }]]) }), [prepared]), /empty prepared destination/);
-  assert.throws(() => reconcile(first({ mode: "update" }), [prepared]), /first load only/);
   assert.throws(() => reconcile(first({ client: "other_x" }), [prepared]), /different client/);
   assert.throws(() => reconcile({ ...base(), mode: "first-load" }), /prepared destination/);
-  for (const bad of [{ schema: "engage" }, { schema: "baq" }, { client: "pvas" }, { tables: [{ table: "x;drop", key: "CPTID", columns: [] }] }, { approvedBy: "" }, { registryVersion: 1 }])
+  for (const bad of [{ schema: "engage" }, { schema: "baq" }, { client: "pvas" }, { tables: [{ table: "x;drop", key: "CPTID", columns: [] }] }, { approvedBy: "" }, { registryVersion: 1 }, { approvalId: "" }])
     assert.throws(() => validatePrepared({ ...prepared, ...bad } as PreparedClient), SourceError);
 });
 
@@ -171,4 +172,20 @@ test("adapter op shape enforced", () => {
     [{ ...o, values: { CPTID: "5" }, expected: { CPTID: "4" } }], [{ ...o, key: 0 }], [{ ...o, kind: "insert" as const }], [{ ...o, values: { [C1]: " padded " } }],
   ];
   for (const b of bad) assert.throws(() => buildGuardedStatements(d, b), SourceError);
+});
+
+test("every CSV header reported even when omitted from mapping", () => {
+  const r = reconcile(base({ headers: ["Constituent", "A", "B", "Extra"] }));
+  assert.equal(r.columns.find((c) => c.header === "Extra")!.state, "ignored");
+});
+test("[fictional configured] prepared client: first load then later update keeps a manual edit protected", () => {
+  const p2: PreparedClient = { ...prepared, tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
+  const fl = reconcile({ client: "fictional_x", table: "master", mode: "first-load", mapping: { id: "CPTID", n: "Account_Name", c: "City" }, rows: [{ id: "7", n: "Org A", c: "" }, { id: "8", n: "Org B", c: "Springfield" }, { id: "9", n: "", c: "X" }], baseline: null, current: new Map(), overlays: [], prepared: p2 }, [p2]);
+  assert.deepEqual(fl.rows.map((r) => r.outcome), ["insert", "insert", "invalid"]);
+  // after load: baseline == current; staff edited 8 in the portal
+  const cur = new Map([[7, { Account_Name: "Org A", City: null }], [8, { Account_Name: "Org B", City: "Springfield" }]]);
+  const up = reconcile({ client: "fictional_x", table: "master", mode: "update", mapping: { id: "CPTID", c: "City" }, rows: [{ id: "7", c: "Shelbyville" }, { id: "8", c: "Ogdenville" }], baseline: cur, current: cur, overlays: [{ key: 8, col: "contact:city", provenance: "manual" }], prepared: p2 }, [p2]);
+  assert.deepEqual(up.rows.map((r) => r.outcome), ["update", "held"]);
+  assert.deepEqual(planWrites(up), [{ kind: "update", key: 7, values: { City: "Shelbyville" }, expected: { City: null } }]);
+  assert.throws(() => reconcile({ client: "fictional_x", table: "master", mode: "first-load", mapping: { id: "CPTID", c: "City" }, rows: [], baseline: null, current: new Map(), overlays: [], prepared: p2 }, [p2]), /required/);
 });
