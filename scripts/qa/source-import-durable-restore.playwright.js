@@ -10,12 +10,17 @@ const isObj = (v) => !!v && typeof v === "object" && !Array.isArray(v);
 const canon = (x) => (Array.isArray(x) ? x.map(canon) : isObj(x) ? Object.fromEntries(Object.keys(x).sort().map((k) => [k, canon(x[k])])) : x);
 // fictional 606-row original file with a UTF-8 BOM and CRLF; recovery file built like the server does (exact parts)
 const ORIG = Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from("Donor,Amount\r\n" + Array.from({ length: 606 }, (_, i) => `${8000 + i},1`).join("\r\n") + "\r\n")]);
-const ROWS = Array.from({ length: 606 }, (_, i) => ({ ordinal: i, action: "new", person: 8000 + i, values: { Gift_Amount: "1", Record_Type: "Gift é" }, expected: null }));
+// every 10th ordinal held; others mix new / adopt (old expected snapshot) / correct (old expected snapshot + Gift ID)
+const OLD = (i) => ({ Gift_Amount: String(5 + (i % 7)), Record_Type: "Old é" });
+const HELD = Array.from({ length: 606 }, (_, i) => i).filter((i) => i % 10 === 0);
+const ROWS = Array.from({ length: 606 }, (_, i) => i).filter((i) => i % 10 !== 0).map((i) => i % 10 === 1 ? { ordinal: i, action: "adopt", locator: 5000 + i, person: 8000 + i, values: { Gift_Amount: "1" }, expected: OLD(i) }
+  : i % 10 === 2 ? { ordinal: i, action: "correct", giftId: `aaaa${String(i).padStart(4, "0")}-0000-4000-8000-000000000000`, person: 8000 + i, values: { Gift_Amount: "2" }, expected: OLD(i) }
+  : { ordinal: i, action: "new", person: 8000 + i, values: { Gift_Amount: "1", Record_Type: "Gift é" }, expected: null });
 const BR = 29; const PARTS = []; for (let i = 0; i < ROWS.length; i += BR) PARTS.push(ROWS.slice(i, i + BR));
 const HASH = PARTS.map((rows) => sha(JSON.stringify(rows.map((r) => sha(JSON.stringify(canon(r)))))));
 const JOB = "c".repeat(64); const rid = (i) => sha(`${JOB}:${i}`).slice(0, 32);
 const TABLES = {}; // the table the page actually sends for this client (taken from its own context request)
-const header = (client) => ({ v: 1, type: "durable-gift-recovery/v1", client, table: TABLES[client] ?? "", registrationId: "fict_gifts", registrationVersion: 1, registrationDigest: "d".repeat(64), jobId: JOB, manifest: { batches: HASH.map((hash, i) => ({ first: i * BR, last: Math.min(605, i * BR + BR - 1), hash })), decided: ROWS.map((r) => ({ o: r.ordinal })), held: [], totalOrdinals: 606, batchCount: PARTS.length, batchRows: BR }, mapping: { Donor: "@person", Amount: "Gift_Amount" }, mappingDigest: "e".repeat(64), fileDigest: sha(ORIG), fileName: "fictional-606.csv", fileDate: null, actor: "Pat Example", batchRows: BR, batchCount: PARTS.length, partHashes: HASH, createdAt: 1 });
+const header = (client) => ({ v: 1, type: "durable-gift-recovery/v1", client, table: TABLES[client] ?? "", registrationId: "fict_gifts", registrationVersion: 1, registrationDigest: "d".repeat(64), jobId: JOB, manifest: { batches: HASH.map((hash, i) => ({ first: i * BR, last: Math.min(605, i * BR + BR - 1), hash })), decided: ROWS.map((r) => ({ o: r.ordinal })), held: HELD, totalOrdinals: 606, batchCount: PARTS.length, batchRows: BR }, mapping: { Donor: "@person", Amount: "Gift_Amount" }, mappingDigest: "e".repeat(64), fileDigest: sha(ORIG), fileName: "fictional-606.csv", fileDate: null, actor: "Pat Example", batchRows: BR, batchCount: PARTS.length, partHashes: HASH, createdAt: 1 });
 const FILE = (client = "jag") => ({ header: header(client), headerMac: "A".repeat(43), jobToken: "old.tok", parts: PARTS.map((rows, index) => ({ index, rows })) });
 const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "application/json", buffer: Buffer.from(JSON.stringify(o)) });
 (async () => {
@@ -53,9 +58,10 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
         if (k === "unavailable") return J({ confirmed: false, state: "unavailable", requestId: rid(bd.batchIndex) }, 502);
         return J({ confirmed: false, state: "pending", requestId: rid(bd.batchIndex) }); }
       if (bd.op === "durableGiftCommit") { commitN++; const i = bd.batchIndex; const rows = PARTS[i];
-        return J({ committed: true, requestId: rid(i), outcome: { requestId: rid(i), client: "jag", registrationId: "fict_gifts", committed: true, counts: { new: rows.length, adopt: 0, correct: 0 }, rows: rows.map((r, k) => ({ ordinal: r.ordinal, action: "new", giftId: `${String(i).padStart(4, "0")}${String(k).padStart(4, "0")}-0000-4000-8000-000000000000`, locator: 1000 + r.ordinal })) } }); }
+        return J({ committed: true, requestId: rid(i), outcome: { requestId: rid(i), client: "jag", registrationId: "fict_gifts", committed: true, counts: { new: rows.filter((r) => r.action === "new").length, adopt: rows.filter((r) => r.action === "adopt").length, correct: rows.filter((r) => r.action === "correct").length }, rows: rows.map((r, k) => ({ ordinal: r.ordinal, action: r.action, giftId: r.giftId ?? `${String(i).padStart(4, "0")}${String(k).padStart(4, "0")}-0000-4000-8000-000000000000`, locator: r.locator ?? 1000 + r.ordinal })) } }); }
+      if (bd.op === "durableGiftPreview") return J({ rows: [], giftOverridesActive: true }); // "changed live" data: restore must never consult it
       if (bd.op === "durableGiftJobLookup") return J({ jobId: bd.jobId, client: bd.client, confirmed: true, state: "partial", batchCount: PARTS.length, committedBatches: [1], missingBatches: Array.from({ length: PARTS.length }, (_, i) => i).filter((i) => i !== 1), heldRows: 0, decidedRows: 606, note: "Partial." });
-      if (bd.op === "durableGiftExport") return J({ fileName: "fictional-606-catapult-gift-ids.csv", csv: "x", proven: PARTS[1].length, held: 0, unconfirmed: 606 - PARTS[1].length });
+      if (bd.op === "durableGiftExport") return J({ fileName: "fictional-606-catapult-gift-ids.csv", csv: "x", proven: PARTS[1].length, held: HELD.length, unconfirmed: ROWS.length - PARTS[1].length });
       return J({ error: "unknown" }, 400);
     });
     w = resp("durableGiftContext"); await outer.selectOption("csnf"); await w; await frames();
@@ -66,6 +72,12 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     w = resp("durableGiftContext"); await outer.selectOption("jag"); await w; await frames();
     const sec = p.locator("[data-testid=durable-gift]"); await sec.waitFor(); await sec.locator("summary").click();
     const restoreIn = sec.locator("input[aria-label='Restore from recovery file']");
+    if (vp.name === "desktop") { // exact-byte reader for new uploads: invalid UTF-8 refused; BOM file accepted (BOM not a row)
+      await sec.locator("input[aria-label='Durable gift export']").setInputFiles({ name: "bad.csv", mimeType: "text/csv", buffer: Buffer.from([0x44, 0x6f, 0x6e, 0x6f, 0x72, 0x0d, 0x0a, 0xff, 0x0d, 0x0a]) });
+      await sec.locator("[role=alert]", { hasText: "not valid UTF-8" }).waitFor();
+      await sec.locator("input[aria-label='Durable gift export']").setInputFiles({ name: "fictional-606.csv", mimeType: "text/csv", buffer: ORIG });
+      await sec.locator("select[aria-label='Map Donor']").waitFor();
+      ok(/of 606/.test(await sec.locator("[data-testid=durable-pager]").innerText()), `${vp.name}: invalid UTF-8 upload refused; BOM+CRLF upload read exactly (606 rows, BOM not a row)`); }
     // local refusals: nothing is sent
     const n0 = log.length;
     for (const [what, f, msg] of [["added states", { ...FILE(), states: ["saved"] }, "unexpected or missing"], ["tampered part", (() => { const x = JSON.parse(JSON.stringify(FILE())); x.parts[3].rows[0].values.Gift_Amount = "9"; return x; })(), "part 4"], ["other client", FILE("pvas"), "is for PVAS"]]) {
@@ -96,10 +108,19 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     proofPlan[2] = "pending"; proofPlan[4] = "pending";
     for (const i of [2, 4]) { w = resp("durableGiftProof"); await li(i).locator("button", { hasText: "Check status" }).click(); await w; await li(i).and(p.locator("[data-state=pending]")).waitFor(); }
     await sec.locator("input[aria-label='Confirm whole-file save']").check();
+    // race: a recovery read started while idle holds the single-flight slot, so Save cannot start; the job is not lost
+    await p.evaluate(() => { const orig = File.prototype.arrayBuffer; window.__rel = null; File.prototype.arrayBuffer = function () { const me = this; return new Promise((res) => { window.__rel = () => { File.prototype.arrayBuffer = orig; orig.call(me).then(res); }; }); }; });
+    await restoreIn.setInputFiles(buf(FILE())); await frames(); await frames(); const held = await p.evaluate(() => typeof window.__rel === "function");
+    ok(held && await saveBtn.isDisabled() && await outer.isDisabled() && await sec.locator("button", { hasText: "Leave restored job" }).isDisabled(), `${vp.name}: while a recovery file is being read, Save/Leave/scope are locked (single flight from before the first await)`);
+    const lastP2 = p.waitForResponse((r) => isOp(r.request(), "durableGiftProof") && bdy(r.request()).batchIndex === PARTS.length - 1, { timeout: 120000 });
+    await p.evaluate(() => window.__rel()); await lastP2; await sec.locator("[role=status]", { hasText: "Restored" }).waitFor();
+    await sec.locator("input[aria-label='Confirm whole-file save']").check();
     ok(!(await outer.isDisabled()) && !(await saveBtn.isDisabled()), `${vp.name}: after per-batch checks (usable under lock) the lock lifts and Save is allowed (recovery file counts as backup)`);
     const lastC = p.waitForResponse((r) => isOp(r.request(), "durableGiftCommit") && bdy(r.request()).batchIndex === PARTS.length - 1, { timeout: 120000 });
     await saveBtn.click(); await lastC; await sec.locator("[role=status]", { hasText: "All batches committed" }).waitFor();
     const commits = log.filter((x) => x.op === "durableGiftCommit");
+    const adoptRow = commits.flatMap((x) => x.rows).find((r) => r.action === "adopt"), corrRow = commits.flatMap((x) => x.rows).find((r) => r.action === "correct");
+    ok(JSON.stringify(adoptRow.expected) === JSON.stringify(OLD(adoptRow.ordinal)) && corrRow.giftId.startsWith("aaaa") && JSON.stringify(corrRow.expected) === JSON.stringify(OLD(corrRow.ordinal)) && !log.some((x) => x.op === "durableGiftPreview") && commits.every((x) => x.rows.every((r) => !HELD.includes(r.ordinal))), `${vp.name}: adopt/correct rows keep their ORIGINAL expected snapshots (no live re-read), held ordinals never sent`);
     ok(commits.length === PARTS.length - 1 && !commits.some((x) => x.batchIndex === 1) && commits.every((x) => x.token === "renewed.tok" && JSON.stringify(x.rows) === JSON.stringify(PARTS[x.batchIndex])), `${vp.name}: only pending batches sent (batch 0 included, saved batch 1 skipped), byte-identical original rows under the renewed token`);
     // export needs the original file; digest-bound
     const expBtn = sec.locator("button", { hasText: "Download review copy" });
@@ -112,10 +133,13 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     await expBtn.and(p.locator(":not([disabled])")).waitFor();
     w = resp("durableGiftExport"); const dl = p.waitForEvent("download"); await expBtn.click(); const ex = bdy((await w).request()); await dl;
     ok(ex.csv.charCodeAt(0) === 0xfeff && ex.token === "renewed.tok", `${vp.name}: exact original (BOM kept) accepted; export sent with renewed token`);
+    ok(await saveBtn.isDisabled(), `${vp.name}: nothing pending => Save disabled`);
     if (CAPTURE) { // capture-only CSS (disclosed): cookie banner dismissed, sticky header static, dev overlay hidden
       const nb3 = p.locator("button", { hasText: "Necessary Only" }); if (await nb3.count()) { await nb3.first().click({ force: true }); await nb3.first().waitFor({ state: "detached" }); }
       await p.addStyleTag({ content: "header, [class*='sticky'] { position: static !important; } nextjs-portal { display: none !important; }" });
       await p.evaluate(() => window.scrollTo(0, 0)); await frames(); await sec.screenshot({ path: `${OUT}/${vp.name}-restored.png` }); }
+    await sec.locator("button", { hasText: "Leave restored job" }).click(); await sec.locator("input[aria-label='Durable gift export']").waitFor();
+    ok(await sec.locator("[data-testid=durable-restored]").count() === 0 && await sec.locator("[data-testid=durable-plan]").count() === 0, `${vp.name}: Leave restored job (allowed once nothing is uncertain) clears all restored state`);
     await ctx.close();
   }
   console.log("blocked external origins:", JSON.stringify([...new Set(blocked)]), "count", blocked.length);
