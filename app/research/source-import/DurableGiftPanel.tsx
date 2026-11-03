@@ -26,16 +26,24 @@ type Check = { ok: boolean; reasons: string[]; expected?: Record<string, string 
 type Plan = { token: string; jobId: string; manifest: { batches: unknown[] }; batches: { ordinal: number; action: string; giftId?: string; locator?: number }[][]; summary: { batches: number; decided: number; held: number; total: number } };
 type BatchState = "pending" | "saved" | "unconfirmed" | "refused";
 type Hist = { o: number; rows: PRow[]; next: number | null; hasMore: boolean };
-type JobLook = { state: string; note: string; committedBatches?: number[]; missingBatches?: number[] };
+type JobLook = { jobId: string; client: string; state: string; note: string; committedBatches?: number[]; missingBatches?: number[] };
 const PAGE = 25;
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 async function sha32(s: string) { const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32); }
 /** committed only if the reply is bound to this job batch: request id, client, registration and the exact ordinals/actions */
 function committedFor(j: Record<string, unknown>, want: { requestId: string; client: string; registrationId?: string; rows: Plan["batches"][number] }) {
+  // mirrors backend validOutcome: exact request/client/registration, unique ordinals + UUIDv4 ids, positive locators,
+  // counts equal to the actions, and every expected ordinal/action/target present
   const o = j.outcome;
-  if (j.committed !== true || j.requestId !== want.requestId || !isObj(o) || o.committed !== true || o.requestId !== want.requestId || o.client !== want.client || o.registrationId !== want.registrationId || !Array.isArray(o.rows) || o.rows.length !== want.rows.length) return false;
-  const m = new Map<unknown, Record<string, unknown>>(); for (const x of o.rows) { if (!isObj(x) || m.has(x.ordinal)) return false; m.set(x.ordinal, x); }
-  return want.rows.every((w) => { const x = m.get(w.ordinal); return !!x && x.action === w.action && typeof x.giftId === "string" && (w.action !== "correct" || x.giftId === w.giftId) && (w.action !== "adopt" || x.locator === w.locator); });
+  if (j.committed !== true || j.requestId !== want.requestId || !isObj(o) || o.committed !== true || o.requestId !== want.requestId || o.client !== want.client || typeof want.registrationId !== "string" || o.registrationId !== want.registrationId || !Array.isArray(o.rows) || o.rows.length !== want.rows.length || !isObj(o.counts)) return false;
+  const m = new Map<unknown, Record<string, unknown>>(); const ids = new Set<unknown>(); const c: Record<string, number> = { new: 0, adopt: 0, correct: 0 };
+  for (const x of o.rows) {
+    if (!isObj(x) || m.has(x.ordinal) || !Number.isSafeInteger(x.ordinal) || !["new", "adopt", "correct"].includes(x.action as string) || typeof x.giftId !== "string" || !UUID.test(x.giftId) || ids.has(x.giftId) || !(Number.isSafeInteger(x.locator) && (x.locator as number) >= 1 && (x.locator as number) <= 2147483647)) return false;
+    m.set(x.ordinal, x); ids.add(x.giftId); c[x.action as string]++;
+  }
+  const k = o.counts as Record<string, unknown>;
+  if (Object.keys(k).length !== 3 || k.new !== c.new || k.adopt !== c.adopt || k.correct !== c.correct) return false;
+  return want.rows.every((w) => { const x = m.get(w.ordinal); return !!x && x.action === w.action && (w.action !== "correct" || x.giftId === w.giftId) && (w.action !== "adopt" || x.locator === w.locator); });
 }
 
 async function call(body: Record<string, unknown>) {
@@ -221,18 +229,19 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
 
   /** status of ONE batch via a signed proof; never resends */
   const checkBatch = (i: number) => once(async (tk) => {
+    const want = await sha32(`${plan!.jobId}:${i}`);
     let r: Awaited<ReturnType<typeof call>>;
     try { r = await tk.guard(call({ op: "durableGiftProof", ...scope, token: plan!.token, manifest: plan!.manifest, batchIndex: i })); }
     catch (e) { if (tk.live()) throw new Error(`Batch ${i + 1}: status unavailable; still unconfirmed.`); throw e; }
-    tk.run(() => { if (r.ok && r.j.confirmed === true && typeof r.j.proof === "string") { setProofs((p) => ({ ...p, [i]: r.j.proof as string })); setBatch((b) => b.map((x, k) => (k === i ? "saved" : x))); setNote(`Batch ${i + 1} confirmed saved.`); }
-      else if (r.ok && r.j.confirmed === false) { setBatch((b) => b.map((x, k) => (k === i && x === "unconfirmed" ? "pending" : x))); setNote(`Batch ${i + 1}: no verified committed outcome yet. This does not prove nothing was saved. Save batches resends THIS batch with the same request id (Engage replays it if it was committed).`); }
-      else setErr(`Batch ${i + 1}: status unavailable; still unconfirmed.`); });
+    tk.run(() => { if (r.ok && r.j.requestId === want && r.j.confirmed === true && typeof r.j.proof === "string" && r.j.proof) { setProofs((p) => ({ ...p, [i]: r.j.proof as string })); setBatch((b) => b.map((x, k) => (k === i ? "saved" : x))); setNote(`Batch ${i + 1} confirmed saved.`); }
+      else if (r.ok && r.j.requestId === want && r.j.confirmed === false) { setBatch((b) => b.map((x, k) => (k === i && x === "unconfirmed" ? "pending" : x))); setNote(`Batch ${i + 1}: no verified committed outcome yet. This does not prove nothing was saved. Save batches resends THIS batch with the same request id (Engage replays it if it was committed).`); }
+      else setErr(`Batch ${i + 1}: status unavailable or not for this batch; still unconfirmed.`); });
   }, true);
 
   const lookupJob = () => once(async (tk) => {
     const id = lookId.trim(); if (!/^[a-f0-9]{64}$/.test(id)) throw new Error("Enter the full 64-character job ID");
     const r = await tk.guard(call({ op: "durableGiftJobStatus", ...scope, jobId: id }));
-    tk.run(() => setLook(r.ok && typeof r.j.state === "string" && typeof r.j.note === "string" ? (r.j as unknown as JobLook) : { state: "unavailable", note: "Job status unavailable; outcome unconfirmed." }));
+    tk.run(() => setLook(r.ok && r.j.jobId === id && r.j.client === client && typeof r.j.state === "string" && typeof r.j.note === "string" ? (r.j as unknown as JobLook) : { jobId: id, client, state: "unavailable", note: "Job status unavailable; outcome unconfirmed." }));
   });
 
   const exportCopy = () => once(async (tk) => {
@@ -307,9 +316,9 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
           {note && <p role="status" className="mt-2">{note}</p>}
         </div>)}
       <div className="mt-4 text-sm" data-testid="durable-lookup"><span className={label}>Look up a job</span>
-        <span className="mt-1 flex flex-wrap gap-2"><input className={`${input} font-mono text-xs sm:max-w-xl`} aria-label="Job ID to look up" value={lookId} onChange={(e) => { setLookId(e.target.value); setLook(null); }} placeholder="64-character job ID" />
+        <span className="mt-1 flex flex-wrap gap-2"><input className={`${input} font-mono text-xs sm:max-w-xl`} aria-label="Job ID to look up" value={lookId} disabled={busy} onChange={(e) => { setLookId(e.target.value); setLook(null); }} placeholder="64-character job ID" />
           <button type="button" className={linkBtn} disabled={busy} onClick={() => { void lookupJob(); }}>Look up job status</button></span>
-        {look && <p className="mt-1" role="status" data-testid="durable-lookup-result">{look.state}: {look.note}</p>}</div>
+        {look && <p className="mt-1" role="status" data-testid="durable-lookup-result">Job {look.jobId} ({look.client.toUpperCase()}): {look.state}: {look.note}</p>}</div>
     </details>
   );
 }

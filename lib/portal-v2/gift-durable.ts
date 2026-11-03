@@ -10,7 +10,7 @@ import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { parseCsv } from "./csv-updates";
 import { normalize } from "./source-reconcile";
 import { neutralize, APPENDED } from "./gift-preview";
-import { planGiftJob, verifyGiftJob, validateGiftRequest, validValue, previewRowCap, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
+import { planGiftJob, verifyGiftJob, validateGiftRequest, validValue, previewRowCap, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, GIFT_JOB_MAX_BATCHES, GIFT_JOB_MAX_ORDINALS, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
 
 export class DurableGiftError extends Error { constructor(message: string, public status = 400) { super(message); } }
 function bad(m: string, s = 400): never { throw new DurableGiftError(m, s); }
@@ -308,11 +308,11 @@ export function projectJobStatus(body: unknown, jobId: string, client: string) {
   if (!isObj(body)) return unavailable;
   if (body.confirmed === false) return body.state === "unconfirmed" ? { jobId, client, confirmed: false as const, state: "unconfirmed" as const, note: "No committed batch is verifiable for this job. This does not prove nothing was saved." } : unavailable;
   if (body.confirmed !== true) return unavailable;
-  const n = body.batchCount; if (!Number.isSafeInteger(n) || (n as number) < 1 || (n as number) > 100_000) return unavailable;
+  const n = body.batchCount; if (!Number.isSafeInteger(n) || (n as number) < 1 || (n as number) > GIFT_JOB_MAX_BATCHES) return unavailable;
   const done = sortedIdx(body.committedBatches, n as number), miss = sortedIdx(body.missingBatches, n as number);
   if (!done || !miss || done.length + miss.length !== n || new Set([...done, ...miss]).size !== n) return unavailable;
   const held = body.heldRows, dec = body.decidedRows;
-  if (!Number.isSafeInteger(held) || (held as number) < 0 || !Number.isSafeInteger(dec) || (dec as number) < 0 || (held as number) + (dec as number) > 1_000_000) return unavailable;
+  if (!Number.isSafeInteger(held) || (held as number) < 0 || !Number.isSafeInteger(dec) || (dec as number) < 0 || (dec as number) < (n as number) || (held as number) + (dec as number) > GIFT_JOB_MAX_ORDINALS) return unavailable; // every batch is nonempty
   const want = miss.length === 0 && held === 0 ? "complete" : "partial";
   if (body.state !== want) return unavailable;
   const note = miss.length ? `Partial: ${done.length} of ${n} batches committed; missing batches are not confirmed either way. ${held} rows held.` : held ? `All batches committed; ${held} rows were held and not imported, so the file is not fully imported.` : "All decided rows committed; no rows held.";

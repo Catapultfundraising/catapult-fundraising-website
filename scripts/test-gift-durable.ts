@@ -285,3 +285,15 @@ test("browser-safe normalize is the SAME function the server uses; changed-colum
   const panel = fs.readFileSync("app/research/source-import/DurableGiftPanel.tsx", "utf8");
   assert.ok(panel.includes('from "@/lib/portal-v2/csv-parse"') && panel.includes('from "@/lib/portal-v2/source-normalize"') && !/function parse\(/.test(panel), "panel uses the owning parser and normalize");
 });
+
+test("job status projection: impossible counts refused (decided < batches, >100 batches, >5000 rows); partial/held preserved", async () => {
+  const L = await lib(); const J = "f".repeat(64);
+  const all = (n: number) => Array.from({ length: n }, (_, i) => i);
+  const c = (n: number, dec: number, held = 0) => ({ confirmed: true, state: held ? "partial" : "complete", batchCount: n, committedBatches: all(n), missingBatches: [], heldRows: held, decidedRows: dec });
+  assert.equal(L.projectJobStatus(c(1, 0), J, "jag").state, "unavailable", "decidedRows 0 with 1 batch");
+  assert.equal(L.projectJobStatus(c(101, 101), J, "jag").state, "unavailable", "101 batches");
+  assert.equal(L.projectJobStatus(c(2, 6000), J, "jag").state, "unavailable", "6000 decided");
+  assert.equal(L.projectJobStatus(c(2, 4000, 1001), J, "jag").state, "unavailable", "decided+held > 5000");
+  assert.equal(L.projectJobStatus(c(100, 5000), J, "jag").state, "complete");
+  assert.equal(L.projectJobStatus(c(2, 10, 3), J, "jag").state, "partial");
+});
