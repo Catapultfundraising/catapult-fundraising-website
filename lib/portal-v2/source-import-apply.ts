@@ -13,20 +13,22 @@ const secretOk = (env: Env) => (env.PORTAL_WRITE_SECRET ?? "").length >= 24;
 export const sourcePreviewConfigured = (env: Env = process.env) => env.SOURCE_IMPORT_PREVIEW === "enabled" && !!url(env) && secretOk(env);
 export const sourceApplyConfigured = (env: Env = process.env, transportApproved: boolean = SOURCE_TRANSPORT_APPROVED) => transportApproved && env.SOURCE_IMPORT_APPLY === "enabled" && sourcePreviewConfigured(env);
 
-export interface EngageState { registryRev: string; destinationEmpty?: boolean; preparedDigest?: string | null; duplicateKeys: number[]; current: { key: number; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: number; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
+export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; preparedDigest?: string | null; duplicateKeys: number[]; current: { key: number; person?: number | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: number; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
 /** Engage preview state -> reconciliation inputs. Only source-provenance baseline rows count; unreadable values are omitted (=> held). */
-export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys"> {
+export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf"> {
   if (s.registryRev !== REGISTRY_META.rev) throw new SourceError("Engage registry revision differs from this website; deploy both together");
   if (!Array.isArray(s.duplicateKeys) || !Array.isArray(s.current)) throw new SourceError("Engage preview state is malformed");
   const heldKeys = new Map<number, string>(s.duplicateKeys.map((k) => [k, "destination has more than one row for this ID"]));
   const current = new Map<number, Record<string, string | null>>();
+  const personOf = new Map<number, number | null>();
   for (const r of s.current) {
+    if (s.personLink) personOf.set(r.key, Number.isSafeInteger(r.person) && (r.person as number) > 0 ? (r.person as number) : null);
     if (current.has(r.key)) { heldKeys.set(r.key, "destination reported this ID twice"); continue; } const v: Record<string, string | null> = {}; for (const [c, x] of Object.entries(r.values)) if (!r.unreadable.includes(c)) v[c] = x; current.set(r.key, v); }
   const baseline = new Map<number, Record<string, string | null>>();
   for (const b of s.baseline) baseline.set(b.key, { ...(baseline.get(b.key) ?? {}), [b.col]: b.value });
   const overlays = [...s.overlayKeys.map((key) => ({ key, col: "portal_updates", provenance: "unknown" as const })), ...s.prospectKeys.map((key) => ({ key, col: null, provenance: "unknown" as const }))];
   for (const k of heldKeys.keys()) current.delete(k);
-  return { baseline, current, overlays, heldKeys };
+  return { baseline, current, overlays, heldKeys, ...(s.personLink ? { personOf } : {}) };
 }
 
 export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[] }
@@ -52,7 +54,7 @@ export function verifySourceToken(token: unknown, secret: string | undefined, no
 }
 
 /** Builds the reconciliation + signed token from Engage state. Returns no token when nothing is applicable. */
-export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number }) {
+export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number }) {
   const inputs = stateToInputs(state);
   if (base.prepared) {
     const want = preparedDigest(base.prepared, base.table);

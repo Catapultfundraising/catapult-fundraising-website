@@ -10,7 +10,7 @@ const COOKIE = createHash("sha256").update("localpw:localsec").digest("hex");
 test("prepared new client: tables/fields, initial-load preview, then later update preview with a protected manual edit", async () => {
   const { __setPreparedForTests, preparedDigest } = await import("../lib/portal-v2/source-reconcile");
   const { REGISTRY_META } = await import("../lib/portal-v2/source-registry");
-  const prepared = { approvalId: "review-2026-11-03-fictional", client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03",
+  const prepared = { approvalId: "review-2026-11-03-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03",
     tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
   __setPreparedForTests([prepared]);
   const digest = preparedDigest(prepared, "master");
@@ -45,6 +45,7 @@ test("prepared new client: tables/fields, initial-load preview, then later updat
   const p2 = await (await post({ op: "preview", client: "fictional_x", table: "master", csv: csv2, mapping: { ID: "CPTID", City: "City" }, fileName: "later.csv", fileDate: "2026-11-01" })).json();
   assert.equal(p2.mode, "update"); assert.deepEqual(p2.result.rows.map((r: { outcome: string }) => r.outcome), ["update", "held"]);
 
+  assert.notEqual(preparedDigest({ ...prepared, approvalVersion: 2 }, "master"), digest, "approval revision changes the digest");
   // Engage holding a different registration (same approval id, changed schema) => refused
   engageState = { ...engageState, preparedDigest: "0".repeat(64) };
   const p3 = await post({ op: "preview", client: "fictional_x", table: "master", csv: csv2, mapping: { ID: "CPTID", City: "City" }, fileName: "later.csv" });

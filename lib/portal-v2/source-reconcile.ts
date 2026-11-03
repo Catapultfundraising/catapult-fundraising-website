@@ -9,7 +9,7 @@ import { ADDITIONS_OK, REGISTRY_META, SOURCE_FIELDS, type SourceField } from "./
 
 export class SourceError extends Error {}
 const IDENT = /^[A-Za-z][A-Za-z0-9_]{0,63}$/;
-const CTRL = /[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/;
+const CTRL = /[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/; // C0 controls except TAB/LF/CR, plus DEL (ASCII escapes; no literal hyphen)
 export const SOURCE_MAX_ROWS = 5000;
 export const SOURCE_MAX_VALUE = 4000;
 export const SOURCE_MAX_OPS = 500;
@@ -19,7 +19,8 @@ const REGISTRY_CLIENTS = [...new Set(SOURCE_FIELDS.map((f) => f.c))];
 export type Dest = { col: string; ty: string; len: number | null; p: number | null; s: number | null; st: SourceField["st"]; why: string };
 export interface PreparedTable { table: string; key: string; columns: { col: string; ty: string; len?: number | null; p?: number | null; s?: number | null; required?: boolean }[] }
 /** approvalId must equal the Engage copy of the same reviewed registration (PreparedDest.approvalId). */
-export interface PreparedClient { approvalId: string; client: string; schema: string; registryVersion: number; approvedBy: string; approvedAt: string; tables: PreparedTable[] }
+/** Optional columns missing from a first-load row are written as explicit NULL (never DB defaults). */
+export interface PreparedClient { approvalId: string; approvalVersion: number; client: string; schema: string; registryVersion: number; approvedBy: string; approvedAt: string; tables: PreparedTable[] }
 /** Approved prepared (already provisioned, reviewed) new-client destinations. Empty until a review lands. Never browser input. */
 export const APPROVED_PREPARED: readonly PreparedClient[] = Object.freeze([]);
 let preparedOverride: readonly PreparedClient[] | null = null;
@@ -33,12 +34,12 @@ export function __setPreparedForTests(p: readonly PreparedClient[] | null) {
 export function preparedDigest(p: PreparedClient, table: string) {
   const t = p.tables.find((x) => x.table === table); if (!t) throw new SourceError("no such prepared table");
   const cols = [...t.columns].sort((a, b) => (a.col < b.col ? -1 : 1)).map((c) => [c.col, c.ty, c.len ?? null, c.p ?? null, c.s ?? null, !!c.required]);
-  return createHash("sha256").update(JSON.stringify(["prepared/v1", p.approvalId, p.client, p.schema, t.table, t.key, cols])).digest("hex");
+  return createHash("sha256").update(JSON.stringify(["prepared/v2", p.approvalId, p.approvalVersion, p.client, p.schema, t.table, t.key, cols])).digest("hex");
 }
 const TYPES = new Set(["nvarchar", "varchar", "int", "bigint", "float", "decimal", "numeric", "bit", "date", "datetime2"]);
 
 /** Resolved destination: the ONLY input the adapter accepts. Instances are minted solely by resolveDestination. */
-export interface ResolvedDest { readonly client: string; readonly schema: string; readonly table: string; readonly key: string; readonly dests: readonly Dest[]; readonly source: "registry" | "prepared" }
+export interface ResolvedDest { readonly client: string; readonly schema: string; readonly table: string; readonly key: string; readonly personLink: string | null; readonly dests: readonly Dest[]; readonly source: "registry" | "prepared" }
 const MINTED = new WeakSet<ResolvedDest>();
 
 export function validatePrepared(p: PreparedClient): PreparedClient {
@@ -48,6 +49,7 @@ export function validatePrepared(p: PreparedClient): PreparedClient {
   if (reserved.includes(p.schema.toLowerCase()) || REGISTRY_CLIENTS.includes(p.client.toLowerCase())) errs.push("schema/client is reserved or already belongs to an existing client");
   if (p.registryVersion !== REGISTRY_META.version) errs.push("registry version mismatch");
   if (!/^[A-Za-z0-9._-]{8,80}$/.test(p.approvalId || "")) errs.push("approval id required");
+  if (!Number.isSafeInteger(p.approvalVersion) || p.approvalVersion < 1) errs.push("approval version required");
   if (!p.approvedBy?.trim() || !p.approvedAt?.trim()) errs.push("approval record required");
   if (!p.tables?.length) errs.push("no tables");
   const seenT = new Set<string>();
@@ -75,14 +77,14 @@ export function resolveDestination(client: string, table: string, prepared?: Pre
     if (prepared.client !== client) throw new SourceError("prepared registration belongs to a different client");
     const t = prepared.tables.find((x) => x.table === table);
     if (!t) throw new SourceError("no approved destination for this client/table");
-    r = { client, schema: prepared.schema, table, key: t.key, source: "prepared",
+    r = { client, schema: prepared.schema, table, key: t.key, personLink: null, source: "prepared",
       dests: Object.freeze(t.columns.map((c) => ({ col: c.col, ty: c.ty, len: c.len ?? null, p: c.p ?? null, s: c.s ?? null, st: "candidate" as const, why: "prepared destination (first load)" }))) };
   } else {
     const fs = SOURCE_FIELDS.filter((f) => f.c === client && f.t === table);
     if (!fs.length) throw new SourceError("no approved destination for this client/table");
     const key = fs.find((f) => f.k)?.k;
     if (!key) throw new SourceError("destination has no verified stable key; held");
-    r = { client, schema: client, table, key, source: "registry", dests: Object.freeze(fs.map((f) => ({ col: f.col, ty: f.ty, len: f.len, p: f.p, s: f.s, st: TYPES.has(f.ty) ? f.st : "held", why: TYPES.has(f.ty) ? f.why : `type ${f.ty} has no verified conversion` }))) };
+    r = { client, schema: client, table, key, personLink: fs[0].pl || null, source: "registry", dests: Object.freeze(fs.map((f) => ({ col: f.col, ty: f.ty, len: f.len, p: f.p, s: f.s, st: TYPES.has(f.ty) ? f.st : "held", why: TYPES.has(f.ty) ? f.why : `type ${f.ty} has no verified conversion` }))) };
   }
   for (const id of [r.schema, r.table, r.key]) if (!IDENT.test(id)) throw new SourceError(`unsafe identifier ${id}`);
   Object.freeze(r); MINTED.add(r);
@@ -187,13 +189,14 @@ export interface ReconInput {
   rows: Record<string, string>[];
   baseline: Map<number, Record<string, string | null>> | null; // last loaded source export, or null when unknown
   current: Map<number, Record<string, string | null>>;
+  personOf?: Map<number, number | null>; // person-linked tables: record key -> person CPTID reported by the destination
   overlays: OverlayMark[];
   prepared?: PreparedClient;
 }
 export type FieldOutcome = "apply" | "unchanged" | "converged" | "conflict" | "protected" | "held" | "invalid" | "blank";
 export interface ReconField { col: string; outcome: FieldOutcome; latest: string | null; baseline: string | null; current: string | null; reason?: string }
 export type RowOutcome = "update" | "insert" | "unchanged" | "held" | "invalid";
-export interface ReconRow { line: number; key: number | null; outcome: RowOutcome; reason?: string; fields: ReconField[] }
+export interface ReconRow { line: number; key: number | null; person?: number; outcome: RowOutcome; reason?: string; fields: ReconField[] }
 export interface ReconResult {
   client: string; table: string; mode: ReconInput["mode"]; registry: typeof REGISTRY_META; dest: ResolvedDest;
   columns: { header: string; col: string | null; state: string; reason: string }[];
@@ -245,10 +248,14 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
     for (const h of heldCols) if (h.col) { const v = (r[h.header] ?? "").trim(); if (v) { fields.push({ col: h.col, outcome: "held", latest: v, baseline: null, current: null, reason: h.reason }); counts.heldValues++; } }
     const norm = writable.map(({ d, header }) => ({ d, ...normalize(d, r[header]) }));
     if (norm.some((n) => n.err)) { for (const n of norm) if (n.err) fields.push({ col: n.d.col, outcome: "invalid", latest: null, baseline: null, current: null, reason: n.err }); return push({ line, key, outcome: "invalid", reason: "invalid values", fields }); }
-    const marks = inp.overlays.filter((o) => o.key === key);
+    const person = dest.personLink ? inp.personOf?.get(key) ?? null : undefined;
+    // portal protection is per person for record-keyed tables (e.g. notes): overlays are keyed by person CPTID
+    const marks = inp.overlays.filter((o) => o.key === (dest.personLink ? person : key));
     const hk = inp.heldKeys?.get(key); if (hk) return push({ line, key, outcome: "held", reason: hk, fields });
     const cur = inp.current.get(key); const base = inp.baseline?.get(key);
 
+    if (dest.personLink && !cur) return push({ line, key, outcome: "held", reason: "new records for this table are held (update-only; row-order / new-person policy pending)", fields });
+    if (dest.personLink && person == null) return push({ line, key, outcome: "held", reason: "person link missing or unreadable", fields });
     if (!cur) {
       if (marks.length) return push({ line, key, outcome: "held", reason: "ID collides with a portal record or edit; not renumbered", fields });
       if (mode === "update") {
@@ -283,7 +290,7 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
       else { f.outcome = "conflict"; f.reason = "destination changed since baseline"; counts.conflicts++; }
       fields.push(f);
     }
-    push({ line, key, outcome: changes ? "update" : fields.some((f) => ["held", "conflict", "protected"].includes(f.outcome)) ? "held" : "unchanged", fields });
+    push({ line, key, ...(dest.personLink ? { person: person! } : {}), outcome: changes ? "update" : fields.some((f) => ["held", "conflict", "protected"].includes(f.outcome)) ? "held" : "unchanged", fields });
   });
   const inFile = new Set(keyCount.keys());
   const notInSource = mode === "update" ? [...inp.current.keys()].filter((k) => !inFile.has(k)) : [];
@@ -291,11 +298,11 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
 }
 
 // ---------- guarded adapter (NOT READY; disabled) ----------
-export interface WriteOp { kind: "update" | "insert"; key: number; values: Record<string, string | null>; expected: Record<string, string | null> | null }
+export interface WriteOp { kind: "update" | "insert"; key: number; person?: number; values: Record<string, string | null>; expected: Record<string, string | null> | null }
 export function planWrites(r: ReconResult): WriteOp[] {
   const ops = r.rows.filter((x) => x.outcome === "update" || x.outcome === "insert").map((x) => {
     const fs = x.fields.filter((f) => f.outcome === "apply");
-    return { kind: x.outcome as "update" | "insert", key: x.key!, values: Object.fromEntries(fs.map((f) => [f.col, f.latest])), expected: x.outcome === "update" ? Object.fromEntries(fs.map((f) => [f.col, f.current])) : null };
+    return { kind: x.outcome as "update" | "insert", key: x.key!, ...(x.person !== undefined ? { person: x.person } : {}), values: Object.fromEntries(fs.map((f) => [f.col, f.latest])), expected: x.outcome === "update" ? Object.fromEntries(fs.map((f) => [f.col, f.current])) : null };
   });
   if (new Set(ops.map((o) => o.key)).size !== ops.length) throw new SourceError("duplicate keys in plan");
   return ops;

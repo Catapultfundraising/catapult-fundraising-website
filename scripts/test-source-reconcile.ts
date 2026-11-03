@@ -25,8 +25,10 @@ test("registry is fail-closed and bound to provenance", () => {
   assert.match(REGISTRY_META.builder_commit, /^[0-9a-f]{40}$/);
   assert.ok(!SOURCE_FIELDS.some((f) => f.col === "row_id"));
   assert.ok(SOURCE_FIELDS.filter((f) => f.t === "Duplciate_Records").every((f) => f.st === "nonwritable"));
-  for (const t of ["raw_master_giving_history", "notes", "Daily_Results", "gc2p_prospects"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t).every((f) => f.st !== "candidate"), t);
-  assert.ok(SOURCE_FIELDS.filter((f) => f.st === "candidate").every((f) => f.k.toLowerCase() === "cptid"));
+  for (const t of ["raw_master_giving_history", "notes", "Daily_Results", "gc2p_prospects"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t && !(f.c === "pvas" && t === "notes")).every((f) => f.st !== "candidate"), t);
+  assert.deepEqual(SOURCE_FIELDS.filter((f) => f.c === "pvas" && f.t === "notes" && f.st === "candidate").map((f) => f.col).sort(), ["ID", "Note", "Note_Order_Newest_to_Oldest"]);
+  assert.ok(SOURCE_FIELDS.filter((f) => f.c === "pvas" && f.t === "notes").every((f) => f.k === "ID" && f.pl === "CPTID"));
+  assert.ok(SOURCE_FIELDS.filter((f) => f.st === "candidate" && !(f.c === "pvas" && f.t === "notes")).every((f) => f.k.toLowerCase() === "cptid"));
   for (const t of ["gc2p_prospects", "portfolio", "raw_master_giving_history", "Daily_Results"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t).every((f) => f.st !== "candidate"), t);
   for (const t of ["pir_links", "_load_log"]) assert.ok(SOURCE_FIELDS.filter((f) => f.t === t).every((f) => f.st === "nonwritable"), t);
   for (const c of ["jag", "csnf", "pvas", "wcbhc", "baq"]) assert.ok(SOURCE_FIELDS.some((f) => f.c === c && f.st === "candidate"), "candidates for " + c);
@@ -114,7 +116,7 @@ test("unknown tables and keyless tables refuse; cross-client isolation", () => {
   assert.equal(d.schema, "pvas"); assert.equal(d.client, "pvas");
 });
 
-const prepared: PreparedClient = { approvalId: "review-2026-11-03-fictional", client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03", tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200 }] }] };
+const prepared: PreparedClient = { approvalId: "review-2026-11-03-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03", tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200 }] }] };
 const first = (over: Partial<ReconInput> = {}): ReconInput => ({ client: "fictional_x", table: "master", mode: "first-load", mapping: { id: "CPTID", n: "Account_Name" }, rows: [{ id: "7", n: "Fictional Org" }], baseline: null, current: new Map(), overlays: [], prepared, ...over });
 test("prepared first load: approval, empty destination, identity match (regression: first-load -> update)", () => {
   assert.throws(() => reconcile(first()), /not approved/);
@@ -122,7 +124,7 @@ test("prepared first load: approval, empty destination, identity match (regressi
   assert.throws(() => reconcile(first({ current: new Map([[7, { Account_Name: "x" }]]) }), [prepared]), /empty prepared destination/);
   assert.throws(() => reconcile(first({ client: "other_x" }), [prepared]), /different client/);
   assert.throws(() => reconcile({ ...base(), mode: "first-load" }), /prepared destination/);
-  for (const bad of [{ schema: "engage" }, { schema: "baq" }, { client: "pvas" }, { tables: [{ table: "x;drop", key: "CPTID", columns: [] }] }, { approvedBy: "" }, { registryVersion: 1 }, { approvalId: "" }])
+  for (const bad of [{ schema: "engage" }, { schema: "baq" }, { client: "pvas" }, { tables: [{ table: "x;drop", key: "CPTID", columns: [] }] }, { approvedBy: "" }, { registryVersion: 1 }, { approvalId: "" }, { approvalVersion: 0 }])
     assert.throws(() => validatePrepared({ ...prepared, ...bad } as PreparedClient), SourceError);
 });
 
