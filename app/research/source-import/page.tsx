@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
+import { createScopeFence, StaleScope } from "@/lib/portal-v2/scope-fence";
 import { buildJobManifest, summarizeJob, JOB_BATCH_ROWS, type BatchStatus, type JobManifest } from "@/lib/portal-v2/source-jobs";
 
 const webSha = async (x: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(x)))).map((b) => b.toString(16).padStart(2, "0")).join("");
@@ -11,7 +12,7 @@ type JobBatch = BatchStatus & { token?: string | null; requestId?: string; would
 const SMALL_MAX_BYTES = 2 * 1024 * 1024;
 
 // Staff-only source CSV reconciliation preview. Read-only: there is no save button because raw source writes are OFF.
-type Dest = { col: string; ty: string; st: string; why: string; key: string };
+type Dest = { col: string; ty: string; st: string; why: string; key: string; kk?: string };
 type Field = { col: string; outcome: string; latest: string | null; baseline: string | null; current: string | null; reason?: string };
 type Result = { columns: { header: string; col: string | null; state: string; reason: string }[]; rows: { line: number; key: number | null; outcome: string; reason?: string; fields: Field[] }[]; notInSource: number[]; counts: Record<string, number>; registry: { builder_commit: string; sql_metadata_checked_at: string } };
 const card = "rounded-2xl border border-[rgb(var(--line))] bg-white p-5";
@@ -48,17 +49,25 @@ export default function SourceImportPage() {
   const [job, setJob] = useState<{ manifest: JobManifest; jobId: string } | null>(null);
   const [batches, setBatches] = useState<JobBatch[]>([]); const [confirmed, setConfirmed] = useState(false);
   const running = useRef(false); // blocks double-click / parallel dispatch
-  const gen = useRef(0); // bumped on any scope change; pending job loops stop when it moves
   useEffect(() => { const h = (e: BeforeUnloadEvent) => { if (running.current) { e.preventDefault(); e.returnValue = ""; } }; window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h); }, []);
-  // Every request carries a sequence number; responses from an older client/table/file selection are ignored.
-  const seq = useRef(0);
-  const guard = <T,>(p: Promise<T>) => { const n = ++seq.current; return p.then((v) => { if (n !== seq.current) throw new Error("stale"); return v; }); };
-  const onErr = (e: Error) => { if (e.message !== "stale") setErr(e.message); };
+  // ONE scope fence: reset() bumps it; every async callback/send/state write checks a token taken before it started.
+  const fence = useRef(createScopeFence()).current;
+  const guard = <T,>(p: Promise<T>) => fence.token().guard(p);
+  const onErr = (e: Error) => { if (!(e instanceof StaleScope)) setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => setClients(j.clients ?? [])).catch((e) => setErr(e.message)); }, []);
-  const reset = () => { gen.current++; if (running.current) return; setJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
+  const reset = () => { fence.bump(); if (running.current) return; setJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
   const clearFile = () => { setBigRows(null); setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
-  useEffect(() => { setTables([]); setTable(""); setDests([]); clearFile(); reset(); if (client) { guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); call({ op: "provenance", client }).then(setFresh).catch(() => setFresh(null)); } else setFresh(null); }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
-  useEffect(() => { setDests([]); clearFile(); reset(); if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr); }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
+  // ONE effect for client/table so scope is invalidated once, before any request of the new scope starts.
+  const prevClient = useRef("");
+  useEffect(() => {
+    const clientChanged = prevClient.current !== client;
+    if (clientChanged && table) { reset(); setTable(""); return; } // re-runs with table "" for the new client
+    prevClient.current = client;
+    setDests([]); clearFile(); reset();
+    if (clientChanged) { setTables([]); if (client) { guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); guard(call({ op: "provenance", client })).then(setFresh).catch((e) => { if (!(e instanceof StaleScope)) setFresh(null); }); } else setFresh(null); }
+    if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr);
+  }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const useCsv = (t: string, name: string, preset?: Record<string, string>) => {
     reset(); clearFile(); setCsv(t); setFileName(name);
     guard(call({ op: "inspect", client, table, csv: t })).then((j: { headers: string[] }) => {
@@ -68,7 +77,10 @@ export default function SourceImportPage() {
   };
   const onFile = async (f: File | undefined) => {
     reset(); clearFile(); if (!f) return;
-    const text = await f.text();
+    const tk = fence.token(); // a file read that finishes after the selection changed is dropped
+    const text = await f.text().catch(() => null);
+    if (!tk.live()) return;
+    if (text === null) { setErr("Could not read the file"); return; }
     let grid: string[][]; try { grid = parseCsv(text); } catch (e) { setErr((e as Error).message); return; }
     if ((f.size <= SMALL_MAX_BYTES && grid.length - 1 <= JOB_BATCH_ROWS)) return useCsv(text, f.name);
     const hs = grid[0] ?? []; const norm = hs.map((h) => h.trim().toLowerCase());
@@ -81,10 +93,10 @@ export default function SourceImportPage() {
   const committed = async (jobId: string) => { const st = await call({ op: "jobStatus", client, jobId }); return new Map<number, { state: string; savedRecords: number; heldRows: number }>((st.found ? st.batches : []).map((b: { index: number; state: string; savedRecords: number; heldRows: number }) => [b.index, b])); };
   // Whole-file plan: duplicate IDs anywhere in the file stop everything before any upload; saved batches (resume) are skipped.
   const previewJob = async () => {
-    if (!bigRows || running.current) return; running.current = true; setBusy(true); const g = gen.current; const live = () => g === gen.current; setErr(""); setBatches([]); setConfirmed(false);
+    if (!bigRows || running.current) return; running.current = true; setBusy(true); const tk = fence.token(); const live = tk.live; setErr(""); setBatches([]); setConfirmed(false);
     try {
       const keyCol = dests.find((d) => d.key)?.key ?? "";
-      const j = await buildJobManifest(webSha, { client, table, keyCol, mapping, headers, rows: bigRows, fileName, fileDate: fileDate || null, actor, registryRev: "" + (await call({ op: "tables", client })).registry.rev });
+      const j = await buildJobManifest(webSha, { client, table, keyCol, keyKind: (dests.find((d) => d.key)?.kk ?? "int") as "int" | "bigint" | "text", mapping, headers, rows: bigRows, fileName, fileDate: fileDate || null, actor, registryRev: "" + (await call({ op: "tables", client })).registry.rev });
       if (!live()) return; setJob(j);
       const done = demo ? new Map() : await committed(j.jobId).catch(() => new Map());
       const list: JobBatch[] = j.manifest.batchHashes.map((_, i) => { const c = done.get(i); return c ? { index: i, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows } : { index: i, state: "pending" }; });
@@ -104,31 +116,32 @@ export default function SourceImportPage() {
   };
   // Sequential save, one batch at a time; stops at the first unconfirmed batch (no automatic retry, no new upload).
   const saveJob = async () => {
-    if (!job || running.current || !confirmed) return; running.current = true; setBusy(true); const g = gen.current;
+    if (!job || running.current || !confirmed) return; running.current = true; setBusy(true); const tk = fence.token();
     try {
       for (const b of batches) {
-        if (g !== gen.current) break;
+        if (!tk.live()) break;
         if (b.state !== "previewed" || !b.token) continue;
         let r: Record<string, unknown>;
         try { r = await call({ op: "apply", client, table, token: b.token, actor }); }
-        catch (e) { const m = (e as Error).message; if (/expired|preview again/i.test(m)) { setBatch(b.index, { state: "failed", error: m, token: null }); continue; } setBatch(b.index, { state: "unconfirmed", error: m }); break; }
+        catch (e) { if (!tk.live()) break; const m = (e as Error).message; if (/expired|preview again/i.test(m)) { setBatch(b.index, { state: "failed", error: m, token: null }); continue; } setBatch(b.index, { state: "unconfirmed", error: m }); break; }
+        if (!tk.live()) break;
         if (r.unconfirmed) { setBatch(b.index, { state: "unconfirmed" }); break; }
         setBatch(b.index, { state: b.heldRows ? "saved_with_holds" : "saved", savedRecords: Number(r.records ?? 0), token: null });
       }
     } finally { running.current = false; setBusy(false); }
   };
-  const checkJob = async () => { if (!job) return; try { const done = await committed(job.jobId); setBatches((bs) => bs.map((b) => { const c = done.get(b.index); return c ? { ...b, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows, token: null } : b.state === "unconfirmed" ? { ...b, error: "still unconfirmed (may be in progress); check again" } : b; })); } catch (e) { setErr(`Status unavailable (${(e as Error).message})`); } };
+  const checkJob = async () => { if (!job) return; const tk = fence.token(); try { const done = await committed(job.jobId); if (!tk.live()) return; setBatches((bs) => bs.map((b) => { const c = done.get(b.index); return c ? { ...b, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows, token: null } : b.state === "unconfirmed" ? { ...b, error: "still unconfirmed (may be in progress); check again" } : b; })); } catch (e) { if (tk.live()) setErr(`Status unavailable (${(e as Error).message})`); } };
   const jobSum = job ? summarizeJob(job.manifest.batchHashes.length, batches) : null;
   const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); useCsv(t, "fictional-demo.csv", Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); };
   const loadBigDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 1).map((d) => d.col); const hs = ["Constituent number", ...cols]; reset(); clearFile(); setFileName("fictional-large-demo.csv"); setHeaders(hs);
     setBigRows(Array.from({ length: 1200 }, (_, i) => Object.fromEntries([["Constituent number", String(i < 3 ? 900001 + i : 910000 + i)], ...cols.map((c) => [c, "B"])]))); setMapping(Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : h]))); if (!actor) setActor("Demo Reviewer"); };
   const preview = () => { setBusy(true); reset(); guard(call({ op: "preview", client, table, csv, mapping, demo, fileName, fileDate: fileDate || null })).then((j) => { setResult(j.result); setToken(j.token ?? null); setRequestId(j.requestId ?? ""); setApplyAvailable(j.applyAvailable === true); }).catch(onErr).finally(() => setBusy(false)); };
   // Apply (hidden unless the server reports it configured). One request, never retried automatically; lost reply => Check status.
-  const save = () => { setBusy(true); setSaveMsg(""); call({ op: "apply", client, table, token, actor }).then((j) => {
+  const save = () => { setBusy(true); setSaveMsg(""); const tk = fence.token(); call({ op: "apply", client, table, token, actor }).then((j) => { if (!tk.live()) return;
       if (j.unconfirmed) { setUnconfirmed(true); setSaveMsg("Save not confirmed. Use Check status; do not upload again."); }
       else { setToken(null); setSaveMsg(j.replayed ? "Already saved earlier (same request)." : `Saved ${j.records} records (${j.values} values).`); }
-    }).catch((e) => { setUnconfirmed(true); setSaveMsg(`Save not confirmed (${(e as Error).message}). Use Check status; do not upload again.`); }).finally(() => setBusy(false)); };
-  const checkStatus = () => { call({ op: "status", client, table, requestId }).then((j) => { setUnconfirmed(!j.found); if (j.found) { setToken(null); setSaveMsg("Saved: this request committed."); } else setSaveMsg("Still unconfirmed: Engage has no committed record of this request yet (it may still be in progress). Check again shortly; do not upload again."); }).catch((e) => setSaveMsg(`Status unavailable (${(e as Error).message}); try again.`)); };
+    }).catch((e) => { if (!tk.live()) return; setUnconfirmed(true); setSaveMsg(`Save not confirmed (${(e as Error).message}). Use Check status; do not upload again.`); }).finally(() => setBusy(false)); };
+  const checkStatus = () => { const tk = fence.token(); call({ op: "status", client, table, requestId }).then((j) => { if (!tk.live()) return; setUnconfirmed(!j.found); if (j.found) { setToken(null); setSaveMsg("Saved: this request committed."); } else setSaveMsg("Still unconfirmed: Engage has no committed record of this request yet (it may still be in progress). Check again shortly; do not upload again."); }).catch((e) => tk.run(() => setSaveMsg(`Status unavailable (${(e as Error).message}); try again.`))); };
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10 sm:px-6">

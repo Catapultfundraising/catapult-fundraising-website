@@ -137,3 +137,20 @@ test("WCBHC gifts (update-only, person-linked): Transaction_ID key, CPTID verifi
   assert.deepEqual(verifySourceToken(cg.token, SECRET, 2000).payload.ops.map((o) => [o.key, o.person]), [[9001, 44]]);
 });
 
+
+test("crosswalk + key kinds in reconciliation: CSNF text link must match exactly; PVAS bigint/text keys exact; unmapped/ambiguous held", async () => {
+  const { parseKeyOf, canonLink } = await import("../lib/portal-v2/source-keys");
+  assert.equal(parseKeyOf("bigint", "9999999999"), 9999999999); assert.equal(parseKeyOf("bigint", "9999999999.0"), 9999999999); assert.equal(parseKeyOf("bigint", "9007199254740993"), null); assert.equal(parseKeyOf("bigint", "1.5"), null);
+  assert.equal(parseKeyOf("text", "01234"), "01234"); assert.equal(parseKeyOf("text", " 01234"), null); assert.equal(canonLink("int", "00555"), "555"); assert.equal(canonLink("int", "555.5"), null); assert.equal(canonLink("text", "001A"), "001A");
+  const cs = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, personLink: "Account_ID", duplicateKeys: [],
+    current: [{ key: 11, person: 7001, link: "001A", values: { Amount: "100" }, unreadable: [] }, { key: 12, person: null, link: "002B", values: { Amount: "5" }, unreadable: [] }],
+    baseline: [{ key: 11, col: "Amount", value: "100" }, { key: 12, col: "Amount", value: "5" }], overlayKeys: [], prospectKeys: [], ...over });
+  const cb = { client: "csnf", table: "Raw_Data_Gift_File", mode: "update" as const, mapping: { GiftID: "ID", Acct: "Account_ID", Amt: "Amount" } };
+  const lp = livePreview({ ...cb, rows: [{ GiftID: "11", Acct: "001A", Amt: "150" }, { GiftID: "12", Acct: "002B", Amt: "6" }] }, cs(), meta);
+  assert.deepEqual(lp.result.rows.map((r) => r.outcome), ["update", "held"]); assert.match(lp.result.rows[1].reason!, /unmapped or ambiguous/);
+  assert.deepEqual(verifySourceToken(lp.token, SECRET, 2000).payload.ops.map((o) => [o.key, o.person, o.link]), [[11, 7001, "001A"]]);
+  for (const Acct of ["001a", "001A ", "002B", ""]) assert.equal(livePreview({ ...cb, rows: [{ GiftID: "11", Acct, Amt: "150" }] }, cs(), meta).token, null, Acct);
+  const pt = livePreview({ client: "pvas", table: "givebutter_pledges", mode: "update", mapping: { Id: "Id", C: "Givebutter_Contact_ID", S: "Status" }, rows: [{ Id: "01234", C: "555", S: "fulfilled" }, { Id: "1234", C: "555", S: "x" }] },
+    { registryRev: REGISTRY_META.rev, personLink: "Givebutter_Contact_ID", duplicateKeys: [], current: [{ key: "01234", person: 8001, link: "555", values: { Status: "active" }, unreadable: [] }], baseline: [{ key: "01234", col: "Status", value: "active" }], overlayKeys: [], prospectKeys: [] }, meta);
+  assert.deepEqual(pt.result.rows.map((r) => [r.key, r.outcome]), [["01234", "update"], ["1234", "held"]]);
+});

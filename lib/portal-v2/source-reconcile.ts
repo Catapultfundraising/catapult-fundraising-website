@@ -39,7 +39,11 @@ export function preparedDigest(p: PreparedClient, table: string) {
 const TYPES = new Set(["nvarchar", "varchar", "int", "bigint", "float", "decimal", "numeric", "bit", "date", "datetime2"]);
 
 /** Resolved destination: the ONLY input the adapter accepts. Instances are minted solely by resolveDestination. */
-export interface ResolvedDest { readonly client: string; readonly schema: string; readonly table: string; readonly key: string; readonly personLink: string | null; readonly dests: readonly Dest[]; readonly source: "registry" | "prepared" }
+import { parseKey, parseKeyOf, canonLink, type Key, type KeyKind } from "./source-keys";
+export { parseKey, parseKeyOf, canonLink, type Key, type KeyKind };
+/** person link resolved through a crosswalk table (link value -> exactly one CPTID). fromKind: how link values are canonicalized. */
+export interface Crosswalk { table: string; from: string; to: string; fromKind: "text" | "int" }
+export interface ResolvedDest { readonly client: string; readonly schema: string; readonly table: string; readonly key: string; readonly personLink: string | null; readonly keyKind: KeyKind; readonly xw: Crosswalk | null; readonly dests: readonly Dest[]; readonly source: "registry" | "prepared" }
 const MINTED = new WeakSet<ResolvedDest>();
 
 export function validatePrepared(p: PreparedClient): PreparedClient {
@@ -77,14 +81,17 @@ export function resolveDestination(client: string, table: string, prepared?: Pre
     if (prepared.client !== client) throw new SourceError("prepared registration belongs to a different client");
     const t = prepared.tables.find((x) => x.table === table);
     if (!t) throw new SourceError("no approved destination for this client/table");
-    r = { client, schema: prepared.schema, table, key: t.key, personLink: null, source: "prepared",
+    r = { client, schema: prepared.schema, table, key: t.key, personLink: null, keyKind: "int", xw: null, source: "prepared",
       dests: Object.freeze(t.columns.map((c) => ({ col: c.col, ty: c.ty, len: c.len ?? null, p: c.p ?? null, s: c.s ?? null, st: "candidate" as const, why: "prepared destination (first load)" }))) };
   } else {
     const fs = SOURCE_FIELDS.filter((f) => f.c === client && f.t === table);
     if (!fs.length) throw new SourceError("no approved destination for this client/table");
     const key = fs.find((f) => f.k)?.k;
     if (!key) throw new SourceError("destination has no verified stable key; held");
-    r = { client, schema: client, table, key, personLink: fs[0].pl || null, source: "registry", dests: Object.freeze(fs.map((f) => ({ col: f.col, ty: f.ty, len: f.len, p: f.p, s: f.s, st: TYPES.has(f.ty) ? f.st : "held", why: TYPES.has(f.ty) ? f.why : `type ${f.ty} has no verified conversion` }))) };
+    const xp = (fs[0].xw || "").split("|");
+    const xw: Crosswalk | null = fs[0].xw ? { table: xp[0], from: xp[1], to: xp[2], fromKind: xp[3] === "text" ? "text" : "int" } : null;
+    if (xw && (!fs[0].pl || ![xw.table, xw.from, xw.to].every((x) => IDENT.test(x)))) throw new SourceError("crosswalk definition invalid");
+    r = { client, schema: client, table, key, personLink: fs[0].pl || null, keyKind: (fs[0].kk ?? "int") as KeyKind, xw, source: "registry", dests: Object.freeze(fs.map((f) => ({ col: f.col, ty: f.ty, len: f.len, p: f.p, s: f.s, st: TYPES.has(f.ty) ? f.st : "held", why: TYPES.has(f.ty) ? f.why : `type ${f.ty} has no verified conversion` }))) };
   }
   for (const id of [r.schema, r.table, r.key]) if (!IDENT.test(id)) throw new SourceError(`unsafe identifier ${id}`);
   Object.freeze(r); MINTED.add(r);
@@ -94,8 +101,9 @@ export function resolveDestination(client: string, table: string, prepared?: Pre
 export function registryDests(client: string, table: string) {
   const p = approvedPrepared().find((x) => x.client === client);
   if (p) { const t = p.tables.find((x) => x.table === table); return (t?.columns ?? []).map((c) => ({ col: c.col, ty: c.ty, st: "candidate" as const, why: c.required ? "prepared destination (required)" : "prepared destination", key: c.col === t!.key ? t!.key : "" })); }
-  return SOURCE_FIELDS.filter((f) => f.c === client && f.t === table).map((f) => ({ col: f.col, ty: f.ty, st: f.st, why: f.why, key: f.k }));
+  return SOURCE_FIELDS.filter((f) => f.c === client && f.t === table).map((f) => ({ col: f.col, ty: f.ty, st: f.st, why: f.why, key: f.k, kk: f.kk, pl: f.pl }));
 }
+export function clientKeyKind(client: string, table: string): KeyKind { return (SOURCE_FIELDS.find((f) => f.c === client && f.t === table)?.kk ?? "int") as KeyKind; }
 export function clientTables(client: string) {
   const p = approvedPrepared().find((x) => x.client === client);
   if (p) return p.tables.map((t) => ({ table: t.table, candidate: t.columns.length - 1, prepared: true }));
@@ -169,12 +177,7 @@ export function normalize(d: Pick<Dest, "ty" | "len" | "p" | "s">, raw: string |
     default: return { v: null, err: `type ${d.ty} has no verified conversion` };
   }
 }
-export const parseKey = (raw: string | null | undefined): number | null => {
-  const s = String(raw ?? "").trim();
-  if (!/^[1-9]\d{0,9}(\.0+)?$/.test(s)) return null;
-  const n = Number(s);
-  return Number.isSafeInteger(n) && n > 0 && n <= 2147483647 ? n : null;
-};
+
 
 // ---------- three-way reconciliation ----------
 export type Provenance = "manual" | "source" | "unknown";
@@ -185,22 +188,23 @@ export interface ReconInput {
   mode: "update" | "first-load";
   mapping: Record<string, string>;
   headers?: string[]; // every CSV header; unmapped ones are reported as ignored
-  heldKeys?: Map<number, string>; // keys the destination could not report unambiguously (duplicates, unreadable rows)
+  heldKeys?: Map<Key, string>; // keys the destination could not report unambiguously (duplicates, unreadable rows)
   rows: Record<string, string>[];
-  baseline: Map<number, Record<string, string | null>> | null; // last loaded source export, or null when unknown
-  current: Map<number, Record<string, string | null>>;
-  personOf?: Map<number, number | null>; // person-linked tables: record key -> person CPTID reported by the destination
+  baseline: Map<Key, Record<string, string | null>> | null; // last loaded source export, or null when unknown
+  current: Map<Key, Record<string, string | null>>;
+  personOf?: Map<Key, number | null>; // person-linked tables: record key -> person CPTID (crosswalk: resolved to exactly one, else null)
+  linkOf?: Map<Key, string | null>; // crosswalk tables: record key -> canonical current link value
   overlays: OverlayMark[];
   prepared?: PreparedClient;
 }
 export type FieldOutcome = "apply" | "unchanged" | "converged" | "conflict" | "protected" | "held" | "invalid" | "blank";
 export interface ReconField { col: string; outcome: FieldOutcome; latest: string | null; baseline: string | null; current: string | null; reason?: string }
 export type RowOutcome = "update" | "insert" | "unchanged" | "held" | "invalid";
-export interface ReconRow { line: number; key: number | null; person?: number; outcome: RowOutcome; reason?: string; fields: ReconField[] }
+export interface ReconRow { line: number; key: Key | null; person?: number; link?: string; outcome: RowOutcome; reason?: string; fields: ReconField[] }
 export interface ReconResult {
   client: string; table: string; mode: ReconInput["mode"]; registry: typeof REGISTRY_META; dest: ResolvedDest;
   columns: { header: string; col: string | null; state: string; reason: string }[];
-  rows: ReconRow[]; notInSource: number[];
+  rows: ReconRow[]; notInSource: Key[];
   counts: Record<RowOutcome, number> & { applyValues: number; conflicts: number; protectedValues: number; heldValues: number };
 }
 const has = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
@@ -236,15 +240,15 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
   const additionsHeld = dest.source === "registry" && !ADDITIONS_OK.includes(`${client}.${table}`);
   const requiredMissing = dest.source === "prepared" ? (inp.prepared!.tables.find((t) => t.table === table)!.columns.filter((c) => c.required && c.col !== keyCol && !writable.some((w) => w.d.col === c.col)).map((c) => c.col)) : [];
   if (mode === "first-load" && requiredMissing.length) throw new SourceError(`map required columns: ${requiredMissing.join(", ")}`);
-  const keyCount = new Map<number, number>();
-  for (const r of inp.rows) { const k = parseKey(r[keyHeader]); if (k !== null) keyCount.set(k, (keyCount.get(k) ?? 0) + 1); }
+  const keyCount = new Map<Key, number>();
+  for (const r of inp.rows) { const k = parseKeyOf(dest.keyKind, r[keyHeader]); if (k !== null) keyCount.set(k, (keyCount.get(k) ?? 0) + 1); }
 
   const rows: ReconRow[] = [];
   const counts = { update: 0, insert: 0, unchanged: 0, held: 0, invalid: 0, applyValues: 0, conflicts: 0, protectedValues: 0, heldValues: 0 };
   inp.rows.forEach((r, i) => {
-    const line = i + 2; const key = parseKey(r[keyHeader!]); const fields: ReconField[] = [];
+    const line = i + 2; const key = parseKeyOf(dest.keyKind, r[keyHeader!]); const fields: ReconField[] = [];
     const push = (row: ReconRow) => { rows.push(row); counts[row.outcome] += 1; };
-    if (key === null) return push({ line, key, outcome: "invalid", reason: "key must be a positive whole number", fields });
+    if (key === null) return push({ line, key, outcome: "invalid", reason: dest.keyKind === "text" ? "key must be non-empty exact text (no leading/trailing spaces or control characters)" : "key must be a positive whole number", fields });
     if ((keyCount.get(key) ?? 0) > 1) return push({ line, key, outcome: "invalid", reason: "key appears more than once in file; every occurrence held", fields });
     for (const h of heldCols) if (h.col) { const v = (r[h.header] ?? "").trim(); if (v) { fields.push({ col: h.col, outcome: "held", latest: v, baseline: null, current: null, reason: h.reason }); counts.heldValues++; } }
     const norm = writable.map(({ d, header }) => ({ d, ...normalize(d, r[header]) }));
@@ -256,12 +260,18 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
     const cur = inp.current.get(key); const base = inp.baseline?.get(key);
 
     if (dest.personLink && !cur) return push({ line, key, outcome: "held", reason: "new records for this table are held (update-only; row-order / new-person policy pending)", fields });
-    if (dest.personLink && person == null) return push({ line, key, outcome: "held", reason: "person link missing or unreadable", fields });
+    if (dest.personLink && person == null) return push({ line, key, outcome: "held", reason: dest.xw ? `person link missing, unmapped or ambiguous in ${dest.xw.table} (must resolve to exactly one CPTID)` : "person link missing or unreadable", fields });
     if (dest.personLink) {
       if (!personHeader) return push({ line, key, outcome: "held", reason: `map the source ${dest.personLink} column; person link must be verified`, fields });
-      const sp = parseKey(r[personHeader]);
-      if (sp === null) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} missing or invalid`, fields });
-      if (sp !== person) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} does not match the current record's person; not re-linked`, fields });
+      if (dest.xw) {
+        const sl = canonLink(dest.xw.fromKind, r[personHeader]); const cl = inp.linkOf?.get(key) ?? null;
+        if (sl === null) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} missing or invalid`, fields });
+        if (cl === null || sl !== cl) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} does not match the current record's link; not re-linked`, fields });
+      } else {
+        const sp = parseKey(r[personHeader]);
+        if (sp === null) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} missing or invalid`, fields });
+        if (sp !== person) return push({ line, key, outcome: "held", reason: `source ${dest.personLink} does not match the current record's person; not re-linked`, fields });
+      }
     }
     if (!cur) {
       if (marks.length) return push({ line, key, outcome: "held", reason: "ID collides with a portal record or edit; not renumbered", fields });
@@ -297,7 +307,7 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
       else { f.outcome = "conflict"; f.reason = "destination changed since baseline"; counts.conflicts++; }
       fields.push(f);
     }
-    push({ line, key, ...(dest.personLink ? { person: person! } : {}), outcome: changes ? "update" : fields.some((f) => ["held", "conflict", "protected"].includes(f.outcome)) ? "held" : "unchanged", fields });
+    push({ line, key, ...(dest.personLink ? { person: person! } : {}), ...(dest.xw ? { link: inp.linkOf!.get(key)! } : {}), outcome: changes ? "update" : fields.some((f) => ["held", "conflict", "protected"].includes(f.outcome)) ? "held" : "unchanged", fields });
   });
   const inFile = new Set(keyCount.keys());
   const notInSource = mode === "update" ? [...inp.current.keys()].filter((k) => !inFile.has(k)) : [];
@@ -305,11 +315,11 @@ export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] =
 }
 
 // ---------- guarded adapter (NOT READY; disabled) ----------
-export interface WriteOp { kind: "update" | "insert"; key: number; person?: number; values: Record<string, string | null>; expected: Record<string, string | null> | null }
+export interface WriteOp { kind: "update" | "insert"; key: Key; person?: number; link?: string; values: Record<string, string | null>; expected: Record<string, string | null> | null }
 export function planWrites(r: ReconResult): WriteOp[] {
   const ops = r.rows.filter((x) => x.outcome === "update" || x.outcome === "insert").map((x) => {
     const fs = x.fields.filter((f) => f.outcome === "apply");
-    return { kind: x.outcome as "update" | "insert", key: x.key!, ...(x.person !== undefined ? { person: x.person } : {}), values: Object.fromEntries(fs.map((f) => [f.col, f.latest])), expected: x.outcome === "update" ? Object.fromEntries(fs.map((f) => [f.col, f.current])) : null };
+    return { kind: x.outcome as "update" | "insert", key: x.key!, ...(x.person !== undefined ? { person: x.person } : {}), ...(x.link !== undefined ? { link: x.link } : {}), values: Object.fromEntries(fs.map((f) => [f.col, f.latest])), expected: x.outcome === "update" ? Object.fromEntries(fs.map((f) => [f.col, f.current])) : null };
   });
   if (new Set(ops.map((o) => o.key)).size !== ops.length) throw new SourceError("duplicate keys in plan");
   return ops;
@@ -325,12 +335,13 @@ const q = (id: string) => { if (!IDENT.test(id)) throw new SourceError(`unsafe i
 
 function checkOps(dest: ResolvedDest, ops: WriteOp[]) {
   if (!MINTED.has(dest)) throw new SourceError("destination must come from resolveDestination");
+  if (dest.keyKind !== "int" || dest.xw) throw new SourceError("this legacy in-process adapter supports int keys without crosswalk only; use the Engage transport");
   if (!ops.length) throw new SourceError("nothing to apply");
   if (ops.length > SOURCE_MAX_OPS) throw new SourceError(`at most ${SOURCE_MAX_OPS} records per batch`);
   const allowed = new Map(dest.dests.filter((d) => d.st === "candidate" && d.col !== dest.key).map((d) => [d.col, d]));
   const keys = new Set<number>();
   for (const op of ops) {
-    if (!Number.isSafeInteger(op.key) || op.key <= 0 || op.key > 2147483647 || keys.has(op.key)) throw new SourceError("keys must be unique positive integers");
+    if (typeof op.key !== "number" || !Number.isSafeInteger(op.key) || op.key <= 0 || op.key > 2147483647 || keys.has(op.key)) throw new SourceError("keys must be unique positive integers");
     keys.add(op.key);
     const cols = Object.keys(op.values);
     if (!cols.length) throw new SourceError(`no values for ${op.key}`);
@@ -382,7 +393,7 @@ export async function executeGuarded(tx: SqlTx, dest: ResolvedDest, ops: WriteOp
     const byKey = new Map<number, Record<string, unknown>[]>();
     for (const r of src) { const k = Number(r.k); byKey.set(k, [...(byKey.get(k) ?? []), r]); }
     for (const op of ops) {
-      const found = byKey.get(op.key) ?? [];
+      const found = byKey.get(op.key as number) ?? [];
       if (found.length > 1) throw new SourceError(`stale: destination has ${found.length} rows for ${op.key}`);
       if (op.kind === "insert") { if (found.length) throw new SourceError(`stale: ${op.key} now exists`); }
       else {

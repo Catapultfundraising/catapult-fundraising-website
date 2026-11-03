@@ -4,7 +4,7 @@
 // The browser never sees the bearer secret or SQL credentials; previews are HMAC-bound and expire in 15 minutes.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { REGISTRY_META, SOURCE_FIELDS } from "./source-registry";
-import { planWrites, preparedDigest, reconcile, SOURCE_TRANSPORT_APPROVED, SourceError, type ReconInput, type ReconResult, type WriteOp } from "./source-reconcile";
+import { planWrites, preparedDigest, type Key, reconcile, SOURCE_TRANSPORT_APPROVED, SourceError, type ReconInput, type ReconResult, type WriteOp } from "./source-reconcile";
 
 type Env = Record<string, string | undefined>;
 export const SOURCE_TOKEN_TTL_MS = 15 * 60_000;
@@ -13,22 +13,23 @@ const secretOk = (env: Env) => (env.PORTAL_WRITE_SECRET ?? "").length >= 24;
 export const sourcePreviewConfigured = (env: Env = process.env) => env.SOURCE_IMPORT_PREVIEW === "enabled" && !!url(env) && secretOk(env);
 export const sourceApplyConfigured = (env: Env = process.env, transportApproved: boolean = SOURCE_TRANSPORT_APPROVED) => transportApproved && env.SOURCE_IMPORT_APPLY === "enabled" && sourcePreviewConfigured(env);
 
-export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: number[]; current: { key: number; person?: number | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: number; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
+export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: Key[]; current: { key: Key; person?: number | null; link?: string | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: Key; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
 /** Engage preview state -> reconciliation inputs. Only source-provenance baseline rows count; unreadable values are omitted (=> held). */
-export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf"> {
+export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf"> {
   if (s.registryRev !== REGISTRY_META.rev) throw new SourceError("Engage registry revision differs from this website; deploy both together");
   if (!Array.isArray(s.duplicateKeys) || !Array.isArray(s.current)) throw new SourceError("Engage preview state is malformed");
-  const heldKeys = new Map<number, string>(s.duplicateKeys.map((k) => [k, "destination has more than one row for this ID"]));
-  const current = new Map<number, Record<string, string | null>>();
-  const personOf = new Map<number, number | null>();
+  const heldKeys = new Map<Key, string>(s.duplicateKeys.map((k) => [k, "destination has more than one row for this ID"]));
+  const current = new Map<Key, Record<string, string | null>>();
+  const personOf = new Map<Key, number | null>(); const linkOf = new Map<Key, string | null>();
   for (const r of s.current) {
     if (s.personLink) personOf.set(r.key, Number.isSafeInteger(r.person) && (r.person as number) > 0 ? (r.person as number) : null);
+    if (s.personLink && r.link !== undefined) linkOf.set(r.key, typeof r.link === "string" ? r.link : null);
     if (current.has(r.key)) { heldKeys.set(r.key, "destination reported this ID twice"); continue; } const v: Record<string, string | null> = {}; for (const [c, x] of Object.entries(r.values)) if (!r.unreadable.includes(c)) v[c] = x; current.set(r.key, v); }
-  const baseline = new Map<number, Record<string, string | null>>();
+  const baseline = new Map<Key, Record<string, string | null>>();
   for (const b of s.baseline) baseline.set(b.key, { ...(baseline.get(b.key) ?? {}), [b.col]: b.value });
   const overlays = [...s.overlayKeys.map((key) => ({ key, col: "portal_updates", provenance: "unknown" as const })), ...s.prospectKeys.map((key) => ({ key, col: null, provenance: "unknown" as const }))];
   for (const k of heldKeys.keys()) current.delete(k);
-  return { baseline, current, overlays, heldKeys, ...(s.personLink ? { personOf } : {}) };
+  return { baseline, current, overlays, heldKeys, ...(s.personLink ? { personOf, linkOf } : {}) };
 }
 
 export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[]; job?: SourceJobRef }
@@ -56,7 +57,7 @@ export function verifySourceToken(token: unknown, secret: string | undefined, no
 }
 
 /** Builds the reconciliation + signed token from Engage state. Returns no token when nothing is applicable. */
-export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number; job?: { ref: Omit<SourceJobRef, "heldRows">; requestId: string; fileDigest: string } }) {
+export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number; job?: { ref: Omit<SourceJobRef, "heldRows">; requestId: string; fileDigest: string } }) {
   const inputs = stateToInputs(state);
   if (base.prepared) {
     const want = preparedDigest(base.prepared, base.table);

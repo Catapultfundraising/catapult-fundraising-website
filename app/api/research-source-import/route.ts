@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { parseCsv, CSV_MAX_BYTES, CsvError, demoAllowed } from "@/lib/portal-v2/csv-updates";
-import { approvedPrepared, clientTables, parseKey, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
+import { approvedPrepared, clientTables, parseKey, parseKeyOf, clientKeyKind, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
 import { REGISTRY_META, SOURCE_FIELDS } from "@/lib/portal-v2/source-registry";
 import { createHash } from "node:crypto";
 import { verifyJobChunk, JobError, JOB_CHUNK_MAX_BYTES, JOB_MANIFEST_MAX_BYTES } from "@/lib/portal-v2/source-jobs";
@@ -32,7 +32,8 @@ async function livePreviewResponse(client: string, table: string, dests: ReturnT
   const mapped = Object.values(mapping).filter(Boolean);
   if (new Set(mapped).size !== mapped.length) return bad("A destination is mapped twice");
   if (rows.length > SOURCE_MAX_OPS) return bad(`One preview handles at most ${SOURCE_MAX_OPS} rows; larger files are uploaded as a batched job`, 413);
-  const keys = [...new Set(rows.map((r) => parseKey(r[kh])).filter((k): k is number => k !== null))];
+  const kind = clientKeyKind(client, table);
+  const keys = [...new Set(rows.map((r) => parseKeyOf(kind, r[kh])).filter((k) => k !== null))];
   const cols = mapped.filter((c) => dests.some((d) => d.col === c && d.st === "candidate" && c !== keyCol));
   if (!keys.length || !cols.length) return bad("Map the key and at least one reviewable field");
   // Source-as-of date: explicit only. Blank = unknown (never today).
@@ -120,7 +121,7 @@ export async function POST(req: NextRequest) {
     if (b.op === "jobPreview") {
       if (b.demo === true) {
         if (!demoAllowed()) return bad("Demo data is only available in local development", 403);
-        const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor || ""), keyCol: dests.find((d) => d.key)?.key ?? "" });
+        const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: String(b.actor || ""), keyCol: dests.find((d) => d.key)?.key ?? "", keyKind: clientKeyKind(client, table) });
         const { demoSourceState } = await import("@/lib/portal-v2/source-demo");
         const { dest: _d, ...result } = reconcile({ client, table, mode: "update", mapping: validateHeadersAndMapping(v.manifest.headers, v.mapping), rows: v.rows, headers: v.manifest.headers, ...demoSourceState(client, table) });
         return NextResponse.json({ result, token: null, requestId: v.requestId, job: null, applyAvailable: false });
@@ -128,7 +129,7 @@ export async function POST(req: NextRequest) {
       // One bounded batch of a large file. Whole-file identity/keys are re-verified on every batch; nothing is stored here.
       if (!sourcePreviewConfigured()) return bad("Live source preview is not configured (needs the reviewed source_import store and dedicated Engage connection)", 501);
       if (typeof b.actor !== "string" || !b.actor.trim() || b.actor.length > 200) return bad("Enter your name (recorded as the shared-login author)");
-      const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: b.actor, keyCol: dests.find((d) => d.key)?.key ?? "" });
+      const v = await verifyJobChunk(nodeSha, b.manifest, b.jobId, b.batchIndex, b.rows, { client, table, registryRev: REGISTRY_META.rev, actor: b.actor, keyCol: dests.find((d) => d.key)?.key ?? "", keyKind: clientKeyKind(client, table) });
       const ref = { jobId: b.jobId as string, batchIndex: v.index, batchCount: v.batchCount, totalRows: v.manifest.totalRows };
       return await livePreviewResponse(client, table, dests, v.manifest.headers, v.rows, v.mapping, v.manifest.fileName, v.manifest.fileDate, "", { ref, requestId: v.requestId, fileDigest: v.fileDigest });
     }
