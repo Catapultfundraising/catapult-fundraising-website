@@ -9,7 +9,7 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { parseCsv } from "./csv-updates";
 import { neutralize, APPENDED } from "./gift-preview";
-import { planGiftJob, verifyGiftJob, validateGiftRequest, previewRowCap, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
+import { planGiftJob, verifyGiftJob, validateGiftRequest, validValue, previewRowCap, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
 
 export class DurableGiftError extends Error { constructor(message: string, public status = 400) { super(message); } }
 function bad(m: string, s = 400): never { throw new DurableGiftError(m, s); }
@@ -218,11 +218,71 @@ export function previewQuery(q: unknown, g: GiftRegistration) {
   else bad("bad preview query");
   return q;
 }
-/** Project the upstream preview to the known fields only and bound its size. */
-export function projectPreview(body: unknown) {
-  if (!isObj(body)) bad("Preview unavailable", 502);
-  const b = body as Record<string, unknown>; const out: Record<string, unknown> = {};
-  for (const k of ["registrationId", "rowCap", "giftOverridesActive", "rows", "gifts", "persons", "next", "hasMore", "note"]) if (k in b) out[k] = b[k];
-  if (typeof out.giftOverridesActive !== "boolean" || (out.rows !== undefined && !Array.isArray(out.rows)) || (out.gifts !== undefined && !Array.isArray(out.gifts)) || (out.persons !== undefined && !Array.isArray(out.persons))) bad("Preview unavailable", 502);
+/** Strict projection of the upstream preview: everything is rebuilt from validated known fields for THIS registration and
+ *  THIS query; any mismatch is 502 (never relayed). Flags stay advisory; commit re-checks under lock. */
+export function projectPreview(body: unknown, g: GiftRegistration, query: Record<string, unknown>) {
+  const no = (): never => bad("Preview unavailable (unexpected response)", 502);
+  const R = previewRowCap(g.columns.length);
+  if (!isObj(body) || body.registrationId !== g.id || body.rowCap !== R || typeof body.giftOverridesActive !== "boolean") no();
+  const b = body as Record<string, unknown>;
+  const bool = (v: unknown) => (typeof v === "boolean" ? v : no());
+  const nn = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : no());
+  const cols = new Map(g.columns.map((c) => [c.col, c]));
+  const row = (x: unknown) => {
+    if (!isObj(x) || !posInt(x.locator)) no();
+    const r = x as Record<string, unknown>;
+    const gid = r.giftId === undefined || r.giftId === null ? null : validGiftId(r.giftId) ? r.giftId : no();
+    const conflict = r.identityConflict === undefined ? false : bool(r.identityConflict);
+    if (conflict && gid !== null) no();
+    if (r.matches !== undefined) { const m = nn(r.matches); if (m === 1) no(); return { locator: r.locator as number, matches: m, giftId: gid, identityConflict: conflict }; }
+    const person = r.person === null ? null : posInt(r.person) ? (r.person as number) : no();
+    if (bool(r.personReadable) !== (person !== null)) no();
+    if (!isObj(r.values) || Object.keys(r.values).length !== cols.size) no();
+    const values: Record<string, { v: string | null; readable: true } | { readable: false }> = {};
+    for (const [c, d] of cols) { const cv = (r.values as Record<string, unknown>)[c];
+      if (!isObj(cv)) no(); const cell = cv as Record<string, unknown>;
+      if (cell.readable === false) { values[c] = { readable: false }; continue; } // any relayed v is dropped
+      if (cell.readable !== true || !(cell.v === null || validValue(d as never, cell.v))) no();
+      values[c] = { v: cell.v as string | null, readable: true }; }
+    let baseline: Record<string, { present: boolean; provenance: "source" | null; equalsCurrent: boolean | null }> | null = null;
+    if (r.baseline !== null && r.baseline !== undefined) {
+      if (gid === null || !isObj(r.baseline) || Object.keys(r.baseline).length !== cols.size) no();
+      baseline = {};
+      for (const c of cols.keys()) { const e = (r.baseline as Record<string, unknown>)[c]; if (!isObj(e)) no(); const f = e as Record<string, unknown>;
+        const present = bool(f.present); const prov = f.provenance === null ? null : f.provenance === "source" ? "source" as const : no();
+        const eq = f.equalsCurrent === null ? null : bool(f.equalsCurrent);
+        if (!present && (prov !== null || eq !== null)) no();
+        baseline[c] = { present, provenance: prov, equalsCurrent: eq }; }
+    }
+    return { locator: r.locator as number, person, personReadable: person !== null, values, giftId: gid, identityConflict: conflict, donorMismatch: r.donorMismatch === undefined ? false : bool(r.donorMismatch), baseline };
+  };
+  const out: Record<string, unknown> = { registrationId: g.id, rowCap: R, giftOverridesActive: b.giftOverridesActive, note: "Read-only preview; every save re-checks under lock. Flags are advisory." };
+  const rowsOf = () => { if (!Array.isArray(b.rows)) no(); const rs = (b.rows as unknown[]).map(row); if (new Set(rs.map((r) => r.locator)).size !== rs.length) no(); return rs; };
+  if (query.kind === "persons") {
+    const ps = query.persons as number[];
+    if (!Array.isArray(b.persons) || b.persons.length !== ps.length) no();
+    out.persons = (b.persons as unknown[]).map((x, i) => { if (!isObj(x) || x.person !== ps[i]) no(); const y = x as Record<string, unknown>; return { person: ps[i], masterMatches: nn(y.masterMatches), portalOverlay: bool(y.portalOverlay), portalProspect: bool(y.portalProspect) }; });
+  } else if (query.kind === "locators") {
+    const ls = query.locators as number[]; const rs = rowsOf();
+    if (rs.length !== ls.length || rs.some((r, i) => r.locator !== ls[i])) no();
+    out.rows = rs;
+  } else if (query.kind === "gifts") {
+    const ids = query.giftIds as string[];
+    if (!Array.isArray(b.gifts) || b.gifts.length !== ids.length) no();
+    const gifts = (b.gifts as unknown[]).map((x, i) => { if (!isObj(x) || x.giftId !== ids[i]) no(); const y = x as Record<string, unknown>;
+      if (bool(y.found)) { if (!posInt(y.locator) || !(y.person === undefined || posInt(y.person))) no(); return { giftId: ids[i], found: true, locator: y.locator as number, person: (y.person as number | undefined) ?? null }; }
+      return { giftId: ids[i], found: false }; });
+    const locs = [...new Set(gifts.filter((x) => x.found).map((x) => (x as { locator: number }).locator))];
+    const rs = rowsOf(); if (rs.length !== locs.length || rs.some((r, i) => r.locator !== locs[i])) no();
+    out.gifts = gifts; out.rows = rs;
+  } else if (query.kind === "history") {
+    const after = (query.after as number | undefined) ?? 0; const rs = rowsOf();
+    if (rs.length > R || rs.some((r, i) => r.locator <= (i ? rs[i - 1].locator : after))) no();
+    const hasMore = bool(b.hasMore); const next = b.next === null ? null : posInt(b.next) ? b.next : no();
+    if (hasMore ? next !== rs[rs.length - 1]?.locator : next !== null) no();
+    // a candidate whose readable donor differs from the queried donor is held (never eligible)
+    out.rows = rs.map((r) => ("person" in r && r.person !== query.person ? { ...r, donorMismatch: true } : r));
+    out.hasMore = hasMore; out.next = next;
+  } else no();
   return sized(out);
 }

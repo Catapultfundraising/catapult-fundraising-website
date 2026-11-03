@@ -242,7 +242,7 @@ export async function POST(req: NextRequest) {
           if (!exactBody(b, ["op", "client", "table", "query"])) return bad("bad durableGiftPreview body");
           const query = previewQuery(b.query, g);
           const out = await postToEngage(fetch, process.env, { op: "giftPreviewState", request: { client, registrationId: g.id, registrationVersion: g.version, registrationDigest: giftRegDigest(g), query } }, "");
-          return out.ok ? NextResponse.json(projectPreview(out.body)) : out.unconfirmed ? bad("Preview unavailable; nothing was changed. Retry the read.", 502) : bad("Engage refused this preview request.", 400);
+          return out.ok ? NextResponse.json(projectPreview(out.body, g, query as Record<string, unknown>)) : out.unconfirmed ? bad("Preview unavailable; nothing was changed. Retry the read.", 502) : bad("Engage refused this preview request.", 400);
         }
         if (b.op === "durableGiftProof") {
           if (!exactBody(b, ["op", "client", "table", "token", "manifest", "batchIndex"])) return bad("bad durableGiftProof body");
