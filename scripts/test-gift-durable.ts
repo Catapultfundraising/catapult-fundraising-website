@@ -297,3 +297,92 @@ test("job status projection: impossible counts refused (decided < batches, >100 
   assert.equal(L.projectJobStatus(c(100, 5000), J, "jag").state, "complete");
   assert.equal(L.projectJobStatus(c(2, 10, 3), J, "jag").state, "partial");
 });
+
+// ---------- F1a recovery ----------
+const recFile = (p: { token: string; batches: unknown[]; recovery: { header: unknown; headerMac: string } }) => ({ header: p.recovery.header, headerMac: p.recovery.headerMac, jobToken: p.token, parts: p.batches.map((rows, index) => ({ index, rows })) });
+
+test("F1a recovery: server-signed header from the validated plan; exact keys; no states; caps; renew changes exp only (same jobId/request ids)", async () => {
+  const L = await lib(); const p = await plan();
+  const h = p.recovery.header as unknown as Record<string, unknown>;
+  assert.deepEqual(Object.keys(h).sort(), ["actor", "batchCount", "batchRows", "client", "createdAt", "fileDate", "fileDigest", "fileName", "jobId", "manifest", "mapping", "mappingDigest", "partHashes", "registrationDigest", "registrationId", "registrationVersion", "table", "type", "v"]);
+  assert.ok(!JSON.stringify(h).includes('"expected"'), "header carries no expected snapshots (parts do)");
+  const late = NOW + 3 * 60 * 60_000;
+  assert.throws(() => L.verifyJob(p.token, p.manifest, SECRET, late, "jag"), /expired/);
+  const r = L.renewRecovery({ client: "jag", table: REG.table, header: h, headerMac: p.recovery.headerMac, jobToken: p.token, secret: SECRET, now: late });
+  assert.equal(r.jobId, p.jobId);
+  const { t } = L.verifyJob(r.token, p.manifest, SECRET, late, "jag");
+  const old = JSON.parse(Buffer.from(p.token.split(".")[0], "base64url").toString());
+  assert.deepEqual({ ...t, exp: 0 }, { ...old, exp: 0 }, "renewed payload identical except exp");
+  assert.equal(L.jobRequestId(r.jobId, 0), L.jobRequestId(p.jobId, 0));
+  const b = L.commitBody({ client: "jag", token: r.token, manifest: p.manifest, batchIndex: 0, rows: p.batches[0], secret: SECRET, now: late });
+  assert.deepEqual(b.request.rows, p.batches[0], "same part rows (incl. old expected) accepted under renewed token");
+  const tampered = JSON.parse(JSON.stringify(p.batches[0])); tampered[0].values.Gift_Amount = "999";
+  assert.throws(() => L.commitBody({ client: "jag", token: r.token, manifest: p.manifest, batchIndex: 0, rows: tampered, secret: SECRET, now: late }));
+});
+
+test("F1a renew refusals: forged header/token MAC, each cross-bound field, other client/table, registration drift/removal", async () => {
+  const L = await lib(); const p = await plan(); const h = p.recovery.header as unknown as Record<string, unknown>;
+  const renew = (o: Record<string, unknown> = {}) => L.renewRecovery({ client: "jag", table: REG.table, header: h, headerMac: p.recovery.headerMac, jobToken: p.token, secret: SECRET, now: NOW, ...o });
+  assert.throws(() => renew({ headerMac: p.recovery.headerMac.slice(0, -2) + (p.recovery.headerMac.endsWith("AA") ? "BB" : "AA") }), /signature/);
+  const [tb, tm] = p.token.split("."); assert.throws(() => renew({ jobToken: `${tb}.${tm.slice(0, -2)}AA` }), /signature/);
+  assert.throws(() => renew({ header: { ...h, states: ["saved"] } }), /bad recovery header/);
+  for (const [k, v] of [["actor", "X"], ["fileName", "x.csv"], ["fileDate", "2026-01-01"], ["table", "other"], ["batchRows", 1], ["mappingDigest", "0".repeat(64)], ["partHashes", []]] as const)
+    assert.throws(() => renew({ header: { ...h, [k]: v } }), /signature/, `${k} change breaks the header MAC`);
+  // a correctly re-MACed header (server key) whose field disagrees with the token is still refused by cross-binding
+  const other = await plan({ actor: "Someone Else" });
+  assert.throws(() => renew({ header: other.recovery.header, headerMac: other.recovery.headerMac }), /does not match the signed job \(jobId\)/);
+  assert.throws(() => renew({ client: "csnf" }), /does not match|client/);
+  assert.throws(() => renew({ table: "other" }), /\(table\)/);
+  L.__setGiftRegistrationsForTests([{ ...REG, version: 2 }]);
+  assert.throws(() => renew(), (e: unknown) => e instanceof L.DurableGiftError && e.status === 409 && /read-only job lookup/.test((e as Error).message));
+  L.__setGiftRegistrationsForTests([]);
+  assert.throws(() => renew(), /changed or was removed/);
+  L.__setGiftRegistrationsForTests([REG]);
+});
+
+test("F1a browser/server hash parity (key order, null vs absent, multibyte, full 13-column snapshot) and recovery-file verification", async () => {
+  const P = await import("../lib/portal-v2/gift-identity-plan"); const B = await import("../lib/portal-v2/gift-hash-browser");
+  const wide = Object.fromEntries(Array.from({ length: 13 }, (_, i) => [`C${i}`, i % 3 ? `v${i} é 中文 😀 e\u0301` : null]));
+  const rows = [
+    { ordinal: 0, action: "new", person: 7001, values: { b: "2", a: "1" }, expected: null },
+    { expected: { a: null, z: "x" }, values: { a: "1" }, person: 7002, action: "correct", giftId: "0000aaaa-0000-4000-8000-00000000abcd", ordinal: 3 },
+    { ordinal: 4, action: "adopt", locator: 41, person: 7003, values: wide, expected: wide },
+    { ordinal: 5, action: "correct", person: 7003, values: { a: "1" }, expected: { a: "" } },
+  ];
+  for (const r of rows) assert.equal(await B.browserGiftRowHash(r), P.giftRowHash(r as never));
+  assert.notEqual(await B.browserGiftRowHash({ x: null }), await B.browserGiftRowHash({}), "null differs from absent");
+  assert.equal(await B.browserGiftRowHash({ b: 1, a: 2 }), await B.browserGiftRowHash({ a: 2, b: 1 }), "key order canonical");
+  const L = await lib(); const p = await plan(); const f = recFile(p);
+  assert.deepEqual(await B.verifyRecoveryFile(f), { ok: true });
+  assert.equal((await B.verifyRecoveryFile({ ...f, states: ["saved"] })).ok, false, "added states refused");
+  const t2 = JSON.parse(JSON.stringify(f)); t2.parts[0].rows[0].expected = { Gift_Amount: "1" }; assert.equal((await B.verifyRecoveryFile(t2)).ok, false);
+  const t3 = JSON.parse(JSON.stringify(f)); t3.parts.pop(); assert.equal((await B.verifyRecoveryFile(t3)).ok, false);
+  void L;
+  const fs = await import("node:fs"); assert.ok(!/from "node:/.test(fs.readFileSync("lib/portal-v2/gift-hash-browser.ts", "utf8")));
+});
+
+test("[ROUTE] F1a renew + registration-independent job lookup (stub backend; save still off; no gate bypass)", async () => {
+  const calls: Record<string, unknown>[] = []; let reply: unknown = { confirmed: false, state: "unconfirmed" };
+  globalThis.fetch = (async (_u: unknown, init: { body: string }) => { calls.push(JSON.parse(init.body)); return Response.json(reply); }) as unknown as typeof fetch;
+  const { POST } = await import("../app/api/research-source-import/route");
+  const D = await import("../lib/portal-v2/gift-durable"); D.__setGiftRegistrationsForTests([REG]);
+  const post = (body: Record<string, unknown>, raw?: string) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` }, body: raw ?? JSON.stringify(body) }));
+  const T = REG.table;
+  const pl = await (await post({ op: "durableGiftPlan", client: "jag", table: T, csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).json();
+  const rn = await post({ op: "durableGiftRenew", client: "jag", table: T, header: pl.recovery.header, headerMac: pl.recovery.headerMac, jobToken: pl.token });
+  assert.equal(rn.status, 200); assert.equal((await rn.json()).jobId, pl.jobId);
+  assert.equal((await post({ op: "durableGiftRenew", client: "jag", table: T, header: pl.recovery.header, headerMac: pl.recovery.headerMac, jobToken: pl.token, extra: 1 })).status, 400);
+  const big = JSON.stringify({ op: "durableGiftRenew", client: "jag", table: T, header: pl.recovery.header, headerMac: pl.recovery.headerMac, jobToken: pl.token, pad: "x".repeat(2_000_001) });
+  assert.equal((await post({}, big)).status, 413);
+  assert.equal(calls.length, 0, "renew never calls Engage");
+  // drift/removal: renew refused, read-only job lookup still works and is projected
+  D.__setGiftRegistrationsForTests([]);
+  assert.equal((await post({ op: "durableGiftRenew", client: "jag", table: T, header: pl.recovery.header, headerMac: pl.recovery.headerMac, jobToken: pl.token })).status, 404);
+  reply = { confirmed: true, state: "complete", batchCount: 1, committedBatches: [0], missingBatches: [], heldRows: 0, decidedRows: 3, private: "x" };
+  const lk = await (await post({ op: "durableGiftJobLookup", client: "jag", jobId: pl.jobId })).json();
+  assert.equal(lk.state, "complete"); assert.equal(lk.jobId, pl.jobId); assert.ok(!("private" in lk) && !("proof" in lk));
+  assert.deepEqual(calls.at(-1), { op: "giftJobStatus", client: "jag", jobId: pl.jobId }, "fixed client/job query only");
+  for (const body of [{ op: "durableGiftJobLookup", client: "zzz", jobId: pl.jobId }, { op: "durableGiftJobLookup", client: "jag", jobId: "x" }, { op: "durableGiftJobLookup", client: "jag", jobId: pl.jobId, table: T }])
+    assert.equal((await post(body)).status, 400);
+  D.__setGiftRegistrationsForTests([]);
+});

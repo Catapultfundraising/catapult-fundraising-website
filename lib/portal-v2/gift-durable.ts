@@ -43,7 +43,7 @@ function sign<T>(secret: string | undefined, domain: "job" | "proof", p: T): str
   const body = Buffer.from(JSON.stringify(p), "utf8").toString("base64url");
   return `${body}.${createHmac("sha256", key(secret!, domain)).update(body).digest("base64url")}`;
 }
-function verify<T extends { typ: string; exp: number }>(tok: unknown, secret: string | undefined, domain: "job" | "proof", now: number): T {
+function verify<T extends { typ: string; exp: number }>(tok: unknown, secret: string | undefined, domain: "job" | "proof", now: number, ignoreExpiry = false): T {
   if (!goodSecret(secret)) bad("server secret not configured", 500);
   if (typeof tok !== "string" || tok.length > 400_000 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(tok)) bad(`bad ${domain} token`);
   const [body, mac] = (tok as string).split(".");
@@ -52,7 +52,7 @@ function verify<T extends { typ: string; exp: number }>(tok: unknown, secret: st
   if (got.length !== want.length || !timingSafeEqual(got, want)) bad(`${domain} token signature invalid`);
   let p: T; try { p = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { return bad(`bad ${domain} token`); }
   if (!p || p.typ !== domain) bad(`wrong token type (expected ${domain})`);
-  if (!(typeof p.exp === "number" && p.exp > now)) bad(`${domain} token expired; plan again`);
+  if (typeof p.exp !== "number" || (!ignoreExpiry && !(p.exp > now))) bad(`${domain} token expired; plan again`);
   return p;
 }
 void ({} as Signed<unknown>);
@@ -135,7 +135,9 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
     if (giftEnvelopeBytes(r) > GIFT_MAX_ENVELOPE_BYTES) bad("a batch exceeds the request byte budget", 413);
   }
   const token: JobToken = { typ: "job", jobId: plan.jobId, client: o.client, registrationId: g!.id, registrationVersion: g!.version, registrationDigest: base.registrationDigest, mappingDigest: mapDigest(mapping as Record<string, string>), fileDigest, fileName: base.fileName, totalOrdinals: rows.length, actor: base.actor, fileDate: base.fileDate, batchHashes: plan.manifest.batches.map((b) => b.hash), exp: o.now + JOB_TOKEN_TTL_MS };
-  return sized({ token: sign(o.secret, "job", token), jobId: plan.jobId, manifest: plan.manifest, batches: plan.requests.map((r) => r.rows), summary: { batches: plan.requests.length, decided: decided.length, held: held.length, total: rows.length } });
+  const jobToken = sign(o.secret, "job", token); const batches = plan.requests.map((r) => r.rows);
+  const recovery = buildRecovery({ g: g!, token, jobToken, manifest: plan.manifest, mapping: mapping as Record<string, string>, batches, secret: o.secret, now: o.now });
+  return sized({ token: jobToken, jobId: plan.jobId, manifest: plan.manifest, batches, recovery, summary: { batches: plan.requests.length, decided: decided.length, held: held.length, total: rows.length } });
 }
 
 /** Verify a job token + manifest binding. Returns the token payload. */
@@ -317,4 +319,58 @@ export function projectJobStatus(body: unknown, jobId: string, client: string) {
   if (body.state !== want) return unavailable;
   const note = miss.length ? `Partial: ${done.length} of ${n} batches committed; missing batches are not confirmed either way. ${held} rows held.` : held ? `All batches committed; ${held} rows were held and not imported, so the file is not fully imported.` : "All decided rows committed; no rows held.";
   return { jobId, client, confirmed: true as const, state: want as "complete" | "partial", batchCount: n as number, committedBatches: done, missingBatches: miss, heldRows: held as number, decidedRows: dec as number, note };
+}
+
+// ---------- F1a: reload-recovery file (server-signed from the validated plan; renewal changes exp ONLY) ----------
+export const RECOVERY_TYPE = "durable-gift-recovery/v1";
+export const RECOVERY_MAX_HEADER = 1_600_000, RECOVERY_MAX_FILE = 8_000_000, RENEW_MAX_BODY = 2_000_000;
+/** Exact header keys. Choices/held coverage are the manifest's own entries (decided o/a/t/l/p/h + held); full expected
+ *  snapshots live ONLY in the parts, which the manifest batch hashes bind. No batch states are ever stored. */
+const HEADER_KEYS = ["v", "type", "client", "table", "registrationId", "registrationVersion", "registrationDigest", "jobId", "manifest", "mapping", "mappingDigest", "fileDigest", "fileName", "fileDate", "actor", "batchRows", "batchCount", "partHashes", "createdAt"];
+export interface RecoveryHeader { v: 1; type: typeof RECOVERY_TYPE; client: string; table: string; registrationId: string; registrationVersion: number; registrationDigest: string; jobId: string; manifest: GiftJobManifest; mapping: Record<string, string>; mappingDigest: string; fileDigest: string; fileName: string; fileDate: string | null; actor: string; batchRows: number; batchCount: number; partHashes: string[]; createdAt: number }
+const canonJ = (x: unknown): string => JSON.stringify((function c(v: unknown): unknown { return Array.isArray(v) ? v.map(c) : isObj(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, c(v[k])])) : v; })(x));
+const headerMac = (secret: string, h: unknown) => createHmac("sha256", key(secret, "recovery")).update(`${RECOVERY_TYPE}\n${canonJ(h)}`).digest("base64url");
+function buildRecovery(o: { g: GiftRegistration; token: JobToken; jobToken: string; manifest: GiftJobManifest; mapping: Record<string, string>; batches: GiftRow[][]; secret: string | undefined; now: number }) {
+  if (!goodSecret(o.secret)) bad("server secret not configured", 500);
+  const m = o.manifest;
+  const header: RecoveryHeader = { v: 1, type: RECOVERY_TYPE, client: m.client, table: o.g.table, registrationId: m.registrationId, registrationVersion: m.registrationVersion, registrationDigest: m.registrationDigest, jobId: o.token.jobId, manifest: m, mapping: o.mapping, mappingDigest: o.token.mappingDigest, fileDigest: m.fileDigest, fileName: m.fileName, fileDate: m.fileDate, actor: m.actor, batchRows: m.batchRows, batchCount: m.batchCount, partHashes: m.batches.map((b) => b.hash), createdAt: o.now };
+  if (Buffer.byteLength(JSON.stringify(header), "utf8") > RECOVERY_MAX_HEADER) bad("No valid recovery file can be produced for this plan (header too large); split the file", 413);
+  const mac = headerMac(o.secret!, header);
+  const file = { header, headerMac: mac, jobToken: o.jobToken, parts: o.batches.map((rows, index) => ({ index, rows })) };
+  if (Buffer.byteLength(JSON.stringify(file), "utf8") > RECOVERY_MAX_FILE) bad("No valid recovery file can be produced for this plan (over 8 MB); split the file", 413);
+  return { header, headerMac: mac };
+}
+const exactObj = (o: unknown, keys: string[]) => isObj(o) && Object.keys(o).length === keys.length && keys.every((k) => k in o);
+/** Renew an (possibly expired) job token from a recovery file header. Authority = original job token MAC/type/context
+ *  (expiry ignored, nothing else) AND the typed header MAC; every field cross-bound across token/header/manifest and the
+ *  CURRENT registration (drift/removal => refused; whole-job lookup stays available separately). Output token is the
+ *  original payload with a new exp only, so jobId and every derived request id are unchanged. */
+export function renewRecovery(o: { client: string; table: string; header: unknown; headerMac: unknown; jobToken: unknown; secret: string | undefined; now: number }) {
+  if (!goodSecret(o.secret)) bad("server secret not configured", 500);
+  if (!exactObj(o.header, HEADER_KEYS)) bad("bad recovery header");
+  const h = o.header as unknown as RecoveryHeader;
+  if (typeof o.headerMac !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(o.headerMac)) bad("bad recovery signature");
+  const want = Buffer.from(headerMac(o.secret!, h), "base64url"), got = Buffer.from(o.headerMac as string, "base64url");
+  if (got.length !== want.length || !timingSafeEqual(got, want)) bad("recovery signature invalid");
+  if (h.v !== 1 || h.type !== RECOVERY_TYPE) bad("wrong recovery type");
+  const t = verify<JobToken>(o.jobToken, o.secret, "job", o.now, true);
+  if (!isObj(h.manifest)) bad("bad manifest");
+  const m = h.manifest;
+  try { validateManifest(m); } catch (e) { if (e instanceof SourceImportError) bad(e.message, e.status); throw e; }
+  const hashes = m.batches.map((b) => b.hash);
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  const checks: [string, boolean][] = [
+    ["jobId", t.jobId === h.jobId && giftJobId(m) === h.jobId],
+    ["client", t.client === o.client && h.client === o.client && m.client === o.client],
+    ["registration", t.registrationId === h.registrationId && m.registrationId === h.registrationId && t.registrationVersion === h.registrationVersion && m.registrationVersion === h.registrationVersion && t.registrationDigest === h.registrationDigest && m.registrationDigest === h.registrationDigest],
+    ["file", t.fileDigest === h.fileDigest && m.fileDigest === h.fileDigest && t.fileName === h.fileName && m.fileName === h.fileName && t.fileDate === h.fileDate && m.fileDate === h.fileDate && t.actor === h.actor && m.actor === h.actor && t.totalOrdinals === m.totalOrdinals],
+    ["mapping", isObj(h.mapping) && Object.values(h.mapping).every((v) => typeof v === "string") && t.mappingDigest === h.mappingDigest && mapDigest(h.mapping) === h.mappingDigest],
+    ["batches", h.batchRows === m.batchRows && h.batchCount === m.batchCount && same(h.partHashes, hashes) && same(t.batchHashes, hashes)],
+    ["table", typeof h.table === "string" && h.table === o.table],
+  ];
+  const badField = checks.find(([, ok]) => !ok); if (badField) bad(`recovery file does not match the signed job (${badField[0]})`);
+  const g = registrationFor(o.client);
+  if (!g || g.table !== h.table || g.id !== t.registrationId || g.version !== t.registrationVersion || giftRegDigest(g) !== t.registrationDigest) bad("Gift registration changed or was removed since planning. Renewal and saving are refused; use the read-only job lookup until the registration is reviewed and restored or migrated.", 409);
+  const renewed: JobToken = { ...t, exp: o.now + JOB_TOKEN_TTL_MS };
+  return { token: sign(o.secret, "job", renewed), jobId: t.jobId };
 }

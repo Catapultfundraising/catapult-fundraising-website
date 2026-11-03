@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isResearchAuthed } from "@/lib/research-auth";
-import { parseCsv, CSV_MAX_BYTES, CsvError, demoAllowed } from "@/lib/portal-v2/csv-updates";
+import { parseCsv, CSV_MAX_BYTES, CsvError, demoAllowed, CSV_CLIENTS } from "@/lib/portal-v2/csv-updates";
 import { canonLink, resolveDestination, approvedPrepared, clientTables, parseKey, parseKeyOf, clientKeyKind, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
 import { REGISTRY_META, SOURCE_FIELDS } from "@/lib/portal-v2/source-registry";
 import { createHash } from "node:crypto";
@@ -12,7 +12,7 @@ import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2
 import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
 import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId, validateAttestHeaders } from "@/lib/portal-v2/source-baseline-attest";
 import { stageGift, exportGift, giftColumns, GiftPreviewError, GIFT_CLIENT, GIFT_TABLE, GIFT_PERSON_COL } from "@/lib/portal-v2/gift-preview";
-import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, projectJobStatus, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
+import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, projectJobStatus, renewRecovery, RENEW_MAX_BODY, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
 import { giftRegDigest, previewRowCap, jobRequestId, validOutcome } from "@/lib/portal-v2/gift-identity-plan";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
@@ -210,8 +210,18 @@ export async function POST(req: NextRequest) {
     if (typeof b.op === "string" && b.op.startsWith("durableGift")) {
       const g = registrationFor(client);
       const now = Date.now(), secret = process.env.RESEARCH_AUTH_SECRET;
-      const OPS = ["durableGiftContext", "durableGiftPlan", "durableGiftExport", "durableGiftCommit", "durableGiftPreview", "durableGiftProof", "durableGiftJobStatus"];
+      const OPS = ["durableGiftJobLookup", "durableGiftRenew", "durableGiftContext", "durableGiftPlan", "durableGiftExport", "durableGiftCommit", "durableGiftPreview", "durableGiftProof", "durableGiftJobStatus"];
       if (!OPS.includes(b.op)) return bad("unknown op");
+      // Read-only whole-job lookup, independent of the (mutable) gift registration: fixed client code + jobId only,
+      // existing backend giftJobStatus (fixed client/job query), strict projection. Never a proof, never enables a write.
+      if (b.op === "durableGiftJobLookup") {
+        const jid = String(b.jobId || "");
+        if (!exactBody(b, ["op", "client", "jobId"]) || !(CSV_CLIENTS as readonly string[]).includes(client) || !/^[a-f0-9]{64}$/.test(jid)) return bad("bad durableGiftJobLookup body");
+        if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
+        try { const out = await postToEngage(fetch, process.env, { op: "giftJobStatus", client, jobId: jid }, "");
+          return out.ok ? NextResponse.json(projectJobStatus(out.body, jid, client)) : bad("Status unavailable (unconfirmed); try again", 502); }
+        catch { return bad("Status unavailable (unconfirmed); try again", 502); }
+      }
       if (typeof b.table !== "string") return bad("table must be text");
       try {
         if (b.op === "durableGiftContext" && !exactBody(b, ["op", "client", "table"])) return bad("bad durableGiftContext body");
@@ -222,6 +232,11 @@ export async function POST(req: NextRequest) {
           if (!exactBody(b, ["op", "client", "table", "csv", "mapping", "decisions", "actor", "fileName", "fileDate"]) || typeof b.csv !== "string") return bad("bad durableGiftPlan body");
           if (Buffer.byteLength(text, "utf8") > DURABLE_MAX_BODY) return bad("File plus decisions too large for one plan; split the file", 413);
           return NextResponse.json(buildDurablePlan({ client, csv: b.csv, mapping: b.mapping, decisions: b.decisions, actor: b.actor, fileName: b.fileName, fileDate: b.fileDate, secret, now }));
+        }
+        if (b.op === "durableGiftRenew") {
+          if (Buffer.byteLength(text, "utf8") > RENEW_MAX_BODY) return bad("Renewal request too large", 413);
+          if (!exactBody(b, ["op", "client", "table", "header", "headerMac", "jobToken"])) return bad("bad durableGiftRenew body");
+          return NextResponse.json(renewRecovery({ client, table, header: b.header, headerMac: b.headerMac, jobToken: b.jobToken, secret, now }));
         }
         if (b.op === "durableGiftExport") {
           if (!exactBody(b, ["op", "client", "table", "csv", "token", "manifest", "proofs"]) || typeof b.csv !== "string") return bad("bad durableGiftExport body");
