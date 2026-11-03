@@ -53,7 +53,7 @@ const API = "/api/research-source-import";
   reply.status = { hold: true, json: { found: true } }; a = arrived("status");
   await p.locator("button", { hasText: "Check status" }).click(); await a;
   await pick("wcbhc");
-  gates.status(); await resp("status").catch(() => {}); await frames();
+  const statusDone = resp("status"); gates.status(); await statusDone; await frames();
   const t = await p.innerText("body");
   ok(!t.includes("Saved: this request committed.") && (await sel(0).inputValue()) === "wcbhc", "deferred status after client change: not rendered into new selection");
   // C) deferred status for unchanged scope does render
