@@ -12,6 +12,8 @@ import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2
 import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
 import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId, validateAttestHeaders } from "@/lib/portal-v2/source-baseline-attest";
 import { stageGift, exportGift, giftColumns, GiftPreviewError, GIFT_CLIENT, GIFT_TABLE, GIFT_PERSON_COL } from "@/lib/portal-v2/gift-preview";
+import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
+import { giftRegDigest, previewRowCap, jobRequestId } from "@/lib/portal-v2/gift-identity-plan";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -202,6 +204,57 @@ export async function POST(req: NextRequest) {
       if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
       const out = await postToEngage(fetch, process.env, { op: "baselineStatus", client, table, requestId: b.requestId }, b.requestId);
       return out.ok ? NextResponse.json(summarizeStatus(out.body)) : bad("Status unavailable (unconfirmed); try again", 502);
+    }
+    // Durable gift IDs (review-only, DISABLED): website registry copy is EMPTY and commits need sourceApplyConfigured()
+    // (hard SOURCE_TRANSPORT_APPROVED=false). Reads need the configured transport. Fixed messages only; upstream text never echoed.
+    if (typeof b.op === "string" && b.op.startsWith("durableGift")) {
+      const g = registrationFor(client);
+      const now = Date.now(), secret = process.env.RESEARCH_AUTH_SECRET;
+      try {
+        if (b.op === "durableGiftContext") return NextResponse.json(g ? { available: true, configured: sourcePreviewConfigured(), saveAvailable: sourceApplyConfigured(), registrationId: g.id, columns: g.columns.map((c) => c.col), required: g.required, rowCap: previewRowCap(g.columns.length), newAllowed: g.locatorVerifiedUnique && !!g.rowAllocator } : { available: false, reason: "No reviewed gift registration for this client" });
+        if (!g) return bad("No reviewed gift registration for this client", 404);
+        if (b.op === "durableGiftPlan") {
+          if (!exactBody(b, ["op", "client", "table", "csv", "mapping", "decisions", "actor", "fileName", "fileDate"]) || typeof b.csv !== "string") return bad("bad durableGiftPlan body");
+          if (Buffer.byteLength(text, "utf8") > DURABLE_MAX_BODY) return bad("File plus decisions too large for one plan; split the file", 413);
+          return NextResponse.json(buildDurablePlan({ client, csv: b.csv, mapping: b.mapping, decisions: b.decisions, actor: b.actor, fileName: b.fileName, fileDate: b.fileDate, secret, now }));
+        }
+        if (b.op === "durableGiftExport") {
+          if (!exactBody(b, ["op", "client", "table", "csv", "token", "manifest", "proofs"]) || typeof b.csv !== "string") return bad("bad durableGiftExport body");
+          if (Buffer.byteLength(text, "utf8") > DURABLE_MAX_BODY) return bad("Export request too large", 413);
+          return NextResponse.json(durableExport({ client, csv: b.csv, token: b.token, manifest: b.manifest, proofs: b.proofs, secret, now }));
+        }
+        if (b.op === "durableGiftCommit") {
+          if (!exactBody(b, ["op", "client", "table", "token", "manifest", "batchIndex", "rows"])) return bad("bad durableGiftCommit body");
+          if (!sourceApplyConfigured()) return NextResponse.json({ error: "Saving gift IDs is turned off", code: "disabled" }, { status: 503 });
+          const body = commitBody({ client, token: b.token, manifest: b.manifest, batchIndex: b.batchIndex, rows: b.rows, secret, now });
+          const out = await postToEngage(fetch, process.env, body, body.request.requestId);
+          if (out.ok) return NextResponse.json({ committed: true, requestId: body.request.requestId, outcome: out.body });
+          if (out.unconfirmed) return NextResponse.json({ error: "Save outcome unconfirmed. Check status for this batch before anything else.", code: "unconfirmed", requestId: body.request.requestId }, { status: 502 });
+          return NextResponse.json({ error: "Engage refused this batch (validation failed). Nothing in this batch was saved.", code: "refused", requestId: body.request.requestId }, { status: out.status === 503 ? 503 : 400 });
+        }
+        if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
+        if (b.op === "durableGiftPreview") {
+          if (!exactBody(b, ["op", "client", "table", "query"])) return bad("bad durableGiftPreview body");
+          const out = await postToEngage(fetch, process.env, { op: "giftPreviewState", request: { client, registrationId: g.id, registrationVersion: g.version, registrationDigest: giftRegDigest(g), query: b.query } }, "");
+          return out.ok ? NextResponse.json(out.body) : out.unconfirmed ? bad("Preview unavailable; nothing was changed. Retry the read.", 502) : bad("Engage refused this preview request.", 400);
+        }
+        if (b.op === "durableGiftProof") {
+          if (!exactBody(b, ["op", "client", "table", "token", "manifest", "batchIndex"])) return bad("bad durableGiftProof body");
+          const { t } = verifyJob(b.token, b.manifest, secret, now, client);
+          if (!Number.isSafeInteger(b.batchIndex)) return bad("bad batch index");
+          const rq = jobRequestId(t.jobId, b.batchIndex as number);
+          const out = await postToEngage(fetch, process.env, { op: "giftStatus", client, requestId: rq }, rq);
+          if (!out.ok) return NextResponse.json({ confirmed: false, error: "Status unavailable (unconfirmed); try again", requestId: rq }, { status: 502 });
+          const proof = proofFor({ client, token: b.token, manifest: b.manifest, batchIndex: b.batchIndex, status: out.body, secret, now });
+          return NextResponse.json(proof ? { confirmed: true, proof, requestId: rq } : { confirmed: false, requestId: rq, note: "No verified committed outcome for this batch. This does not prove nothing was saved." });
+        }
+        if (b.op === "durableGiftJobStatus") {
+          const jid = String(b.jobId || ""); if (!exactBody(b, ["op", "client", "table", "jobId"]) || !/^[a-f0-9]{64}$/.test(jid)) return bad("bad jobId");
+          const out = await postToEngage(fetch, process.env, { op: "giftJobStatus", client, jobId: jid }, "");
+          return out.ok ? NextResponse.json(out.body) : bad("Status unavailable (unconfirmed); try again", 502);
+        }
+      } catch (e) { if (e instanceof DurableGiftError) return bad(e.message, e.status); if (e instanceof CsvError) return bad(e.message); return bad("Durable gift request failed", 500); }
+      return bad("unknown op");
     }
     // Provisional JAG gift-ID preview (review only): local staging of the uploaded file, no upstream reads, no writes.
     if (typeof b.op === "string" && b.op.startsWith("gift")) {
