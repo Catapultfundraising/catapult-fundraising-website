@@ -51,6 +51,14 @@ test("plan refusals: all held => nothing to save; donor not exact int; ragged ro
   await assert.rejects(plan({ csv: CSV + "1,2\r\n", decisions: [...DEC, { o: 4, d: "held" }] }), /as many cells/);
   await assert.rejects(plan({ mapping: { Amount: "Gift_Amount" } }), /donor CPTID/);
   await assert.rejects(plan({ mapping: { ...MAP, Type: "Gift_Amount" } }), /mapped twice/);
+  // returned-ID / provisional columns are refused (reimport unfinished); never read as identities
+  for (const h of ["Catapult Gift ID", " catapult  gift id ", "Gift ID Status", "Provisional Preview ID"]) {
+    const csv = CSV.replace("Donor,Amount,Date,Type", `Donor,Amount,Date,Type,${h}`).split("\r\n").map((l, i) => (i && l ? l + ",00000001-0000-4000-8000-00000000abcd" : l)).join("\r\n");
+    await assert.rejects(plan({ csv }), /Returned-ID files are not supported/, h);
+  }
+  // long cells are carried exactly (no preview truncation)
+  const long = "L".repeat(3000); const p = await plan({ csv: CSV.replace(",Gift\r\n7002", `,${long}\r\n7002`), decisions: [{ o: 0, d: "new" }, { o: 1, d: "held" }, { o: 2, d: "held" }, { o: 3, d: "held" }] });
+  assert.equal(p.batches[0][0].values.Record_Type, long);
 });
 
 test("commit body: rows must equal the manifest slice; jobRequestId derived; proof/job token types are not interchangeable", async () => {

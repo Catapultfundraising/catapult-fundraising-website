@@ -8,7 +8,7 @@
 // - Reload recovery is NOT implemented (same-session only). Baseline attestation of adopted gifts is NOT implemented.
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { parseCsv } from "./csv-updates";
-import { neutralize } from "./gift-preview";
+import { neutralize, APPENDED } from "./gift-preview";
 import { planGiftJob, verifyGiftJob, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
 
 export class DurableGiftError extends Error { constructor(message: string, public status = 400) { super(message); } }
@@ -17,6 +17,8 @@ export const DURABLE_MAX_BODY = 4_000_000;      // exact serialized request byte
 export const DURABLE_MAX_RESPONSE = 4_000_000;  // exact serialized response bytes (deployed limit ~4.5 MB)
 export const JOB_TOKEN_TTL_MS = 60 * 60_000, PROOF_TTL_MS = 60 * 60_000;
 export const EXPORT_COLS = ["Catapult Gift ID", "Gift ID Status"] as const;
+const foldH = (h: string) => h.trim().replace(/\s+/g, " ").toLowerCase();
+const RESERVED = new Set([...EXPORT_COLS, ...APPENDED].map(foldH));
 
 let REGS: readonly GiftRegistration[] = Object.freeze([]);
 /** Website copy of the reviewed gift registrations: EMPTY. Test hook only with SOURCE_PREPARED_TEST_HOOK=1 outside production. */
@@ -75,6 +77,9 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
   const grid = parseCsv(o.csv); if (grid.length < 2) bad("CSV needs a header and at least one row");
   const headers = grid[0]; const rows = grid.slice(1);
   if (rows.some((r) => r.length !== headers.length)) bad("Every row must have exactly as many cells as the header");
+  // Returned-ID reimport is NOT implemented: a file that already carries Catapult Gift ID / status / provisional columns is
+  // refused (never read as an unverified UUID, never used to infer new/adopt/correct, never duplicated in the export).
+  if (headers.some((h) => RESERVED.has(foldH(h)))) bad("This file already has a Catapult Gift ID, Gift ID Status or provisional preview column. Returned-ID files are not supported yet; use the original source export.");
   if (!isObj(o.mapping)) bad("bad mapping");
   const mapping = o.mapping as Record<string, unknown>;
   const regCols = new Set(g!.columns.map((c) => c.col)); const used = new Set<string>(); let personH: string | null = null;
@@ -179,8 +184,7 @@ export function durableExport(o: { client: string; csv: string; token: unknown; 
   }
   const grid = parseCsv(o.csv); const headers = grid[0], rows = grid.slice(1);
   if (rows.length !== m.totalOrdinals || rows.some((r) => r.length !== headers.length)) bad("Every row must have exactly as many cells as the header");
-  const fold = (h: string) => h.trim().replace(/\s+/g, " ").toLowerCase();
-  if (headers.some((h) => EXPORT_COLS.map(fold).includes(fold(h)))) bad("The file already has a Catapult Gift ID / Gift ID Status column");
+  if (headers.some((h) => RESERVED.has(foldH(h)))) bad("The file already has a Catapult Gift ID, Gift ID Status or provisional preview column");
   const held = new Set(m.held), decided = new Set(m.decided.map((e) => e.o));
   const line = (cells: string[]) => cells.map((c) => q(neutralize(c).v)).join(",");
   const out = [line([...headers, ...EXPORT_COLS])];
