@@ -72,7 +72,7 @@ export default function BaselineAttest({ client, table }: { client: string; tabl
   const download = () => {
     if (!res) return;
     const url = URL.createObjectURL(new Blob([res.export], { type: "application/json" }));
-    const a = document.createElement("a"); a.href = url; a.download = `baseline-proposal-${client}-${table}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
+    const a = document.createElement("a"); a.href = url; a.download = `baseline-proposal-${client}-${table}.json`.replace(/_/g, "-"); a.click(); setTimeout(() => URL.revokeObjectURL(url), 0);
   };
 
   // Status lookups are owned by their own sequence (independent of draft edits): a newer lookup or a request-id edit

@@ -65,7 +65,7 @@ const PLAN = { plan: { planDigest: "d".repeat(64), eligible: 3, held: 1, reasons
     await p.screenshot({ path: `${OUT}/${vp.name}-baseline.png`, fullPage: true });
     if (vp.name === "desktop") {
       const dl = p.waitForEvent("download"); await sec.locator("text=Download proposal (metadata only)").click(); const d = await dl; const path = OUT + "/proposal.json"; await d.saveAs(path);
-      const s = fs.readFileSync(path, "utf8"); ok(s === PLAN.export && Buffer.byteLength(s) <= 65536 && !/Springfield|Shelbyville/.test(s), "download: exact server metadata-only bytes, no row values");
+      const s = fs.readFileSync(path, "utf8"); ok(d.suggestedFilename() === "baseline-proposal-fictional-y-master.json", "download filename has no underscores"); ok(s === PLAN.export && Buffer.byteLength(s) <= 65536 && !/Springfield|Shelbyville/.test(s), "download: exact server metadata-only bytes, no row values");
       // deferred status, then request id edit: late reply must not show
       const rid = sec.locator("input[aria-label='Attestation request id']");
       await rid.fill("a".repeat(32)); deferStatus = true; const sd = resp("baselineStatus"); const sq = p.waitForRequest((r) => r.url().endsWith(API) && JSON.parse(r.postData() || "{}").op === "baselineStatus"); await sec.locator("button", { hasText: "Check status" }).click(); await sq;
