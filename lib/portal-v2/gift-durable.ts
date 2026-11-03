@@ -9,10 +9,10 @@
 import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { parseCsv } from "./csv-updates";
 import { neutralize, APPENDED } from "./gift-preview";
-import { planGiftJob, verifyGiftJob, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
+import { planGiftJob, verifyGiftJob, validateGiftRequest, previewRowCap, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
 
 export class DurableGiftError extends Error { constructor(message: string, public status = 400) { super(message); } }
-const bad = (m: string, s = 400): never => { throw new DurableGiftError(m, s); };
+function bad(m: string, s = 400): never { throw new DurableGiftError(m, s); }
 export const DURABLE_MAX_BODY = 4_000_000;      // exact serialized request bytes for plan/export
 export const DURABLE_MAX_RESPONSE = 4_000_000;  // exact serialized response bytes (deployed limit ~4.5 MB)
 export const JOB_TOKEN_TTL_MS = 60 * 60_000, PROOF_TTL_MS = 60 * 60_000;
@@ -35,13 +35,15 @@ export function registrationFor(client: string) {
 // ---------- signing (domain-separated: a job token can never stand in for a proof or vice versa) ----------
 type Signed<T> = { p: T; s: string };
 const key = (secret: string, domain: string) => createHmac("sha256", secret).update(`catapult-durable-gift/${domain}/v1`).digest();
+/** Same minimum as the existing source-token key guard: a configured secret of at least 24 characters. */
+const goodSecret = (s: string | undefined): s is string => typeof s === "string" && s.length >= 24;
 function sign<T>(secret: string | undefined, domain: "job" | "proof", p: T): string {
-  if (!secret) bad("server secret not configured", 500);
+  if (!goodSecret(secret)) bad("server secret not configured", 500);
   const body = Buffer.from(JSON.stringify(p), "utf8").toString("base64url");
   return `${body}.${createHmac("sha256", key(secret!, domain)).update(body).digest("base64url")}`;
 }
 function verify<T extends { typ: string; exp: number }>(tok: unknown, secret: string | undefined, domain: "job" | "proof", now: number): T {
-  if (!secret) bad("server secret not configured", 500);
+  if (!goodSecret(secret)) bad("server secret not configured", 500);
   if (typeof tok !== "string" || tok.length > 400_000 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(tok)) bad(`bad ${domain} token`);
   const [body, mac] = (tok as string).split(".");
   const want = createHmac("sha256", key(secret!, domain)).update(body).digest();
@@ -96,6 +98,9 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
   (o.decisions as unknown[]).forEach((d0, i) => {
     if (!isObj(d0) || d0.o !== i) bad("decisions must be in row order", 400);
     const d = d0 as unknown as Decision;
+    const keys = JSON.stringify(Object.keys(d0).sort());
+    const want = d.d === "held" || d.d === "new" ? ["d", "o"] : d.d === "adopt" ? ["d", "expected", "locator", "o"] : d.d === "correct" ? ["d", "expected", "giftId", "o"] : null;
+    if (!want || keys !== JSON.stringify(want)) bad(`row ${i + 1}: decision has missing or unexpected fields`);
     if (d.d === "held") { held.push(i); return; }
     const person = exactInt(rows[i][idx(personH!)]); if (person === null) bad(`row ${i + 1}: donor CPTID is not an exact positive whole number`);
     const mapped: Record<string, string> = {};
@@ -117,7 +122,11 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
   const base = { client: o.client, registrationId: g!.id, registrationVersion: g!.version, registrationDigest: giftRegDigest(g!), actor: o.actor as string, fileName: o.fileName as string, fileDigest, fileDate: o.fileDate as string | null };
   let plan: ReturnType<typeof planGiftJob>;
   try { plan = planGiftJob(base, decided, held, rows.length, g!.columns.length); } catch (e) { if (e instanceof SourceImportError) bad(e.message, e.status); throw e; }
-  for (const r of plan.requests) if (giftEnvelopeBytes(r) > GIFT_MAX_ENVELOPE_BYTES) bad("a batch exceeds the request byte budget", 413);
+  for (const r of plan.requests) {
+    // backend-equivalent row contract (types, required values, expected keys, budget) BEFORE anything is signed
+    try { validateGiftRequest(r, [g!]); } catch (e) { if (e instanceof SourceImportError) bad(`Not plannable: ${e.message}${typeof e.detail === "number" ? ` (row ${e.detail + 1})` : ""}`, e.status === 409 ? 400 : e.status); throw e; }
+    if (giftEnvelopeBytes(r) > GIFT_MAX_ENVELOPE_BYTES) bad("a batch exceeds the request byte budget", 413);
+  }
   const token: JobToken = { typ: "job", jobId: plan.jobId, client: o.client, registrationId: g!.id, registrationVersion: g!.version, registrationDigest: base.registrationDigest, mappingDigest: mapDigest(mapping as Record<string, string>), fileDigest, fileName: base.fileName, totalOrdinals: rows.length, actor: base.actor, fileDate: base.fileDate, batchHashes: plan.manifest.batches.map((b) => b.hash), exp: o.now + JOB_TOKEN_TTL_MS };
   return sized({ token: sign(o.secret, "job", token), jobId: plan.jobId, manifest: plan.manifest, batches: plan.requests.map((r) => r.rows), summary: { batches: plan.requests.length, decided: decided.length, held: held.length, total: rows.length } });
 }
@@ -195,3 +204,25 @@ export function durableExport(o: { client: string; csv: string; token: unknown; 
   return sized({ fileName: `${safeName(t.fileName)}-catapult-gift-ids.csv`, csv: text, proven: ids.size, held: held.size, unconfirmed: decided.size - ids.size, note: "Review copy: formula-like cells are escaped with a leading apostrophe, so this is not a reimport-safe exact copy." });
 }
 export { canonManifestJson };
+
+/** Strict website preflight for a preview query (kind/keys/ints/UUIDs/limit R) before any upstream read. */
+export function previewQuery(q: unknown, g: GiftRegistration) {
+  const R = previewRowCap(g.columns.length);
+  if (!isObj(q)) bad("bad preview query");
+  const ks = JSON.stringify(Object.keys(q).sort()); const uniq = (a: unknown[]) => new Set(a).size === a.length;
+  const list = (k: string, ok: (v: unknown) => boolean) => { const a = q[k]; if (!Array.isArray(a) || !a.length || a.length > R || !a.every(ok) || !uniq(a)) bad(`1..${R} unique ${k} per preview call`); };
+  if (q.kind === "locators" && ks === '["kind","locators"]') list("locators", posInt);
+  else if (q.kind === "gifts" && ks === '["giftIds","kind"]') list("giftIds", validGiftId);
+  else if (q.kind === "persons" && ks === '["kind","persons"]') list("persons", posInt);
+  else if (q.kind === "history" && (ks === '["kind","person"]' || ks === '["after","kind","person"]')) { if (!posInt(q.person) || (q.after !== undefined && !(Number.isSafeInteger(q.after) && (q.after as number) >= 0 && (q.after as number) <= 2147483647))) bad("bad history query"); }
+  else bad("bad preview query");
+  return q;
+}
+/** Project the upstream preview to the known fields only and bound its size. */
+export function projectPreview(body: unknown) {
+  if (!isObj(body)) bad("Preview unavailable", 502);
+  const b = body as Record<string, unknown>; const out: Record<string, unknown> = {};
+  for (const k of ["registrationId", "rowCap", "giftOverridesActive", "rows", "gifts", "persons", "next", "hasMore", "note"]) if (k in b) out[k] = b[k];
+  if (typeof out.giftOverridesActive !== "boolean" || (out.rows !== undefined && !Array.isArray(out.rows)) || (out.gifts !== undefined && !Array.isArray(out.gifts)) || (out.persons !== undefined && !Array.isArray(out.persons))) bad("Preview unavailable", 502);
+  return sized(out);
+}

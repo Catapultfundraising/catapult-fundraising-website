@@ -5,9 +5,9 @@ import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { NextRequest } from "next/server";
 
-Object.assign(process.env, { RESEARCH_PASSWORD: "localpw", RESEARCH_AUTH_SECRET: "localsec", SOURCE_IMPORT_PREVIEW: "enabled", ENGAGE_SOURCE_IMPORT_URL: "https://engage.invalid/api/source-import", PORTAL_WRITE_SECRET: "w".repeat(32), SOURCE_PREPARED_TEST_HOOK: "1", SOURCE_IMPORT_APPLY: "enabled" });
-const COOKIE = createHash("sha256").update("localpw:localsec").digest("hex");
-const SECRET = "localsec", NOW = 1_800_000_000_000;
+Object.assign(process.env, { RESEARCH_PASSWORD: "localpw", RESEARCH_AUTH_SECRET: "fictional-local-test-secret-0123456789", SOURCE_IMPORT_PREVIEW: "enabled", ENGAGE_SOURCE_IMPORT_URL: "https://engage.invalid/api/source-import", PORTAL_WRITE_SECRET: "w".repeat(32), SOURCE_PREPARED_TEST_HOOK: "1", SOURCE_IMPORT_APPLY: "enabled" });
+const COOKIE = createHash("sha256").update("localpw:fictional-local-test-secret-0123456789").digest("hex");
+const SECRET = "fictional-local-test-secret-0123456789", NOW = 1_800_000_000_000;
 const REG = { id: "fict_gifts", version: 1, client: "jag", scope: "fict-gift-export", schema: "jag", table: "raw_master_giving_history", locator: "row_id", person: "CPTID", native: "Transaction",
   columns: [{ col: "Gift_Amount", ty: "decimal", len: null, p: 19, s: 4 }, { col: "Gift_Date", ty: "datetime2", len: null, p: null, s: null }, { col: "Record_Type", ty: "nvarchar", len: -1, p: null, s: null }],
   required: ["Gift_Amount", "Gift_Date"], master: { schema: "jag", table: "constituents", col: "CPTID" }, locatorVerifiedUnique: true, rowAllocator: { kind: "locked-max" as const, min: 1, max: 2147483647 } };
@@ -34,6 +34,13 @@ test("plan: decisions -> manifest; held/unchanged stay held; token binds every f
   const p2 = await plan({ mapping: { Type: "Record_Type", Date: "Gift_Date", Amount: "Gift_Amount", Donor: "@person", } });
   assert.equal(p2.jobId, p.jobId, "same rows => same jobId"); assert.equal(p2.token, p.token, "same mapping digest (key order irrelevant)");
   const p3 = await plan({ mapping: { ...MAP, Extra: undefined } as never }).catch((e) => e); assert.ok(p3 instanceof L.DurableGiftError);
+  // a genuinely DIFFERENT mapping (duplicate Type column mapped instead) that yields identical rows: same jobId, different token
+  const csv2 = CSV.split("\r\n").map((l) => (l ? `${l},${l.split(",")[3]}` : l)).join("\r\n").replace("Type,Type", "Type,Type Copy");
+  const alt = await plan({ csv: csv2, mapping: { Donor: "@person", Amount: "Gift_Amount", Date: "Gift_Date", "Type Copy": "Record_Type" } });
+  const same = await plan({ csv: csv2 });
+  assert.equal(alt.jobId, same.jobId, "same file + identical rows => same jobId");
+  assert.notEqual(alt.token, same.token, "different mapping => different token");
+  assert.deepEqual(alt.batches, same.batches, "identical rows");
   // tamper each signed field via a forged manifest
   for (const k of ["actor", "fileName", "fileDate", "totalOrdinals", "registrationVersion"] as const) {
     const m = JSON.parse(JSON.stringify(p.manifest)); m[k] = k === "totalOrdinals" ? 5 : k === "registrationVersion" ? 2 : k === "fileDate" ? "2026-01-01" : "X";
@@ -51,6 +58,13 @@ test("plan refusals: all held => nothing to save; donor not exact int; ragged ro
   await assert.rejects(plan({ csv: CSV + "1,2\r\n", decisions: [...DEC, { o: 4, d: "held" }] }), /as many cells/);
   await assert.rejects(plan({ mapping: { Amount: "Gift_Amount" } }), /donor CPTID/);
   await assert.rejects(plan({ mapping: { ...MAP, Type: "Gift_Amount" } }), /mapped twice/);
+  // backend-equivalent row contract before signing
+  await assert.rejects(plan({ csv: CSV.replace("7001,100,", "7001,abc,") }), /invalid value for Gift_Amount/);
+  await assert.rejects(plan({ csv: CSV.replace("7001,100,2026-01-05T00:00:00,", "7001,100,,") }), /required Gift_Date/);
+  await assert.rejects(plan({ decisions: DEC.map((d) => (d.o === 2 ? { ...d, expected: {} } : d)) }), /expected must list exactly every registered column/);
+  await assert.rejects(plan({ fileDate: "2026-02-31" }), /fileDate/);
+  await assert.rejects(plan({ decisions: DEC.map((d) => (d.o === 0 ? { ...d, giftId: UUID1 } : d)) }), /unexpected fields/);
+  await assert.rejects(plan({ decisions: DEC.map((d) => (d.o === 1 ? { ...d, note: "x" } : d)) }), /unexpected fields/);
   // returned-ID / provisional columns are refused (reimport unfinished); never read as identities
   for (const h of ["Catapult Gift ID", " catapult  gift id ", "Gift ID Status", "Provisional Preview ID"]) {
     const csv = CSV.replace("Donor,Amount,Date,Type", `Donor,Amount,Date,Type,${h}`).split("\r\n").map((l, i) => (i && l ? l + ",00000001-0000-4000-8000-00000000abcd" : l)).join("\r\n");
@@ -108,6 +122,11 @@ test("export: IDs only for proven rows; held/unconfirmed blank; formula escaped;
   const [body] = proof.split("."); assert.throws(() => L.durableExport({ client: "jag", csv: CSV, token: p.token, manifest: p.manifest, proofs: [`${body}.AAAA`], secret: SECRET, now: NOW }), /signature/);
 });
 
+test("signing refuses a short (<24 chars) secret", async () => {
+  const L = await lib();
+  assert.throws(() => L.buildDurablePlan({ client: "jag", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat Example", fileName: "a.csv", fileDate: null, secret: "short-secret", now: NOW }), /secret not configured/);
+});
+
 test("size bounds: >4 MB plan request refused before parsing; oversized responses refused", async () => {
   const L = await lib();
   assert.equal(L.DURABLE_MAX_BODY, 4_000_000); assert.equal(L.DURABLE_MAX_RESPONSE, 4_000_000);
@@ -132,15 +151,42 @@ test("[ROUTE] auth, same-origin, empty-registry refusal, hard SOURCE_TRANSPORT_A
   assert.equal((await post({ op: "durableGiftContext", client: "jag", table: "raw_master_giving_history" }, { cookie: "" })).status, 401);
   assert.equal((await post({ op: "durableGiftContext", client: "jag", table: "raw_master_giving_history" }, { origin: "https://evil.example" })).status, 403);
   const ctx = await (await post({ op: "durableGiftContext", client: "jag", table: "raw_master_giving_history" })).json(); assert.equal(ctx.available, false);
-  assert.equal((await post({ op: "durableGiftPlan", client: "jag", table: "x", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).status, 404);
+  assert.equal((await post({ op: "durableGiftPlan", client: "jag", table: "raw_master_giving_history", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).status, 404);
   D.__setGiftRegistrationsForTests([REG]);
   const c2 = await (await post({ op: "durableGiftContext", client: "jag", table: "raw_master_giving_history" })).json(); assert.equal(c2.available, true); assert.equal(c2.saveAvailable, false, "hard false even with SOURCE_IMPORT_APPLY=enabled");
-  const pl = await (await post({ op: "durableGiftPlan", client: "jag", table: "x", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).json();
+  const pl = await (await post({ op: "durableGiftPlan", client: "jag", table: "raw_master_giving_history", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).json();
   assert.ok(pl.token);
-  const r = await post({ op: "durableGiftCommit", client: "jag", table: "x", token: pl.token, manifest: pl.manifest, batchIndex: 0, rows: pl.batches[0] });
+  const r = await post({ op: "durableGiftCommit", client: "jag", table: "raw_master_giving_history", token: pl.token, manifest: pl.manifest, batchIndex: 0, rows: pl.batches[0] });
   assert.equal(r.status, 503); assert.equal((await r.json()).code, "disabled"); assert.equal(calls.length, 0, "no upstream call");
-  assert.equal((await post({ op: "durableGiftPlan", client: "jag", table: "x", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null, extra: 1 })).status, 400);
+  assert.equal((await post({ op: "durableGiftPlan", client: "jag", table: "raw_master_giving_history", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null, extra: 1 })).status, 400);
   const big = "x".repeat(4_000_001);
-  assert.equal((await post({ op: "durableGiftPlan", client: "jag", table: "x", csv: big, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).status, 413);
+  assert.equal((await post({ op: "durableGiftPlan", client: "jag", table: "raw_master_giving_history", csv: big, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).status, 413);
+  D.__setGiftRegistrationsForTests([]);
+});
+
+test("[ROUTE] table scope, unknown op, context body, preview preflight/projection, proof range: refused before any upstream call", async () => {
+  const calls: Record<string, unknown>[] = [];
+  let reply: unknown = {};
+  globalThis.fetch = (async (_u: unknown, init: { body: string }) => { calls.push(JSON.parse(init.body)); return Response.json(reply); }) as unknown as typeof fetch;
+  const { POST } = await import("../app/api/research-source-import/route");
+  const D = await import("../lib/portal-v2/gift-durable");
+  D.__setGiftRegistrationsForTests([REG]);
+  const post = (body: Record<string, unknown>) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` }, body: JSON.stringify(body) }));
+  const T = REG.table;
+  assert.equal((await post({ op: "durableGiftPlan", client: "jag", table: "unrelated_table", csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).status, 400);
+  assert.equal((await post({ op: "durableGiftContext", client: "jag", table: "unrelated_table" })).status, 400);
+  assert.equal((await post({ op: "durableGiftContext", client: "jag", table: T, extra: 1 })).status, 400);
+  assert.equal((await post({ op: "durableGiftNope", client: "jag", table: T })).status, 400);
+  for (const query of [{ kind: "locators", locators: Array.from({ length: 51 }, (_, i) => i + 1) }, { kind: "gifts", giftIds: ["PROV-0123456789abcdef0123456789abcdef"] }, { kind: "persons", persons: [1, 1] }, { kind: "history", person: 7001, after: -1 }, { kind: "locators", locators: [1], x: 1 }])
+    assert.equal((await post({ op: "durableGiftPreview", client: "jag", table: T, query })).status, 400, JSON.stringify(query));
+  assert.equal(calls.length, 0, "nothing reached Engage");
+  const pl = await (await post({ op: "durableGiftPlan", client: "jag", table: T, csv: CSV, mapping: MAP, decisions: DEC, actor: "Pat", fileName: "a.csv", fileDate: null })).json();
+  assert.equal((await post({ op: "durableGiftProof", client: "jag", table: T, token: pl.token, manifest: pl.manifest, batchIndex: 5 })).status, 400);
+  assert.equal(calls.length, 0, "proof batch range checked before upstream");
+  reply = { registrationId: REG.id, rowCap: 18, giftOverridesActive: false, rows: [], note: "n", secretLeak: "x".repeat(10) };
+  const pr = await (await post({ op: "durableGiftPreview", client: "jag", table: T, query: { kind: "locators", locators: [1, 2] } })).json();
+  assert.equal(pr.secretLeak, undefined, "projected to known fields"); assert.equal(calls.length, 1); assert.equal((calls[0].request as { query: unknown }).query !== undefined, true);
+  reply = { rows: "bad" };
+  assert.equal((await post({ op: "durableGiftPreview", client: "jag", table: T, query: { kind: "locators", locators: [1] } })).status, 502);
   D.__setGiftRegistrationsForTests([]);
 });

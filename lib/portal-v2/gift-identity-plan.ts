@@ -171,6 +171,90 @@ export function validOutcome(o: unknown, want: { requestId: string; client: stri
 }
 
 export interface GiftOutcome { requestId: string; client: string; registrationId: string; rows: { ordinal: number; action: GiftAction; giftId: string; locator: number }[]; counts: { new: number; adopt: number; correct: number }; committed: true; replayed?: boolean }
-void realDate; void txt; void same;
 /** Same formula as Engage giftPreviewState (rows per preview call for C registered columns). */
 export const previewRowCap = (cols: number) => Math.max(1, Math.min(50, Math.floor(3_000_000 / (cols * 12_000 + 2_000))));
+
+// ---- VERBATIM copies of Engage validateGiftShape / resolveReg / validateRows (lib/giftIdentity.ts) and validValue
+// (lib/sourceImport.ts), so the website refuses before signing exactly what the backend would refuse. ----
+const vRealDate = (v: string) => { const [y, m, d] = v.split("-").map(Number); const t = new Date(Date.UTC(y, m - 1, d)); return y >= 1753 && t.getUTCFullYear() === y && t.getUTCMonth() === m - 1 && t.getUTCDate() === d; };
+/** Strict check of an already-normalized NON-NULL value (website normalizes; Engage re-checks shape, never coerces). */
+export function validValue(d: Col, v: unknown): v is string {
+  if (typeof v !== "string" || v === "" || v !== v.trim() || CTRL.test(v) || v.length > 4000) return false;
+  switch (d.ty) {
+    case "int": case "bigint": {
+      if (!/^-?(0|[1-9]\d*)$/.test(v) || v === "-0") return false;
+      const b = BigInt(v); return d.ty === "int" ? b >= BigInt(-2147483648) && b <= BigInt(2147483647) : b >= BigInt("-9223372036854775808") && b <= BigInt("9223372036854775807");
+    }
+    case "float": return /^-?\d+(\.\d+)?(e[-+]\d+)?$/.test(v) && String(Number(v)) === v && Number.isFinite(Number(v));
+    case "decimal": case "numeric": { if (d.p == null || d.s == null) return false; const m = v.match(/^-?(0|[1-9]\d*)(?:\.(\d*[1-9]))?$/); return !!m && v !== "-0" && (m[1] === "0" ? 0 : m[1].length) <= d.p - d.s && (m[2]?.length ?? 0) <= d.s; }
+    case "bit": return v === "0" || v === "1";
+    case "date": return /^\d{4}-\d{2}-\d{2}$/.test(v) && vRealDate(v);
+    case "datetime2": return /^\d{4}-\d{2}-\d{2}T([01]\d|2[0-3]):[0-5]\d:[0-5]\d$/.test(v) && vRealDate(v.slice(0, 10));
+    case "nvarchar": case "varchar": return d.len != null && (d.len === -1 || v.length <= d.len) && (d.ty === "nvarchar" || /^[\x20-\x7E]*$/.test(v));
+    default: return false;
+  }
+}
+/** Pure envelope/scalar validation (no registry, no DB). Throws typed 400. */
+export function validateGiftShape(x: unknown): GiftCommitRequest {
+  if (!isObj(x) || !exactKeys(x, ["requestId", "client", "registrationId", "registrationVersion", "registrationDigest", "actor", "fileName", "fileDigest", "fileDate", "rows"], ["job"])) throw bad("bad gift request envelope");
+  const r = x as unknown as GiftCommitRequest;
+  if (typeof r.requestId !== "string" || !HEX32.test(r.requestId)) throw bad("bad requestId");
+  if (typeof r.client !== "string" || !IDENT.test(r.client) || typeof r.registrationId !== "string" || !IDENT.test(r.registrationId)) throw bad("bad client/registration");
+  if (!posInt(r.registrationVersion, 1_000_000) || typeof r.registrationDigest !== "string" || !HEX64.test(r.registrationDigest)) throw bad("bad registration version/digest");
+  if (!txt(r.actor, 200) || !txt(r.fileName, 300) || typeof r.fileDigest !== "string" || !HEX64.test(r.fileDigest)) throw bad("bad actor/file");
+  if (r.fileDate !== null && !(typeof r.fileDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(r.fileDate) && realDate(r.fileDate))) throw bad("bad fileDate");
+  if (!Array.isArray(r.rows) || r.rows.length < 1 || r.rows.length > SOURCE_MAX_OPS) throw bad("rows must be 1..500");
+  const ords = new Set<number>(), ids = new Set<string>(), locs = new Set<number>();
+  for (const w of r.rows as unknown[]) {
+    if (!isObj(w) || !exactKeys(w, ["ordinal", "action", "person", "values", "expected"], ["giftId", "locator"])) throw bad("bad row shape");
+    const g = w as unknown as GiftRow;
+    if (!(typeof g.ordinal === "number" && Number.isSafeInteger(g.ordinal) && g.ordinal >= 0 && g.ordinal <= 1_000_000) || ords.has(g.ordinal)) throw bad("bad/duplicate ordinal", g.ordinal);
+    ords.add(g.ordinal);
+    if (!posInt(g.person)) throw bad("bad person", g.ordinal);
+    if (!isObj(g.values) || !Object.values(g.values).every((v) => typeof v === "string")) throw bad("values must be strings (clears unsupported)", g.ordinal);
+    if (g.expected !== null && !(isObj(g.expected) && Object.values(g.expected).every((v) => v === null || typeof v === "string"))) throw bad("bad expected", g.ordinal);
+    // generic bounds before any DB access (registry-specific types are checked after the replay lookup)
+    for (const o of [g.values, g.expected ?? {}]) {
+      const ks = Object.keys(o); if (ks.length > GIFT_MAX_COLS || !ks.every((k) => IDENT.test(k))) throw bad("bad column keys", g.ordinal);
+      for (const v of Object.values(o)) if (v !== null && (typeof v !== "string" || v.length === 0 || v.length > 4000 || CTRL.test(v))) throw bad("value too long/empty or has control characters", g.ordinal);
+    }
+    if (g.action === "new") { if ("giftId" in g || "locator" in g || g.expected !== null) throw bad("new rows carry no giftId/locator/expected", g.ordinal); }
+    else if (g.action === "adopt") {
+      if ("giftId" in g || !posInt(g.locator) || g.expected === null || Object.keys(g.values).length) throw bad("adopt needs locator+expected, no values/giftId", g.ordinal);
+      if (locs.has(g.locator)) throw bad("duplicate locator", g.ordinal); locs.add(g.locator);
+    } else if (g.action === "correct") {
+      if ("locator" in g || !validGiftId(g.giftId) || g.expected === null || !Object.keys(g.values).length) throw bad("correct needs a valid giftId, expected and changed values", g.ordinal);
+      if (ids.has(g.giftId)) throw bad("duplicate giftId", g.ordinal); ids.add(g.giftId);
+    } else throw bad("unknown action", g.ordinal);
+  }
+  return r;
+}
+
+function resolveReg(r: GiftCommitRequest, regs: readonly GiftRegistration[]) {
+  const g = regs.find((x) => x.id === r.registrationId);
+  if (!g || g.client !== r.client) throw new SourceImportError(403, "unregistered", "gift registration is not approved for this client");
+  if (g.version !== r.registrationVersion || giftRegDigest(g) !== r.registrationDigest) throw new SourceImportError(409, "registry-changed", "gift registration changed since preview; preview again");
+  for (const id of [g.schema, g.table, g.locator, g.person, ...(g.native ? [g.native] : []), g.master.schema, g.master.table, g.master.col, ...g.columns.map((c) => c.col)]) if (!IDENT.test(id)) throw new SourceImportError(500, "bad-registration", "registration identifier invalid");
+  const names = g.columns.map((c) => c.col);
+  if (new Set(names).size !== names.length || names.some((n) => n === g.locator || n === g.person || n === g.native)) throw new SourceImportError(500, "bad-registration", "locator/person/native columns are never writable");
+  return g;
+}
+
+/** Pure per-row validation against the registration. */
+function validateRows(r: GiftCommitRequest, g: GiftRegistration) {
+  const cols = new Map(g.columns.map((c) => [c.col, c]));
+  for (const w of r.rows) {
+    for (const [c, v] of Object.entries(w.values)) { const d = cols.get(c); if (!d) throw bad(`column ${c} is not registered/writable`, w.ordinal); if (!validValue(d, v)) throw bad(`invalid value for ${c}`, w.ordinal); }
+    if (w.expected) {
+      const ek = Object.keys(w.expected).sort(); if (JSON.stringify(ek) !== JSON.stringify(Array.from(cols.keys()).sort())) throw bad("expected must list exactly every registered column", w.ordinal);
+      for (const [c, v] of Object.entries(w.expected)) if (v !== null && !validValue(cols.get(c)!, v)) throw bad(`invalid expected for ${c}`, w.ordinal);
+      if (w.action === "correct") for (const [c, v] of Object.entries(w.values)) if (same(w.expected[c], v)) throw bad(`value for ${c} is unchanged`, w.ordinal);
+    }
+    if (w.action === "new") for (const c of g.required) if (!(c in w.values)) throw new SourceImportError(409, "held-required", `required ${c} missing; row must stay held`, w.ordinal);
+  }
+  if (r.rows.some((w) => w.action === "new") && !(g.locatorVerifiedUnique && g.rowAllocator)) throw new SourceImportError(409, "locator-unverified", "new rows need a verified locator and approved row allocator (V1)");
+  const cost = giftBatchCost(r.rows, g.columns.length);
+  if (cost > SOURCE_MAX_WRITE_STATEMENTS) throw new SourceImportError(413, "over-budget", `batch needs ${cost} statements (> ${SOURCE_MAX_WRITE_STATEMENTS}); split into ${giftMaxRows(g.columns.length)}-row batches`);
+}
+/** Backend-equivalent full request contract check (shape + registration + per-row types/required/expected keys + budget). */
+export function validateGiftRequest(r: GiftCommitRequest, regs: readonly GiftRegistration[]) { validateGiftShape(r); const g = resolveReg(r, regs); validateRows(r, g); return g; }

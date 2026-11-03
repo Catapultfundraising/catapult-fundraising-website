@@ -12,7 +12,7 @@ import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2
 import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
 import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId, validateAttestHeaders } from "@/lib/portal-v2/source-baseline-attest";
 import { stageGift, exportGift, giftColumns, GiftPreviewError, GIFT_CLIENT, GIFT_TABLE, GIFT_PERSON_COL } from "@/lib/portal-v2/gift-preview";
-import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
+import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
 import { giftRegDigest, previewRowCap, jobRequestId } from "@/lib/portal-v2/gift-identity-plan";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
@@ -210,7 +210,12 @@ export async function POST(req: NextRequest) {
     if (typeof b.op === "string" && b.op.startsWith("durableGift")) {
       const g = registrationFor(client);
       const now = Date.now(), secret = process.env.RESEARCH_AUTH_SECRET;
+      const OPS = ["durableGiftContext", "durableGiftPlan", "durableGiftExport", "durableGiftCommit", "durableGiftPreview", "durableGiftProof", "durableGiftJobStatus"];
+      if (!OPS.includes(b.op)) return bad("unknown op");
+      if (typeof b.table !== "string") return bad("table must be text");
       try {
+        if (b.op === "durableGiftContext" && !exactBody(b, ["op", "client", "table"])) return bad("bad durableGiftContext body");
+        if (g && table !== g.table) return bad("This table has no reviewed gift registration");
         if (b.op === "durableGiftContext") return NextResponse.json(g ? { available: true, configured: sourcePreviewConfigured(), saveAvailable: sourceApplyConfigured(), registrationId: g.id, columns: g.columns.map((c) => c.col), required: g.required, rowCap: previewRowCap(g.columns.length), newAllowed: g.locatorVerifiedUnique && !!g.rowAllocator } : { available: false, reason: "No reviewed gift registration for this client" });
         if (!g) return bad("No reviewed gift registration for this client", 404);
         if (b.op === "durableGiftPlan") {
@@ -235,13 +240,14 @@ export async function POST(req: NextRequest) {
         if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
         if (b.op === "durableGiftPreview") {
           if (!exactBody(b, ["op", "client", "table", "query"])) return bad("bad durableGiftPreview body");
-          const out = await postToEngage(fetch, process.env, { op: "giftPreviewState", request: { client, registrationId: g.id, registrationVersion: g.version, registrationDigest: giftRegDigest(g), query: b.query } }, "");
-          return out.ok ? NextResponse.json(out.body) : out.unconfirmed ? bad("Preview unavailable; nothing was changed. Retry the read.", 502) : bad("Engage refused this preview request.", 400);
+          const query = previewQuery(b.query, g);
+          const out = await postToEngage(fetch, process.env, { op: "giftPreviewState", request: { client, registrationId: g.id, registrationVersion: g.version, registrationDigest: giftRegDigest(g), query } }, "");
+          return out.ok ? NextResponse.json(projectPreview(out.body)) : out.unconfirmed ? bad("Preview unavailable; nothing was changed. Retry the read.", 502) : bad("Engage refused this preview request.", 400);
         }
         if (b.op === "durableGiftProof") {
           if (!exactBody(b, ["op", "client", "table", "token", "manifest", "batchIndex"])) return bad("bad durableGiftProof body");
-          const { t } = verifyJob(b.token, b.manifest, secret, now, client);
-          if (!Number.isSafeInteger(b.batchIndex)) return bad("bad batch index");
+          const { t, m } = verifyJob(b.token, b.manifest, secret, now, client);
+          if (!Number.isSafeInteger(b.batchIndex) || (b.batchIndex as number) < 0 || (b.batchIndex as number) >= m.batchCount) return bad("bad batch index");
           const rq = jobRequestId(t.jobId, b.batchIndex as number);
           const out = await postToEngage(fetch, process.env, { op: "giftStatus", client, requestId: rq }, rq);
           if (!out.ok) return NextResponse.json({ confirmed: false, error: "Status unavailable (unconfirmed); try again", requestId: rq }, { status: 502 });
