@@ -72,8 +72,8 @@ const outcome = (i) => ({ committed: true, requestId: rid(i), outcome: { request
         } finally { inFlight--; }
       }
       if (bd.op === "durableGiftProof") return J(proofReply);
-      if (bd.op === "durableGiftJobStatus") { if (deferLook) { const g = deferLook; deferLook = null; await g.p; } return J({ jobId: bd.jobId, client: "jag", confirmed: true, state: "partial", batchCount: 2, committedBatches: [0], missingBatches: [1], heldRows: 2, decidedRows: 3, note: "Partial: 1 of 2 batches committed; missing batches are not confirmed either way. 2 rows held." }); }
-      if (bd.op === "durableGiftExport") return J({ fileName: "fictional-gifts-catapult-gift-ids.csv", csv: "x", proven: 3, held: 2, unconfirmed: 0 });
+      if (bd.op === "durableGiftJobStatus") { if (deferLook) { const g = deferLook; deferLook = null; await g.p; } return J({ jobId: bd.jobId, client: "jag", confirmed: true, state: "partial", batchCount: 2, committedBatches: [0, 1], missingBatches: [], heldRows: 2, decidedRows: 3, note: "All batches committed; 2 rows were held and not imported, so the file is not fully imported." }); }
+      if (bd.op === "durableGiftExport") return J({ fileName: "fictional-gifts-catapult-gift-ids.csv", csv: "x", proven: 1, held: 2, unconfirmed: 2 });
       return J({ error: "unknown" }, 400);
     });
     const outer = p.locator("select").first();
@@ -152,7 +152,7 @@ const outcome = (i) => ({ committed: true, requestId: rid(i), outcome: { request
       ok(await lk.isDisabled(), `${vp.name}: job ID input locked while a lookup is pending (old reply cannot install under a new ID)`);
       relL(); await w; await sec.locator("[data-testid=durable-lookup-result]").waitFor();
       const lt = await sec.locator("[data-testid=durable-lookup-result]").innerText();
-      ok(lt.includes(JOB) && /\(JAG\)/.test(lt) && /partial: Partial: 1 of 2/.test(lt) && await lk.inputValue() === JOB, `${vp.name}: job status result labelled with the exact requested job ID/client`);
+      ok(lt.includes(JOB) && /\(JAG\)/.test(lt) && /partial: All batches committed; 2 rows were held/.test(lt) && await lk.inputValue() === JOB, `${vp.name}: job status result labelled with the exact requested job ID/client`);
     } else {
       w = resp("durableGiftCommit"); const w2 = p.waitForResponse((r) => isOp(r.request(), "durableGiftCommit") && bdy(r.request()).batchIndex === 1); await saveBtn.click(); await w; await w2;
       await li(1).and(p.locator("[data-state=saved]")).waitFor();
