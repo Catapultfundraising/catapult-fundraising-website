@@ -215,7 +215,8 @@ export async function POST(req: NextRequest) {
       // Read-only whole-job lookup, independent of the (mutable) gift registration: fixed client code + jobId only,
       // existing backend giftJobStatus (fixed client/job query), strict projection. Never a proof, never enables a write.
       if (b.op === "durableGiftJobLookup") {
-        const jid = String(b.jobId || "");
+        if (typeof b.client !== "string" || typeof b.jobId !== "string") return bad("bad durableGiftJobLookup body");
+        const jid = b.jobId;
         if (!exactBody(b, ["op", "client", "jobId"]) || !(CSV_CLIENTS as readonly string[]).includes(client) || !/^[a-f0-9]{64}$/.test(jid)) return bad("bad durableGiftJobLookup body");
         if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
         try { const out = await postToEngage(fetch, process.env, { op: "giftJobStatus", client, jobId: jid }, "");
@@ -235,7 +236,7 @@ export async function POST(req: NextRequest) {
         }
         if (b.op === "durableGiftRenew") {
           if (Buffer.byteLength(text, "utf8") > RENEW_MAX_BODY) return bad("Renewal request too large", 413);
-          if (!exactBody(b, ["op", "client", "table", "header", "headerMac", "jobToken"])) return bad("bad durableGiftRenew body");
+          if (typeof b.client !== "string" || typeof b.table !== "string" || !exactBody(b, ["op", "client", "table", "header", "headerMac", "jobToken"])) return bad("bad durableGiftRenew body");
           return NextResponse.json(renewRecovery({ client, table, header: b.header, headerMac: b.headerMac, jobToken: b.jobToken, secret, now }));
         }
         if (b.op === "durableGiftExport") {

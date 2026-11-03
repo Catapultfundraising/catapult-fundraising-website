@@ -384,5 +384,47 @@ test("[ROUTE] F1a renew + registration-independent job lookup (stub backend; sav
   assert.deepEqual(calls.at(-1), { op: "giftJobStatus", client: "jag", jobId: pl.jobId }, "fixed client/job query only");
   for (const body of [{ op: "durableGiftJobLookup", client: "zzz", jobId: pl.jobId }, { op: "durableGiftJobLookup", client: "jag", jobId: "x" }, { op: "durableGiftJobLookup", client: "jag", jobId: pl.jobId, table: T }])
     assert.equal((await post(body)).status, 400);
+  const n0 = calls.length;
+  for (const v of [["jag"], { c: "jag" }, 1, null, true]) {
+    assert.equal((await post({ op: "durableGiftJobLookup", client: v, jobId: pl.jobId })).status, 400, `client=${JSON.stringify(v)}`);
+    assert.equal((await post({ op: "durableGiftJobLookup", client: "jag", jobId: v === null ? null : Array.isArray(v) ? [pl.jobId] : v })).status, 400, `jobId=${JSON.stringify(v)}`);
+  }
+  D.__setGiftRegistrationsForTests([REG]);
+  for (const v of [["jag"], { c: "jag" }, 1, null]) {
+    assert.equal((await post({ op: "durableGiftRenew", client: v, table: T, header: pl.recovery.header, headerMac: pl.recovery.headerMac, jobToken: pl.token })).status, 400, `renew client=${JSON.stringify(v)}`);
+    assert.equal((await post({ op: "durableGiftRenew", client: "jag", table: Array.isArray(v) ? [T] : v, header: pl.recovery.header, headerMac: pl.recovery.headerMac, jobToken: pl.token })).status, 400, `renew table=${JSON.stringify(v)}`);
+  }
+  assert.equal(calls.length, n0, "no upstream call for non-text client/jobId/table");
   D.__setGiftRegistrationsForTests([]);
+});
+
+test("F1a verifyRecoveryFile never throws on malformed shapes (typed {ok:false})", async () => {
+  const B = await import("../lib/portal-v2/gift-hash-browser"); const p = await plan(); const f = recFile(p);
+  const withBatches = (v: unknown) => { const x = JSON.parse(JSON.stringify(f)); x.header.manifest.batches = v; return x; };
+  for (const v of [{}, 1, "x", null, true, [null], [1], ["x"], [{}], [{ hash: 1 }]]) assert.equal((await B.verifyRecoveryFile(withBatches(v))).ok, false, JSON.stringify(v));
+  for (const v of [null, 1, "x", [], true]) assert.equal((await B.verifyRecoveryFile(v)).ok, false);
+  for (const k of ["header", "parts"] as const) for (const v of [null, 1, "x", {}]) assert.equal((await B.verifyRecoveryFile({ ...f, [k]: v })).ok, false, `${k}=${JSON.stringify(v)}`);
+  const x = JSON.parse(JSON.stringify(f)); x.header.manifest = 5; assert.equal((await B.verifyRecoveryFile(x)).ok, false);
+  const y = JSON.parse(JSON.stringify(f)); y.parts = [null]; assert.equal((await B.verifyRecoveryFile(y)).ok, false);
+});
+
+test("F1a size caps on real serialized bytes: 4 MB plan response, 8 MB recovery file, 1.6 MB header", async () => {
+  const L = await lib();
+  const wide = { ...REG, columns: Array.from({ length: 13 }, (_, i) => ({ col: `N${i}`, ty: "nvarchar", len: -1, p: null, s: null })), required: [] };
+  L.__setGiftRegistrationsForTests([wide]);
+  const cell = "y".repeat(3990);
+  const build = (n: number, hdr = (i: number) => `H${i}`) => {
+    const heads = ["Donor", ...Array.from({ length: 13 }, (_, i) => hdr(i))];
+    const csv = [heads.join(","), ...Array.from({ length: n }, (_, r) => [7001 + r, ...Array(13).fill(cell)].join(","))].join("\r\n") + "\r\n";
+    const mapping = Object.fromEntries([["Donor", "@person"], ...heads.slice(1).map((h, i) => [h, `N${i}`])]);
+    return L.buildDurablePlan({ client: "jag", csv, mapping, decisions: Array.from({ length: n }, (_, o) => ({ o, d: "new" })), actor: "Pat", fileName: "w.csv", fileDate: null, secret: SECRET, now: NOW });
+  };
+  const ok = build(70); assert.ok(Buffer.byteLength(JSON.stringify(ok)) <= L.DURABLE_MAX_RESPONSE, "70x13x3990 fits the 4 MB response");
+  assert.throws(() => build(80), (e: unknown) => e instanceof L.DurableGiftError && e.status === 413 && /too large for one response/.test((e as Error).message), "80 rows trip the 4 MB response cap");
+  assert.throws(() => build(160), (e: unknown) => e instanceof L.DurableGiftError && e.status === 413 && /over 8 MB/.test((e as Error).message), "160 rows trip the 8 MB recovery-file cap first");
+  L.__setGiftRegistrationsForTests([{ ...wide, columns: wide.columns.slice(0, 1) }]);
+  const longH = "L".repeat(1_700_000);
+  const csv = `Donor,${longH}\r\n7001,1\r\n`;
+  assert.throws(() => L.buildDurablePlan({ client: "jag", csv, mapping: { Donor: "@person", [longH]: "N0" }, decisions: [{ o: 0, d: "new" }], actor: "Pat", fileName: "w.csv", fileDate: null, secret: SECRET, now: NOW }), (e: unknown) => e instanceof L.DurableGiftError && e.status === 413 && /header too large/.test((e as Error).message), "header > 1.6 MB refused");
+  L.__setGiftRegistrationsForTests([REG]);
 });

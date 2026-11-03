@@ -16,8 +16,10 @@ export async function verifyRecoveryFile(f: unknown): Promise<{ ok: true } | { o
   if (!isObj(f) || Object.keys(f).length !== 4 || !RECOVERY_FILE_KEYS.every((k) => k in f)) return { ok: false, reason: "not a recovery file (unexpected or missing fields)" };
   const h = f.header, parts = f.parts;
   if (!isObj(h) || !isObj(h.manifest) || !Array.isArray(h.partHashes) || !Array.isArray(parts) || typeof f.headerMac !== "string" || typeof f.jobToken !== "string") return { ok: false, reason: "malformed recovery file" };
-  const mh = (h.manifest.batches as { hash?: unknown }[] | undefined)?.map((b) => b?.hash);
-  if (!Array.isArray(mh) || JSON.stringify(mh) !== JSON.stringify(h.partHashes) || parts.length !== mh.length || h.batchCount !== mh.length) return { ok: false, reason: "batch list does not match the signed job" };
+  const mb = h.manifest.batches;
+  if (!Array.isArray(mb) || !mb.every((b) => isObj(b) && typeof b.hash === "string")) return { ok: false, reason: "batch list does not match the signed job" };
+  const mh = mb.map((b) => (b as { hash: string }).hash);
+  if ( JSON.stringify(mh) !== JSON.stringify(h.partHashes) || parts.length !== mh.length || h.batchCount !== mh.length) return { ok: false, reason: "batch list does not match the signed job" };
   for (let i = 0; i < parts.length; i++) {
     const p = parts[i];
     if (!isObj(p) || Object.keys(p).length !== 2 || p.index !== i || !Array.isArray(p.rows) || !p.rows.length) return { ok: false, reason: `part ${i + 1} is malformed` };
