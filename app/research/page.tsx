@@ -345,6 +345,13 @@ export default function ResearchProfilesPage() {
             Contact CSV Updates
           </Link>
           <Link
+            href="/research/source-import"
+            className="inline-flex items-center gap-2 rounded-full border border-[rgb(var(--line))] px-4 py-2.5 text-sm font-semibold text-[rgb(var(--navy))] hover:border-[rgb(var(--brass))]"
+          >
+            <Upload className="h-4 w-4" />
+            Source File Preview
+          </Link>
+          <Link
             href="/research/new"
             className="inline-flex items-center gap-2 rounded-full bg-[rgb(var(--navy))] px-5 py-2.5 text-sm font-semibold text-white hover:bg-[rgb(var(--brass))]"
           >

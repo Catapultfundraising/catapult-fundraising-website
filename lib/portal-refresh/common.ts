@@ -285,9 +285,9 @@ export const builtAt = () =>
 export async function loadedAsOf(schema: "csnf" | "jag" | "pvas" | "wcbhc" | "baq"): Promise<string> {
   try {
     const r = await rows(`SELECT MAX(loaded_at) AS d FROM ${schema}._load_log`);
-    return pdate(r[0]?.d) ?? isoToday();
+    return pdate(r[0]?.d) ?? "unknown";
   } catch {
-    return isoToday(); // schema without a load log (pvas)
+    return "unknown"; // schema without a load log (pvas): never claim today
   }
 }
 
