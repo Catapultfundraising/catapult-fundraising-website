@@ -293,3 +293,28 @@ export function projectPreview(body: unknown, g: GiftRegistration, query: Record
   } else no();
   return sized(out);
 }
+
+const sortedIdx = (a: unknown, n: number): number[] | null => {
+  if (!Array.isArray(a) || a.length > n) return null;
+  for (let k = 0; k < a.length; k++) { const x = a[k]; if (!Number.isSafeInteger(x) || (x as number) < 0 || (x as number) >= n || (k > 0 && (x as number) <= (a[k - 1] as number))) return null; }
+  return a as number[];
+};
+/** Strict projection of an upstream giftJobStatus body. Only the known shape passes; counts/index partition/state must be
+ *  self-consistent (committed + missing = exactly 0..batchCount-1; state complete iff nothing missing and nothing held).
+ *  Anything else is "unavailable" (never complete). Fixed messages only; the wrapper binds the REQUESTED job/client
+ *  (the upstream body does not carry them). */
+export function projectJobStatus(body: unknown, jobId: string, client: string) {
+  const unavailable = { jobId, client, confirmed: false as const, state: "unavailable" as const, note: "Job status unavailable or inconsistent; outcome unconfirmed. This does not prove nothing was saved." };
+  if (!isObj(body)) return unavailable;
+  if (body.confirmed === false) return body.state === "unconfirmed" ? { jobId, client, confirmed: false as const, state: "unconfirmed" as const, note: "No committed batch is verifiable for this job. This does not prove nothing was saved." } : unavailable;
+  if (body.confirmed !== true) return unavailable;
+  const n = body.batchCount; if (!Number.isSafeInteger(n) || (n as number) < 1 || (n as number) > 100_000) return unavailable;
+  const done = sortedIdx(body.committedBatches, n as number), miss = sortedIdx(body.missingBatches, n as number);
+  if (!done || !miss || done.length + miss.length !== n || new Set([...done, ...miss]).size !== n) return unavailable;
+  const held = body.heldRows, dec = body.decidedRows;
+  if (!Number.isSafeInteger(held) || (held as number) < 0 || !Number.isSafeInteger(dec) || (dec as number) < 0 || (held as number) + (dec as number) > 1_000_000) return unavailable;
+  const want = miss.length === 0 && held === 0 ? "complete" : "partial";
+  if (body.state !== want) return unavailable;
+  const note = miss.length ? `Partial: ${done.length} of ${n} batches committed; missing batches are not confirmed either way. ${held} rows held.` : held ? `All batches committed; ${held} rows were held and not imported, so the file is not fully imported.` : "All decided rows committed; no rows held.";
+  return { jobId, client, confirmed: true as const, state: want as "complete" | "partial", batchCount: n as number, committedBatches: done, missingBatches: miss, heldRows: held as number, decidedRows: dec as number, note };
+}

@@ -12,8 +12,8 @@ import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2
 import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
 import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId, validateAttestHeaders } from "@/lib/portal-v2/source-baseline-attest";
 import { stageGift, exportGift, giftColumns, GiftPreviewError, GIFT_CLIENT, GIFT_TABLE, GIFT_PERSON_COL } from "@/lib/portal-v2/gift-preview";
-import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
-import { giftRegDigest, previewRowCap, jobRequestId } from "@/lib/portal-v2/gift-identity-plan";
+import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, projectJobStatus, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
+import { giftRegDigest, previewRowCap, jobRequestId, validOutcome } from "@/lib/portal-v2/gift-identity-plan";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -216,7 +216,7 @@ export async function POST(req: NextRequest) {
       try {
         if (b.op === "durableGiftContext" && !exactBody(b, ["op", "client", "table"])) return bad("bad durableGiftContext body");
         if (g && table !== g.table) return bad("This table has no reviewed gift registration");
-        if (b.op === "durableGiftContext") return NextResponse.json(g ? { available: true, configured: sourcePreviewConfigured(), saveAvailable: sourceApplyConfigured(), registrationId: g.id, columns: g.columns.map((c) => c.col), required: g.required, rowCap: previewRowCap(g.columns.length), newAllowed: g.locatorVerifiedUnique && !!g.rowAllocator } : { available: false, reason: "No reviewed gift registration for this client" });
+        if (b.op === "durableGiftContext") return NextResponse.json(g ? { available: true, configured: sourcePreviewConfigured(), saveAvailable: sourceApplyConfigured(), registrationId: g.id, columns: g.columns.map((c) => c.col), colDefs: g.columns.map((c) => ({ col: c.col, ty: c.ty, len: c.len, p: c.p, s: c.s })), required: g.required, rowCap: previewRowCap(g.columns.length), newAllowed: g.locatorVerifiedUnique && !!g.rowAllocator } : { available: false, reason: "No reviewed gift registration for this client" });
         if (!g) return bad("No reviewed gift registration for this client", 404);
         if (b.op === "durableGiftPlan") {
           if (!exactBody(b, ["op", "client", "table", "csv", "mapping", "decisions", "actor", "fileName", "fileDate"]) || typeof b.csv !== "string") return bad("bad durableGiftPlan body");
@@ -233,7 +233,9 @@ export async function POST(req: NextRequest) {
           if (!sourceApplyConfigured()) return NextResponse.json({ error: "Saving gift IDs is turned off", code: "disabled" }, { status: 503 });
           const body = commitBody({ client, token: b.token, manifest: b.manifest, batchIndex: b.batchIndex, rows: b.rows, secret, now });
           const out = await postToEngage(fetch, process.env, body, body.request.requestId);
-          if (out.ok) return NextResponse.json({ committed: true, requestId: body.request.requestId, outcome: out.body });
+          // committed ONLY when the upstream outcome validates against this exact request/batch; else unconfirmed (never "refused")
+          if (out.ok && validOutcome(out.body, { requestId: body.request.requestId, client, registrationId: g.id, rows: body.request.rows })) return NextResponse.json({ committed: true, requestId: body.request.requestId, outcome: out.body });
+          if (out.ok) return NextResponse.json({ error: "Save outcome unconfirmed. Check status for this batch before anything else.", code: "unconfirmed", requestId: body.request.requestId }, { status: 502 });
           if (out.unconfirmed) return NextResponse.json({ error: "Save outcome unconfirmed. Check status for this batch before anything else.", code: "unconfirmed", requestId: body.request.requestId }, { status: 502 });
           return NextResponse.json({ error: "Engage refused this batch (validation failed). Nothing in this batch was saved.", code: "refused", requestId: body.request.requestId }, { status: out.status === 503 ? 503 : 400 });
         }
@@ -257,7 +259,7 @@ export async function POST(req: NextRequest) {
         if (b.op === "durableGiftJobStatus") {
           const jid = String(b.jobId || ""); if (!exactBody(b, ["op", "client", "table", "jobId"]) || !/^[a-f0-9]{64}$/.test(jid)) return bad("bad jobId");
           const out = await postToEngage(fetch, process.env, { op: "giftJobStatus", client, jobId: jid }, "");
-          return out.ok ? NextResponse.json(out.body) : bad("Status unavailable (unconfirmed); try again", 502);
+          return out.ok ? NextResponse.json(projectJobStatus(out.body, jid, client)) : bad("Status unavailable (unconfirmed); try again", 502);
         }
       } catch (e) { if (e instanceof DurableGiftError) return bad(e.message, e.status); if (e instanceof CsvError) return bad(e.message); return bad("Durable gift request failed", 500); }
       return bad("unknown op");

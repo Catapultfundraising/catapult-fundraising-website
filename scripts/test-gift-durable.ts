@@ -237,3 +237,51 @@ test("source cells are canonicalized with source-reconcile normalize; expected s
   await assert.rejects(plan({ csv: csv.replace("100.00", "1.00001"), decisions: [{ o: 0, d: "held" }, { o: 1, d: "new" }] }), /decimal places/);
   await assert.rejects(plan({ csv: csv.replace("1/6/2026", "13/45/2026"), decisions: [{ o: 0, d: "held" }, { o: 1, d: "new" }] }), /date/);
 });
+
+test("job status projection: only a self-consistent known shape passes; malformed/unknown => unavailable, never complete; extra fields dropped", async () => {
+  const L = await lib(); const J = "f".repeat(64);
+  const ok = { confirmed: true, state: "partial", batchCount: 3, committedBatches: [0, 2], missingBatches: [1], heldRows: 2, decidedRows: 10, note: "upstream text", secret: "x" };
+  const p = L.projectJobStatus(ok, J, "jag");
+  assert.equal(p.state, "partial"); assert.equal(p.jobId, J); assert.equal(p.client, "jag"); assert.ok(!("secret" in p)); assert.notEqual(p.note, "upstream text");
+  assert.equal(L.projectJobStatus({ ...ok, missingBatches: [], committedBatches: [0, 1, 2], heldRows: 0, state: "complete" }, J, "jag").state, "complete");
+  for (const bad of [{ ...ok, batchCount: -99 }, { ...ok, committedBatches: ["wrong"] }, { ...ok, committedBatches: [2, 0] }, { ...ok, missingBatches: [] }, { ...ok, missingBatches: [1, 2] }, { ...ok, state: "complete" }, { ...ok, missingBatches: [], committedBatches: [0, 1, 2], state: "complete" }, { ...ok, heldRows: -1 }, { confirmed: "yes" }, null, [], { confirmed: false, state: "complete" }])
+    assert.equal(L.projectJobStatus(bad, J, "jag").state, "unavailable", JSON.stringify(bad));
+  assert.equal(L.projectJobStatus({ confirmed: false, state: "unconfirmed" }, J, "jag").state, "unconfirmed");
+});
+
+test("[ROUTE] durableGiftJobStatus relays only the strict projection bound to the requested job/client", async () => {
+  let reply: unknown = {};
+  globalThis.fetch = (async () => Response.json(reply)) as unknown as typeof fetch;
+  const { POST } = await import("../app/api/research-source-import/route");
+  const D = await import("../lib/portal-v2/gift-durable"); D.__setGiftRegistrationsForTests([REG]);
+  const post = (body: Record<string, unknown>) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` }, body: JSON.stringify(body) }));
+  const J = "e".repeat(64);
+  reply = { confirmed: true, state: "complete", batchCount: -99, committedBatches: ["wrong"], missingBatches: [], heldRows: 0, decidedRows: 1, private: "leak" };
+  const r = await (await post({ op: "durableGiftJobStatus", client: "jag", table: REG.table, jobId: J })).json();
+  assert.equal(r.state, "unavailable"); assert.equal(r.jobId, J); assert.ok(!("private" in r));
+  assert.equal((await post({ op: "durableGiftJobStatus", client: "jag", table: REG.table, jobId: "short" })).status, 400);
+  D.__setGiftRegistrationsForTests([]);
+});
+
+test("browser parser parity: the panel's csv-parse grid has the same rows/ordinals as the server plan (BOM, blank lines, embedded newlines); refusals agree", async () => {
+  const L = await lib(); const { parseCsv } = await import("../lib/portal-v2/csv-parse");
+  const csv = "\uFEFFDonor,Amount,Date,Type\r\n7001,1,2026-01-05,\"Gift\nline two\"\r\n\r\n7002,2,2026-01-06,Gift\r\n\r\n";
+  const grid = parseCsv(csv); assert.equal(grid.length - 1, 2); assert.equal(grid[0][0], "Donor"); assert.equal(grid[1][3], "Gift\nline two");
+  const p = L.buildDurablePlan({ client: "jag", csv, mapping: MAP, decisions: [{ o: 0, d: "held" }, { o: 1, d: "new" }], actor: "Pat", fileName: "a.csv", fileDate: null, secret: SECRET, now: NOW });
+  assert.equal(p.summary.total, 2); assert.equal(p.batches.flat()[0].ordinal, 1); assert.equal(p.batches.flat()[0].person, 7002);
+  for (const bad of ["Donor,Amount\r\n7001,\"x\"y\r\n", "Donor,Amount\r\n7001,\"open\r\n", "Donor,Amount\r7001,1\r\n"]) {
+    assert.throws(() => parseCsv(bad)); assert.throws(() => L.buildDurablePlan({ client: "jag", csv: bad, mapping: {}, decisions: [], actor: "Pat", fileName: "a.csv", fileDate: null, secret: SECRET, now: NOW }));
+  }
+});
+
+test("browser-safe normalize is the SAME function the server uses; changed-column eligibility inputs canonicalize identically", async () => {
+  const a = await import("../lib/portal-v2/source-normalize"); const b = await import("../lib/portal-v2/source-reconcile");
+  assert.equal(a.normalize, b.normalize);
+  const dec = { ty: "decimal", len: null, p: 19, s: 4 };
+  assert.equal(a.normalize(dec, "$1,100.50").v, "1100.5"); assert.equal(a.normalize(dec, "100.00").v, "100"); assert.equal(a.normalize(dec, "").v, null, "blank = unchanged");
+  assert.equal(a.normalize({ ty: "datetime2", len: null, p: null, s: null }, "1/6/2026").v, "2026-01-06T00:00:00");
+  assert.match(String(a.normalize(dec, "1.00001").err), /decimal places/);
+  const fs = await import("node:fs"); assert.ok(!/from "node:/.test(fs.readFileSync("lib/portal-v2/source-normalize.ts", "utf8")) && !/from "node:/.test(fs.readFileSync("lib/portal-v2/csv-parse.ts", "utf8")), "browser-safe modules have no node: imports");
+  const panel = fs.readFileSync("app/research/source-import/DurableGiftPanel.tsx", "utf8");
+  assert.ok(panel.includes('from "@/lib/portal-v2/csv-parse"') && panel.includes('from "@/lib/portal-v2/source-normalize"') && !/function parse\(/.test(panel), "panel uses the owning parser and normalize");
+});

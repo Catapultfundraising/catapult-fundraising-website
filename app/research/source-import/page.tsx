@@ -37,6 +37,7 @@ export default function SourceImportPage() {
   const [client, setClient] = useState("");
   const [tables, setTables] = useState<{ table: string; candidate: number }[]>([]);
   const [table, setTable] = useState("");
+  const [durableLock, setDurableLock] = useState(false); // durable gift save/status dispatched or unconfirmed: scope locked
   const [dests, setDests] = useState<Dest[]>([]);
   const [csv, setCsv] = useState(""); const [headers, setHeaders] = useState<string[]>([]);
   const [clients, setClients] = useState<string[]>([]); const [preparedClients, setPreparedClients] = useState<string[]>([]);
@@ -247,8 +248,8 @@ export default function SourceImportPage() {
       <h1 className="mt-3 font-display text-3xl text-[rgb(var(--navy))]">Source file reconciliation</h1>
       <p className="mt-2 max-w-3xl text-sm text-[rgb(var(--ink))]/70">Preview only. Compares a source export with the last loaded baseline and the current dashboard data. Portal edits and records are protected; anything without a known baseline or verified key is held. Saving source data is turned off.{demo && " Showing fictional demo data."}</p>
       <section className={`${card} mt-6 grid gap-4 sm:grid-cols-3`}>
-        <label className="block"><span className={label}>Client</span><select className={input} value={client} disabled={busy} onChange={(e) => setClient(e.target.value)}><option value="">Choose…</option>{clients.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}</select></label>
-        <label className="block"><span className={label}>Dashboard table</span><select className={input} value={table} disabled={busy || !tables.length} onChange={(e) => setTable(e.target.value)}><option value="">Choose…</option>{tables.map((t) => <option key={t.table} value={t.table}>{t.table} ({t.candidate ? `${t.candidate} reviewable fields` : "all held"})</option>)}</select></label>
+        <label className="block"><span className={label}>Client</span><select className={input} value={client} disabled={busy || durableLock} onChange={(e) => setClient(e.target.value)}><option value="">Choose…</option>{clients.map((c) => <option key={c} value={c}>{c.toUpperCase()}</option>)}</select></label>
+        <label className="block"><span className={label}>Dashboard table</span><select className={input} value={table} disabled={busy || durableLock || !tables.length} onChange={(e) => setTable(e.target.value)}><option value="">Choose…</option>{tables.map((t) => <option key={t.table} value={t.table}>{t.table} ({t.candidate ? `${t.candidate} reviewable fields` : "all held"})</option>)}</select></label>
         <label className="block"><span className={label}>CSV file</span><input key={`${client}/${table}`} type="file" accept=".csv,text/csv" className={input} disabled={busy || profBusy || !table} onChange={(e) => onFile(e.target.files?.[0])} /></label>
         <label className="block"><span className={label}>Source export date</span><input type="date" className={input} disabled={busy} value={fileDate} onChange={(e) => { setFileDate(e.target.value); reset(); }} /><span className="mt-1 block text-xs text-[rgb(var(--ink))]/50">Leave blank if unknown; it is recorded as unknown, never today.</span></label>
         {fileName && <p className="text-xs text-[rgb(var(--ink))]/60 sm:col-span-2">File: {fileName}</p>}
@@ -313,7 +314,7 @@ export default function SourceImportPage() {
         </section>)}
       {client && <BaselineAttest key={`${client}/${table}`} client={client} table={table} />}
       {client === "jag" && <GiftPreview key={`gift:${client}/${table}`} client="jag" table="raw_master_giving_history" />}
-      {client && <DurableGiftPanel key={`durable:${client}/${table}`} client={client} table={table} />}
+      {client && <DurableGiftPanel key={`durable:${client}/${table}`} client={client} table={table} onLockChange={setDurableLock} />}
     </main>
   );
 }
