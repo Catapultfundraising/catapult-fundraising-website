@@ -55,7 +55,7 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
       if (bd.op === "durableGiftCommit") { commitN++; const i = bd.batchIndex; const rows = PARTS[i];
         return J({ committed: true, requestId: rid(i), outcome: { requestId: rid(i), client: "jag", registrationId: "fict_gifts", committed: true, counts: { new: rows.length, adopt: 0, correct: 0 }, rows: rows.map((r, k) => ({ ordinal: r.ordinal, action: "new", giftId: `${String(i).padStart(4, "0")}${String(k).padStart(4, "0")}-0000-4000-8000-000000000000`, locator: 1000 + r.ordinal })) } }); }
       if (bd.op === "durableGiftJobLookup") return J({ jobId: bd.jobId, client: bd.client, confirmed: true, state: "partial", batchCount: PARTS.length, committedBatches: [1], missingBatches: Array.from({ length: PARTS.length }, (_, i) => i).filter((i) => i !== 1), heldRows: 0, decidedRows: 606, note: "Partial." });
-      if (bd.op === "durableGiftExport") return J({ fileName: "fictional-606-catapult-gift-ids.csv", csv: "x", proven: 606, held: 0, unconfirmed: 0 });
+      if (bd.op === "durableGiftExport") return J({ fileName: "fictional-606-catapult-gift-ids.csv", csv: "x", proven: PARTS[1].length, held: 0, unconfirmed: 606 - PARTS[1].length });
       return J({ error: "unknown" }, 400);
     });
     w = resp("durableGiftContext"); await outer.selectOption("csnf"); await w; await frames();
