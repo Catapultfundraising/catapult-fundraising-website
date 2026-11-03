@@ -5,10 +5,11 @@ import Link from "next/link";
 import { ArrowLeft, Loader2 } from "lucide-react";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
 import { createScopeFence, StaleScope } from "@/lib/portal-v2/scope-fence";
+import { buildAllocManifest, type AllocContext, type AllocManifest } from "@/lib/portal-v2/source-allocator";
 import { buildJobManifest, summarizeJob, JOB_BATCH_ROWS, jobBatchRows, jobWriteCols, type BatchStatus, type JobManifest } from "@/lib/portal-v2/source-jobs";
 
 const webSha = async (x: string) => Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(x)))).map((b) => b.toString(16).padStart(2, "0")).join("");
-type JobBatch = BatchStatus & { token?: string | null; requestId?: string; would?: number; values?: number };
+type JobBatch = BatchStatus & { token?: string | null; requestId?: string; would?: number; values?: number; reserveRequestId?: string };
 const SMALL_MAX_BYTES = 2 * 1024 * 1024;
 
 // Staff-only source CSV reconciliation preview. Read-only: there is no save button because raw source writes are OFF.
@@ -49,13 +50,16 @@ export default function SourceImportPage() {
   const [job, setJob] = useState<{ manifest: JobManifest; jobId: string } | null>(null);
   const [batches, setBatches] = useState<JobBatch[]>([]); const [confirmed, setConfirmed] = useState(false);
   const running = useRef(false); // blocks double-click / parallel dispatch
+  // Reserved first load (allocator-registered new client only; null for every client while the registry is empty)
+  const [allocCfg, setAllocCfg] = useState<AllocContext | null>(null);
+  const [allocJob, setAllocJob] = useState<{ manifest: AllocManifest; jobId: string } | null>(null);
   useEffect(() => { const h = (e: BeforeUnloadEvent) => { if (running.current) { e.preventDefault(); e.returnValue = ""; } }; window.addEventListener("beforeunload", h); return () => window.removeEventListener("beforeunload", h); }, []);
   // ONE scope fence: reset() bumps it; every async callback/send/state write checks a token taken before it started.
   const fence = useRef(createScopeFence()).current;
   const guard = <T,>(p: Promise<T>) => fence.token().guard(p);
   const onErr = (e: Error) => { if (!(e instanceof StaleScope)) setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => { setClients(j.clients ?? []); setPreparedClients(j.prepared ?? []); }).catch((e) => setErr(e.message)); }, []);
-  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
+  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setAllocJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
   const clearFile = () => { setBigRows(null); setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
   // ONE effect for client/table so scope is invalidated once, before any request of the new scope starts.
   const prevClient = useRef("");
@@ -65,7 +69,9 @@ export default function SourceImportPage() {
     prevClient.current = client;
     setDests([]); clearFile(); reset();
     if (clientChanged) { setTables([]); if (client) { guard(call({ op: "tables", client })).then((j) => setTables(j.tables)).catch(onErr); guard(call({ op: "provenance", client })).then(setFresh).catch((e) => { if (!(e instanceof StaleScope)) setFresh(null); }); } else setFresh(null); }
+    setAllocCfg(null);
     if (client && table) guard(call({ op: "fields", client, table })).then((j) => setDests(j.fields)).catch(onErr);
+    if (client && table && preparedClients.includes(client)) guard(call({ op: "allocConfig", client })).then((c: AllocContext & { masterTable?: string }) => setAllocCfg(c)).catch(() => undefined);
   }, [client, table]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const useCsv = (t: string, name: string, preset?: Record<string, string>) => {
@@ -83,7 +89,7 @@ export default function SourceImportPage() {
     if (text === null) { setErr("Could not read the file"); return; }
     let grid: string[][]; try { grid = parseCsv(text); } catch (e) { setErr((e as Error).message); return; }
     const worst = jobBatchRows(jobWriteCols(dests, Object.fromEntries(dests.map((d) => [d.col, d.col])), preparedClients.includes(client)));
-    if ((f.size <= SMALL_MAX_BYTES && grid.length - 1 <= Math.min(JOB_BATCH_ROWS, worst))) return useCsv(text, f.name);
+    if (!allocCfg && (f.size <= SMALL_MAX_BYTES && grid.length - 1 <= Math.min(JOB_BATCH_ROWS, worst))) return useCsv(text, f.name); // reserved first load always uses the whole-file plan
     const hs = grid[0] ?? []; const norm = hs.map((h) => h.trim().toLowerCase());
     if (!hs.length || norm.some((h) => !h) || new Set(norm).size !== norm.length) { setErr("Every column needs a unique header"); return; }
     setFileName(f.name); setHeaders(hs);
@@ -93,7 +99,58 @@ export default function SourceImportPage() {
   const setBatch = (i: number, patch: Partial<JobBatch>) => setBatches((bs) => bs.map((b) => (b.index === i ? { ...b, ...patch } : b)));
   const committed = async (jobId: string) => { const st = await call({ op: "jobStatus", client, jobId }); return new Map<number, { state: string; savedRecords: number; heldRows: number }>((st.found ? st.batches : []).map((b: { index: number; state: string; savedRecords: number; heldRows: number }) => [b.index, b])); };
   // Whole-file plan: duplicate IDs anywhere in the file stop everything before any upload; saved batches (resume) are skipped.
+  // Reserved first load plan: whole-file external-ID manifest (duplicates/invalid IDs stop everything BEFORE any reservation).
+  // Nothing is reserved or saved until the plan is confirmed; then each batch: reserve (ledgered) -> preview -> save.
+  const previewAllocJob = async () => {
+    if (!bigRows || !allocCfg || running.current) return; running.current = true; setBusy(true); const tk = fence.token(); const live = tk.live; setErr(""); setBatches([]); setConfirmed(false);
+    try {
+      const j = await buildAllocManifest(webSha, { client, table, mapping, headers, rows: bigRows, fileName, fileDate: fileDate || null, actor, registryRev: "" + (await call({ op: "tables", client })).registry.rev, ctx: allocCfg });
+      if (!live()) return; setAllocJob(j);
+      const done = await committed(j.jobId).catch(() => new Map());
+      if (!live()) return;
+      setBatches(j.manifest.batchHashes.map((_, i) => { const c = done.get(i); return c ? { index: i, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows } : { index: i, state: "previewed" as const, would: Math.min(j.manifest.batchRows, j.manifest.totalRows - i * j.manifest.batchRows) }; }));
+      setApplyAvailable(true); // the server still refuses reservation/saving while writes are turned off
+    } catch (e) { if (live()) setErr((e as Error).message); } finally { running.current = false; if (live()) setBusy(false); }
+  };
+  const saveAllocJob = async () => {
+    if (!allocJob || running.current || !confirmed) return; running.current = true; setBusy(true); const tk = fence.token();
+    const j = allocJob;
+    try {
+      for (const b of batches) {
+        if (!tk.live()) break;
+        if (b.state !== "previewed") continue;
+        const chunk = { client, table, actor, manifest: j.manifest, jobId: j.jobId, batchIndex: b.index, rows: (bigRows ?? []).slice(b.index * j.manifest.batchRows, (b.index + 1) * j.manifest.batchRows) };
+        let r: Record<string, unknown>;
+        try { r = await call({ op: "allocReserve", ...chunk }); }
+        catch (e) { if (!tk.live()) break; setBatch(b.index, { state: "failed", error: (e as Error).message }); break; }
+        if (!tk.live()) break;
+        if (r.unconfirmed) { setBatch(b.index, { state: "unconfirmed", reserveRequestId: String(r.reserveRequestId ?? ""), error: "CPTID reservation not confirmed" }); break; }
+        let p: Record<string, unknown>;
+        try { p = await call({ op: "allocPreview", ...chunk }); } catch (e) { if (!tk.live()) break; setBatch(b.index, { state: "failed", error: (e as Error).message }); break; }
+        if (!tk.live()) break;
+        if (!p.token) { setBatch(b.index, { state: "held_only", heldRows: Number((p as { held?: number }).held ?? 0), would: 0 }); continue; }
+        const held = Number((p.job as { heldRows?: number } | null)?.heldRows ?? 0);
+        let a: Record<string, unknown>;
+        try { a = await call({ op: "apply", client, table, token: p.token, actor }); }
+        catch (e) { if (!tk.live()) break; setBatch(b.index, { state: "unconfirmed", requestId: String(p.requestId ?? ""), error: (e as Error).message }); break; }
+        if (!tk.live()) break;
+        if (a.unconfirmed) { setBatch(b.index, { state: "unconfirmed", requestId: String(p.requestId ?? "") }); break; }
+        setBatch(b.index, { state: held ? "saved_with_holds" : "saved", heldRows: held, savedRecords: Number(a.records ?? 0), error: undefined });
+      }
+    } finally { running.current = false; if (tk.live()) setBusy(false); }
+  };
+  // unconfirmed reservation: read Engage's ledger; found => the same batch can continue (re-sending replays the SAME CPTIDs)
+  const checkAlloc = async () => {
+    const tk = fence.token();
+    for (const b of batches.filter((x) => x.state === "unconfirmed" && x.reserveRequestId)) {
+      try { const st = await call({ op: "allocReserveStatus", client, requestId: b.reserveRequestId }); if (!tk.live()) return;
+        setBatch(b.index, st.found ? { state: "previewed", error: "Reservation confirmed; Save continues with the same CPTIDs" } : { error: "Still unconfirmed (may be in progress); check again. Do not start a different file." });
+      } catch (e) { if (tk.live()) setErr(`Status unavailable (${(e as Error).message})`); return; }
+    }
+    if (batches.some((x) => x.state === "unconfirmed" && !x.reserveRequestId)) await checkJob();
+  };
   const previewJob = async () => {
+    if (allocCfg) return previewAllocJob();
     if (!bigRows || running.current) return; running.current = true; setBusy(true); const tk = fence.token(); const live = tk.live; setErr(""); setBatches([]); setConfirmed(false);
     try {
       const keyCol = dests.find((d) => d.key)?.key ?? "";
@@ -131,8 +188,9 @@ export default function SourceImportPage() {
       }
     } finally { running.current = false; if (tk.live()) setBusy(false); }
   };
-  const checkJob = async () => { if (!job) return; const tk = fence.token(); try { const done = await committed(job.jobId); if (!tk.live()) return; setBatches((bs) => bs.map((b) => { const c = done.get(b.index); return c ? { ...b, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows, token: null } : b.state === "unconfirmed" ? { ...b, error: "still unconfirmed (may be in progress); check again" } : b; })); } catch (e) { if (tk.live()) setErr(`Status unavailable (${(e as Error).message})`); } };
-  const jobSum = job ? summarizeJob(job.manifest.batchHashes.length, batches) : null;
+  const checkJob = async () => { const jj = job ?? allocJob; if (!jj) return; const tk = fence.token(); try { const done = await committed(jj.jobId); if (!tk.live()) return; setBatches((bs) => bs.map((b) => { const c = done.get(b.index); return c ? { ...b, state: c.state as BatchStatus["state"], savedRecords: c.savedRecords, heldRows: c.heldRows, token: null } : b.state === "unconfirmed" ? { ...b, error: "still unconfirmed (may be in progress); check again" } : b; })); } catch (e) { if (tk.live()) setErr(`Status unavailable (${(e as Error).message})`); } };
+  const jobSum = job ? summarizeJob(job.manifest.batchHashes.length, batches) : allocJob ? summarizeJob(allocJob.manifest.batchHashes.length, batches) : null;
+  const plan = job ?? allocJob;
   const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); useCsv(t, "fictional-demo.csv", Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); };
   const loadBigDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 1).map((d) => d.col); const hs = ["Constituent number", ...cols]; reset(); clearFile(); setFileName("fictional-large-demo.csv"); setHeaders(hs);
     setBigRows(Array.from({ length: 1200 }, (_, i) => Object.fromEntries([["Constituent number", String(i < 3 ? 900001 + i : 910000 + i)], ...cols.map((c) => [c, "B"])]))); setMapping(Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : h]))); if (!actor) setActor("Demo Reviewer"); };
@@ -169,25 +227,26 @@ export default function SourceImportPage() {
               <select className={input} disabled={busy} value={mapping[h] ?? ""} onChange={(e) => { setMapping({ ...mapping, [h]: e.target.value }); reset(); }}>
                 <option value="">Ignore this column</option>{dests.map((d) => <option key={d.col} value={d.col}>{d.col}{d.key === d.col ? " (key)" : d.st !== "candidate" ? ` — ${d.st}` : ""}</option>)}
               </select></label>))}</div>
-          <button type="button" className={`${navyBtn} mt-4`} disabled={busy || (!!bigRows && !actor.trim()) || !Object.values(mapping).includes(dests.find((d) => d.key)?.key ?? "~")} onClick={bigRows ? previewJob : preview}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{bigRows ? `Preview whole file (${bigRows.length.toLocaleString()} rows, ${Math.ceil(bigRows.length / jobBatchRows(jobWriteCols(dests, mapping, preparedClients.includes(client))))} batches)` : "Preview"}</button>
+          <button type="button" className={`${navyBtn} mt-4`} disabled={busy || (!!bigRows && !actor.trim()) || (allocCfg ? !Object.values(mapping).includes(allocCfg.externalKeyCol) : !Object.values(mapping).includes(dests.find((d) => d.key)?.key ?? "~"))} onClick={bigRows ? previewJob : preview}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{bigRows ? `Preview whole file (${bigRows.length.toLocaleString()} rows, ${Math.ceil(bigRows.length / (allocCfg ? allocCfg.batchRows : jobBatchRows(jobWriteCols(dests, mapping, preparedClients.includes(client)))))} batches)` : "Preview"}</button>
           {bigRows && <label className="ml-3 inline-block text-sm align-bottom"><span className={label}>Your name</span><input className={input} disabled={busy} value={actor} onChange={(e) => { setActor(e.target.value); reset(); }} placeholder="Recorded as author (shared login)" /></label>}
         </section>)}
-      {job && jobSum && (
+      {plan && jobSum && (
         <section className={`${card} mt-4`} aria-label="Large file plan">
           <h2 className={label}>Whole-file plan</h2>
           <p className="mt-2 text-sm text-[rgb(var(--navy))]" role="status">{jobSum.label}</p>
           <p className="mt-1 text-sm text-[rgb(var(--ink))]/70">{batches.reduce((n, b) => n + (b.would ?? 0), 0)} rows would save changes ({batches.reduce((n, b) => n + (b.values ?? 0), 0)} values) across {batches.length} batches · {jobSum.heldRows} rows held or invalid · each batch is checked again against current data when saved</p>
           <div className="mt-3 overflow-x-auto"><table className="w-full min-w-[560px] text-left text-sm"><thead><tr className="text-xs uppercase text-[rgb(var(--ink))]/60"><th className="px-3 py-2">Batch</th><th className="px-3 py-2">Rows</th><th className="px-3 py-2">Status</th><th className="px-3 py-2">Would update / held</th></tr></thead>
-            <tbody>{batches.map((b) => <tr key={b.index} className="border-t border-[rgb(var(--line))]"><td className="px-3 py-2">{b.index + 1}</td><td className="px-3 py-2">{b.index * job.manifest.batchRows + 2}–{Math.min((b.index + 1) * job.manifest.batchRows, job.manifest.totalRows) + 1}</td>
+            <tbody>{batches.map((b) => <tr key={b.index} className="border-t border-[rgb(var(--line))]"><td className="px-3 py-2">{b.index + 1}</td><td className="px-3 py-2">{b.index * plan.manifest.batchRows + 2}–{Math.min((b.index + 1) * plan.manifest.batchRows, plan.manifest.totalRows) + 1}</td>
               <td className="px-3 py-2 font-semibold text-[rgb(var(--navy))]">{({ pending: "Not previewed", previewed: "Ready", saved: "Saved", saved_with_holds: "Saved (some rows or fields held)", held_only: "Nothing to save (held rows)", verified_unchanged: "Already up to date (checked at preview)", unconfirmed: "Not confirmed", failed: "Failed" } as Record<string, string>)[b.state]}{b.error && <span className="block text-xs font-normal text-[rgb(var(--ink))]/60">{b.error}</span>}</td>
               <td className="px-3 py-2">{b.state === "saved" || b.state === "saved_with_holds" ? `${b.savedRecords ?? 0} saved` : `${b.would ?? "—"}`} / {b.heldRows ?? "—"}</td></tr>)}</tbody></table></div>
           {applyAvailable && batches.some((b) => b.state === "previewed") && (
             <div className="mt-4 flex flex-wrap items-center gap-3 border-t border-[rgb(var(--line))] pt-4">
               <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} /> I reviewed the whole-file plan; save ready batches one at a time</label>
-              <button type="button" className={navyBtn} disabled={busy || !confirmed || jobSum.unconfirmed > 0} onClick={saveJob}>Save ready batches</button>
+              <button type="button" className={navyBtn} disabled={busy || !confirmed || jobSum.unconfirmed > 0} onClick={allocJob ? saveAllocJob : saveJob}>{allocJob ? "Reserve CPTIDs and save ready batches" : "Save ready batches"}</button>
             </div>)}
-          {jobSum.unconfirmed > 0 && <p className="mt-3 text-sm text-[rgb(var(--navy))]">A batch was not confirmed. <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={checkJob}>Check status</button> before anything else; do not upload again.</p>}
-          <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Job {job.jobId.slice(0, 12)} · re-choosing the identical file resumes it; a changed file, date, mapping or name starts a different job.</p>
+          {jobSum.unconfirmed > 0 && <p className="mt-3 text-sm text-[rgb(var(--navy))]">A batch was not confirmed. <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={allocJob ? checkAlloc : checkJob}>Check status</button> before anything else; do not upload again.</p>}
+          {allocJob && <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">New-client initial load: CPTIDs are assigned by the shared allocator per source ID ({allocCfg?.externalKeyCol}); the same file always gets the same CPTIDs. Rows whose source identity changed or is reserved elsewhere are held.</p>}
+          <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Job {plan.jobId.slice(0, 12)} · re-choosing the identical file resumes it; a changed file, date, mapping or name starts a different job.</p>
         </section>)}
       {err && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{err}</p>}
       {result && (

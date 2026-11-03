@@ -41,7 +41,7 @@ export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "cu
   return { baseline, current, overlays, heldKeys, ...(s.personLink ? { personOf, linkOf, sourceLink } : {}) };
 }
 
-export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[]; job?: SourceJobRef; insertPolicyDigest: string | null }
+export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: (WriteOp & { ext?: string; extDigest?: string })[]; job?: SourceJobRef; insertPolicyDigest: string | null; /** website-only binding of the shared allocator config (stripped before Engage) */ allocatorDigest?: string }
 /** Large-file job binding (source-jobs.ts): requestId = sha256(jobId:batchIndex)[0:32]; fileDigest = ordered content digest. */
 export interface SourceJobRef { jobId: string; batchIndex: number; batchCount: number; batchRows: number; totalRows: number; heldRows: number }
 const key = (secret: string | undefined) => { if (!secret || secret.length < 24) throw new SourceError("Source import is not configured"); return createHmac("sha256", secret).update("source-import/v1").digest(); };
@@ -66,7 +66,7 @@ export function verifySourceToken(token: unknown, secret: string | undefined, no
 }
 
 /** Builds the reconciliation + signed token from Engage state. Returns no token when nothing is applicable. */
-export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf" | "sourceLink" | "insertPolicy">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number; job?: { ref: Omit<SourceJobRef, "heldRows">; requestId: string; fileDigest: string }; policies?: readonly GiftInsertPolicy[] }) {
+export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf" | "sourceLink" | "insertPolicy">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number; job?: { ref: Omit<SourceJobRef, "heldRows">; requestId: string; fileDigest: string }; policies?: readonly GiftInsertPolicy[]; alloc?: { digest: string; extOf: Map<number, { ext: string; extDigest: string }>; extraHeld: number } }) {
   const inputs = stateToInputs(state);
   // gift insert policy: server registry only; Engage must report the SAME reviewed policy digest (deploy both together)
   const pol = base.mode === "update" ? insertPolicyFor(base.client, base.table, meta.policies) : null;
@@ -78,19 +78,25 @@ export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "ove
   }
   // first load: empty prepared destination (Engage-reported) => no baseline/current; otherwise later updates
   const result: ReconResult = reconcile(base.mode === "first-load" ? { ...base, ...inputs, baseline: null, current: new Map() } : { ...base, ...inputs, insertPolicy: pol ? { digest: ipd!, required: pol.required } : null });
-  const ops = planWrites(result);
+  const ops = planWrites(result).map((o) => {
+    if (!meta.alloc) return o;
+    // reserved first load: every insert carries the exact external identity its reserved CPTID belongs to
+    const e = typeof o.key === "number" ? meta.alloc.extOf.get(o.key) : undefined;
+    if (o.kind !== "insert" || !e) throw new SourceError("A row without a confirmed CPTID reservation cannot be saved");
+    return { ...o, ext: e.ext, extDigest: e.extDigest };
+  });
   const requestId = meta.job ? meta.job.requestId : newSourceRequestId();
   // a row counts as held when it is held/invalid OR any mapped field was not applied (held/conflict/protected/invalid)
-  const heldRows = result.rows.filter((r) => r.outcome === "held" || r.outcome === "invalid" || r.fields.some((f) => ["held", "conflict", "protected", "invalid"].includes(f.outcome))).length;
+  const heldRows = result.rows.filter((r) => r.outcome === "held" || r.outcome === "invalid" || r.fields.some((f) => ["held", "conflict", "protected", "invalid"].includes(f.outcome))).length + (meta.alloc?.extraHeld ?? 0);
   const job = meta.job ? { ...meta.job.ref, heldRows } : undefined;
-  const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: meta.job ? meta.job.fileDigest : fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops, ...(job ? { job } : {}), insertPolicyDigest: ipd }, meta.secret) : null;
+  const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: meta.job ? meta.job.fileDigest : fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops, ...(job ? { job } : {}), insertPolicyDigest: ipd, ...(meta.alloc ? { allocatorDigest: meta.alloc.digest } : {}) }, meta.secret) : null;
   return { result, ops: ops.length, token, requestId, ...(job ? { job } : {}) };
 }
 
 export function applyRequestBody(token: unknown, actor: unknown, secret: string | undefined, now = Date.now()) {
   if (typeof actor !== "string" || !actor.trim() || actor.length > 200) throw new SourceError("Enter your name (recorded as the shared-login author)");
   const { payload, previewHash } = verifySourceToken(token, secret, now, true);
-  const { v: _v, exp, ...rest } = payload;
+  const { v: _v, exp, allocatorDigest: _a, ...rest } = payload;
   return { op: "apply", client: payload.client, request: { ...rest, actor: actor.trim(), previewHash, previewExp: exp } };
 }
 
