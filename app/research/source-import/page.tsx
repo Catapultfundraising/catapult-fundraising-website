@@ -44,6 +44,7 @@ export default function SourceImportPage() {
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
   const [token, setToken] = useState<string | null>(null); const [requestId, setRequestId] = useState("");
   const [applyAvailable, setApplyAvailable] = useState(false); const [actor, setActor] = useState("");
+  const [profileMsg, setProfileMsg] = useState("");
   const [saveMsg, setSaveMsg] = useState(""); const [unconfirmed, setUnconfirmed] = useState(false);
   // Large files (>500 rows or >2 MB): parsed in the browser, bound into a whole-file manifest, uploaded in 500-row batches.
   const [bigRows, setBigRows] = useState<Record<string, string>[] | null>(null);
@@ -59,7 +60,7 @@ export default function SourceImportPage() {
   const guard = <T,>(p: Promise<T>) => fence.token().guard(p);
   const onErr = (e: Error) => { if (!(e instanceof StaleScope)) setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => { setClients(j.clients ?? []); setPreparedClients(j.prepared ?? []); }).catch((e) => setErr(e.message)); }, []);
-  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setAllocJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); };
+  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setAllocJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); setProfileMsg(""); };
   const clearFile = () => { setBigRows(null); setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
   // ONE effect for client/table so scope is invalidated once, before any request of the new scope starts.
   const prevClient = useRef("");
@@ -95,6 +96,27 @@ export default function SourceImportPage() {
     setFileName(f.name); setHeaders(hs);
     setBigRows(grid.slice(1).map((r) => Object.fromEntries(hs.map((h, i) => [h, r[i] ?? ""]))));
     setMapping(Object.fromEntries(hs.map((x) => [x, dests.find((d) => d.col.toLowerCase() === x.trim().replace(/\W+/g, "_").toLowerCase())?.col ?? ""])));
+  };
+  // Mapping profiles: column choices only (no rows, values, IDs, names or tokens). The server builds and checks them
+  // against the CURRENT rules; loading one resets any preview and never makes a held field saveable.
+  const downloadProfile = () => { const tk = fence.token(); setProfileMsg(""); guard(call({ op: "mappingProfile", action: "build", client, table, headers, mapping })).then((j) => {
+      const url = URL.createObjectURL(new Blob([JSON.stringify(j.profile, null, 2)], { type: "application/json" }));
+      const a = document.createElement("a"); a.href = url; a.download = `${client}-${table}-mapping-profile.json`; a.click(); URL.revokeObjectURL(url);
+      tk.run(() => setProfileMsg("Mapping profile downloaded. It holds column choices only, no data."));
+    }).catch(onErr); };
+  const loadProfile = async (input: HTMLInputElement) => {
+    const f = input.files?.[0]; input.value = ""; // allow choosing the same file again
+    if (!f) return;
+    const tkRead = fence.token();
+    const text = f.size > 65536 ? null : await f.text().catch(() => null);
+    if (!tkRead.live()) return; // client/table/file changed while reading
+    reset(); // invalidates preview, token, plan, confirmation
+    if (text === null) { setErr("Mapping profile must be a JSON file of 64 KB or smaller"); return; }
+    const hs = headers;
+    guard(call({ op: "mappingProfile", action: "check", client, table, headers: hs, profile: text })).then((j: { mapping: Record<string, string>; unmapped: string[]; held: string[] }) => {
+      setMapping(j.mapping);
+      setProfileMsg(`Mapping profile applied. ${j.unmapped.length ? `Not in the profile, left unmapped: ${j.unmapped.join(", ")}. ` : ""}${j.held.length ? `Held fields (shown in preview, not saved): ${j.held.join(", ")}. ` : ""}Preview again before saving.`);
+    }).catch(onErr);
   };
   const setBatch = (i: number, patch: Partial<JobBatch>) => setBatches((bs) => bs.map((b) => (b.index === i ? { ...b, ...patch } : b)));
   const committed = async (jobId: string) => { const st = await call({ op: "jobStatus", client, jobId }); return new Map<number, { state: string; savedRecords: number; heldRows: number }>((st.found ? st.batches : []).map((b: { index: number; state: string; savedRecords: number; heldRows: number }) => [b.index, b])); };
@@ -239,6 +261,12 @@ export default function SourceImportPage() {
               <select className={input} disabled={busy} value={mapping[h] ?? ""} onChange={(e) => { setMapping({ ...mapping, [h]: e.target.value }); reset(); }}>
                 <option value="">Ignore this column</option>{dests.map((d) => <option key={d.col} value={d.col}>{d.col}{d.key === d.col ? " (key)" : d.st !== "candidate" ? ` — ${d.st}` : ""}</option>)}
               </select></label>))}</div>
+          <div className="mt-4 flex flex-wrap items-center gap-3 text-sm">
+            <button type="button" className="font-semibold text-[rgb(var(--brass))] underline disabled:opacity-50" disabled={busy || !Object.values(mapping).some(Boolean)} onClick={downloadProfile}>Download mapping profile</button>
+            <label className={`font-semibold text-[rgb(var(--brass))] underline ${busy ? "opacity-50" : "cursor-pointer"}`}>Load mapping profile<input type="file" accept=".json,application/json" className="sr-only" aria-label="Load mapping profile" disabled={busy} onChange={(e) => { void loadProfile(e.currentTarget); }} /></label>
+            <span className="text-xs text-[rgb(var(--ink))]/60">Saves column choices only, no data. Checked against the current server rules each time; it does not make held fields saveable.</span>
+          </div>
+          {profileMsg && <p role="status" className="mt-2 text-sm text-[rgb(var(--navy))]">{profileMsg}</p>}
           <button type="button" className={`${navyBtn} mt-4`} disabled={busy || (!!bigRows && !actor.trim()) || (allocCfg ? !Object.values(mapping).includes(allocCfg.externalKeyCol) : !Object.values(mapping).includes(dests.find((d) => d.key)?.key ?? "~"))} onClick={bigRows ? previewJob : preview}>{busy && <Loader2 className="h-4 w-4 animate-spin" />}{bigRows ? `Preview whole file (${bigRows.length.toLocaleString()} rows, ${Math.ceil(bigRows.length / (allocCfg ? allocCfg.batchRows : jobBatchRows(jobWriteCols(dests, mapping, preparedClients.includes(client)))))} batches)` : "Preview"}</button>
           {bigRows && <label className="ml-3 inline-block text-sm align-bottom"><span className={label}>Your name</span><input className={input} disabled={busy} value={actor} onChange={(e) => { setActor(e.target.value); reset(); }} placeholder="Recorded as author (shared login)" /></label>}
         </section>)}

@@ -8,6 +8,8 @@ import { verifyJobChunk, JobError, JOB_CHUNK_MAX_BYTES, JOB_MANIFEST_MAX_BYTES, 
 import { insertPolicyFor } from "@/lib/portal-v2/source-insert-policy";
 import { approvedAllocators, verifyAllocChunk, identityConfigDigest, reservePayloadHash, AllocError, type AllocContext } from "@/lib/portal-v2/source-allocator";
 import { preparedDigest as preparedDigestOf, verifySourceTokenPayloadForAlloc } from "@/lib/portal-v2/source-alloc-server";
+import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2/source-mapping-profile";
+import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -100,6 +102,16 @@ function allocCtxOrBad(client: string, table: string) {
 }
 void identityConfigDigest;
 
+/** Current server context for mapping profiles: registry rev, resolved destination list, prepared/allocator/insert-policy digests. */
+function profileContext(client: string, table: string): ProfileContext {
+  const prep = approvedPrepared().find((p) => p.client === client);
+  const rd = resolveDestination(client, table, prep);
+  const ac = allocCtx(client);
+  const pol = insertPolicyFor(client, table);
+  return { client, table, registryRev: REGISTRY_META.rev, keyCol: rd.key, keyKind: rd.keyKind,
+    dests: rd.dests.map((d) => ({ col: d.col, ty: d.ty, len: d.len, p: d.p, s: d.s, st: d.st, key: d.col === rd.key ? rd.key : "" })),
+    preparedDigest: prep ? preparedDigestOf(prep, table) : null, allocatorDigest: ac && ac.masterTable === table ? ac.allocatorDigest : null, insertPolicyDigest: pol ? insertPolicyDigest(pol) : null };
+}
 /** Work-bounded batch size for a job, derived from the (untrusted) manifest mapping; verifyJobChunk then requires equality. */
 function jobRowsFor(client: string, dests: ReturnType<typeof registryDests>, manifest: unknown) {
   const mm = (manifest as { mapping?: unknown } | null)?.mapping;
@@ -169,6 +181,13 @@ export async function POST(req: NextRequest) {
     const dests = registryDests(client, table);
     if (!dests.length) return bad("Choose a table");
     if (b.op === "fields") return NextResponse.json({ fields: dests });
+    if (b.op === "mappingProfile") {
+      // read-only, metadata only; context always resolved from CURRENT server config, never from the profile
+      const ctx = profileContext(client, table);
+      if (b.action === "build") return NextResponse.json({ profile: buildProfile(ctx, b.headers, b.mapping) });
+      if (b.action === "check") return NextResponse.json(checkProfile(b.profile, ctx, b.headers));
+      return bad("unknown action");
+    }
     if (b.op === "preview") {
       if (b.demo !== true) {
         if (!sourcePreviewConfigured()) return bad("Live source preview is not configured (needs the reviewed source_import store and dedicated Engage connection)", 501);
