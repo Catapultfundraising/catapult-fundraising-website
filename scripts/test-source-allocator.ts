@@ -150,5 +150,6 @@ test("apply-time binding: reserved-path token must carry the CURRENT allocator d
   await assert.rejects(buildAllocManifest(sha, { ...base, mapping: { ...MAP, Ghost: "City" } }), /not in the file/);
   await assert.rejects(buildAllocManifest(sha, { ...base, mapping: { ...MAP, City: "Not_A_Column" } }), /not a column/);
   await assert.rejects(buildAllocManifest(sha, { ...base, mapping: MAP, headers: ["Source ID", "Name", "name"] }), /unique header/);
-  await assert.rejects(buildAllocManifest(sha, { ...base, headers: ["City"], rows: [{ City: "x", HiddenID: "S-1", HiddenName: "Org" }], mapping: { HiddenID: "Source_ID", HiddenName: "Account_Name", City: "City" } }), /not in the file/);
+  await assert.rejects(buildAllocManifest(sha, { ...base, headers: ["City"], rows: [{ City: "x", HiddenID: "S-1", HiddenName: "Org" }], mapping: { HiddenID: "Source_ID", HiddenName: "Account_Name", City: "City" } }), /exactly the file's columns/);
+  await assert.rejects(buildAllocManifest(sha, { ...base, headers: ["City"], rows: [{ City: "x" }], mapping: { HiddenID: "Source_ID", HiddenName: "Account_Name", City: "City" } }), /not in the file/);
 });

@@ -25,7 +25,7 @@ const OUT: Record<string, string> = { apply: "Would update", unchanged: "Same", 
 async function call(body: Record<string, unknown>) {
   const r = await fetch("/api/research-source-import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw new Error(j.error || `Request failed (${r.status})`);
+  if (!r.ok) throw Object.assign(new Error(j.error || `Request failed (${r.status})`), { status: r.status }); // status kept: 4xx = definitive refusal
   return j;
 }
 
@@ -124,7 +124,14 @@ export default function SourceImportPage() {
         const rrid = await allocReserveRequestId(webSha, j.jobId, b.index); // deterministic: known BEFORE dispatch
         if (!tk.live()) break;
         try { r = await call({ op: "allocReserve", ...chunk }); }
-        catch (e) { if (!tk.live()) break; setBatch(b.index, { state: "unconfirmed", reserveRequestId: rrid, error: `CPTID reservation outcome unknown (${(e as Error).message}); check status, or send the same batch again` }); break; }
+        catch (e) {
+          if (!tk.live()) break;
+          const st = (e as { status?: number }).status;
+          // definitive refusal (validation/gate/conflict): nothing was reserved; network failure or 5xx: outcome unknown
+          if (st !== undefined && st >= 400 && st < 500) setBatch(b.index, { state: "failed", error: (e as Error).message });
+          else setBatch(b.index, { state: "unconfirmed", reserveRequestId: rrid, error: `CPTID reservation outcome unknown (${(e as Error).message}); check status, or send the same batch again` });
+          break;
+        }
         if (!tk.live()) break;
         if (r.unconfirmed) { setBatch(b.index, { state: "unconfirmed", reserveRequestId: String(r.reserveRequestId ?? ""), error: "CPTID reservation not confirmed" }); break; }
         let p: Record<string, unknown>;
@@ -151,6 +158,9 @@ export default function SourceImportPage() {
     }
     if (batches.some((x) => x.state === "unconfirmed" && !x.reserveRequestId)) await checkJob();
   };
+  // deliberate same-request recovery: puts the unconfirmed batch back in the queue; Save re-sends the IDENTICAL batch of the
+  // same immutable manifest/job, so Engage's ledger replays the stored outcome or reserves once (never new IDs for old rows)
+  const resendAlloc = (i: number) => { if (running.current) return; setBatch(i, { state: "previewed", error: "Will send the same batch again (same request id)" }); };
   const previewJob = async () => {
     if (allocCfg) return previewAllocJob();
     if (!bigRows || running.current) return; running.current = true; setBusy(true); const tk = fence.token(); const live = tk.live; setErr(""); setBatches([]); setConfirmed(false);
@@ -247,6 +257,7 @@ export default function SourceImportPage() {
               <button type="button" className={navyBtn} disabled={busy || !confirmed || jobSum.unconfirmed > 0} onClick={allocJob ? saveAllocJob : saveJob}>{allocJob ? "Reserve CPTIDs and save ready batches" : "Save ready batches"}</button>
             </div>)}
           {jobSum.unconfirmed > 0 && <p className="mt-3 text-sm text-[rgb(var(--navy))]">A batch was not confirmed. <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" onClick={allocJob ? checkAlloc : checkJob}>Check status</button> before anything else; do not upload again.</p>}
+          {allocJob && batches.filter((x) => x.state === "unconfirmed" && x.reserveRequestId).map((x) => <p key={x.index} className="mt-2 text-sm text-[rgb(var(--navy))]">Batch {x.index + 1}: <button type="button" className="font-semibold text-[rgb(var(--brass))] underline" disabled={busy} onClick={() => resendAlloc(x.index)}>Send the same batch again</button> (same request; never reserves twice)</p>)}
           {allocJob && <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">New-client initial load: CPTIDs are assigned by the shared allocator per source ID ({allocCfg?.externalKeyCol}); the same file always gets the same CPTIDs. Rows whose source identity changed or is reserved elsewhere are held.</p>}
           <p className="mt-3 text-xs text-[rgb(var(--ink))]/50">Job {plan.jobId.slice(0, 12)} · re-choosing the identical file resumes it; a changed file, date, mapping or name starts a different job.</p>
         </section>)}

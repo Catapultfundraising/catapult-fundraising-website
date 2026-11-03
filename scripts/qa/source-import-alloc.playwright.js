@@ -92,6 +92,21 @@ const csv = (dup) => "Source_ID,Account_Name,City\n" + ["S-1", "S-2", "S-3", "S-
   const want = crypto.createHash("sha256").update(`${jid}:reserve:0`).digest("hex").slice(0, 32);
   ok(sent.filter((x) => x.op === "allocReserveStatus").at(-1).requestId === want, "status lookup uses the deterministic reservation request id computed before dispatch");
   // D) deferred reservation status that returns after a client change does not render into the new selection
+  // F) found:false after an aborted request => deliberate same-batch resend => success, same job and batch
+  const nBefore = sent.filter((x) => x.op === "allocReserve").length;
+  plan.reserve = [{ json: { rows: [] } }, { json: { rows: [] } }, { json: { rows: [] } }];
+  await p.locator("button", { hasText: "Send the same batch again" }).click(); await frames();
+  const wa = resp("apply"); await p.locator("button", { hasText: "Reserve CPTIDs and save ready batches" }).click(); await wa;
+  await p.locator("text=All 3 batches saved").waitFor({ timeout: 30000 });
+  const rs = sent.filter((x) => x.op === "allocReserve");
+  ok(rs[nBefore].batchIndex === 0 && rs[nBefore].jobId === jid, "not-found then same-batch resend: batch 0 re-sent under the same job, whole file saved");
+  // G) definitive HTTP 400 refusal: failed, no Check status / resend offered
+  await pick("pvas"); await pick("fictional_x", "master"); await load(false); await p.locator("button", { hasText: /^Preview whole file/ }).click();
+  await p.getByRole("heading", { name: "Whole-file plan" }).waitFor();
+  plan.reserve = [{ json: { error: "Batch 1 source IDs differ from the file's ID list" }, status: 400 }];
+  await p.locator("text=I reviewed the whole-file plan").click();
+  const w4 = resp("allocReserve"); await p.locator("button", { hasText: "Reserve CPTIDs and save ready batches" }).click(); await w4; await frames();
+  ok((await p.innerText("body")).includes("source IDs differ") && !(await p.locator("button", { hasText: "Check status" }).count()) && !(await p.locator("button", { hasText: "Send the same batch again" }).count()), "HTTP 400 refusal: marked failed, no Check status/resend");
   plan.status = { hold: false, json: { found: true } };
   await pick("pvas"); await pick("fictional_x", "master"); await load(false);
   await p.locator("button", { hasText: /^Preview whole file/ }).click(); await p.getByRole("heading", { name: "Whole-file plan" }).waitFor();

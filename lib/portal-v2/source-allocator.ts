@@ -68,6 +68,8 @@ export async function buildAllocManifest(sha: Sha, p: { client: string; table: s
   if (!p.actor.trim()) throw new AllocError("Enter your name (recorded as the shared-login author)");
   const hs = p.headers.map((h) => h.trim().toLowerCase());
   if (!p.headers.length || hs.some((h) => !h) || new Set(hs).size !== hs.length) throw new AllocError("Every column needs a unique header");
+  const hset = JSON.stringify([...p.headers].sort());
+  if (p.rows.some((r) => JSON.stringify(Object.keys(r).sort()) !== hset || !Object.values(r).every((v) => typeof v === "string"))) throw new AllocError("Every row must have exactly the file's columns");
   const inv = colHeaders(p.mapping, p.ctx, p.headers);
   const eh = inv[p.ctx.externalKeyCol];
   const exts: string[] = []; const bad: number[] = []; const seen = new Set<string>(); const dup = new Set<string>();
