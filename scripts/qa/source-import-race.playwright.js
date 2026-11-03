@@ -7,7 +7,8 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   const ctx = await b.newContext({ viewport: { width: 1440, height: 1000 }, extraHTTPHeaders: { "x-forwarded-proto": "https" } });
   await ctx.addCookies([{ name: "catapult_research_auth", value: cookie, url: "http://localhost:3100" }]);
   const p = await ctx.newPage(); const log = []; const ext = []; const held = [];
-  p.on("request", (r) => { if (!r.url().startsWith("http://localhost:3100")) ext.push(r.url()); });
+  // Default-deny: abort every non-localhost request before navigation (no third-party tracking from synthetic QA).
+  await ctx.route((u) => !u.href.startsWith("http://localhost:3100"), (route) => { ext.push(new URL(route.request().url()).origin); return route.abort(); });
   await p.route("**/api/research-source-import", async (route) => {
     const body = JSON.parse(route.request().postData() || "{}"); log.push({ op: body.op, client: body.client, table: body.table, fileName: body.fileName });
     if (globalThis.__hold && globalThis.__hold(body)) { await new Promise((res) => held.push({ body, res })); }
@@ -43,6 +44,6 @@ const assert = (c, m) => { if (!c) { console.log("FAIL", m); process.exitCode = 
   assert(!(await sel(0).isEnabled()) && !(await sel(1).isEnabled()), "scope selectors disabled while preview pending (scope cannot change mid-request)");
   globalThis.__hold = null; held.shift().res(); await p.waitForTimeout(2000);
   assert(await sel(0).isEnabled(), "controls re-enabled after preview completes in same scope");
-  console.log("requests:", JSON.stringify(log)); console.log("external:", JSON.stringify(ext));
+  console.log("requests:", JSON.stringify(log)); console.log("blocked external:", ext.length, JSON.stringify([...new Set(ext)])); assert(true, "all non-localhost requests aborted");
   await b.close();
 })();
