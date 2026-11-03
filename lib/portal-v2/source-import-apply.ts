@@ -3,8 +3,8 @@
 // Apply additionally needs SOURCE_IMPORT_APPLY=enabled AND the hard SOURCE_TRANSPORT_APPROVED constant (false).
 // The browser never sees the bearer secret or SQL credentials; previews are HMAC-bound and expire in 15 minutes.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { REGISTRY_META } from "./source-registry";
-import { planWrites, reconcile, SOURCE_TRANSPORT_APPROVED, SourceError, type ReconInput, type ReconResult, type WriteOp } from "./source-reconcile";
+import { REGISTRY_META, SOURCE_FIELDS } from "./source-registry";
+import { planWrites, preparedDigest, reconcile, SOURCE_TRANSPORT_APPROVED, SourceError, type ReconInput, type ReconResult, type WriteOp } from "./source-reconcile";
 
 type Env = Record<string, string | undefined>;
 export const SOURCE_TOKEN_TTL_MS = 15 * 60_000;
@@ -13,7 +13,7 @@ const secretOk = (env: Env) => (env.PORTAL_WRITE_SECRET ?? "").length >= 24;
 export const sourcePreviewConfigured = (env: Env = process.env) => env.SOURCE_IMPORT_PREVIEW === "enabled" && !!url(env) && secretOk(env);
 export const sourceApplyConfigured = (env: Env = process.env, transportApproved: boolean = SOURCE_TRANSPORT_APPROVED) => transportApproved && env.SOURCE_IMPORT_APPLY === "enabled" && sourcePreviewConfigured(env);
 
-export interface EngageState { registryRev: string; duplicateKeys: number[]; current: { key: number; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: number; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
+export interface EngageState { registryRev: string; destinationEmpty?: boolean; preparedDigest?: string | null; duplicateKeys: number[]; current: { key: number; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: number; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[] }
 /** Engage preview state -> reconciliation inputs. Only source-provenance baseline rows count; unreadable values are omitted (=> held). */
 export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys"> {
   if (s.registryRev !== REGISTRY_META.rev) throw new SourceError("Engage registry revision differs from this website; deploy both together");
@@ -29,7 +29,7 @@ export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "cu
   return { baseline, current, overlays, heldKeys };
 }
 
-export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedApproval: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[] }
+export interface SourceTokenPayload { v: 1; client: string; table: string; mode: "update" | "first-load"; preparedDigest: string | null; requestId: string; fileName: string; fileDigest: string; fileDate: string | null; registryRev: string; exp: number; ops: WriteOp[] }
 const key = (secret: string | undefined) => { if (!secret || secret.length < 24) throw new SourceError("Source import is not configured"); return createHmac("sha256", secret).update("source-import/v1").digest(); };
 export const fileDigest = (csv: string) => createHash("sha256").update(csv, "utf8").digest("hex");
 export const newSourceRequestId = () => randomBytes(16).toString("hex");
@@ -53,10 +53,16 @@ export function verifySourceToken(token: unknown, secret: string | undefined, no
 
 /** Builds the reconciliation + signed token from Engage state. Returns no token when nothing is applicable. */
 export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "overlays" | "heldKeys">, state: EngageState, meta: { fileName: string; csv: string; fileDate: string | null; secret: string | undefined; now?: number }) {
-  const result: ReconResult = reconcile({ ...base, ...stateToInputs(state) });
+  const inputs = stateToInputs(state);
+  if (base.prepared) {
+    const want = preparedDigest(base.prepared, base.table);
+    if (state.preparedDigest !== want) throw new SourceError("Engage has a different reviewed registration for this new client; deploy both together");
+  }
+  // first load: empty prepared destination (Engage-reported) => no baseline/current; otherwise later updates
+  const result: ReconResult = reconcile(base.mode === "first-load" ? { ...base, ...inputs, baseline: null, current: new Map() } : { ...base, ...inputs });
   const ops = planWrites(result);
   const requestId = newSourceRequestId();
-  const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedApproval: base.prepared?.approvalId ?? null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops }, meta.secret) : null;
+  const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops }, meta.secret) : null;
   return { result, ops: ops.length, token, requestId };
 }
 
@@ -79,12 +85,27 @@ export async function postToEngage(fetchImpl: typeof fetch, env: Env, body: Reco
 }
 
 export interface TableProvenance { table: string; fileDate: string | null; loadedAt: string; requestId: string; records: number }
-/** Per-table freshness labels for a client's builder tables. Never collapses to one date: tables without a guarded
- *  import show "unknown (legacy load)", and a null source date shows "source date unknown". */
+/** Labels for the latest ACCEPTED CSV update per table. An update may cover a few rows/fields (others held), so this is
+ *  never a table- or dashboard-wide freshness claim; legacy "Data as of" stays separate (or unknown). */
 export function describeFreshness(tables: string[], prov: TableProvenance[] | null) {
   const by = new Map((prov ?? []).map((p) => [p.table, p]));
-  const rows = tables.map((t) => { const p = by.get(t); return { table: t, label: !p ? "unknown (no guarded import recorded)" : p.fileDate ? `source export ${p.fileDate}, loaded ${p.loadedAt.slice(0, 10)}` : `source date unknown, loaded ${p.loadedAt.slice(0, 10)}`, fileDate: p?.fileDate ?? null }; });
-  const dated = rows.filter((r) => r.fileDate);
-  const summary = !dated.length ? "Source dates unknown" : dated.length === rows.length && new Set(dated.map((r) => r.fileDate)).size === 1 ? `All tables from source export ${dated[0].fileDate}` : `Partial: ${dated.length} of ${rows.length} tables have a recorded source date`;
+  const rows = tables.map((t) => {
+    const p = by.get(t);
+    const label = !p ? "no accepted CSV update recorded"
+      : `latest accepted CSV update: ${p.records} record${p.records === 1 ? "" : "s"} on ${p.loadedAt.slice(0, 10)} (${p.fileDate ? `source export dated ${p.fileDate}` : "source export date unknown"}); other rows and fields not covered`;
+    return { table: t, label, updated: !!p };
+  });
+  const n = rows.filter((r) => r.updated).length;
+  const summary = !n ? "No accepted CSV updates recorded" : `Accepted CSV updates recorded for ${n} of ${rows.length} tables (partial: covers only the records listed; does not mean any table is fully refreshed)`;
   return { summary, rows };
+}
+
+/** Server helper for the shared dashboards: separate "latest CSV updates" note, never replacing the data as-of date. */
+export async function csvUpdatesNote(client: string, env: Env = process.env, fetchImpl: typeof fetch = fetch) {
+  if (!sourcePreviewConfigured(env)) return { configured: false as const };
+  const tables = [...new Set(SOURCE_FIELDS.filter((f) => f.c === client).map((f) => f.t))];
+  const out = await postToEngage(fetchImpl, env, { op: "provenance", client }, "");
+  if (!out.ok) return { configured: true as const, error: "CSV update history unavailable" };
+  const f = describeFreshness(tables, out.body.tables as TableProvenance[]);
+  return { configured: true as const, summary: f.summary, rows: f.rows.filter((r) => r.updated) };
 }

@@ -354,6 +354,11 @@ export function portalV2Route(client: PortalClient) {
   const cfg = PORTAL_V2[client];
   async function GET(req: NextRequest) {
     if (!(await AUTH[client](req))) return bad("unauthorized", 401);
+    if (req.nextUrl.searchParams.get("op") === "csvUpdates") {
+      // Separate "latest accepted CSV updates" note (hidden until the source-import read path is configured).
+      const { csvUpdatesNote } = await import("./source-import-apply");
+      return NextResponse.json(await csvUpdatesNote(client).catch(() => ({ configured: true, error: "CSV update history unavailable" })));
+    }
     try {
       const download = req.nextUrl.searchParams.get("report") === "campaign";
       const format = req.nextUrl.searchParams.get("format") ?? "pdf";

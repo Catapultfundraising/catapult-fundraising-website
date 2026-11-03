@@ -4,6 +4,7 @@
 // acceptance. The registry is provisional (lexical builder references, historical metadata; see REGISTRY_META).
 // No SQL is built from user text: destination identity (schema/table/key/client) comes only from one resolved
 // server registration (registry or approved prepared client); columns only from that registration.
+import { createHash } from "node:crypto";
 import { ADDITIONS_OK, REGISTRY_META, SOURCE_FIELDS, type SourceField } from "./source-registry";
 
 export class SourceError extends Error {}
@@ -21,6 +22,19 @@ export interface PreparedTable { table: string; key: string; columns: { col: str
 export interface PreparedClient { approvalId: string; client: string; schema: string; registryVersion: number; approvedBy: string; approvedAt: string; tables: PreparedTable[] }
 /** Approved prepared (already provisioned, reviewed) new-client destinations. Empty until a review lands. Never browser input. */
 export const APPROVED_PREPARED: readonly PreparedClient[] = Object.freeze([]);
+let preparedOverride: readonly PreparedClient[] | null = null;
+/** Server-side approved registrations (never request input). Tests may inject fictional ones only behind an explicit hook. */
+export const approvedPrepared = (): readonly PreparedClient[] => preparedOverride ?? APPROVED_PREPARED;
+export function __setPreparedForTests(p: readonly PreparedClient[] | null) {
+  if (process.env.NODE_ENV === "production" || process.env.VERCEL_ENV || process.env.SOURCE_PREPARED_TEST_HOOK !== "1") throw new SourceError("test hook unavailable");
+  preparedOverride = p;
+}
+/** Digest of the FULL reviewed per-table registration; must equal Engage's preparedDigest for the same registration. */
+export function preparedDigest(p: PreparedClient, table: string) {
+  const t = p.tables.find((x) => x.table === table); if (!t) throw new SourceError("no such prepared table");
+  const cols = [...t.columns].sort((a, b) => (a.col < b.col ? -1 : 1)).map((c) => [c.col, c.ty, c.len ?? null, c.p ?? null, c.s ?? null, !!c.required]);
+  return createHash("sha256").update(JSON.stringify(["prepared/v1", p.approvalId, p.client, p.schema, t.table, t.key, cols])).digest("hex");
+}
 const TYPES = new Set(["nvarchar", "varchar", "int", "bigint", "float", "decimal", "numeric", "bit", "date", "datetime2"]);
 
 /** Resolved destination: the ONLY input the adapter accepts. Instances are minted solely by resolveDestination. */
@@ -53,7 +67,7 @@ export function validatePrepared(p: PreparedClient): PreparedClient {
   return p;
 }
 
-export function resolveDestination(client: string, table: string, prepared?: PreparedClient, approved: readonly PreparedClient[] = APPROVED_PREPARED): ResolvedDest {
+export function resolveDestination(client: string, table: string, prepared?: PreparedClient, approved: readonly PreparedClient[] = approvedPrepared()): ResolvedDest {
   let r: ResolvedDest;
   if (prepared) {
     if (!approved.includes(prepared)) throw new SourceError("prepared destination is not approved");
@@ -74,9 +88,17 @@ export function resolveDestination(client: string, table: string, prepared?: Pre
   Object.freeze(r); MINTED.add(r);
   return r;
 }
-/** Read-only listing for UI. */
+/** Read-only listing for UI: registry fields, or the approved prepared registration's columns. */
 export function registryDests(client: string, table: string) {
+  const p = approvedPrepared().find((x) => x.client === client);
+  if (p) { const t = p.tables.find((x) => x.table === table); return (t?.columns ?? []).map((c) => ({ col: c.col, ty: c.ty, st: "candidate" as const, why: c.required ? "prepared destination (required)" : "prepared destination", key: c.col === t!.key ? t!.key : "" })); }
   return SOURCE_FIELDS.filter((f) => f.c === client && f.t === table).map((f) => ({ col: f.col, ty: f.ty, st: f.st, why: f.why, key: f.k }));
+}
+export function clientTables(client: string) {
+  const p = approvedPrepared().find((x) => x.client === client);
+  if (p) return p.tables.map((t) => ({ table: t.table, candidate: t.columns.length - 1, prepared: true }));
+  const ts = [...new Set(SOURCE_FIELDS.filter((f) => f.c === client).map((f) => f.t))];
+  return ts.map((t) => ({ table: t, candidate: SOURCE_FIELDS.filter((f) => f.c === client && f.t === t && f.st === "candidate").length, prepared: false }));
 }
 
 // ---------- normalization (comparison form, exact) ----------
@@ -180,7 +202,7 @@ export interface ReconResult {
 }
 const has = (o: object | undefined, k: string) => !!o && Object.prototype.hasOwnProperty.call(o, k);
 
-export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] = APPROVED_PREPARED): ReconResult {
+export function reconcile(inp: ReconInput, approved: readonly PreparedClient[] = approvedPrepared()): ReconResult {
   const { client, table, mode } = inp;
   if (mode === "first-load" && !inp.prepared) throw new SourceError("first load requires an approved prepared destination");
   const dest = resolveDestination(client, table, inp.prepared, approved);

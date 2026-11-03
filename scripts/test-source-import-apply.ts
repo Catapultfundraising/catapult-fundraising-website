@@ -63,21 +63,26 @@ test("duplicate/twice-reported destination keys are held, never collapsed", () =
 test("token binds file name/date and prepared approval; expired token still forwards for idempotent replay", () => {
   const lp = livePreview(base, state(), { ...meta, fileName: "export Oct.csv", fileDate: null });
   const v = verifySourceToken(lp.token, SECRET, 2000);
-  assert.equal(v.payload.fileName, "export Oct.csv"); assert.equal(v.payload.fileDate, null); assert.equal(v.payload.preparedApproval, null);
+  assert.equal(v.payload.fileName, "export Oct.csv"); assert.equal(v.payload.fileDate, null); assert.equal(v.payload.preparedDigest, null);
   const late = applyRequestBody(lp.token, "Pat", SECRET, 1000 + 16 * 60_000);
   assert.equal(late.request.requestId, lp.requestId);
-  assert.deepEqual(Object.keys(late.request).sort(), ["actor", "client", "fileDate", "fileDigest", "fileName", "mode", "ops", "preparedApproval", "previewExp", "previewHash", "registryRev", "requestId", "table"]);
+  assert.deepEqual(Object.keys(late.request).sort(), ["actor", "client", "fileDate", "fileDigest", "fileName", "mode", "ops", "preparedDigest", "previewExp", "previewHash", "registryRev", "requestId", "table"]);
 });
-test("source additions: registry-approved table inserts, held tables do not get a token", () => {
+test("source additions: PVAS DonorSearch additions held (preflight); no token", () => {
   const add = livePreview({ ...base, rows: [{ ID: "202", Q: "N" }] }, state({ current: [], baseline: [] }), meta);
-  assert.equal(add.result.rows[0].outcome, "insert"); assert.ok(add.token);
+  assert.equal(add.result.rows[0].outcome, "held"); assert.equal(add.token, null);
 });
 
-test("freshness is per table and partial, never one date for everything", async () => {
-  const { describeFreshness } = await import("../lib/portal-v2/source-import-apply");
-  assert.equal(describeFreshness(["a", "b"], null).summary, "Source dates unknown");
-  const f = describeFreshness(["a", "b"], [{ table: "a", fileDate: "2026-10-01", loadedAt: "2026-11-03T10:00:00", requestId: "x", records: 1 }]);
-  assert.equal(f.summary, "Partial: 1 of 2 tables have a recorded source date");
-  assert.match(f.rows[1].label, /unknown/);
-  assert.equal(describeFreshness(["a"], [{ table: "a", fileDate: null, loadedAt: "2026-11-03T10:00:00", requestId: "x", records: 1 }]).rows[0].label, "source date unknown, loaded 2026-11-03");
+test("a one-row CSV import never marks a table or dashboard refreshed", async () => {
+  const { describeFreshness, csvUpdatesNote } = await import("../lib/portal-v2/source-import-apply");
+  assert.equal(describeFreshness(["a", "b"], null).summary, "No accepted CSV updates recorded");
+  const one = [{ table: "a", fileDate: "2026-10-01", loadedAt: "2026-11-03T10:00:00", requestId: "x", records: 1 }];
+  const f = describeFreshness(["a"], one);
+  assert.match(f.summary, /partial/); assert.doesNotMatch(f.summary, /All tables|fully refreshed$/);
+  assert.match(f.rows[0].label, /1 record on 2026-11-03 \(source export dated 2026-10-01\); other rows and fields not covered/);
+  assert.match(describeFreshness(["a"], [{ ...one[0], fileDate: null }]).rows[0].label, /source export date unknown/);
+  assert.deepEqual(await csvUpdatesNote("pvas", {}), { configured: false });
+  const fake = (async () => Response.json({ tables: [{ table: "donorsearch_results", fileDate: null, loadedAt: "2026-11-03T10:00:00", requestId: "x", records: 1 }] })) as unknown as typeof fetch;
+  const note = await csvUpdatesNote("pvas", ENV, fake) as { rows: { table: string }[]; summary: string };
+  assert.deepEqual(note.rows.map((r) => r.table), ["donorsearch_results"]); assert.match(note.summary, /^Accepted CSV updates recorded for 1 of \d+ tables \(partial/);
 });

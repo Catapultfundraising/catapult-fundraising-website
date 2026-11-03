@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { parseCsv, CSV_MAX_BYTES, CsvError, demoAllowed } from "@/lib/portal-v2/csv-updates";
-import { APPROVED_PREPARED, parseKey, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
+import { approvedPrepared, clientTables, parseKey, reconcile, registryDests, rowsFromGrid, validateHeadersAndMapping, SourceError, sourceApplyEnabled, SOURCE_MAX_OPS } from "@/lib/portal-v2/source-reconcile";
 import { REGISTRY_META, SOURCE_FIELDS } from "@/lib/portal-v2/source-registry";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
@@ -12,7 +12,7 @@ import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceA
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 const bad = (error: string, status = 400) => NextResponse.json({ error }, { status });
-const CLIENTS = [...new Set([...SOURCE_FIELDS.map((f) => f.c), ...APPROVED_PREPARED.map((p) => p.client)])];
+const clientsNow = () => [...new Set([...SOURCE_FIELDS.map((f) => f.c), ...approvedPrepared().map((p) => p.client)])];
 
 function sameOrigin(req: NextRequest) {
   if (!(req.headers.get("content-type") || "").toLowerCase().startsWith("application/json")) return false;
@@ -32,11 +32,12 @@ export async function POST(req: NextRequest) {
   try { const j = JSON.parse(text); b = j && typeof j === "object" && !Array.isArray(j) ? j : null; } catch { b = null; }
   if (!b) return bad("bad body");
   const client = String(b.client || ""), table = String(b.table || "");
-  if (b.op === "clients") return NextResponse.json({ clients: CLIENTS, prepared: APPROVED_PREPARED.map((p) => p.client) });
+  const CLIENTS = clientsNow();
+  if (b.op === "clients") return NextResponse.json({ clients: CLIENTS, prepared: approvedPrepared().map((p) => p.client) });
   if (!CLIENTS.includes(client)) return bad("Choose a client");
   try {
     if (b.op === "provenance") {
-      const tables = [...new Set(SOURCE_FIELDS.filter((f) => f.c === client).map((f) => f.t))];
+      const tables = clientTables(client).map((t) => t.table);
       if (!sourcePreviewConfigured()) return NextResponse.json({ configured: false, ...describeFreshness(tables, null) });
       const out = await postToEngage(fetch, process.env, { op: "provenance", client }, "");
       return NextResponse.json({ configured: true, ...describeFreshness(tables, out.ok ? (out.body.tables as never) : null), error: out.ok ? undefined : "Source dates unavailable" });
@@ -51,8 +52,7 @@ export async function POST(req: NextRequest) {
       }
     }
     if (b.op === "tables") {
-      const ts = [...new Set(SOURCE_FIELDS.filter((f) => f.c === client).map((f) => f.t))];
-      return NextResponse.json({ registry: REGISTRY_META, applyEnabled: sourceApplyEnabled(), tables: ts.map((t) => ({ table: t, candidate: SOURCE_FIELDS.filter((f) => f.c === client && f.t === t && f.st === "candidate").length })) });
+      return NextResponse.json({ registry: REGISTRY_META, applyEnabled: sourceApplyEnabled(), tables: clientTables(client) });
     }
     const csvIn = typeof b.csv === "string" ? b.csv : "";
     if (b.op === "inspect") {
@@ -86,9 +86,12 @@ export async function POST(req: NextRequest) {
         if (!fileName) return bad("File name missing; choose the file again");
         const out = await postToEngage(fetch, process.env, { op: "previewState", client, table, keys, cols }, "");
         if (!out.ok) return bad(out.unconfirmed ? "Engage did not answer; try again" : String(out.body.error || "Preview failed"), 502);
-        const lp = livePreview({ client, table, mode: "update", mapping, rows, headers }, out.body as unknown as EngageState, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET });
+        const prepared = approvedPrepared().find((p) => p.client === client); // server registration only, never request input
+        const st = out.body as unknown as EngageState;
+        const mode = prepared && st.destinationEmpty === true ? "first-load" as const : "update" as const;
+        const lp = livePreview({ client, table, mode, mapping, rows, headers, prepared }, st, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET });
         const { dest: _d, ...result } = lp.result;
-        return NextResponse.json({ headers, result, token: lp.token, requestId: lp.requestId, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
+        return NextResponse.json({ headers, result, mode, token: lp.token, requestId: lp.requestId, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
       }
       if (!demoAllowed()) return bad("Demo data is only available in local development", 403);
       if (!csvIn || Buffer.byteLength(csvIn, "utf8") > CSV_MAX_BYTES) return bad("Choose a CSV file of 2 MB or smaller");
