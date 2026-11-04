@@ -73,8 +73,8 @@ const exactInt = (s: string) => (/^[1-9]\d{0,9}$/.test(s) && Number(s) <= 214748
 export type Decision = { o: number; d: "held" } | { o: number; d: "new" } | { o: number; d: "adopt"; locator: number; expected: Record<string, string | null> } | { o: number; d: "correct"; giftId: string; expected: Record<string, string | null> };
 
 /** Build a signed plan. mapping: CSV header -> registered column, plus exactly one header mapped to "@person" (donor CPTID). */
-export function buildDurablePlan(o: { client: string; csv: string; mapping: unknown; decisions: unknown; actor: unknown; fileName: unknown; fileDate: unknown; secret: string | undefined; now: number }) {
-  const g = registrationFor(o.client); if (!g) bad("No reviewed gift registration for this client", 404);
+export function buildDurablePlan(o: { client: string; csv: string; mapping: unknown; decisions: unknown; actor: unknown; fileName: unknown; fileDate: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  const g = registrationFor(o.client, o.regs); if (!g) bad("No reviewed gift registration for this client", 404);
   if (typeof o.actor !== "string" || !o.actor.trim() || o.actor.length > 200 || o.actor !== o.actor.trim()) bad("Enter your name (recorded as stated, not a verified identity)");
   if (typeof o.fileName !== "string" || !o.fileName || o.fileName.length > 300) bad("bad file name");
   if (o.fileDate !== null && !(typeof o.fileDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.fileDate))) bad("Source export date must be YYYY-MM-DD or unknown");
@@ -149,7 +149,7 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
 }
 
 /** Verify a job token + manifest binding. Returns the token payload. */
-export function verifyJob(token: unknown, manifest: unknown, secret: string | undefined, now: number, client: string): { t: JobToken; m: GiftJobManifest } {
+export function verifyJob(token: unknown, manifest: unknown, secret: string | undefined, now: number, client: string, regs?: readonly GiftRegistration[]): { t: JobToken; m: GiftJobManifest } {
   const t = verify<JobToken>(token, secret, "job", now);
   if (t.client !== client) bad("job belongs to another client");
   if (!isObj(manifest)) bad("bad manifest");
@@ -158,13 +158,13 @@ export function verifyJob(token: unknown, manifest: unknown, secret: string | un
   if (giftJobId(m) !== t.jobId) bad("manifest does not match the signed job");
   const eq = m.client === t.client && m.registrationId === t.registrationId && m.registrationVersion === t.registrationVersion && m.registrationDigest === t.registrationDigest && m.fileDigest === t.fileDigest && m.fileName === t.fileName && m.totalOrdinals === t.totalOrdinals && m.actor === t.actor && m.fileDate === t.fileDate && JSON.stringify(m.batches.map((b) => b.hash)) === JSON.stringify(t.batchHashes);
   if (!eq) bad("manifest fields differ from the signed job");
-  const g = registrationFor(client); if (!g || g.id !== t.registrationId || g.version !== t.registrationVersion || giftRegDigest(g) !== t.registrationDigest) bad("gift registration changed since planning; plan again", 409);
+  const g = registrationFor(client, regs); if (!g || g.id !== t.registrationId || g.version !== t.registrationVersion || giftRegDigest(g) !== t.registrationDigest) bad("gift registration changed since planning; plan again", 409);
   return { t, m };
 }
 
 /** Upstream giftCommit body for one batch (rows must equal the manifest slice; backend re-checks). */
-export function commitBody(o: { client: string; token: unknown; manifest: unknown; batchIndex: unknown; rows: unknown; secret: string | undefined; now: number }) {
-  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client);
+export function commitBody(o: { client: string; token: unknown; manifest: unknown; batchIndex: unknown; rows: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client, o.regs);
   if (!Number.isSafeInteger(o.batchIndex) || (o.batchIndex as number) < 0 || (o.batchIndex as number) >= m.batchCount) bad("bad batch index");
   if (!Array.isArray(o.rows)) bad("bad rows");
   const i = o.batchIndex as number;
@@ -175,8 +175,8 @@ export function commitBody(o: { client: string; token: unknown; manifest: unknow
 }
 
 /** Turn an upstream giftStatus body for batch i into a signed proof, or null (unconfirmed/inconsistent). */
-export function proofFor(o: { client: string; token: unknown; manifest: unknown; batchIndex: unknown; status: unknown; secret: string | undefined; now: number }): string | null {
-  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client);
+export function proofFor(o: { client: string; token: unknown; manifest: unknown; batchIndex: unknown; status: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }): string | null {
+  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client, o.regs);
   if (!Number.isSafeInteger(o.batchIndex) || (o.batchIndex as number) < 0 || (o.batchIndex as number) >= m.batchCount) bad("bad batch index");
   const i = o.batchIndex as number, rq = jobRequestId(t.jobId, i), sl = m.batches[i];
   const slice = m.decided.slice(sl.first, sl.last + 1);
@@ -212,8 +212,8 @@ export function provenMap(t: JobToken, m: GiftJobManifest, proofs: unknown, secr
 const safeName = (n: string) => (n.replace(/\.csv$/i, "").replace(/[^A-Za-z0-9 .-]+/g, "-").replace(/_/g, "-").replace(/\s+/g, " ").trim().slice(0, 80) || "gifts");
 const q = (c: string) => `"${c.replace(/"/g, '""')}"`;
 /** Augmented REVIEW copy: original cells (formula-neutralized, so NOT a reimport-safe exact copy) + Catapult Gift ID only for proven rows. */
-export function durableExport(o: { client: string; csv: string; token: unknown; manifest: unknown; proofs: unknown; secret: string | undefined; now: number }) {
-  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client);
+export function durableExport(o: { client: string; csv: string; token: unknown; manifest: unknown; proofs: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client, o.regs);
   if (sha(o.csv) !== t.fileDigest) bad("This is not the file that was planned");
   const ids = provenMap(t, m, o.proofs, o.secret, o.now);
   const grid = parseCsv(o.csv); const headers = grid[0], rows = grid.slice(1);
@@ -361,7 +361,7 @@ const exactObj = (o: unknown, keys: string[]) => isObj(o) && Object.keys(o).leng
  *  (expiry ignored, nothing else) AND the typed header MAC; every field cross-bound across token/header/manifest and the
  *  CURRENT registration (drift/removal => refused; whole-job lookup stays available separately). Output token is the
  *  original payload with a new exp only, so jobId and every derived request id are unchanged. */
-export function renewRecovery(o: { client: string; table: string; header: unknown; headerMac: unknown; jobToken: unknown; secret: string | undefined; now: number }) {
+export function renewRecovery(o: { client: string; table: string; header: unknown; headerMac: unknown; jobToken: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
   const { t } = recoveryAuthority(o);
   const renewed: JobToken = { ...t, exp: o.now + JOB_TOKEN_TTL_MS };
   return { token: sign(o.secret, "job", renewed), jobId: t.jobId };
@@ -371,7 +371,7 @@ export function renewRecovery(o: { client: string; table: string; header: unknow
 export const REVIEW_MAX_TEXT = 2_000_000, REVIEW_MAX_BODY = 4_000_000;
 export type ReviewResult = "verified" | "held:duplicate" | "held:held-in-plan" | "held:blank" | "held:not-proven";
 const VERIFIED_STATUS = "saved (committed, verified)";
-export function reviewCheck(o: { client: string; table: string; original: string; reviewCopy: string; header: unknown; headerMac: unknown; jobToken: unknown; proofs: unknown; secret: string | undefined; now: number }) {
+export function reviewCheck(o: { client: string; table: string; original: string; reviewCopy: string; header: unknown; headerMac: unknown; jobToken: unknown; proofs: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
   const { t, m } = recoveryAuthority(o);
   if (sha(o.original) !== t.fileDigest) bad("The original file does not match the planned file (byte digest differs)");
   const ids = provenMap(t, m, o.proofs, o.secret, o.now);
@@ -401,7 +401,7 @@ export function reviewCheck(o: { client: string; table: string; original: string
   if (total !== m.totalOrdinals || c.verified + c.held.duplicate + c.held.heldInPlan + c.held.blank + c.held.notProven !== total) bad("report invariant failed", 500);
   return sized({ jobId: t.jobId, client: m.client, counts: { total, ...c }, rows });
 }
-function recoveryAuthority(o: { client: string; table: string; header: unknown; headerMac: unknown; jobToken: unknown; secret: string | undefined; now: number }) {
+function recoveryAuthority(o: { client: string; table: string; header: unknown; headerMac: unknown; jobToken: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
   if (!goodSecret(o.secret)) bad("server secret not configured", 500);
   if (!exactObj(o.header, HEADER_KEYS)) bad("bad recovery header");
   const h = o.header as unknown as RecoveryHeader;
@@ -425,7 +425,7 @@ function recoveryAuthority(o: { client: string; table: string; header: unknown; 
     ["table", typeof h.table === "string" && h.table === o.table],
   ];
   const badField = checks.find(([, ok]) => !ok); if (badField) bad(`recovery file does not match the signed job (${badField[0]})`);
-  const g = registrationFor(o.client);
+  const g = registrationFor(o.client, o.regs);
   if (!g || g.table !== h.table || g.id !== t.registrationId || g.version !== t.registrationVersion || giftRegDigest(g) !== t.registrationDigest) bad("Gift registration changed or was removed since planning. Renewal and saving are refused; use the read-only job lookup until the registration is reviewed and restored or migrated.", 409);
   return { t, m, h };
 }

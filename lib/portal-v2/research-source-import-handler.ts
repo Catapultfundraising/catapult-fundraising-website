@@ -101,7 +101,7 @@ function scoped(deps: ResearchDeps) {
     const reg = approvedAllocators().some((a) => a.client === client);
     if (reg && alloc && mode !== "first-load") return bad("The new client's destination is not in initial-load state; reserved first load refused");
     if (reg && !alloc && mode === "first-load") return bad("New records for this client are added only through the reserved first load (CPTIDs assigned by the shared allocator)");
-    const lp = livePreview({ client, table, mode, mapping, rows, headers, prepared }, st, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET, ...(job ? { job } : {}), ...(alloc ? { alloc } : {}) });
+    const lp = livePreview({ client, table, mode, mapping, rows, headers, prepared }, st, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET, now: deps.now(), ...(job ? { job } : {}), ...(alloc ? { alloc } : {}) });
     if (reg && !alloc && lp.result.rows.some((r) => r.outcome === "insert")) return bad("New records for this client are held: add them only through the reserved first load");
     const { dest: _d, ...result } = lp.result;
     return NextResponse.json({ headers, result, mode, overrideHold: lp.overrideHold, token: lp.token, requestId: lp.requestId, job: lp.job ?? null, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
@@ -334,28 +334,28 @@ function scoped(deps: ResearchDeps) {
           if (b.op === "durableGiftPlan") {
             if (!exactBody(b, ["op", "client", "table", "csv", "mapping", "decisions", "actor", "fileName", "fileDate"]) || typeof b.csv !== "string") return bad("bad durableGiftPlan body");
             if (Buffer.byteLength(text, "utf8") > DURABLE_MAX_BODY) return bad("File plus decisions too large for one plan; split the file", 413);
-            return NextResponse.json(buildDurablePlan({ client, csv: b.csv, mapping: b.mapping, decisions: b.decisions, actor: b.actor, fileName: b.fileName, fileDate: b.fileDate, secret, now }));
+            return NextResponse.json(buildDurablePlan({ client, csv: b.csv, mapping: b.mapping, decisions: b.decisions, actor: b.actor, fileName: b.fileName, fileDate: b.fileDate, secret, now, regs: deps.giftRegistrations }));
           }
           if (b.op === "durableGiftRenew") {
             if (Buffer.byteLength(text, "utf8") > RENEW_MAX_BODY) return bad("Renewal request too large", 413);
             if (typeof b.client !== "string" || typeof b.table !== "string" || !exactBody(b, ["op", "client", "table", "header", "headerMac", "jobToken"])) return bad("bad durableGiftRenew body");
-            return NextResponse.json(renewRecovery({ client, table, header: b.header, headerMac: b.headerMac, jobToken: b.jobToken, secret, now }));
+            return NextResponse.json(renewRecovery({ client, table, header: b.header, headerMac: b.headerMac, jobToken: b.jobToken, secret, now, regs: deps.giftRegistrations }));
           }
           if (b.op === "durableGiftReviewCheck") {
             if (Buffer.byteLength(text, "utf8") > REVIEW_MAX_BODY) return bad("Review check request too large", 413);
             if (!exactBody(b, ["op", "client", "table", "original", "reviewCopy", "header", "headerMac", "jobToken", "proofs"]) || typeof b.client !== "string" || typeof b.table !== "string" || typeof b.original !== "string" || typeof b.reviewCopy !== "string") return bad("bad durableGiftReviewCheck body");
             if (Buffer.byteLength(b.original, "utf8") > REVIEW_MAX_TEXT || Buffer.byteLength(b.reviewCopy, "utf8") > REVIEW_MAX_TEXT) return bad("Each file must be 2 MB or smaller", 413);
-            return NextResponse.json(reviewCheck({ client, table, original: b.original, reviewCopy: b.reviewCopy, header: b.header, headerMac: b.headerMac, jobToken: b.jobToken, proofs: b.proofs, secret, now }));
+            return NextResponse.json(reviewCheck({ client, table, original: b.original, reviewCopy: b.reviewCopy, header: b.header, headerMac: b.headerMac, jobToken: b.jobToken, proofs: b.proofs, secret, now, regs: deps.giftRegistrations }));
           }
           if (b.op === "durableGiftExport") {
             if (!exactBody(b, ["op", "client", "table", "csv", "token", "manifest", "proofs"]) || typeof b.csv !== "string") return bad("bad durableGiftExport body");
             if (Buffer.byteLength(text, "utf8") > DURABLE_MAX_BODY) return bad("Export request too large", 413);
-            return NextResponse.json(durableExport({ client, csv: b.csv, token: b.token, manifest: b.manifest, proofs: b.proofs, secret, now }));
+            return NextResponse.json(durableExport({ client, csv: b.csv, token: b.token, manifest: b.manifest, proofs: b.proofs, secret, now, regs: deps.giftRegistrations }));
           }
           if (b.op === "durableGiftCommit") {
             if (!exactBody(b, ["op", "client", "table", "token", "manifest", "batchIndex", "rows"])) return bad("bad durableGiftCommit body");
             if (!sourceApplyConfigured()) return NextResponse.json({ error: "Saving gift IDs is turned off", code: "disabled" }, { status: 503 });
-            const body = commitBody({ client, token: b.token, manifest: b.manifest, batchIndex: b.batchIndex, rows: b.rows, secret, now });
+            const body = commitBody({ client, token: b.token, manifest: b.manifest, batchIndex: b.batchIndex, rows: b.rows, secret, now, regs: deps.giftRegistrations });
             const out = await postToEngage(fetch, process.env, body, body.request.requestId);
             // committed ONLY when the upstream outcome validates against this exact request/batch; else unconfirmed (never "refused")
             if (out.ok && validOutcome(out.body, { requestId: body.request.requestId, client, registrationId: g.id, rows: body.request.rows })) return NextResponse.json({ committed: true, requestId: body.request.requestId, outcome: out.body });
@@ -372,12 +372,12 @@ function scoped(deps: ResearchDeps) {
           }
           if (b.op === "durableGiftProof") {
             if (!exactBody(b, ["op", "client", "table", "token", "manifest", "batchIndex"])) return bad("bad durableGiftProof body");
-            const { t, m } = verifyJob(b.token, b.manifest, secret, now, client);
+            const { t, m } = verifyJob(b.token, b.manifest, secret, now, client, deps.giftRegistrations);
             if (!Number.isSafeInteger(b.batchIndex) || (b.batchIndex as number) < 0 || (b.batchIndex as number) >= m.batchCount) return bad("bad batch index");
             const rq = jobRequestId(t.jobId, b.batchIndex as number);
             const out = await postToEngage(fetch, process.env, { op: "giftStatus", client, requestId: rq }, rq);
             if (!out.ok) return NextResponse.json({ confirmed: false, state: "unavailable", error: "Status unavailable (unconfirmed); try again", requestId: rq }, { status: 502 });
-            const proof = proofFor({ client, token: b.token, manifest: b.manifest, batchIndex: b.batchIndex, status: out.body, secret, now });
+            const proof = proofFor({ client, token: b.token, manifest: b.manifest, batchIndex: b.batchIndex, status: out.body, secret, now, regs: deps.giftRegistrations });
             if (proof) return NextResponse.json({ confirmed: true, proof, requestId: rq });
             // pending ONLY for the owning backend's canonical non-confirm shape (found:false, confirmed:false, optional note,
             // no outcome); the note is never parsed or relayed. Anything else is unavailable: no resend permission.
@@ -512,8 +512,8 @@ function scoped(deps: ResearchDeps) {
       }
       if (b.op === "apply") {
         if (!sourceApplyConfigured()) return bad("Saving source data is turned off", 403);
-        verifySourceTokenPayloadForAlloc(b.token, client, (c) => { const x = allocCtx(c); return x ? { allocatorDigest: x.allocatorDigest, identityConfigDigest: x.identityConfigDigest } : null; });
-        const body = applyRequestBody(b.token, b.actor, process.env.PORTAL_WRITE_SECRET);
+        verifySourceTokenPayloadForAlloc(b.token, client, (c) => { const x = allocCtx(c); return x ? { allocatorDigest: x.allocatorDigest, identityConfigDigest: x.identityConfigDigest } : null; }, process.env.PORTAL_WRITE_SECRET, deps.now());
+        const body = applyRequestBody(b.token, b.actor, process.env.PORTAL_WRITE_SECRET, deps.now());
         if (body.client !== client) return bad("Preview token is for another client", 400);
         const out = await postToEngage(fetch, process.env, body, String(body.request.requestId));
         if (out.ok) return NextResponse.json(out.body);
