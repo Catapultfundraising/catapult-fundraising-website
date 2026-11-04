@@ -1,4 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
+import { dbGiftEditsAvailable, mixedGiftIdentity, GIFT_EDIT_REFUSALS, DB_GIFT_EDIT_UNAVAILABLE_UI } from "@/lib/portal-v2/gift-edit-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
 import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
@@ -51,6 +52,14 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
   const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
   return { status: r.status, body: (await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown> };
+}
+
+/** W0: pass typed gift-edit refusals (400/409) through with their code; other failures keep the existing error shape. */
+function giftEditReply(r: { status: number; body: Record<string, unknown> }) {
+  if (r.status >= 200 && r.status < 300) return NextResponse.json(r.body);
+  const code = typeof r.body.code === "string" && GIFT_EDIT_REFUSALS.has(r.body.code) ? r.body.code : undefined;
+  if (code) return NextResponse.json({ error: code === "database_gift_edits_unavailable" ? DB_GIFT_EDIT_UNAVAILABLE_UI : String(r.body.error || "refused").slice(0, 300), code }, { status: r.status });
+  return NextResponse.json({ error: String(r.body.error || `engage ${r.status}`).slice(0, 300) }, { status: 500 });
 }
 
 export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
@@ -225,7 +234,7 @@ function applyOverrides(items: PortalGift[], overrides: PortalState["giftOverrid
 }
 async function withDbGifts(client: PortalClient, state: PortalState, strict = false): Promise<PortalState> {
   const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client, strict)), state.giftOverrides);
-  return { ...state, gifts: [...db, ...state.gifts] };
+  return { ...state, gifts: [...db, ...state.gifts], databaseGiftEditsAvailable: dbGiftEditsAvailable(state.databaseGiftEditsAvailable) };
 }
 
 /** Current campaign rows plus refresh-safe overrides, for gift-only donor lookup records. */
@@ -446,6 +455,8 @@ export function portalV2Route(client: PortalClient) {
       if (b.op === "matchDonor") return NextResponse.json({ matches: await matchDonorName(client, txt(b.name)) });
       if (b.op === "editGift" || b.op === "voidGift") {
         const g = b.gift ?? {};
+        // W0: a positive id together with ANY key is refused BEFORE normalization (which would otherwise drop the key).
+        if (mixedGiftIdentity(g)) return NextResponse.json({ error: "Send either a gift id or a gift key, not both", code: "mixed_gift_identity" }, { status: 400 });
         const id = Number(g.id);
         // Database rows carry a key; anything else must be a positive SQL id.
         const key = id > 0 ? undefined : txt(g.key, 400);
@@ -455,14 +466,14 @@ export function portalV2Route(client: PortalClient) {
         if (b.op === "voidGift") {
           const reason = txt(b.reason, 500);
           if (!reason) return bad("Please enter a reason for voiding");
-          return NextResponse.json(await engage(client, "voidGift", { by, reason, gift: { id: id > 0 ? id : undefined, key, cptid: cptid ?? original?.cptid ?? null, donorName: txt(g.donorName) || original?.name, original } }));
+          return giftEditReply(await engageCall(client, "voidGift", { by, reason, gift: { id: id > 0 ? id : undefined, key, cptid: cptid ?? original?.cptid ?? null, donorName: txt(g.donorName) || original?.name, original } }));
         }
         const amount = g.amount === undefined ? undefined : Number(String(g.amount).replace(/[$,\s]/g, ""));
         if (amount !== undefined && !(amount > 0)) return bad("Enter an amount greater than $0");
         if (g.kind !== undefined && !["gift", "pledge"].includes(g.kind)) return bad("Type must be gift or pledge");
         let date: string | null | undefined = undefined;
         if (g.date !== undefined) { date = txt(g.date, 20) ? parseUsDate(g.date) : null; if (txt(g.date, 20) && !date) return bad("Use MM/DD/YYYY for the date"); }
-        return NextResponse.json(await engage(client, "editGift", { by, gift: { id: id > 0 ? id : undefined, key, cptid, donorName: g.donorName === undefined ? undefined : txt(g.donorName), kind: g.kind, amount, date, note: g.note === undefined ? undefined : txt(g.note, 1000), original } }));
+        return giftEditReply(await engageCall(client, "editGift", { by, gift: { id: id > 0 ? id : undefined, key, cptid, donorName: g.donorName === undefined ? undefined : txt(g.donorName), kind: g.kind, amount, date, note: g.note === undefined ? undefined : txt(g.note, 1000), original } }));
       }
       if (b.op === "getAsk" || b.op === "setAsk") {
         const cptid = Number(b.cptid);
