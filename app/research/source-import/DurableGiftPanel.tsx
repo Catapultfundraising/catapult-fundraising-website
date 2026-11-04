@@ -33,6 +33,26 @@ const downloadJson = (obj: unknown, name: string) => { const url = URL.createObj
 type Hist = { o: number; rows: PRow[]; next: number | null; hasMore: boolean };
 type JobLook = { jobId: string; client: string; state: string; note: string; committedBatches?: number[]; missingBatches?: number[] };
 const PAGE = 25;
+const RESULTS = ["verified", "held:duplicate", "held:held-in-plan", "held:blank", "held:not-proven"] as const;
+const cnt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+/** strict browser projection of a review report: exact job/client, known shape, rows 0..total-1 in order, counts equal the
+ *  rows, verified rows carry a unique lowercase UUIDv4 and held rows carry none. Anything else => null (not rendered). */
+function projectReport(j: unknown, jobId: string, client: string, total: number) {
+  if (!isObj(j) || j.jobId !== jobId || j.client !== client || !isObj(j.counts) || !isObj(j.counts.held) || !Array.isArray(j.rows)) return null;
+  const c = j.counts as Record<string, unknown>, h = c.held as Record<string, unknown>;
+  if (![c.total, c.verified, h.duplicate, h.heldInPlan, h.blank, h.notProven].every(cnt) || c.total !== total || j.rows.length !== total) return null;
+  const tally: Record<string, number> = Object.fromEntries(RESULTS.map((r) => [r, 0])); const ids = new Set<string>();
+  const rows: { o: number; result: string; giftId?: string }[] = [];
+  for (let i = 0; i < j.rows.length; i++) {
+    const r = j.rows[i];
+    if (!isObj(r) || r.o !== i || !(RESULTS as readonly string[]).includes(r.result as string)) return null;
+    if (r.result === "verified") { if (Object.keys(r).length !== 3 || typeof r.giftId !== "string" || !UUID.test(r.giftId) || ids.has(r.giftId)) return null; ids.add(r.giftId); rows.push({ o: i, result: "verified", giftId: r.giftId }); }
+    else { if (Object.keys(r).length !== 2) return null; rows.push({ o: i, result: r.result as string }); }
+    tally[r.result as string]++;
+  }
+  if (tally.verified !== c.verified || tally["held:duplicate"] !== h.duplicate || tally["held:held-in-plan"] !== h.heldInPlan || tally["held:blank"] !== h.blank || tally["held:not-proven"] !== h.notProven) return null;
+  return { counts: { total, verified: c.verified as number, held: { duplicate: h.duplicate as number, heldInPlan: h.heldInPlan as number, blank: h.blank as number, notProven: h.notProven as number } }, rows };
+}
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 async function sha32(s: string) { const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s)); return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, "0")).join("").slice(0, 32); }
 /** committed only if the reply is bound to this job batch: request id, client, registration and the exact ordinals/actions */
@@ -290,15 +310,15 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
     if (inflight.current || locked || !plan?.recovery) return;
     const original = restored ? orig?.text : csv?.text;
     if (original === undefined) { setErr("Choose the original CSV file first"); return; }
-    const pl = plan;
+    const pl = plan; setReport(null); // a new check never shows an older report
     void once(async (tk) => {
       let rc: string;
       try { rc = (await tk.guard(readExact(fl))).text; } catch (e) { if (!tk.live()) throw e; throw new Error("File is not valid UTF-8 text"); }
       const r = await tk.guard(call({ op: "durableGiftReviewCheck", ...scope, original, reviewCopy: rc, header: pl.recovery!.header, headerMac: pl.recovery!.headerMac, jobToken: pl.token, proofs: Object.values(proofs) }));
       if (!r.ok) throw new Error(errText(r.j));
-      const j = r.j as unknown as Report & { jobId?: string };
-      if (j.jobId !== pl.jobId || !isObj(j.counts) || !Array.isArray(j.rows)) throw new Error("Review check reply was not valid for this job");
-      tk.run(() => { setReport({ counts: j.counts, rows: j.rows }); setRpage(0); });
+      const rep = projectReport(r.j, pl.jobId, client, pl.summary.total);
+      if (!rep) throw new Error("Review check reply was not valid for this job; nothing is shown.");
+      tk.run(() => { setReport(rep); setRpage(0); });
     });
   };
 

@@ -42,7 +42,7 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     const outer = p.locator("select").first(); await outer.locator("option[value=jag]").waitFor({ state: "attached", timeout: 120000 });
     let w = resp("durableGiftContext"); await outer.selectOption("jag"); const real = await (await w).json(); await frames();
     ok(real.available === false && real.lookupAvailable === false && await p.locator("[data-testid=durable-gift], [data-testid=durable-lookup-only]").count() === 0, `${vp.name}: actual route, empty registry + unconfigured transport => nothing rendered (production state)`);
-    const log = []; let deferReview = null; let refuseNext = false; let renewMode = "ok"; let deferRenew = null; const proofPlan = {}; let commitN = 0;
+    const log = []; let reviewMode = "ok"; let deferReview = null; let refuseNext = false; let renewMode = "ok"; let deferRenew = null; const proofPlan = {}; let commitN = 0;
     await p.route("**" + API, async (route) => {
       const bd = bdy(route.request()); if (!String(bd.op || "").startsWith("durableGift")) return route.continue();
       log.push(bd);
@@ -64,7 +64,22 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
         return J({ committed: true, requestId: rid(i), outcome: { requestId: rid(i), client: "jag", registrationId: "fict_gifts", committed: true, counts: { new: rows.filter((r) => r.action === "new").length, adopt: rows.filter((r) => r.action === "adopt").length, correct: rows.filter((r) => r.action === "correct").length }, rows: rows.map((r, k) => ({ ordinal: r.ordinal, action: r.action, giftId: r.giftId ?? `${String(i).padStart(4, "0")}${String(k).padStart(4, "0")}-0000-4000-8000-000000000000`, locator: r.locator ?? 1000 + r.ordinal })) } }); }
       if (bd.op === "durableGiftPreview") return J({ rows: [], giftOverridesActive: true }); // "changed live" data: restore must never consult it
       if (bd.op === "durableGiftJobLookup") return J({ jobId: bd.jobId, client: bd.client, confirmed: true, state: "partial", batchCount: PARTS.length, committedBatches: [1], missingBatches: Array.from({ length: PARTS.length }, (_, i) => i).filter((i) => i !== 1), heldRows: HELD.length, decidedRows: ROWS.length, note: "Partial." });
-      if (bd.op === "durableGiftReviewCheck") { if (deferReview) { const g = deferReview; deferReview = null; await g.p; } return J({ jobId: JOB, client: "jag", counts: { total: 606, verified: PARTS[1].length, held: { duplicate: 0, heldInPlan: HELD.length, blank: 606 - HELD.length - PARTS[1].length, notProven: 0 } }, rows: Array.from({ length: 606 }, (_, o) => (PARTS[1].some((r) => r.ordinal === o) ? { o, result: "verified", giftId: "0000bbbb-0000-4000-8000-00000000abcd" } : { o, result: HELD.includes(o) ? "held:held-in-plan" : "held:blank" })) }); }
+      if (bd.op === "durableGiftReviewCheck") { if (deferReview) { const g = deferReview; deferReview = null; await g.p; }
+        const vid = (o) => `0000${String(o).padStart(4, "0")}-0000-4000-8000-00000000abcd`;
+        const rows = Array.from({ length: 606 }, (_, o) => (PARTS[1].some((r) => r.ordinal === o) ? { o, result: "verified", giftId: vid(o) } : { o, result: HELD.includes(o) ? "held:held-in-plan" : "held:blank" }));
+        const rep = { jobId: JOB, client: "jag", counts: { total: 606, verified: PARTS[1].length, held: { duplicate: 0, heldInPlan: HELD.length, blank: 606 - HELD.length - PARTS[1].length, notProven: 0 } }, rows };
+        const m = reviewMode; reviewMode = "ok";
+        if (m === "wrongjob") return J({ ...rep, jobId: "b".repeat(64) });
+        if (m === "wrongclient") return J({ ...rep, client: "csnf" });
+        if (m === "negative") return J({ ...rep, counts: { ...rep.counts, total: -1 } });
+        if (m === "inconsistent") return J({ ...rep, counts: { ...rep.counts, verified: rep.counts.verified + 1 } });
+        if (m === "nullheld") return J({ ...rep, counts: { ...rep.counts, held: null } });
+        if (m === "dupuuid") { const r2 = rows.map((r) => ({ ...r })); const v = r2.filter((r) => r.result === "verified"); v[1].giftId = v[0].giftId; return J({ ...rep, rows: r2 }); }
+        if (m === "outofrange") { const r2 = rows.map((r) => ({ ...r })); r2[5].o = 9999; return J({ ...rep, rows: r2 }); }
+        if (m === "nonuuid") { const r2 = rows.map((r) => ({ ...r })); r2.find((r) => r.result === "verified").giftId = "UNTRUSTED-NOT-A-UUID"; return J({ ...rep, rows: r2 }); }
+        if (m === "unknownresult") { const r2 = rows.map((r) => ({ ...r })); r2[3].result = "ok"; return J({ ...rep, rows: r2 }); }
+        if (m === "heldwithid") { const r2 = rows.map((r) => ({ ...r })); r2[3].giftId = vid(3); return J({ ...rep, rows: r2 }); }
+        return J(rep); }
       if (bd.op === "durableGiftExport") return J({ fileName: "fictional-606-catapult-gift-ids.csv", csv: "x", proven: PARTS[1].length, held: HELD.length, unconfirmed: ROWS.length - PARTS[1].length });
       return J({ error: "unknown" }, 400);
     });
@@ -146,11 +161,33 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     await sec.locator("[data-testid=durable-review-report]").waitFor();
     ok(rv.original.charCodeAt(0) === 0xfeff && rv.jobToken === "renewed.tok" && rv.headerMac === "A".repeat(43) && Array.isArray(rv.proofs) && rv.proofs.length >= 1 && /545|606 rows/.test(await sec.locator("[data-testid=durable-review-report]").innerText()), `${vp.name}: review check sends exact original + recovery authority + session proofs; report rendered`);
     ok(JSON.stringify(await st()) === before && await saveBtn.isDisabled(), `${vp.name}: report never changes batch states or save authority`);
+    // verified rows reachable: page to the first verified row and to row 606
+    const rep = sec.locator("[data-testid=durable-review-report]");
+    while (!(await rep.locator("td", { hasText: "verified" }).count())) await rep.locator("button", { hasText: "Next" }).click();
+    const vtxt = await rep.innerText();
+    ok(/0000\d{4}-0000-4000-8000-00000000abcd/.test(vtxt) && /29 verified/.test(vtxt), `${vp.name}: verified rows (unique UUIDs) reachable by paging`);
+    if (vp.name === "desktop") {
+      while (!(await rep.locator("button", { hasText: "Next" }).isDisabled())) await rep.locator("button", { hasText: "Next" }).click();
+      ok(/Page 25 of 25/.test(await rep.innerText()) && await rep.locator("td", { hasText: /^606$/ }).count() === 1, `${vp.name}: last page reaches row 606`);
+      // malformed / untrusted reports are refused, not rendered; old report cleared first
+      for (const m of ["wrongjob", "wrongclient", "negative", "inconsistent", "nullheld", "dupuuid", "outofrange", "nonuuid", "unknownresult", "heldwithid"]) {
+        reviewMode = m; const wr = resp("durableGiftReviewCheck");
+        await sec.locator("input[aria-label='Returned review copy']").setInputFiles({ name: `${m}.csv`, mimeType: "text/csv", buffer: Buffer.from("x\r\n") }); await wr;
+        await sec.locator("[role=alert]", { hasText: "not valid for this job" }).waitFor();
+        ok(await rep.count() === 0 && JSON.stringify(await st()) === before && await saveBtn.isDisabled(), `${vp.name}: ${m} report refused, nothing rendered, old report cleared, batch/save state unchanged`); }
+      // deferred FILE READ: single flight starts before the first await; Save/inputs locked while the read is pending
+      await p.evaluate(() => { const orig = File.prototype.arrayBuffer; window.__relR = null; File.prototype.arrayBuffer = function () { const me = this; return new Promise((res) => { window.__relR = () => { File.prototype.arrayBuffer = orig; orig.call(me).then(res); }; }); }; });
+      await sec.locator("input[aria-label='Returned review copy']").setInputFiles({ name: "slow.csv", mimeType: "text/csv", buffer: Buffer.from("x\r\n") }); await frames(); await frames();
+      const heldRead = await p.evaluate(() => typeof window.__relR === "function");
+      ok(heldRead && await sec.locator("input[aria-label='Returned review copy']").isDisabled() && await sec.locator("button", { hasText: "Leave restored job" }).isDisabled(), `${vp.name}: review file read holds the single-flight slot from before the first await`);
+      const wr2 = resp("durableGiftReviewCheck"); await p.evaluate(() => window.__relR()); await wr2; await rep.waitFor(); }
     { let relV; deferReview = { p: new Promise((r) => { relV = r; }) };
       const vq = p.waitForRequest((r) => isOp(r, "durableGiftReviewCheck")); await sec.locator("input[aria-label='Returned review copy']").setInputFiles({ name: "review2.csv", mimeType: "text/csv", buffer: Buffer.from("y\r\n") }); await vq; await frames();
       ok(await sec.locator("input[aria-label='Returned review copy']").isDisabled() && await saveBtn.isDisabled(), `${vp.name}: review check is single-flight (inputs disabled while pending)`);
       const vr = resp("durableGiftReviewCheck"); relV(); await vr; await frames(); }
-    if (CAPTURE) { // capture-only CSS (disclosed): cookie banner dismissed, sticky header static, dev overlay hidden
+
+    if (CAPTURE) { const rp = sec.locator("[data-testid=durable-review-report]"); if (await rp.count()) while (!(await rp.locator("td", { hasText: "verified" }).count())) await rp.locator("button", { hasText: "Next" }).click();
+ // capture-only CSS (disclosed): cookie banner dismissed, sticky header static, dev overlay hidden
       const nb3 = p.locator("button", { hasText: "Necessary Only" }); if (await nb3.count()) { await nb3.first().click({ force: true }); await nb3.first().waitFor({ state: "detached" }); }
       await p.addStyleTag({ content: "header, [class*='sticky'] { position: static !important; } nextjs-portal { display: none !important; }" });
       await p.evaluate(() => window.scrollTo(0, 0)); await frames(); await sec.screenshot({ path: `${OUT}/${vp.name}-restored.png` }); }
@@ -165,6 +202,16 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
       ok(commitN === c0 + 1 && await li(0).getAttribute("data-state") === "refused" && await saveBtn.isDisabled() && await sec.locator("text=All batches committed").count() === 0, `${vp.name}: 400 refused => batch held as refused, run stops, Save disabled, never "all committed"`);
       await saveBtn.click({ force: true }).catch(() => {}); await frames();
       ok(commitN === c0 + 1, `${vp.name}: refused batch is never resent`); }
+    if (vp.name === "desktop") { // scope change/unmount while a review reply is pending: the late reply never renders
+      await p.locator("[data-testid=durable-gift] input[aria-label='Original CSV']").setInputFiles({ name: "fictional-606.csv", mimeType: "text/csv", buffer: ORIG });
+      const rd = p.locator("[data-testid=durable-review]"); if (!(await rd.evaluate((e) => e.open))) await rd.locator("summary").click();
+      await p.locator("[data-testid=durable-gift] input[aria-label='Returned review copy']:not([disabled])").waitFor();
+      let relS; deferReview = { p: new Promise((r) => { relS = r; }) };
+      const sq = p.waitForRequest((r) => isOp(r, "durableGiftReviewCheck")); await p.locator("[data-testid=durable-gift] input[aria-label='Returned review copy']").setInputFiles({ name: "late.csv", mimeType: "text/csv", buffer: Buffer.from("z\r\n") }); await sq;
+      ok(!(await outer.isDisabled()), `${vp.name}: a read-only review does not lock the scope`);
+      w = resp("durableGiftContext"); await outer.selectOption("csnf"); await w; const late = resp("durableGiftReviewCheck"); relS(); await late; await frames();
+      w = resp("durableGiftContext"); await outer.selectOption("jag"); await w; await frames();
+      ok(await p.locator("[data-testid=durable-review-report]").count() === 0 && await p.locator("[data-testid=durable-restored]").count() === 0, `${vp.name}: late review reply after scope change/unmount renders nothing`); }
     await ctx.close();
   }
   console.log("blocked external origins:", JSON.stringify([...new Set(blocked)]), "count", blocked.length);
