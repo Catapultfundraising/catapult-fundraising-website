@@ -14,6 +14,8 @@ import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePla
 import { stageGift, exportGift, giftColumns, GiftPreviewError, GIFT_CLIENT, GIFT_TABLE, GIFT_PERSON_COL } from "@/lib/portal-v2/gift-preview";
 import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, projectJobStatus, renewRecovery, RENEW_MAX_BODY, reviewCheck, REVIEW_MAX_TEXT, REVIEW_MAX_BODY, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
 import { giftRegDigest, previewRowCap, jobRequestId, validOutcome } from "@/lib/portal-v2/gift-identity-plan";
+import { validateAttestPlan, projectAttestStatus, capForMapped, ATTEST_MAX_FILE_BYTES, ATTEST_EXPORT_MAX_BYTES, AttestShapeError, REFUSAL_TEXT, REFUSAL_FALLBACK, STATUS_TEXT, CAPS_BY_MAPPED_COUNT } from "@/lib/portal-v2/gift-attest";
+import { isReservedGiftHeader } from "@/lib/portal-v2/gift-durable";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
 // Staff-only source CSV reconciliation (/research/source-import). Raw source writes stay OFF until a reviewed
@@ -204,6 +206,77 @@ export async function POST(req: NextRequest) {
       if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
       const out = await postToEngage(fetch, process.env, { op: "baselineStatus", client, table, requestId: b.requestId }, b.requestId);
       return out.ok ? NextResponse.json(summarizeStatus(out.body)) : bad("Status unavailable (unconfirmed); try again", 502);
+    }
+    // Gift baseline attestation (D) gateway: READ-ONLY preview + status. No apply op exists here or on Engage's route.
+    if (typeof b.op === "string" && b.op.startsWith("durableGiftAttest")) {
+      if (typeof b.client !== "string" || typeof b.table !== "string") return bad("client and table must be text");
+      const lookupAvailable = (CSV_CLIENTS as readonly string[]).includes(client) && sourcePreviewConfigured();
+      if (b.op === "durableGiftAttestContext") {
+        if (!exactBody(b, ["op", "client", "table"])) return bad("bad durableGiftAttestContext body");
+        const g = registrationFor(client);
+        if (!g || g.table !== table || !sourcePreviewConfigured()) return NextResponse.json({ available: false, lookupAvailable });
+        return NextResponse.json({ available: true, lookupAvailable, configured: true, registrationId: g.id, registrationVersion: g.version, columns: g.columns.map((c) => ({ col: c.col, ty: c.ty, len: c.len, p: c.p, s: c.s })), capsByMappedCount: [...CAPS_BY_MAPPED_COUNT], maxFileBytes: ATTEST_MAX_FILE_BYTES });
+      }
+      if (b.op === "durableGiftAttestStatus") {
+        if (!exactBody(b, ["op", "client", "table", "requestId"]) || typeof b.requestId !== "string" || !/^[0-9a-f]{32}$/.test(b.requestId) || !/^[A-Za-z_][A-Za-z0-9_]*$/.test(table) || table.length > 128) return bad("bad status request");
+        if (!lookupAvailable) return bad("Status lookup is not available", 501);
+        const out = await postToEngage(fetch, process.env, { op: "giftAttestStatus", client, table, requestId: b.requestId }, b.requestId);
+        if (!out.ok || Buffer.byteLength(JSON.stringify(out.body), "utf8") > 64 * 1024) return bad(STATUS_TEXT.unavailable, 502);
+        return NextResponse.json(projectAttestStatus(out.body, { requestId: b.requestId, client, table }));
+      }
+      if (b.op === "durableGiftAttestPreview") {
+        if (!exactBody(b, ["op", "client", "table", "fileB64", "draft"])) return bad("bad durableGiftAttestPreview body");
+        const g = registrationFor(client); if (!g || g.table !== table) return bad("No reviewed gift registration for this table", 404);
+        if (!sourcePreviewConfigured()) return bad("Source import is not configured", 501);
+        const f64 = b.fileB64;
+        if (typeof f64 !== "string" || !f64.length || f64.length % 4 !== 0 || f64.length > Math.ceil(ATTEST_MAX_FILE_BYTES / 3) * 4 || !/^[A-Za-z0-9+/]*={0,2}$/.test(f64)) return bad("Choose the original CSV export (2.8 MB or smaller)");
+        const bytes = Buffer.from(f64, "base64"); if (bytes.toString("base64") !== f64 || !bytes.length || bytes.length > ATTEST_MAX_FILE_BYTES) return bad("Choose the original CSV export (2.8 MB or smaller)");
+        let text: string; try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(bytes); } catch { return bad("File must be UTF-8 text"); }
+        const grid = parseCsv(text); if (grid.length < 2) return bad("CSV needs a header and at least one row");
+        const headers = grid[0], rows = grid.slice(1);
+        if (rows.some((r) => r.length !== headers.length)) return bad("Every row must have exactly as many cells as the header");
+        if (new Set(headers).size !== headers.length) return bad("Column headers must be unique");
+        if (headers.some(isReservedGiftHeader)) return bad("This file has a Catapult Gift ID, Gift ID Status or provisional preview column; attest from the original source export instead");
+        const d = b.draft as Record<string, unknown>;
+        const DK = ["approvalRef", "approvedAt", "approvedBy", "confirmed", "mapping", "ordinalFrom", "ordinalTo", "sourceDate", "statement"];
+        if (!d || typeof d !== "object" || Array.isArray(d) || !exactBody(d, DK)) return bad("bad attestation draft");
+        if (d.confirmed !== true) return bad("Confirm that this exact file is the prior export originally loaded into the raw gift table");
+        const t = (v: unknown, n: number) => typeof v === "string" && v.trim().length > 0 && v === v.trim() && v.length <= n && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(v);
+        if (typeof d.sourceDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d.sourceDate) || new Date(`${d.sourceDate}T00:00:00Z`).toISOString().slice(0, 10) !== d.sourceDate) return bad("Source export date required (real YYYY-MM-DD; unknown dates cannot be attested)");
+        if (!t(d.statement, 2000) || !/prior source export/i.test(d.statement as string) || !/originally loaded/i.test(d.statement as string)) return bad("Statement must say this prior source export is the file originally loaded into the raw gift table");
+        if (!t(d.approvedBy, 200) || !t(d.approvalRef, 200) || typeof d.approvedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(d.approvedAt) || Number.isNaN(Date.parse(d.approvedAt)) || new Date(d.approvedAt).toISOString() !== d.approvedAt.replace("Z", ".000Z")) return bad("Name (as stated), UTC time (YYYY-MM-DDTHH:MM:SSZ) and reference are required");
+        const mp = d.mapping; if (!mp || typeof mp !== "object" || Array.isArray(mp)) return bad("bad mapping");
+        const regCols = new Set(g.columns.map((c) => c.col)); let personH: string | null = null; const mapped: string[] = []; const seen = new Set<string>();
+        for (const [h, c] of Object.entries(mp as Record<string, unknown>)) {
+          if (typeof c !== "string" || !headers.includes(h) || h.trim() === "") return bad("Mapped columns must be non-blank headers of this file");
+          if (c === "@person") { if (personH !== null) return bad("Map exactly one donor CPTID column"); personH = h; continue; }
+          if (!regCols.has(c) || seen.has(c)) return bad(`"${c}" is not a registered column or is mapped twice`);
+          seen.add(c); mapped.push(c);
+        }
+        if (personH === null || !mapped.length) return bad("Map the donor CPTID column and at least one registered column");
+        const cap = capForMapped(mapped.length); const from = d.ordinalFrom, to = d.ordinalTo;
+        if (!Number.isSafeInteger(from) || !Number.isSafeInteger(to) || (from as number) < 0 || (from as number) > (to as number) || (to as number) >= rows.length) return bad("Choose a row range inside the file");
+        if ((to as number) - (from as number) + 1 > cap) return bad(`At most ${cap} rows per preview with ${mapped.length} mapped columns`);
+        const fileSha = createHash("sha256").update(bytes).digest("hex");
+        const packet = { client, table, registrationId: g.id, registrationVersion: g.version, registrationDigest: giftRegDigest(g), mapping: mp as Record<string, string>, priorFile: { name: "prior-source-export.csv", sha256: fileSha, sourceDate: d.sourceDate }, provenanceStatement: d.statement as string, approvedBy: d.approvedBy as string, approvedAt: d.approvedAt, approvalRef: d.approvalRef as string };
+        const ordinals = Array.from({ length: (to as number) - (from as number) + 1 }, (_, i) => (from as number) + i);
+        const input = { packet, ordinals, priorFileB64: f64 };
+        if (Buffer.byteLength(JSON.stringify({ op: "giftBaselineAttest", request: { ...input, requestId: "0".repeat(32), planDigest: "0".repeat(64) } }), "utf8") > 3_900_000) return bad("The file is too large for one attestation request", 413);
+        const out = await postToEngage(fetch, process.env, { op: "giftAttestPreview", input }, "");
+        if (!out.ok) return out.unconfirmed ? NextResponse.json({ error: "Preview unavailable; nothing was saved. Try again.", code: "upstream_unavailable" }, { status: 502 })
+          : NextResponse.json({ error: REFUSAL_TEXT[String(out.body.code)] ?? REFUSAL_FALLBACK, code: "upstream_refused" }, { status: 400 });
+        if (Buffer.byteLength(JSON.stringify(out.body), "utf8") > 4_000_000) return NextResponse.json({ error: new AttestShapeError().message, code: "upstream_invalid" }, { status: 502 });
+        const hIdx = new Map(Object.entries(mp as Record<string, string>).filter(([, c]) => c !== "@person").map(([h, c]) => [c, headers.indexOf(h)]));
+        let plan;
+        try { plan = validateAttestPlan(out.body, { from: from as number, to: to as number, mapped, cell: (o, c) => rows[o][hIdx.get(c)!] }); }
+        catch { return NextResponse.json({ error: new AttestShapeError().message, code: "upstream_invalid" }, { status: 502 }); }
+        const exp = JSON.stringify({ kind: "gift-attest-proposal/v1", note: "Metadata only. Not an approval; applying needs a separate reviewed approval.", packet: { ...packet, mapping: packet.mapping }, ordinalFrom: from, ordinalTo: to, planDigest: plan.planDigest, counts: plan.counts }, null, 1);
+        if (Buffer.byteLength(exp, "utf8") > ATTEST_EXPORT_MAX_BYTES) return bad("Proposal export would exceed 64 KiB");
+        const reply = { plan: out.body, fileSha256: fileSha, export: exp };
+        if (Buffer.byteLength(JSON.stringify(reply), "utf8") > 4_000_000) return NextResponse.json({ error: new AttestShapeError().message, code: "upstream_invalid" }, { status: 502 });
+        return NextResponse.json(reply);
+      }
+      return bad("unknown op");
     }
     // Durable gift IDs (review-only, DISABLED): website registry copy is EMPTY and commits need sourceApplyConfigured()
     // (hard SOURCE_TRANSPORT_APPROVED=false). Reads need the configured transport. Fixed messages only; upstream text never echoed.

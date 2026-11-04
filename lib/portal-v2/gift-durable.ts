@@ -20,6 +20,7 @@ export const JOB_TOKEN_TTL_MS = 60 * 60_000, PROOF_TTL_MS = 60 * 60_000;
 export const EXPORT_COLS = ["Catapult Gift ID", "Gift ID Status"] as const;
 const foldH = (h: string) => h.trim().replace(/\s+/g, " ").toLowerCase();
 const RESERVED = new Set([...EXPORT_COLS, ...APPENDED].map(foldH));
+export const isReservedGiftHeader = (h: string) => RESERVED.has(foldH(h));
 
 let REGS: readonly GiftRegistration[] = Object.freeze([]);
 /** Website copy of the reviewed gift registrations: EMPTY. Test hook only with SOURCE_PREPARED_TEST_HOOK=1 outside production. */

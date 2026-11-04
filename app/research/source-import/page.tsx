@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2 } from "lucide-react";
 import BaselineAttest from "./BaselineAttest";
 import GiftPreview from "./GiftPreview";
 import DurableGiftPanel from "./DurableGiftPanel";
+import GiftAttest from "./GiftAttest";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
 import { createScopeFence, StaleScope } from "@/lib/portal-v2/scope-fence";
 import { buildAllocManifest, allocReserveRequestId, type AllocContext, type AllocManifest } from "@/lib/portal-v2/source-allocator";
@@ -315,6 +316,7 @@ export default function SourceImportPage() {
       {client && <BaselineAttest key={`${client}/${table}`} client={client} table={table} />}
       {client === "jag" && <GiftPreview key={`gift:${client}/${table}`} client="jag" table="raw_master_giving_history" />}
       {client && <DurableGiftPanel key={`durable:${client}/${table}`} client={client} table={table} onLockChange={setDurableLock} />}
+      {client && <GiftAttest key={`attest:${client}/${table}`} client={client} table={table} locked={durableLock} />}
     </main>
   );
 }
