@@ -88,25 +88,26 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
   const regCols = new Set(g!.columns.map((c) => c.col)); const used = new Set<string>(); let personH: string | null = null, giftH: string | null = null;
   for (const [h, c] of Object.entries(mapping)) {
     if (typeof c !== "string" || !headers.includes(h) || headers.filter((x) => x === h).length !== 1) bad(`mapping header "${h}" is not a unique CSV header`);
-    if (c === "@person") { if (personH) bad("map exactly one donor CPTID column"); personH = h; continue; }
-    if (c === "@giftId") { if (giftH) bad("map at most one Catapult Gift ID (verify) column"); giftH = h; continue; }
+    if ((c === "@person" || c === "@giftId") && h.trim() === "") bad("a blank or whitespace-only CSV header cannot be mapped as Donor CPTID or Catapult Gift ID (verify); give that column a name");
+    if (c === "@person") { if (personH !== null) bad("map exactly one donor CPTID column"); personH = h; continue; }
+    if (c === "@giftId") { if (giftH !== null) bad("map at most one Catapult Gift ID (verify) column"); giftH = h; continue; }
     if (!regCols.has(c as string) || used.has(c as string)) bad(`"${c}" is not a registered column or is mapped twice`);
     used.add(c as string);
   }
-  if (!personH) bad("map the donor CPTID column");
+  if (personH === null) bad("map the donor CPTID column");
   if (!Array.isArray(o.decisions) || o.decisions.length !== rows.length) bad("one decision per CSV row is required");
   const idx = (h: string) => headers.indexOf(h);
   const decided: GiftRow[] = [], held: number[] = [];
   // F2b known-ID mode: every row is correct/held only; duplicates counted over ALL non-empty cells (held rows included)
   const gcount = new Map<string, number>();
-  if (giftH) for (const r of rows) { const u = r[idx(giftH)]; if (u !== "") gcount.set(u, (gcount.get(u) ?? 0) + 1); }
+  if (giftH !== null) for (const r of rows) { const u = r[idx(giftH)]; if (u !== "") gcount.set(u, (gcount.get(u) ?? 0) + 1); }
   (o.decisions as unknown[]).forEach((d0, i) => {
     if (!isObj(d0) || d0.o !== i) bad("decisions must be in row order", 400);
     const d = d0 as unknown as Decision;
     const keys = JSON.stringify(Object.keys(d0).sort());
     const want = d.d === "held" || d.d === "new" ? ["d", "o"] : d.d === "adopt" ? ["d", "expected", "locator", "o"] : d.d === "correct" ? ["d", "expected", "giftId", "o"] : null;
     if (!want || keys !== JSON.stringify(want)) bad(`row ${i + 1}: decision has missing or unexpected fields`);
-    if (giftH && (d.d === "new" || d.d === "adopt")) bad(`row ${i + 1}: with a mapped Catapult Gift ID (verify) column every row must be held or corrected`);
+    if (giftH !== null && (d.d === "new" || d.d === "adopt")) bad(`row ${i + 1}: with a mapped Catapult Gift ID (verify) column every row must be held or corrected`);
     if (d.d === "held") { held.push(i); return; }
     const person = exactInt(rows[i][idx(personH!)]); if (person === null) bad(`row ${i + 1}: donor CPTID is not an exact positive whole number`);
     const mapped: Record<string, string> = {};
@@ -123,7 +124,7 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
     if (d.d === "adopt") { if (!posInt(d.locator)) bad(`row ${i + 1}: bad locator`); decided.push({ ordinal: i, action: "adopt", locator: d.locator, person: person!, values: {}, expected: exp }); return; }
     if (d.d === "correct") {
       if (!validGiftId(d.giftId)) bad(`row ${i + 1}: bad Catapult Gift ID`);
-      if (giftH) { const u = rows[i][idx(giftH)]; if (u !== d.giftId || !validGiftId(u) || gcount.get(u) !== 1) bad(`row ${i + 1}: the correction target must be this row's own unique Catapult Gift ID from the file`); }
+      if (giftH !== null) { const u = rows[i][idx(giftH)]; if (u !== d.giftId || !validGiftId(u) || gcount.get(u) !== 1) bad(`row ${i + 1}: the correction target must be this row's own unique Catapult Gift ID from the file`); }
       const values = Object.fromEntries(Object.entries(mapped).filter(([c, v]) => exp[c] !== v));
       if (!Object.keys(values).length) { held.push(i); return; } // nothing changed: not a write, keep it held/unchanged
       decided.push({ ordinal: i, action: "correct", giftId: d.giftId, person: person!, values, expected: exp }); return;

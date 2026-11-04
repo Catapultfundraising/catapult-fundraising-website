@@ -79,6 +79,11 @@ const PICK = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 15, 601];
     const want = { 0: /blank Catapult Gift ID/, 1: /eligible/, 2: /eligible/, 3: /not a valid Catapult Gift ID/, 4: /not a valid Catapult Gift ID/, 5: /two IDs point to one gift row/, 6: /two IDs point to one gift row/, 7: /duplicate Catapult Gift ID/, 8: /file donor|donor differs/, 9: /drift/, 11: /conflicting identities/, 12: /Gift_Amount changes but has no source-owned baseline/, 15: /eligible/ };
     let allOk = true; for (const [o, re] of Object.entries(want)) { const t = await cellTxt(Number(o)); if (!re.test(t)) { allOk = false; console.log("row", Number(o) + 1, t); } }
     ok(allOk, `${vp.name}: fixed holds: blank, invalid, two-IDs-one-row, duplicate, donor mismatch, drift, identity conflict, manual baseline on changed column; untouched unknown baseline allowed`);
+    if (CAPTURE) { const nb3 = p.locator("button", { hasText: "Necessary Only" }); if (await nb3.count()) { await nb3.first().click({ force: true }); await nb3.first().waitFor({ state: "detached" }); }
+      await p.addStyleTag({ content: "header, [class*='sticky'] { position: static !important; } nextjs-portal { display: none !important; }" });
+      const tbl = sec.locator("[data-testid=durable-rows]"); await tbl.scrollIntoViewIfNeeded(); await frames();
+      if (vp.name === "mobile390") { await tbl.evaluate((e) => { const th = e.querySelectorAll("th"); e.scrollLeft = th[th.length - 1].offsetLeft - 8; }); await frames(); await tbl.screenshot({ path: `${OUT}/${vp.name}-known-id-checkcolumn.png` }); await tbl.evaluate((e) => { e.scrollLeft = 0; }); }
+      else await tbl.screenshot({ path: `${OUT}/${vp.name}-known-id-rows.png` }); }
     for (let k = 0; k < 24; k++) await next.click();
     ok(/eligible/.test(await cellTxt(601)), `${vp.name}: later-page (row 602) correction checked and eligible`);
     for (let k = 0; k < 24; k++) await prev.click();

@@ -611,5 +611,23 @@ test("[ROUTE] F2b plan vectors through the imported route", async () => {
   assert.equal(ok.status, 200);
   assert.equal((await post({ ...base, decisions: [{ o: 0, d: "held" }, { o: 1, d: "new" }] })).status, 400);
   assert.equal((await post({ ...base, csv: csv.replace("Known", "Gift ID Status"), decisions: [{ o: 0, d: "held" }, { o: 1, d: "held" }] })).status, 400);
+  // empty / whitespace header cannot become the known-ID column (explicit presence, not truthiness)
+  const ec = csv.replace("Known", ""), wc = csv.replace("Known", "  ");
+  const E0 = { o: 0, d: "correct", giftId: U1, expected: { Gift_Amount: "5", Gift_Date: "2026-01-05T00:00:00", Record_Type: "Gift" } };
+  const bodyOf = async (r: Response) => JSON.stringify(await r.json());
+  for (const [c, h] of [[ec, ""], [wc, "  "]] as const) {
+    for (const d of [[{ o: 0, d: "held" }, { o: 1, d: "new" }], [{ o: 0, d: "adopt", locator: 4, expected: E0.expected }, { o: 1, d: "held" }], [{ ...E0, giftId: "0000bbbb-0000-4000-8000-00000000abcd" }, { o: 1, d: "held" }], [E0, { o: 1, d: "held" }]]) {
+      const r = await post({ ...base, csv: c, mapping: { ...MAP, [h]: "@giftId" }, decisions: d });
+      assert.equal(r.status, 400, `blank header ${JSON.stringify(h)} mapped @giftId`); assert.match(await bodyOf(r), /blank or whitespace-only CSV header/);
+    }
+  }
+  const r2 = await post({ ...base, csv: `Donor,Amount,Date,Type,,Known\r\n7001,1,2026-01-05,Gift,,${U1}\r\n7002,1,2026-01-05,Gift,,\r\n`, mapping: { ...MAP, "": "@giftId", Known: "@giftId" }, decisions: [E0, { o: 1, d: "held" }] });
+  assert.equal(r2.status, 400, "second @giftId after an empty header still refused");
+  const r3 = await post({ ...base, csv: `Donor,Amount,Date,Type,,Known\r\n7001,1,2026-01-05,Gift,,${U1}\r\n7002,1,2026-01-05,Gift,,\r\n`, decisions: [{ ...E0, giftId: "0000bbbb-0000-4000-8000-00000000abcd" }, { o: 1, d: "new" }] });
+  assert.equal(r3.status, 400, "blank header present but unmapped: known-ID mode still enforced (mismatched target/new refused)");
+  const r4 = await post({ ...base, csv: `Donor,Amount,Date,Type,,Known\r\n7001,1,2026-01-05,Gift,,${U1}\r\n7002,1,2026-01-05,Gift,,\r\n`, decisions: [E0, { o: 1, d: "held" }] });
+  assert.equal(r4.status, 200, "unmapped blank header alongside a named known-ID column is fine");
+  assert.equal((await post({ ...base, csv: csv.replace("Known", " Known "), mapping: { ...MAP, " Known ": "@giftId" }, decisions: [E0, { o: 1, d: "held" }] })).status, 200, "padded but non-blank header kept exactly");
+  assert.equal((await post({ ...base, csv: ec, mapping: { ...MAP, Known: undefined, "": "@person", Donor: undefined }, decisions: [{ o: 0, d: "held" }, { o: 1, d: "held" }] })).status, 400, "blank header as donor CPTID refused");
   D.__setGiftRegistrationsForTests([]);
 });
