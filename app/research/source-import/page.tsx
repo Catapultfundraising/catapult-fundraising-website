@@ -217,6 +217,8 @@ export default function SourceImportPage() {
   // Sequential save, one batch at a time; stops at the first unconfirmed batch (no automatic retry, no new upload).
   const saveJob = async () => {
     if (!job || running.current || !confirmed) return; running.current = true; setBusy(true); const tk = fence.token();
+    // confirmed saves counted inside THIS run (the captured batches array is the pre-click render)
+    let savedCount = batches.filter((x) => x.state === "saved" || x.state === "saved_with_holds").length;
     try {
       for (const b of batches) {
         if (!tk.live()) break;
@@ -224,11 +226,11 @@ export default function SourceImportPage() {
         let r: Record<string, unknown>;
         try { r = await call({ op: "apply", client, table, token: b.token, actor }); }
         catch (e) { if (!tk.live()) break; const m = (e as Error).message;
-          if ((e as { code?: string }).code === "gift_override_active") { const done = batches.filter((x) => x.state === "saved" || x.state === "saved_with_holds").length; setBatch(b.index, { error: `${m} Earlier batches saved: ${done} of ${batches.length}. File not complete.` }); break; }
+          if ((e as { code?: string }).code === "gift_override_active") { setBatch(b.index, { error: `${m} Earlier batches saved: ${savedCount} of ${batches.length}. File not complete.` }); break; }
           if (/expired|preview again/i.test(m)) { setBatch(b.index, { state: "failed", error: m, token: null }); continue; } setBatch(b.index, { state: "unconfirmed", error: m }); break; }
         if (!tk.live()) break;
         if (r.unconfirmed) { setBatch(b.index, { state: "unconfirmed" }); break; }
-        setBatch(b.index, { state: b.heldRows ? "saved_with_holds" : "saved", savedRecords: Number(r.records ?? 0), token: null });
+        setBatch(b.index, { state: b.heldRows ? "saved_with_holds" : "saved", savedRecords: Number(r.records ?? 0), token: null }); savedCount++;
       }
     } finally { running.current = false; if (tk.live()) setBusy(false); }
   };
