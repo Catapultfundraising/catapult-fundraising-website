@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
-import { dbGiftEditsAvailable, mixedGiftIdentity, DB_GIFT_EDIT_UNAVAILABLE_UI, MIXED_GIFT_IDENTITY_UI } from "../lib/portal-v2/gift-edit-guard";
+import { dbGiftEditsAvailable, mixedGiftIdentity, DB_GIFT_EDIT_UNAVAILABLE_UI, MIXED_GIFT_IDENTITY_UI, GIFT_EDIT_FAILED_UI } from "../lib/portal-v2/gift-edit-guard";
 
 const CRON = "c".repeat(32);
 Object.assign(process.env, { CRON_SECRET: CRON, PORTAL_WRITE_SECRET: "w".repeat(32), ENGAGE_PORTAL_URL_OVERRIDE: "http://engage.mock.invalid/api/portal-v2" });
@@ -40,7 +40,7 @@ test("[MOCK FETCH] actual route: backend typed 409 refusal passed through with c
   let r = await post({ op: "voidGift", by: "Pat Example", reason: "dup", gift: { key: "db:1" } });
   assert.equal(r.status, 409); const j = await r.json(); assert.equal(j.code, "database_gift_edits_unavailable"); assert.equal(j.error, DB_GIFT_EDIT_UNAVAILABLE_UI);
   assert.equal(calls[0].body.op, "voidGift"); assert.equal(calls[0].body.gift.key, "db:1");
-  reply = { status: 500, body: { error: "boom" } }; r = await post({ op: "editGift", by: "Pat", gift: { key: "db:1", amount: "5" } }); assert.equal(r.status, 500); assert.equal((await r.json()).code, undefined);
+  reply = { status: 500, body: { error: "SELECT engage.portal_gift_overrides credentials Password=x" } }; r = await post({ op: "editGift", by: "Pat", gift: { key: "db:1", amount: "5" } }); assert.equal(r.status, 500); assert.deepEqual(await r.json(), { error: GIFT_EDIT_FAILED_UI });
   calls.length = 0; reply = { status: 200, body: { changed: 1, id: 7 } };
   r = await post({ op: "editGift", by: "Pat", gift: { id: 7, amount: "5" } });
   assert.equal(r.status, 200); assert.equal(calls[0].body.gift.id, 7); assert.equal(calls[0].body.gift.key, undefined);
@@ -63,4 +63,12 @@ test("[MOCK FETCH] strict refusal mapping: only exact (400,mixed)/(409,unavailab
   assert.deepEqual(await J(409, { code: "database_gift_edits_unavailable", error: "BACKEND" }), { s: 409, j: { error: DB_GIFT_EDIT_UNAVAILABLE_UI, code: "database_gift_edits_unavailable" } });
   for (const [st, c] of [[409, "mixed_gift_identity"], [400, "database_gift_edits_unavailable"], [409, "other"], [503, "database_gift_edits_unavailable"]] as const) { const r = await J(st, { code: c, error: "e" }); assert.equal(r.s, 500); assert.equal(r.j.code, undefined); }
   assert.deepEqual(await J(200, { changed: 1 }), { s: 200, j: { changed: 1 } });
+});
+
+test("[MOCK FETCH] fallback never forwards backend/driver text: mismatched pairs, arbitrary 4xx/5xx, malformed/null bodies => fixed generic 500", async () => {
+  const { _giftEditReplyForTests: m } = await import("../lib/portal-v2/server");
+  const LEAK = "SELECT engage.portal_gift_overrides ... credentials Password=hunter2 Server=sql.example";
+  const cases: [number, unknown][] = [[409, { code: "mixed_gift_identity", error: LEAK }], [400, { code: "database_gift_edits_unavailable", error: LEAK }], [500, { error: LEAK }], [503, { error: LEAK, code: "x" }], [401, { error: LEAK }], [502, null], [500, undefined], [500, []], [500, "text " + LEAK], [409, { code: null, error: LEAK }]];
+  for (const [st, b] of cases) { const r = m({ status: st, body: b as never }); const t = JSON.stringify(await r.json()); assert.equal(r.status, 500); assert.equal(t, JSON.stringify({ error: GIFT_EDIT_FAILED_UI })); assert.ok(!/SELECT|Password|engage/.test(t)); }
+  const ok2 = m({ status: 200, body: { changed: 1, id: 7 } }); assert.deepEqual(await ok2.json(), { changed: 1, id: 7 }, "success unchanged");
 });

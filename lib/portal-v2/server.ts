@@ -1,5 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
-import { dbGiftEditsAvailable, mixedGiftIdentity, DB_GIFT_EDIT_UNAVAILABLE_UI, MIXED_GIFT_IDENTITY_UI } from "@/lib/portal-v2/gift-edit-guard";
+import { dbGiftEditsAvailable, mixedGiftIdentity, DB_GIFT_EDIT_UNAVAILABLE_UI, MIXED_GIFT_IDENTITY_UI, GIFT_EDIT_FAILED_UI } from "@/lib/portal-v2/gift-edit-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
 import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
@@ -55,12 +55,13 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
 }
 
 /** W0: pass typed gift-edit refusals (400/409) through with their code; other failures keep the existing error shape. */
-function giftEditReply(r: { status: number; body: Record<string, unknown> }) {
+function giftEditReply(r: { status: number; body: Record<string, unknown> | null | undefined }) {
+  const body = (r.body && typeof r.body === "object" && !Array.isArray(r.body) ? r.body : {}) as Record<string, unknown>;
   if (r.status >= 200 && r.status < 300) return NextResponse.json(r.body);
   // Strict mapping: only these exact (status, code) pairs pass through, always with FIXED local text (no backend text).
-  if (r.status === 400 && r.body.code === "mixed_gift_identity") return NextResponse.json({ error: MIXED_GIFT_IDENTITY_UI, code: "mixed_gift_identity" }, { status: 400 });
-  if (r.status === 409 && r.body.code === "database_gift_edits_unavailable") return NextResponse.json({ error: DB_GIFT_EDIT_UNAVAILABLE_UI, code: "database_gift_edits_unavailable" }, { status: 409 });
-  return NextResponse.json({ error: String(r.body.error || `engage ${r.status}`).slice(0, 300) }, { status: 500 });
+  if (r.status === 400 && body.code === "mixed_gift_identity") return NextResponse.json({ error: MIXED_GIFT_IDENTITY_UI, code: "mixed_gift_identity" }, { status: 400 });
+  if (r.status === 409 && body.code === "database_gift_edits_unavailable") return NextResponse.json({ error: DB_GIFT_EDIT_UNAVAILABLE_UI, code: "database_gift_edits_unavailable" }, { status: 409 });
+  return NextResponse.json({ error: GIFT_EDIT_FAILED_UI }, { status: 500 });
 }
 
 export { giftEditReply as _giftEditReplyForTests };

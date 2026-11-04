@@ -15,3 +15,4 @@ export function mixedGiftIdentity(g: unknown): boolean {
 
 export const DB_GIFT_EDIT_UNAVAILABLE_UI = "Corrections to client-database gifts are unavailable for this client right now. Dashboard-entered gifts can still be edited.";
 export const MIXED_GIFT_IDENTITY_UI = "Send either a gift id or a gift key, not both.";
+export const GIFT_EDIT_FAILED_UI = "The gift change could not be saved. Reload the page to check whether it was saved before trying again.";
