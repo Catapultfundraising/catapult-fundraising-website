@@ -119,6 +119,10 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
   const headers = csv?.grid[0] ?? [];
   const rows = csv ? csv.grid.slice(1) : []; // ordinal = index, exactly as the server's strict parser numbers rows
   const personH = Object.keys(mapping).find((h) => mapping[h] === "@person");
+  const giftH = Object.keys(mapping).find((h) => mapping[h] === "@giftId"); // F2b known-ID mode: correct/held only
+  const gi = giftH ? headers.indexOf(giftH) : -1;
+  const gcount = new Map<string, number>(); if (gi >= 0) for (const r of rows) { const u = r[gi]; if (u !== "") gcount.set(u, (gcount.get(u) ?? 0) + 1); }
+  const idHold = (o: number): string | null => { if (gi < 0) return null; const u = rows[o][gi]; return u === "" ? "blank Catapult Gift ID" : !UUID.test(u) ? "ID column value is not a valid Catapult Gift ID" : (gcount.get(u) ?? 0) > 1 ? "duplicate Catapult Gift ID in this file" : null; };
   const scope = { client, table };
   const pages = Math.max(1, Math.ceil(rows.length / PAGE));
 
@@ -174,12 +178,16 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
     await chunks("persons", "persons", donors, (j) => { for (const p of (j.persons as { person: number; masterMatches: number; portalOverlay: boolean; portalProspect: boolean }[]) ?? []) people.set(p.person, p); });
     const locs = [...new Set(choices.filter((c) => c.d === "adopt" && exactInt(c.target) !== null).map((c) => exactInt(c.target)!))];
     await chunks("locators", "locators", locs, (j) => { for (const r of (j.rows as PRow[]) ?? []) byLoc.set(r.locator, r); });
-    const gids = [...new Set(choices.filter((c) => c.d === "correct" && UUID.test(c.target)).map((c) => c.target))];
+    // invalid/blank/duplicate file IDs are held locally and never sent
+    const gids = [...new Set(choices.map((c, i) => (c.d === "correct" && UUID.test(c.target) && !idHold(i) ? c.target : null)).filter((x): x is string => x !== null))];
     await chunks("gifts", "giftIds", gids, (j) => { for (const g of (j.gifts as { giftId: string; found: boolean; locator?: number }[]) ?? []) byGift.set(g.giftId, g); for (const r of (j.rows as PRow[]) ?? []) byLoc.set(r.locator, r); });
     const defs = new Map((C.colDefs ?? []).map((d) => [d.col, d]));
+    const locUse = new Map<number, number>(); // two IDs resolving to one gift row => hold both
+    choices.forEach((c, i) => { if (c.d === "correct" && !idHold(i)) { const g = byGift.get(c.target); if (g?.found && g.locator !== undefined) locUse.set(g.locator, (locUse.get(g.locator) ?? 0) + 1); } });
     const out: Check[] = rows.map((r, i) => {
       const c = choices[i]; if (c.d === "held") return { ok: true, reasons: [] };
-      const reasons: string[] = []; const donor = exactInt(r[pi]); const p = donor === null ? undefined : people.get(donor);
+      const reasons: string[] = []; const donor = exactInt(r[pi]);
+      if (gi >= 0) { if (c.d !== "correct") reasons.push("only correct or held is allowed with a mapped Catapult Gift ID column"); const ih = idHold(i); if (ih) return { ok: false, reasons: [ih] }; if (c.target !== r[gi]) return { ok: false, reasons: ["correction target must be this row's Catapult Gift ID"] }; } const p = donor === null ? undefined : people.get(donor);
       if (donor === null) reasons.push("donor CPTID is not an exact whole number");
       if (!p || p.masterMatches !== 1) reasons.push("donor not found exactly once in the client master");
       if (c.d === "new") {
@@ -191,7 +199,7 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
       }
       let row: PRow | undefined;
       if (c.d === "adopt") { const l = exactInt(c.target); row = l === null ? undefined : byLoc.get(l); if (!row) reasons.push("pick an existing row from the donor's history"); }
-      else { const g = UUID.test(c.target) ? byGift.get(c.target) : undefined; if (!g?.found) reasons.push("Catapult Gift ID not found for this registration"); else row = byLoc.get(g.locator!); }
+      else { const g = UUID.test(c.target) ? byGift.get(c.target) : undefined; if (!g?.found) reasons.push("Catapult Gift ID not found for this registration"); else { row = byLoc.get(g.locator!); if (gi >= 0 && (locUse.get(g.locator!) ?? 0) > 1) reasons.push("two IDs point to one gift row"); } }
       if (row) {
         if (row.matches !== undefined || !row.values) reasons.push("raw row is not unique");
         if (row.person !== donor || !row.personReadable) reasons.push("row donor differs from the file donor");
@@ -203,7 +211,7 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
           if (row.giftId !== c.target) reasons.push("Catapult Gift ID does not match the row");
           // ownership is required only for MAPPED columns whose normalized file value differs from current (blank = unchanged)
           for (const [h, col] of Object.entries(mapping)) {
-            if (col === "@person") continue;
+            if (col === "@person" || col === "@giftId") continue; // pseudo-columns are never compared or written
             const d = defs.get(col); if (!d) { reasons.push(`${col}: no registered type`); continue; }
             const n = normalize(d, r[headers.indexOf(h)]); if (n.err) { reasons.push(`${col}: ${n.err}`); continue; }
             if (n.v === null) continue;
@@ -398,18 +406,18 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
         <div className="mt-4"><span className={label}>Columns</span>
           <div className="mt-2 grid gap-2 sm:grid-cols-2 lg:grid-cols-4">{headers.map((h) => (
             <label key={h} className="block text-sm"><span className="text-[rgb(var(--navy))]">{h}</span>
-              <select className={input} aria-label={`Map ${h}`} disabled={busy || locked} value={mapping[h] ?? ""} onChange={(e) => { const m = { ...mapping }; if (e.target.value) m[h] = e.target.value; else delete m[h]; setMapping(m); invalidate(); }}>
-                <option value="">Not used</option><option value="@person" disabled={!!personH && personH !== h}>Donor CPTID</option>
+              <select className={input} aria-label={`Map ${h}`} disabled={busy || locked} value={mapping[h] ?? ""} onChange={(e) => { const m = { ...mapping }; const modeFlip = e.target.value === "@giftId" || m[h] === "@giftId"; if (e.target.value) m[h] = e.target.value; else delete m[h]; setMapping(m); if (modeFlip) setChoices(rows.map(() => ({ d: "held", target: "" }))); invalidate(); }}>
+                <option value="">Not used</option><option value="@person" disabled={!!personH && personH !== h}>Donor CPTID</option><option value="@giftId" disabled={!!giftH && giftH !== h}>Catapult Gift ID (verify)</option>
                 {cols.map((c) => <option key={c} value={c} disabled={Object.entries(mapping).some(([k, v]) => v === c && k !== h)}>{c}</option>)}</select></label>))}</div></div>)}
       {rows.length > 0 && (
         <div className="mt-4 overflow-x-auto" data-testid="durable-rows"><table className="w-full min-w-[880px] text-left text-sm"><thead><tr className="text-xs uppercase text-[rgb(var(--ink))]/60"><th className="px-3 py-2">Row</th><th className="px-3 py-2">Donor</th><th className="px-3 py-2">Decision</th><th className="px-3 py-2">Existing row / Catapult Gift ID</th><th className="px-3 py-2">Check</th></tr></thead>
           <tbody>{shown.map(({ r, o }) => <tr key={o} className="border-t border-[rgb(var(--line))] align-top">
             <td className="px-3 py-2">{o + 1}</td><td className="px-3 py-2">{personH ? r[headers.indexOf(personH)] : "—"}</td>
-            <td className="px-3 py-2"><select className={input} aria-label={`Decision row ${o + 1}`} disabled={busy || locked} value={choices[o]?.d ?? "held"} onChange={(e) => setChoice(o, { d: e.target.value as Choice["d"], target: "" })}>
-              <option value="held">Held</option><option value="new">New gift</option><option value="adopt">Adopt existing row</option><option value="correct">Correct existing ID</option></select></td>
+            <td className="px-3 py-2"><select className={input} aria-label={`Decision row ${o + 1}`} disabled={busy || locked} value={choices[o]?.d ?? "held"} onChange={(e) => setChoice(o, { d: e.target.value as Choice["d"], target: gi >= 0 && e.target.value === "correct" ? r[gi] : "" })}>
+              {gi >= 0 ? <><option value="held">Held</option><option value="correct">Correct existing ID (from file)</option></> : <><option value="held">Held</option><option value="new">New gift</option><option value="adopt">Adopt existing row</option><option value="correct">Correct existing ID</option></>}</select></td>
             <td className="px-3 py-2">{(choices[o]?.d === "adopt" || choices[o]?.d === "correct") && <div>
-              <input className={input} aria-label={`Target row ${o + 1}`} disabled={busy || locked} value={choices[o].target} onChange={(e) => setChoice(o, { ...choices[o], target: e.target.value.trim() })} />
-              <button type="button" className={`${linkBtn} mt-1 text-xs`} disabled={busy || locked || !personH} onClick={() => { void loadHistory(o); }}>Show this donor&apos;s gifts</button></div>}</td>
+              <input className={input} aria-label={`Target row ${o + 1}`} disabled={busy || locked} readOnly={gi >= 0} value={choices[o].target} onChange={(e) => setChoice(o, { ...choices[o], target: e.target.value.trim() })} />
+              {gi < 0 && <button type="button" className={`${linkBtn} mt-1 text-xs`} disabled={busy || locked || !personH} onClick={() => { void loadHistory(o); }}>Show this donor&apos;s gifts</button>}</div>}</td>
             <td className="px-3 py-2 text-xs">{choices[o]?.d === "held" ? "held" : !checks[o] ? "not checked" : checks[o].ok ? "eligible (advisory)" : <span className="text-red-700">held: {checks[o].reasons.join("; ")}</span>}</td></tr>)}</tbody></table>
           <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-[rgb(var(--ink))]/70" data-testid="durable-pager">
             <button type="button" className={linkBtn} disabled={page === 0} onClick={() => setPage(page - 1)}>Previous rows</button>

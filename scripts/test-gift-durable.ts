@@ -68,7 +68,7 @@ test("plan refusals: all held => nothing to save; donor not exact int; ragged ro
   // returned-ID / provisional columns are refused (reimport unfinished); never read as identities
   for (const h of ["Catapult Gift ID", " catapult  gift id ", "Gift ID Status", "Provisional Preview ID"]) {
     const csv = CSV.replace("Donor,Amount,Date,Type", `Donor,Amount,Date,Type,${h}`).split("\r\n").map((l, i) => (i && l ? l + ",00000001-0000-4000-8000-00000000abcd" : l)).join("\r\n");
-    await assert.rejects(plan({ csv }), /Returned-ID files are not supported/, h);
+    await assert.rejects(plan({ csv }), /give that column another name/, h);
   }
   // long cells are carried exactly (no preview truncation)
   const long = "L".repeat(3000); const p = await plan({ csv: CSV.replace(",Gift\r\n7002", `,${long}\r\n7002`), decisions: [{ o: 0, d: "new" }, { o: 1, d: "held" }, { o: 2, d: "held" }, { o: 3, d: "held" }] });
@@ -569,4 +569,47 @@ test("[ROUTE] F2a durableGiftReviewCheck: auth/type/body/caps/proof vectors; no 
   assert.equal((await post({ ...body, original: base.original + "x" })).status, 400);
   assert.equal(calls.length, 0, "never calls Engage");
   L.__setGiftRegistrationsForTests([]);
+});
+
+// ---------- F2b known-ID mode ----------
+test("F2b planner: @giftId mode correct/held only on EVERY row; exact own unique lowercase ID; duplicates over all rows; pseudo-column excluded; reserved names refused with precise wording", async () => {
+  const L = await lib();
+  const U = (n: number) => `0000${String(n).padStart(4, "0")}-0000-4000-8000-00000000abcd`;
+  const rowsN = 606;
+  const ids = Array.from({ length: rowsN }, (_, i) => (i % 10 === 0 ? "" : i % 10 === 3 ? U(i).toUpperCase() : i % 10 === 4 ? "PROV-0123456789abcdef0123456789abcdef" : i === 7 || i === 17 ? U(7) : U(i)));
+  const csv = "Donor,Amount,Date,Type,Known\r\n" + ids.map((u, i) => `${7000 + i},1,2026-01-05,Gift,${u}`).join("\r\n") + "\r\n";
+  const map = { ...MAP, Known: "@giftId" };
+  const EXPD = { Gift_Amount: "5", Gift_Date: "2026-01-05T00:00:00", Record_Type: "Gift" };
+  const okRows = [1, 2, 5, 6, 8, 9];
+  const dec = (over: Record<number, unknown> = {}) => Array.from({ length: rowsN }, (_, o) => over[o] ?? (okRows.includes(o) ? { o, d: "correct", giftId: U(o), expected: EXPD } : { o, d: "held" }));
+  const run = (d: unknown[], m: unknown = map, c = csv) => L.buildDurablePlan({ client: "jag", csv: c, mapping: m, decisions: d, actor: "Pat", fileName: "k.csv", fileDate: null, secret: SECRET, now: NOW });
+  const p = run(dec());
+  assert.equal(p.summary.decided, okRows.length);
+  for (const r of p.batches.flat()) { assert.ok(!("Known" in r.values) && !("@giftId" in r.values) && !("Known" in (r.expected ?? {}))); assert.equal(r.giftId, U(r.ordinal)); }
+  assert.throws(() => run(dec({ 0: { o: 0, d: "new" } })), /every row must be held or corrected/, "new on blank-ID row");
+  assert.throws(() => run(dec({ 1: { o: 1, d: "adopt", locator: 4, expected: EXPD } })), /every row must be held or corrected/);
+  assert.throws(() => run(dec({ 7: { o: 7, d: "correct", giftId: U(7), expected: EXPD } })), /own unique/, "duplicate (row 17 holds the same ID, held)");
+  assert.throws(() => run(dec({ 3: { o: 3, d: "correct", giftId: U(3), expected: EXPD } })), /own unique/, "uppercase cell, lowercase typed target");
+  assert.throws(() => run(dec({ 3: { o: 3, d: "correct", giftId: U(3).toUpperCase(), expected: EXPD } })), /bad Catapult Gift ID/);
+  assert.throws(() => run(dec({ 1: { o: 1, d: "correct", giftId: U(2), expected: EXPD } })), /own unique/, "typed target differs from the file");
+  assert.throws(() => run(dec(), { ...map, Type: "@giftId" }), /at most one/);
+  const p2 = run(dec({ 1: { o: 1, d: "correct", giftId: U(1), expected: { ...EXPD, Gift_Amount: "6" } } }));
+  assert.notEqual(p2.jobId, p.jobId, "row/target binding in the manifest");
+  // no @giftId: existing flow unchanged (new allowed)
+  assert.equal(run([{ o: 0, d: "new" }, { o: 1, d: "held" }, { o: 2, d: "held" }, { o: 3, d: "held" }], MAP, CSV).summary.decided, 1);
+  assert.throws(() => run(dec(), map, csv.replace("Known", "Catapult Gift ID")), /give that column another name and map it as "Catapult Gift ID \(verify\)".*Check a returned review copy/);
+});
+
+test("[ROUTE] F2b plan vectors through the imported route", async () => {
+  globalThis.fetch = (async () => Response.json({})) as unknown as typeof fetch;
+  const { POST } = await import("../app/api/research-source-import/route"); const D = await import("../lib/portal-v2/gift-durable"); D.__setGiftRegistrationsForTests([REG]);
+  const post = (body: Record<string, unknown>) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}` }, body: JSON.stringify(body) }));
+  const U1 = "0000aaaa-0000-4000-8000-00000000abcd";
+  const csv = `Donor,Amount,Date,Type,Known\r\n7001,1,2026-01-05,Gift,${U1}\r\n7002,1,2026-01-05,Gift,\r\n`;
+  const base = { op: "durableGiftPlan", client: "jag", table: REG.table, csv, mapping: { ...MAP, Known: "@giftId" }, actor: "Pat", fileName: "k.csv", fileDate: null };
+  const ok = await post({ ...base, decisions: [{ o: 0, d: "correct", giftId: U1, expected: { Gift_Amount: "5", Gift_Date: "2026-01-05T00:00:00", Record_Type: "Gift" } }, { o: 1, d: "held" }] });
+  assert.equal(ok.status, 200);
+  assert.equal((await post({ ...base, decisions: [{ o: 0, d: "held" }, { o: 1, d: "new" }] })).status, 400);
+  assert.equal((await post({ ...base, csv: csv.replace("Known", "Gift ID Status"), decisions: [{ o: 0, d: "held" }, { o: 1, d: "held" }] })).status, 400);
+  D.__setGiftRegistrationsForTests([]);
 });

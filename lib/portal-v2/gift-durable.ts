@@ -80,15 +80,16 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
   const grid = parseCsv(o.csv); if (grid.length < 2) bad("CSV needs a header and at least one row");
   const headers = grid[0]; const rows = grid.slice(1);
   if (rows.some((r) => r.length !== headers.length)) bad("Every row must have exactly as many cells as the header");
-  // Returned-ID reimport is NOT implemented: a file that already carries Catapult Gift ID / status / provisional columns is
-  // refused (never read as an unverified UUID, never used to infer new/adopt/correct, never duplicated in the export).
-  if (headers.some((h) => RESERVED.has(foldH(h)))) bad("This file already has a Catapult Gift ID, Gift ID Status or provisional preview column. Returned-ID files are not supported yet; use the original source export.");
+  // Columns literally named like the review-copy/provisional columns are refused (never read as unverified UUIDs, never
+  // duplicated in the export). Known IDs in a FRESH source export use a differently named column mapped to "@giftId".
+  if (headers.some((h) => RESERVED.has(foldH(h)))) bad("This file has a column named Catapult Gift ID, Gift ID Status or a provisional preview column. To use known Catapult Gift IDs from a fresh source export, give that column another name and map it as \"Catapult Gift ID (verify)\". To check a review copy downloaded from here, use \"Check a returned review copy\" instead.");
   if (!isObj(o.mapping)) bad("bad mapping");
   const mapping = o.mapping as Record<string, unknown>;
-  const regCols = new Set(g!.columns.map((c) => c.col)); const used = new Set<string>(); let personH: string | null = null;
+  const regCols = new Set(g!.columns.map((c) => c.col)); const used = new Set<string>(); let personH: string | null = null, giftH: string | null = null;
   for (const [h, c] of Object.entries(mapping)) {
     if (typeof c !== "string" || !headers.includes(h) || headers.filter((x) => x === h).length !== 1) bad(`mapping header "${h}" is not a unique CSV header`);
     if (c === "@person") { if (personH) bad("map exactly one donor CPTID column"); personH = h; continue; }
+    if (c === "@giftId") { if (giftH) bad("map at most one Catapult Gift ID (verify) column"); giftH = h; continue; }
     if (!regCols.has(c as string) || used.has(c as string)) bad(`"${c}" is not a registered column or is mapped twice`);
     used.add(c as string);
   }
@@ -96,18 +97,22 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
   if (!Array.isArray(o.decisions) || o.decisions.length !== rows.length) bad("one decision per CSV row is required");
   const idx = (h: string) => headers.indexOf(h);
   const decided: GiftRow[] = [], held: number[] = [];
+  // F2b known-ID mode: every row is correct/held only; duplicates counted over ALL non-empty cells (held rows included)
+  const gcount = new Map<string, number>();
+  if (giftH) for (const r of rows) { const u = r[idx(giftH)]; if (u !== "") gcount.set(u, (gcount.get(u) ?? 0) + 1); }
   (o.decisions as unknown[]).forEach((d0, i) => {
     if (!isObj(d0) || d0.o !== i) bad("decisions must be in row order", 400);
     const d = d0 as unknown as Decision;
     const keys = JSON.stringify(Object.keys(d0).sort());
     const want = d.d === "held" || d.d === "new" ? ["d", "o"] : d.d === "adopt" ? ["d", "expected", "locator", "o"] : d.d === "correct" ? ["d", "expected", "giftId", "o"] : null;
     if (!want || keys !== JSON.stringify(want)) bad(`row ${i + 1}: decision has missing or unexpected fields`);
+    if (giftH && (d.d === "new" || d.d === "adopt")) bad(`row ${i + 1}: with a mapped Catapult Gift ID (verify) column every row must be held or corrected`);
     if (d.d === "held") { held.push(i); return; }
     const person = exactInt(rows[i][idx(personH!)]); if (person === null) bad(`row ${i + 1}: donor CPTID is not an exact positive whole number`);
     const mapped: Record<string, string> = {};
     // SOURCE cells are canonicalized with the owning source-reconcile normalize (registered type/precision); blanks stay
     // unchanged (no clears); a value that cannot be converted refuses the plan. Expected snapshots are NEVER normalized.
-    for (const [h, c] of Object.entries(mapping)) if (c !== "@person") {
+    for (const [h, c] of Object.entries(mapping)) if (c !== "@person" && c !== "@giftId") { // pseudo-columns never in values/expected
       const d = g!.columns.find((x) => x.col === c)!; const n = normalize(d as never, rows[i][idx(h)]);
       if (n.err) bad(`row ${i + 1}, ${h}: ${n.err}`);
       if (n.v !== null) mapped[c as string] = n.v;
@@ -118,6 +123,7 @@ export function buildDurablePlan(o: { client: string; csv: string; mapping: unkn
     if (d.d === "adopt") { if (!posInt(d.locator)) bad(`row ${i + 1}: bad locator`); decided.push({ ordinal: i, action: "adopt", locator: d.locator, person: person!, values: {}, expected: exp }); return; }
     if (d.d === "correct") {
       if (!validGiftId(d.giftId)) bad(`row ${i + 1}: bad Catapult Gift ID`);
+      if (giftH) { const u = rows[i][idx(giftH)]; if (u !== d.giftId || !validGiftId(u) || gcount.get(u) !== 1) bad(`row ${i + 1}: the correction target must be this row's own unique Catapult Gift ID from the file`); }
       const values = Object.fromEntries(Object.entries(mapped).filter(([c, v]) => exp[c] !== v));
       if (!Object.keys(values).length) { held.push(i); return; } // nothing changed: not a write, keep it held/unchanged
       decided.push({ ordinal: i, action: "correct", giftId: d.giftId, person: person!, values, expected: exp }); return;
