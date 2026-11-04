@@ -9,29 +9,32 @@ export interface StatementDef {
   id: string; sql: string; params: readonly string[]; write: boolean; tables: readonly string[];
   exec: (t: Tables, p: Record<string, Scalar>) => { rows: Row[]; affected: number };
 }
-export type Failpoint = "none" | "beforeCommit" | "afterCommit";
+export type Failpoint = "none" | "beforeCommit" | "afterCommit" | `throwAt:${string}`;
 export class MockSqlError extends Error { constructor(public code: string, message: string) { super(message); } }
 export class LostResponseAfterCommit extends Error { constructor() { super("mock: response lost after COMMIT"); } }
 export interface TraceEntry { id: string; params: string[]; tx: boolean }
 const isScalar = (v: unknown): v is Scalar => v === null || typeof v === "string" || typeof v === "boolean" || (typeof v === "number" && Number.isFinite(v));
+const isArr = (v: unknown): v is unknown[] => Array.isArray(v) && Object.getPrototypeOf(v) === Array.prototype;
 const isPlain = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v) && Object.getPrototypeOf(v) === Object.prototype;
 const clone = <T>(t: T): T => JSON.parse(JSON.stringify(t));
 const deepFreeze = <T>(o: T): T => { if (o && typeof o === "object") { for (const v of Object.values(o as object)) deepFreeze(v); Object.freeze(o); } return o; };
-const NAME = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?$/i, PARAM = /^[a-z][a-z0-9_]*$/i, ID = /^[a-z][a-z0-9_.-]*$/i;
+const NAME = /^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)?$/i, PARAM = /^[a-z][a-z0-9_]*$/i, ID = /^[a-z][a-z0-9_.-]*(\([1-9][0-9]*\))?$/i;
 const fail = (c: string, m: string): never => { throw new MockSqlError(c, m); };
 const validRows = (rows: unknown) => Array.isArray(rows) && rows.every((r) => isPlain(r) && Object.values(r).every(isScalar));
 
 function validateDefs(defs: readonly StatementDef[], tableNames: readonly string[]) {
-  if (!Array.isArray(tableNames) || !tableNames.length || new Set(tableNames).size !== tableNames.length || !tableNames.every((n) => typeof n === "string" && NAME.test(n))) fail("bad_tables", "mock: table names must be unique identifiers");
-  if (!Array.isArray(defs)) fail("bad_def", "mock: defs must be an array");
+  if (!isArr(tableNames) || !tableNames.length || new Set(tableNames).size !== tableNames.length || !tableNames.every((n) => typeof n === "string" && NAME.test(n))) fail("bad_tables", "mock: table names must be unique identifiers");
+  if (!isArr(defs)) fail("bad_def", "mock: defs must be an array");
   const bySql = new Map<string, StatementDef>(), ids = new Set<string>();
   for (const d of defs) {
-    if (!isPlain(d) && !(d && typeof d === "object")) fail("bad_def", "mock: def must be an object");
+    if (!isPlain(d)) fail("bad_def", "mock: def must be a plain object (no arrays/class instances)");
     if (typeof d.id !== "string" || !ID.test(d.id)) fail("bad_def", "mock: def id must be a non-empty identifier");
     if (typeof d.sql !== "string" || !d.sql.trim()) fail("bad_def", `mock: ${d.id} sql must be non-empty`);
-    if (!Array.isArray(d.params) || !d.params.every((p) => typeof p === "string" && PARAM.test(p)) || new Set(d.params).size !== d.params.length) fail("bad_def", `mock: ${d.id} params must be unique identifiers`);
+    if (!isArr(d.params) || !d.params.every((p) => typeof p === "string" && PARAM.test(p)) || new Set(d.params).size !== d.params.length) fail("bad_def", `mock: ${d.id} params must be unique identifiers`);
     if (typeof d.write !== "boolean" || typeof d.exec !== "function") fail("bad_def", `mock: ${d.id} write/exec invalid`);
-    if (!Array.isArray(d.tables) || !d.tables.length || new Set(d.tables).size !== d.tables.length) fail("bad_def", `mock: ${d.id} tables must be a non-empty unique list`);
+    if (!isArr(d.tables) || !d.tables.length || new Set(d.tables).size !== d.tables.length) fail("bad_def", `mock: ${d.id} tables must be a non-empty unique list`);
+    // every @placeholder in the SQL must be a declared param (declared extras are allowed: real call sites pass `base`)
+    for (const m of d.sql.matchAll(/@([A-Za-z_][A-Za-z0-9_]*)/g)) if (!d.params.includes(m[1])) fail("bad_def", `mock: ${d.id} sql placeholder not in params`);
     for (const t of d.tables) if (!tableNames.includes(t)) fail("undeclared_table", `mock: ${d.id} uses undeclared table`);
     if (bySql.has(d.sql) || ids.has(d.id)) fail("duplicate_def", `mock: duplicate statement ${d.id}`);
     bySql.set(d.sql, Object.freeze({ ...d, params: Object.freeze([...d.params]), tables: Object.freeze([...d.tables]) })); ids.add(d.id);
@@ -68,6 +71,7 @@ export function createMock(defs: readonly StatementDef[], tableNames: readonly s
     if (JSON.stringify(keys) !== JSON.stringify(want)) fail("bad_params", `mock: ${d.id} expects params [${want}] got [${keys}]`);
     for (const k of keys) if (!isScalar((p as Record<string, unknown>)[k])) fail("bad_params", `mock: ${d.id} param ${k} not a scalar`);
     if (d.write && !inTx) fail("write_outside_tx", `mock: ${d.id} writes outside a transaction`);
+    if (failpoint === `throwAt:${d.id}`) { failpoint = "none"; fail("failpoint", `mock: failpoint at ${d.id}`); }
     const { proxy, work } = view(d, tables);
     let out: { rows: Row[]; affected: number };
     try { out = d.exec(proxy, Object.freeze({ ...(p as Record<string, Scalar>) })); }
@@ -105,7 +109,7 @@ export function createMock(defs: readonly StatementDef[], tableNames: readonly s
     },
     counts: () => Object.fromEntries(Object.entries(tables).map(([k, v]) => [k, v.length])),
     dump: () => clone(tables),
-    setFailpoint(f: Failpoint) { if (!["none", "beforeCommit", "afterCommit"].includes(f)) fail("bad_failpoint", "mock: unknown failpoint"); failpoint = f; },
+    setFailpoint(f: Failpoint) { if (!["none", "beforeCommit", "afterCommit"].includes(f) && !(typeof f === "string" && f.startsWith("throwAt:") && defs.some((d) => d.id === f.slice(8)))) fail("bad_failpoint", "mock: unknown failpoint"); failpoint = f; },
     reset() { tables = Object.fromEntries(tableNames.map((n) => [n, []])); trace.length = 0; failpoint = "none"; Object.assign(stats, { tx: 0, commits: 0, rollbacks: 0, unsupported: 0 }); },
   };
 }

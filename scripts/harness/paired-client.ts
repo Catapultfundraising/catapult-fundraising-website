@@ -48,7 +48,8 @@ export function attach(cp: ChildProcess) {
     rl.on("line", (l) => {
       let f: Frame; try { f = JSON.parse(l); } catch { return die(new ProtocolError("malformed frame")); }
       if (!f || typeof f !== "object" || Array.isArray(f)) return die(new ProtocolError("non-object frame"));
-      if (f.kind === "crashing" || f.kind === "fatal") return; // child announces exit; the exit handler settles pending
+      if (f.kind === "crashing" || f.kind === "fatal") { // child announces exit; if it then stays alive, fail closed + kill
+        const t = setTimeout(() => die(new ProtocolError(`child announced ${String(f.kind)} but stayed alive`)), EOF_GRACE_MS); t.unref(); cp.once("exit", () => clearTimeout(t)); return; }
       const p = pending.get(String(f.id)); if (!p) return die(new ProtocolError("frame for unknown request id"));
       pending.delete(String(f.id)); p.ok(f);
     });
@@ -66,7 +67,7 @@ export function attach(cp: ChildProcess) {
   }) as typeof fetch;
   return { send, fetchImpl, exited, stderr: () => stderr, dead: () => dead, kill: () => die(new ProtocolError("killed by parent")) };
 }
-export function startChild(pin: Pin, childScript: string) {
+export function startChild(pin: Pin, childScript: string, args: readonly string[] = []) {
   const dir = verifyPin(pin);
-  return attach(spawn(join(dir, "node_modules/.bin/tsx"), [resolve(childScript)], { cwd: dir, stdio: ["pipe", "pipe", "pipe"], env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "" } as unknown as NodeJS.ProcessEnv }));
+  return attach(spawn(join(dir, "node_modules/.bin/tsx"), [resolve(childScript), ...args], { cwd: dir, stdio: ["pipe", "pipe", "pipe"], env: { PATH: process.env.PATH ?? "", HOME: process.env.HOME ?? "" } as unknown as NodeJS.ProcessEnv }));
 }
