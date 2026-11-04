@@ -29,8 +29,8 @@ export function __setGiftRegistrationsForTests(r: GiftRegistration[]) {
   if (process.env.SOURCE_PREPARED_TEST_HOOK !== "1" || process.env.NODE_ENV === "production") throw new Error("test hook disabled");
   REGS = Object.freeze([...r]);
 }
-export function registrationFor(client: string) {
-  const g = REGS.filter((x) => x.client === client);
+export function registrationFor(client: string, regs: readonly GiftRegistration[] = REGS) {
+  const g = regs.filter((x) => x.client === client);
   return g.length === 1 ? g[0] : null;
 }
 

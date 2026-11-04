@@ -2,9 +2,10 @@ import { NextRequest } from "next/server";
 
 const COOKIE_NAME = "catapult_research_auth";
 
-async function expectedCookieValue(): Promise<string> {
-  const password = process.env.RESEARCH_PASSWORD ?? "";
-  const secret = process.env.RESEARCH_AUTH_SECRET ?? "";
+type Env = Record<string, string | undefined>;
+async function expectedCookieValue(env: Env = process.env): Promise<string> {
+  const password = env.RESEARCH_PASSWORD ?? "";
+  const secret = env.RESEARCH_AUTH_SECRET ?? "";
   const enc = new TextEncoder();
   const data = enc.encode(`${password}:${secret}`);
   const digest = await crypto.subtle.digest("SHA-256", data);
@@ -31,18 +32,19 @@ function safeEqual(a: string, b: string): boolean {
  * X-Research-Key header must equal RESEARCH_PASSWORD. Browser users keep
  * using the login page and cookie.
  */
-function hasValidKeyHeader(req: NextRequest): boolean {
+function hasValidKeyHeader(req: NextRequest, env: Env = process.env): boolean {
   const key = req.headers.get("x-research-key");
-  const password = process.env.RESEARCH_PASSWORD ?? "";
+  const password = env.RESEARCH_PASSWORD ?? "";
   if (!key || !password) return false;
   return safeEqual(key, password);
 }
 
-export async function isResearchAuthed(req: NextRequest): Promise<boolean> {
-  if (hasValidKeyHeader(req)) return true;
+/** env: optional (default process.env); only the research-source-import handler passes its per-request deps.env. */
+export async function isResearchAuthed(req: NextRequest, env: Env = process.env): Promise<boolean> {
+  if (hasValidKeyHeader(req, env)) return true;
   const cookie = req.cookies.get(COOKIE_NAME)?.value;
   if (!cookie) return false;
-  const expected = await expectedCookieValue();
+  const expected = await expectedCookieValue(env);
   if (!expected) return false;
   return cookie === expected;
 }
