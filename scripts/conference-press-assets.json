@@ -1,0 +1,129 @@
+{
+  "assets": [
+    {
+      "name": "All Services",
+      "href": "/one-sheets/press/Catapult-All-Services-CMYK-Press-2026-11-03.pdf",
+      "sha256": "ad7e1b87f86b0901d2a4c1382571f43b8c73403714b261eb8614a271a05c4a2e",
+      "pages": 1
+    },
+    {
+      "name": "Capital Campaign",
+      "href": "/one-sheets/press/Catapult-Capital-Campaign-CMYK-Press-2026-11-03.pdf",
+      "sha256": "846ace5158e6fa5f1166b6944a279c23a29f4d56b735643e135ec73e38619298",
+      "pages": 1
+    },
+    {
+      "name": "Legacy Call",
+      "href": "/one-sheets/press/Catapult-Legacy-Call-CMYK-Press-2026-11-03.pdf",
+      "sha256": "d4a487bbae40387060ea4cd34787e991d93a08bd64f1055961f17b17bf410434",
+      "pages": 1
+    },
+    {
+      "name": "Donor Engagement",
+      "href": "/one-sheets/press/Catapult-Donor-Engagement-CMYK-Press-2026-11-03.pdf",
+      "sha256": "816d1b66aa64f0edd31ea3f143b28b4a14fcdbe803c95887b44e96022c9d8a7a",
+      "pages": 1
+    },
+    {
+      "name": "Annual Fund Calling",
+      "href": "/one-sheets/press/Catapult-Annual-Fund-Calling-CMYK-Press-2026-11-03.pdf",
+      "sha256": "1b5c186d672af87bb5da8d462cbf9021f07d6fc029f4ed9c2ca21c9fd1169e10",
+      "pages": 1
+    },
+    {
+      "name": "Board Development",
+      "href": "/one-sheets/press/Catapult-Board-Development-CMYK-Press-2026-11-03.pdf",
+      "sha256": "bee0aee3d8091b24f6a07bc1f4dde727e1bd71c0e85cc6467114c096a09046fa",
+      "pages": 1
+    },
+    {
+      "name": "Leadership Bios",
+      "href": "/one-sheets/press/Catapult-Leadership-Bios-CMYK-Press-2026-11-03.pdf",
+      "sha256": "7d87b85e79529ff696f3540549678b3618e998df6e4b11bd141948931500e314",
+      "pages": 2
+    },
+    {
+      "name": "Frequently Asked Questions",
+      "href": "/one-sheets/press/Catapult-Frequently-Asked-Questions-CMYK-Press-2026-11-03.pdf",
+      "sha256": "65faedc6a11088c91b31bc1eaae11e971836603a8241e8982ba28726d26e4cc0",
+      "pages": 1
+    },
+    {
+      "name": "Trifold Brochure",
+      "href": "/one-sheets/press/Catapult-Trifold-Brochure-CMYK-Press-2026-11-03.pdf",
+      "sha256": "345cf2de4d456cb0b80e2907267f5d05604cdd00a8dcf10b9220f8b2dee3292a",
+      "pages": 2
+    },
+    {
+      "name": "Ronald McDonald House Charities South Texas",
+      "href": "/one-sheets/press/Catapult-Ronald-McDonald-House-Charities-South-Texas-CMYK-Press-2026-11-03.pdf",
+      "sha256": "7ac617da1ea877257f8f5cb2276981c3025418972521f3d42c910a50d127ec18",
+      "pages": 1
+    },
+    {
+      "name": "PBS KVIE",
+      "href": "/one-sheets/press/Catapult-PBS-KVIE-CMYK-Press-2026-11-03.pdf",
+      "sha256": "0e3ecdd614b9fc1e497b5c8a2fecef63b6ea79fac56d7be317d2a3f731ed056e",
+      "pages": 1
+    },
+    {
+      "name": "Salvation Army of Southern Nevada",
+      "href": "/one-sheets/press/Catapult-Salvation-Army-of-Southern-Nevada-CMYK-Press-2026-11-03.pdf",
+      "sha256": "1a782344aa7c9dc1f41e8cfd63fe831774f667db035e23fbe8c8bec1d45dad45",
+      "pages": 1
+    },
+    {
+      "name": "Northeast University",
+      "href": "/one-sheets/press/Catapult-Northeast-University-CMYK-Press-2026-11-03.pdf",
+      "sha256": "f8c57d0ed1b36fd98fff1ba80a571438f8456e080fa4e15f09e264319c4bd757",
+      "pages": 1
+    },
+    {
+      "name": "The Hill School",
+      "href": "/one-sheets/press/Catapult-The-Hill-School-CMYK-Press-2026-11-03.pdf",
+      "sha256": "8613cabede4e71df37e922675a3acba179abdeaca30980c84efe0e896c51f558",
+      "pages": 1
+    },
+    {
+      "name": "Ronald Reagan Presidential Library",
+      "href": "/one-sheets/press/Catapult-Ronald-Reagan-Presidential-Library-CMYK-Press-2026-11-03.pdf",
+      "sha256": "b3e46695fa5fd70c0c6462cea90dd35afc64e032f6d9b837d4f66b562f6a72e6",
+      "pages": 1
+    },
+    {
+      "name": "Special Olympics Indiana",
+      "href": "/one-sheets/press/Catapult-Special-Olympics-Indiana-CMYK-Press-2026-11-03.pdf",
+      "sha256": "f9805731f2d272f639896641064fe77c490142b164df4d5d7e9c33aab71b45f6",
+      "pages": 1
+    },
+    {
+      "name": "New Jersey Hospital",
+      "href": "/one-sheets/press/Catapult-New-Jersey-Hospital-CMYK-Press-2026-11-03.pdf",
+      "sha256": "d75d6758d5359d8f7a9472b0bd60f97e2c53d4abe835cc5f9bdaeee79e51afa0",
+      "pages": 1
+    },
+    {
+      "name": "International Ministry",
+      "href": "/one-sheets/press/Catapult-International-Ministry-CMYK-Press-2026-11-03.pdf",
+      "sha256": "648211537ab3d4cbb8457a7d7765d51226dd3c61feaa8e66f22d13d2df9d4824",
+      "pages": 1
+    },
+    {
+      "name": "Faith-Based Organization",
+      "href": "/one-sheets/press/Catapult-Faith-Based-Organization-CMYK-Press-2026-11-03.pdf",
+      "sha256": "41011f45a6f5d13c18f9d78c624f6f72a697145d4b5936177b2f1180cda5ffa7",
+      "pages": 1
+    },
+    {
+      "name": "Performing Arts Organization",
+      "href": "/one-sheets/press/Catapult-Performing-Arts-Organization-CMYK-Press-2026-11-03.pdf",
+      "sha256": "82929439b3743fbe44a97141272265ff9691ed68c0595c78db4d5758da9e7058",
+      "pages": 1
+    }
+  ],
+  "bundle": {
+    "href": "/one-sheets/press/Catapult-Sheets-and-Brochure-CMYK-Press-2026-11-03.zip",
+    "sha256": "744b9ef3d88ccf4e3ef48aa9c84159f7eb672c9d77a783148921e4eed6f4bf20",
+    "bytes": 59726788
+  }
+}
