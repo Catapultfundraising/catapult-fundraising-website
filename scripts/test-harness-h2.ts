@@ -90,7 +90,7 @@ test("[CHILD] real handler over stdio: 401/400, status via strict mock, unsuppor
     const pv = await c.fetchImpl(req({ op: "provenance", client: "wcbhc" })); assert.ok(pv.status >= 500, String(pv.status));
     const ins = await c.send({ kind: "inspect" }) as Record<string, any>;
     assert.equal(ins.nextVersion, "14.2.35"); assert.ok(String(ins.nextServer).startsWith(pin!.dir.replace(/\/$/, "") + "/node_modules/next/"));
-    assert.deepEqual(ins.outsideBackend.filter((p: string) => !p.startsWith("harness/")), [], "only harness files load from outside the backend extract");
+    assert.deepEqual([...ins.outsideBackend].sort(), ["harness/backend-child.ts", "harness/mock-sql.ts"], "exactly the two harness files load from outside the backend extract; zero other modules");
     assert.ok(ins.trace.some((t: any) => /^UNSUPPORTED:/.test(t.id))); assert.equal(ins.stats.unsupported, 1);
     assert.deepEqual(ins.statements.map((s: any) => s.id), ["source.lockRequest", "source.status", "source.lockGiftOverrides"]);
     assert.deepEqual(ins.counts, { "source_import.requests": 1, "engage.portal_gift_overrides": 0 });
@@ -118,4 +118,85 @@ test("[CHILD] apply through the real handler: stale rev refused pre-tx; valid re
     await assert.rejects(c.fetchImpl(req(ok)), (e) => e instanceof ChildCrashed);
     assert.equal(await c.exited, 70); await assert.rejects(c.send({ kind: "inspect" }), (e) => e instanceof ChildCrashed);
   } finally { c.kill(); }
+});
+
+// ---------------- H2 corrections: definition schema, table access, read-only, atomic seed ----------------
+test("[MOCK] definition/table/param schemas validated up front", () => {
+  const ok = DEFS[0];
+  for (const bad of [{ ...ok, id: "" }, { ...ok, sql: "" }, { ...ok, sql: "   " }, { ...ok, params: ["k", "k"] }, { ...ok, params: ["bad name"] }, { ...ok, tables: [] }, { ...ok, tables: ["a", "a"] }, { ...ok, write: "no" }, { ...ok, exec: null }])
+    assert.throws(() => createMock([bad as never], T), (e) => e instanceof MockSqlError && ["bad_def", "undeclared_table"].includes(e.code), JSON.stringify(Object.keys(bad)));
+  for (const tn of [[], ["a", "a"], [""], ["a b"]]) assert.throws(() => createMock([], tn), code("bad_tables"));
+});
+test("[MOCK] table container is closed: assign/define/delete of any table key throws; nothing committed", async () => {
+  const sneaky: StatementDef[] = [
+    { id: "w.addTable", sql: "W1", params: [], write: true, tables: ["a"], exec: (t) => { (t as Record<string, unknown>).zzz = []; return { rows: [], affected: 0 }; } },
+    { id: "w.replace", sql: "W2", params: [], write: true, tables: ["a"], exec: (t) => { (t as Record<string, unknown>).a = [{ k: "x" }]; return { rows: [], affected: 0 }; } },
+    { id: "w.delete", sql: "W3", params: [], write: true, tables: ["a"], exec: (t) => { delete (t as Record<string, unknown>).a; return { rows: [], affected: 0 }; } },
+    { id: "w.define", sql: "W4", params: [], write: true, tables: ["a"], exec: (t) => { Object.defineProperty(t, "b", { value: [] }); return { rows: [], affected: 0 }; } },
+    { id: "w.readOther", sql: "W5", params: [], write: true, tables: ["a"], exec: (t) => ({ rows: t.b, affected: 0 }) },
+    { id: "w.partial", sql: "W6", params: [], write: true, tables: ["a"], exec: (t) => { t.a.push({ k: "half" }); throw new Error("mid-exec"); } },
+    { id: "w.badRow", sql: "W7", params: [], write: true, tables: ["a"], exec: (t) => { t.a.push({ k: { nested: 1 } } as never); return { rows: [], affected: 1 }; } },
+  ];
+  const m = createMock(sneaky, T); m.seed({ a: [{ k: "seed" }] }); const before = JSON.stringify(m.dump());
+  for (const sql of ["W1", "W2", "W3", "W4", "W5", "W6", "W7"]) {
+    await assert.rejects(m.txf(async (run) => { await run(sql, {}); }), (e) => e instanceof MockSqlError, sql);
+    assert.equal(JSON.stringify(m.dump()), before, `${sql}: no state change`);
+  }
+  assert.deepEqual(Object.keys(m.dump()), T, "no undeclared table created");
+});
+test("[MOCK] read-only statements cannot mutate (push, nested row edit, splice), even via reader outside a transaction", async () => {
+  const ro: StatementDef[] = [
+    { id: "r.push", sql: "R1", params: [], write: false, tables: ["a"], exec: (t) => { t.a.push({ k: "evil" }); return { rows: [], affected: 0 }; } },
+    { id: "r.edit", sql: "R2", params: [], write: false, tables: ["a"], exec: (t) => { (t.a[0] as Record<string, unknown>).k = "evil"; return { rows: [], affected: 0 }; } },
+    { id: "r.splice", sql: "R3", params: [], write: false, tables: ["a"], exec: (t) => { t.a.splice(0, 1); return { rows: [], affected: 0 }; } },
+    { id: "r.returnsRef", sql: "R4", params: [], write: false, tables: ["a"], exec: (t) => ({ rows: t.a, affected: 0 }) },
+  ];
+  const m = createMock(ro, T); m.seed({ a: [{ k: "seed" }] }); const before = JSON.stringify(m.dump());
+  for (const sql of ["R1", "R2", "R3"]) { await assert.rejects(m.reader(sql, {}), code("readonly_mutation"), sql); await assert.rejects(m.txf(async (run) => { await run(sql, {}); }), code("readonly_mutation")); assert.equal(JSON.stringify(m.dump()), before); }
+  const r = await m.reader("R4", {}); (r.rows[0] as Record<string, unknown>).k = "caller-edit"; assert.equal(JSON.stringify(m.dump()), before, "returned rows are copies");
+});
+test("[MOCK] seed validates the WHOLE payload before applying (atomic)", () => {
+  const m = createMock(DEFS, T); m.seed({ a: [{ k: "keep" }] }); const before = JSON.stringify(m.dump());
+  for (const bad of [{ a: [{ k: "new" }], unknown: [] }, { a: [{ k: "new" }], b: "x" }, { a: [{ k: { o: 1 } }] }, { a: [[1]] }, [], null, { a: [{ k: undefined }] }])
+    { assert.throws(() => m.seed(bad as never), code("bad_seed")); assert.equal(JSON.stringify(m.dump()), before, JSON.stringify(bad)); }
+});
+
+// ---------------- H2 corrections: protocol failure handling (synthetic children; node only, no backend) ----------------
+import { attach, ProtocolError, EOF_GRACE_MS } from "./harness/paired-client";
+import { spawn } from "node:child_process";
+const node = (src: string) => spawn(process.execPath, ["-e", src], { stdio: ["pipe", "pipe", "pipe"] });
+test("[PROTOCOL] spawn failure rejects pending and future frames", async () => {
+  const c = attach(spawn("/nonexistent/harness-binary", [], { stdio: ["pipe", "pipe", "pipe"] }));
+  await assert.rejects(c.send({ kind: "inspect" }), (e) => e instanceof ProtocolError || e instanceof ChildCrashed);
+  await assert.rejects(c.send({ kind: "inspect" }));
+});
+test("[PROTOCOL] malformed output and unknown-id frames are fatal: pending + future rejected, child killed", async () => {
+  for (const src of ['process.stdin.once("data",()=>process.stdout.write("not json\\n"));setInterval(()=>{},1e5)', 'process.stdin.once("data",()=>process.stdout.write(JSON.stringify({kind:"ok",id:"zzz"})+"\\n"));setInterval(()=>{},1e5)', 'process.stdin.once("data",()=>process.stdout.write("[1]\\n"));setInterval(()=>{},1e5)']) {
+    const c = attach(node(src));
+    await assert.rejects(c.send({ kind: "inspect" }), (e) => e instanceof ProtocolError);
+    await assert.rejects(c.send({ kind: "inspect" }), (e) => e instanceof ProtocolError);
+    assert.notEqual(await c.exited, 0, "killed");
+  }
+});
+test("[PROTOCOL] stdout EOF on a still-live child fails closed after the bounded grace period and kills it", async () => {
+  const c = attach(node('process.stdout.end();setInterval(()=>{},1e5)'));
+  const t0 = Date.now(); await assert.rejects(c.send({ kind: "inspect" }), (e) => e instanceof ProtocolError && /stdout closed/.test(e.message));
+  assert.ok(Date.now() - t0 < EOF_GRACE_MS + 3000); assert.notEqual(await c.exited, 0);
+});
+test("[PROTOCOL] stdin error after child exit rejects instead of hanging", async () => {
+  const c = attach(node("process.exit(3)")); assert.equal(await c.exited, 3);
+  await assert.rejects(c.send({ kind: "inspect" }), (e) => e instanceof ChildCrashed || e instanceof ProtocolError);
+});
+test("[PROTOCOL] parent exit kills attached children", async () => {
+  const script = `import { attach } from ${JSON.stringify(process.cwd() + "/scripts/harness/paired-client.ts")}; import { spawn } from "node:child_process";
+const cp = spawn(process.execPath, ["-e", "setInterval(()=>{},1e5)"], { stdio: ["pipe","pipe","pipe"] }); attach(cp); process.stdout.write(String(cp.pid)+"\\n"); process.exit(0);`;
+  const { writeFileSync, mkdtempSync } = await import("node:fs"); const { tmpdir } = await import("node:os"); const dir = mkdtempSync(tmpdir() + "/h2-exit-"); writeFileSync(dir + "/p.mts", script);
+  const tsx = spawn(process.execPath, [...process.execArgv, dir + "/p.mts"], { stdio: ["ignore", "pipe", "inherit"] });
+  let out = ""; tsx.stdout.on("data", (d) => { out += d; });
+  const code0 = await new Promise((r) => tsx.on("exit", r)); assert.equal(code0, 0);
+  const pid = Number(out.trim()); assert.ok(pid > 0);
+  // dead = no /proc entry, or a zombie (killed, awaiting reaping by init)
+  const st = (await import("node:fs")).existsSync(`/proc/${pid}/stat`) ? (await import("node:fs")).readFileSync(`/proc/${pid}/stat`, "utf8").split(") ")[1]?.[0] : "gone";
+  const alive = st !== "gone" && st !== "Z" && st !== "X";
+  assert.equal(alive, false, "child killed on parent exit");
 });
