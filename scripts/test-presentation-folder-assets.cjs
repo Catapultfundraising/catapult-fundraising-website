@@ -6,7 +6,7 @@ const {PDFDocument} = require('pdf-lib');
   const card = source.match(/title: "Presentation Folder",([\s\S]*?)\n  },/)[1];
   const href = card.match(/href: "([^"]+)"/)[1];
   assert.equal(href, '/one-sheets/print/Catapult-Presentation-Folder-Artwork-2026-11-03.pdf');
-  assert.match(card, /Printer handles the folder template, pockets and business-card slits/);
+  assert.match(card, /Do not use this cover proof as the final press file/);
   assert.doesNotMatch(card, /interior spread/);
   const bytes = fs.readFileSync('public' + href);
   assert.equal(bytes.subarray(0,4).toString(), '%PDF');
