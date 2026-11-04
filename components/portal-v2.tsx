@@ -1,5 +1,6 @@
 "use client";
 
+import { dbGiftEditsAvailable, DB_GIFT_EDIT_UNAVAILABLE_UI } from "@/lib/portal-v2/gift-edit-guard";
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -191,6 +192,7 @@ function AllGifts() {
   const voided = state.voidedGifts ?? [];
   const dbVoids = (state.giftOverrides ?? []).filter((o) => o.voided);
   const activeGift = state.gifts.find((g) => giftId(g) === mode?.id);
+  const dbEdits = dbGiftEditsAvailable(state.databaseGiftEditsAvailable);
   return (
     <div className={card}>
       <div className="flex flex-wrap items-end justify-between gap-2">
@@ -198,6 +200,7 @@ function AllGifts() {
         <label className="text-xs">Your name (required to edit or void)<input className={`${input} mt-1 w-56`} value={by} onChange={(e) => setBy(e.target.value)} /></label>
       </div>
       <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh.</p>
+      {!dbEdits && state.gifts.some((g) => !(Number(g.id) > 0) && g.key) && <p className="mt-1 text-xs text-[rgb(var(--ink))]/70">{DB_GIFT_EDIT_UNAVAILABLE_UI} Reload the page if this changes.</p>}
       {msg && !mode && <p role="status" aria-live="polite" className="mt-2 rounded border border-[rgb(var(--brass))] p-3 text-sm">{msg}</p>}
       <div className="mt-3 max-h-[560px] overflow-auto">
         <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={gso} k="gift_date" label="Date" className={th} /><SortTh s={gso} k="donor_name" label="Donor" className={th} /><SortTh s={gso} k="kind" label="Type" className={th} /><SortTh s={gso} k="amount" label="Amount" className={`${th} text-right`} /><SortTh s={gso} k="src" label="Source" className={th} /><SortTh s={gso} k="note" label="Note" className={th} /><th className={th} /></tr></thead>
@@ -206,7 +209,7 @@ function AllGifts() {
               <tr className="border-b border-[rgb(var(--line))]"><td className={td}>{isoToUs(g.gift_date)}</td><td className={td}><NameLink name={g.donor_name} cptid={g.cptid} />{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
                 <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{usd(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usd(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
                 <td className={td}>{g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry"}</td><td className={td}>{g.note ?? ""}</td>
-                <td className={`${td} whitespace-nowrap text-right`}>{(Number(g.id) > 0 || g.key) && <>
+                <td className={`${td} whitespace-nowrap text-right`}>{!(Number(g.id) > 0) && g.key && !dbEdits ? <span className="text-xs text-[rgb(var(--ink))]/55" title={DB_GIFT_EDIT_UNAVAILABLE_UI}>Edits unavailable</span> : (Number(g.id) > 0 || g.key) && <>
                   <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => start(g, "edit")}>Edit</button>
                   <button className="ml-3 text-xs font-semibold text-red-700 hover:underline" onClick={() => start(g, "void")}>Void</button></>}</td></tr>
             </Fragment>

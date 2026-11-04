@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { SourceCsvUpdatesNote } from "@/components/source-csv-updates-note";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
 import { PortalV2Provider, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
@@ -722,6 +723,7 @@ export function WcbhcDataDashboard({ data }: { data: WcbhcSnapshot }) {
             <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">Prepared by Catapult Fundraising</p>
             <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
             <p className="mt-1 text-sm text-white/70">Source data as of {data.asOf}</p>
+            <SourceCsvUpdatesNote client="wcbhc" dark />
             <p className="text-xs text-white/60">Snapshot refreshed {data.builtAt}</p>
           </div>
           <DonorSearch dark />

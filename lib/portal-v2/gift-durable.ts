@@ -1,0 +1,431 @@
+// Durable gift-ID website gateway (REVIEW-ONLY, DISABLED). Server-side helpers for /api/research-source-import.
+// - The website copy of the gift registrations is EMPTY; commits additionally need sourceApplyConfigured(), which is
+//   hard-gated by SOURCE_TRANSPORT_APPROVED=false. Nothing here can activate writes.
+// - Plans are built server-side from the re-parsed CSV + explicit per-row operator decisions; a signed job token binds
+//   the manifest hash (jobId) and every input that is not inside the manifest (mapping digest, expiry).
+// - Committed IDs reach an export only through server-signed per-batch proofs re-validated against the manifest slice.
+//   Browser-asserted outcomes are never accepted; held/uncommitted/unproven rows stay blank; PROV values never appear.
+// - Reload recovery is NOT implemented (same-session only). Baseline attestation of adopted gifts is NOT implemented.
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { parseCsv } from "./csv-updates";
+import { normalize } from "./source-reconcile";
+import { neutralize, APPENDED } from "./gift-preview";
+import { planGiftJob, verifyGiftJob, validateGiftRequest, validValue, previewRowCap, validateManifest, validOutcome, validGiftId, giftJobId, giftRegDigest, giftEnvelopeBytes, jobRequestId, canonManifestJson, SourceImportError, GIFT_MAX_ENVELOPE_BYTES, GIFT_JOB_MAX_BATCHES, GIFT_JOB_MAX_ORDINALS, type GiftRegistration, type GiftRow, type GiftJobManifest, type GiftCommitRequest } from "./gift-identity-plan";
+
+export class DurableGiftError extends Error { constructor(message: string, public status = 400) { super(message); } }
+function bad(m: string, s = 400): never { throw new DurableGiftError(m, s); }
+export const DURABLE_MAX_BODY = 4_000_000;      // exact serialized request bytes for plan/export
+export const DURABLE_MAX_RESPONSE = 4_000_000;  // exact serialized response bytes (deployed limit ~4.5 MB)
+export const JOB_TOKEN_TTL_MS = 60 * 60_000, PROOF_TTL_MS = 60 * 60_000;
+export const EXPORT_COLS = ["Catapult Gift ID", "Gift ID Status"] as const;
+const foldH = (h: string) => h.trim().replace(/\s+/g, " ").toLowerCase();
+const RESERVED = new Set([...EXPORT_COLS, ...APPENDED].map(foldH));
+export const isReservedGiftHeader = (h: string) => RESERVED.has(foldH(h));
+
+let REGS: readonly GiftRegistration[] = Object.freeze([]);
+/** Website copy of the reviewed gift registrations: EMPTY. Test hook only with SOURCE_PREPARED_TEST_HOOK=1 outside production. */
+export const giftRegistrations = () => REGS;
+export function __setGiftRegistrationsForTests(r: GiftRegistration[]) {
+  if (process.env.SOURCE_PREPARED_TEST_HOOK !== "1" || process.env.NODE_ENV === "production") throw new Error("test hook disabled");
+  REGS = Object.freeze([...r]);
+}
+export function registrationFor(client: string, regs: readonly GiftRegistration[] = REGS) {
+  const g = regs.filter((x) => x.client === client);
+  return g.length === 1 ? g[0] : null;
+}
+
+// ---------- signing (domain-separated: a job token can never stand in for a proof or vice versa) ----------
+type Signed<T> = { p: T; s: string };
+const key = (secret: string, domain: string) => createHmac("sha256", secret).update(`catapult-durable-gift/${domain}/v1`).digest();
+/** Same minimum as the existing source-token key guard: a configured secret of at least 24 characters. */
+const goodSecret = (s: string | undefined): s is string => typeof s === "string" && s.length >= 24;
+function sign<T>(secret: string | undefined, domain: "job" | "proof", p: T): string {
+  if (!goodSecret(secret)) bad("server secret not configured", 500);
+  const body = Buffer.from(JSON.stringify(p), "utf8").toString("base64url");
+  return `${body}.${createHmac("sha256", key(secret!, domain)).update(body).digest("base64url")}`;
+}
+function verify<T extends { typ: string; exp: number }>(tok: unknown, secret: string | undefined, domain: "job" | "proof", now: number, ignoreExpiry = false): T {
+  if (!goodSecret(secret)) bad("server secret not configured", 500);
+  if (typeof tok !== "string" || tok.length > 400_000 || !/^[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+$/.test(tok)) bad(`bad ${domain} token`);
+  const [body, mac] = (tok as string).split(".");
+  const want = createHmac("sha256", key(secret!, domain)).update(body).digest();
+  const got = Buffer.from(mac, "base64url");
+  if (got.length !== want.length || !timingSafeEqual(got, want)) bad(`${domain} token signature invalid`);
+  let p: T; try { p = JSON.parse(Buffer.from(body, "base64url").toString("utf8")); } catch { return bad(`bad ${domain} token`); }
+  if (!p || p.typ !== domain) bad(`wrong token type (expected ${domain})`);
+  if (typeof p.exp !== "number" || (!ignoreExpiry && !(p.exp > now))) bad(`${domain} token expired; plan again`);
+  return p;
+}
+void ({} as Signed<unknown>);
+
+const sha = (b: Uint8Array | string) => createHash("sha256").update(b).digest("hex");
+const mapDigest = (m: Record<string, string>) => sha(JSON.stringify(Object.keys(m).sort().map((k) => [k, m[k]])));
+export interface JobToken { typ: "job"; jobId: string; client: string; registrationId: string; registrationVersion: number; registrationDigest: string; mappingDigest: string; fileDigest: string; fileName: string; totalOrdinals: number; actor: string; fileDate: string | null; batchHashes: string[]; exp: number }
+export interface ProofRow { o: number; a: "new" | "adopt" | "correct"; u: string; p: number; l: number }
+export interface BatchProof { typ: "proof"; jobId: string; client: string; fileDigest: string; registrationDigest: string; batchIndex: number; requestId: string; rows: ProofRow[]; exp: number }
+
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+const sized = <T,>(o: T): T => { if (Buffer.byteLength(JSON.stringify(o), "utf8") > DURABLE_MAX_RESPONSE) bad("Result too large for one response; split the file", 413); return o; };
+const posInt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v > 0 && v <= 2147483647;
+/** exact positive int32 as written: no sign, no leading zeros, no spaces/fractions */
+const exactInt = (s: string) => (/^[1-9]\d{0,9}$/.test(s) && Number(s) <= 2147483647 ? Number(s) : null);
+
+export type Decision = { o: number; d: "held" } | { o: number; d: "new" } | { o: number; d: "adopt"; locator: number; expected: Record<string, string | null> } | { o: number; d: "correct"; giftId: string; expected: Record<string, string | null> };
+
+/** Build a signed plan. mapping: CSV header -> registered column, plus exactly one header mapped to "@person" (donor CPTID). */
+export function buildDurablePlan(o: { client: string; csv: string; mapping: unknown; decisions: unknown; actor: unknown; fileName: unknown; fileDate: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  const g = registrationFor(o.client, o.regs); if (!g) bad("No reviewed gift registration for this client", 404);
+  if (typeof o.actor !== "string" || !o.actor.trim() || o.actor.length > 200 || o.actor !== o.actor.trim()) bad("Enter your name (recorded as stated, not a verified identity)");
+  if (typeof o.fileName !== "string" || !o.fileName || o.fileName.length > 300) bad("bad file name");
+  if (o.fileDate !== null && !(typeof o.fileDate === "string" && /^\d{4}-\d{2}-\d{2}$/.test(o.fileDate))) bad("Source export date must be YYYY-MM-DD or unknown");
+  const grid = parseCsv(o.csv); if (grid.length < 2) bad("CSV needs a header and at least one row");
+  const headers = grid[0]; const rows = grid.slice(1);
+  if (rows.some((r) => r.length !== headers.length)) bad("Every row must have exactly as many cells as the header");
+  // Columns literally named like the review-copy/provisional columns are refused (never read as unverified UUIDs, never
+  // duplicated in the export). Known IDs in a FRESH source export use a differently named column mapped to "@giftId".
+  if (headers.some((h) => RESERVED.has(foldH(h)))) bad("This file has a column named Catapult Gift ID, Gift ID Status or a provisional preview column. To use known Catapult Gift IDs from a fresh source export, give that column another name and map it as \"Catapult Gift ID (verify)\". To check a review copy downloaded from here, use \"Check a returned review copy\" instead.");
+  if (!isObj(o.mapping)) bad("bad mapping");
+  const mapping = o.mapping as Record<string, unknown>;
+  const regCols = new Set(g!.columns.map((c) => c.col)); const used = new Set<string>(); let personH: string | null = null, giftH: string | null = null;
+  for (const [h, c] of Object.entries(mapping)) {
+    if (typeof c !== "string" || !headers.includes(h) || headers.filter((x) => x === h).length !== 1) bad(`mapping header "${h}" is not a unique CSV header`);
+    if ((c === "@person" || c === "@giftId") && h.trim() === "") bad("a blank or whitespace-only CSV header cannot be mapped as Donor CPTID or Catapult Gift ID (verify); give that column a name");
+    if (c === "@person") { if (personH !== null) bad("map exactly one donor CPTID column"); personH = h; continue; }
+    if (c === "@giftId") { if (giftH !== null) bad("map at most one Catapult Gift ID (verify) column"); giftH = h; continue; }
+    if (!regCols.has(c as string) || used.has(c as string)) bad(`"${c}" is not a registered column or is mapped twice`);
+    used.add(c as string);
+  }
+  if (personH === null) bad("map the donor CPTID column");
+  if (!Array.isArray(o.decisions) || o.decisions.length !== rows.length) bad("one decision per CSV row is required");
+  const idx = (h: string) => headers.indexOf(h);
+  const decided: GiftRow[] = [], held: number[] = [];
+  // F2b known-ID mode: every row is correct/held only; duplicates counted over ALL non-empty cells (held rows included)
+  const gcount = new Map<string, number>();
+  if (giftH !== null) for (const r of rows) { const u = r[idx(giftH)]; if (u !== "") gcount.set(u, (gcount.get(u) ?? 0) + 1); }
+  (o.decisions as unknown[]).forEach((d0, i) => {
+    if (!isObj(d0) || d0.o !== i) bad("decisions must be in row order", 400);
+    const d = d0 as unknown as Decision;
+    const keys = JSON.stringify(Object.keys(d0).sort());
+    const want = d.d === "held" || d.d === "new" ? ["d", "o"] : d.d === "adopt" ? ["d", "expected", "locator", "o"] : d.d === "correct" ? ["d", "expected", "giftId", "o"] : null;
+    if (!want || keys !== JSON.stringify(want)) bad(`row ${i + 1}: decision has missing or unexpected fields`);
+    if (giftH !== null && (d.d === "new" || d.d === "adopt")) bad(`row ${i + 1}: with a mapped Catapult Gift ID (verify) column every row must be held or corrected`);
+    if (d.d === "held") { held.push(i); return; }
+    const person = exactInt(rows[i][idx(personH!)]); if (person === null) bad(`row ${i + 1}: donor CPTID is not an exact positive whole number`);
+    const mapped: Record<string, string> = {};
+    // SOURCE cells are canonicalized with the owning source-reconcile normalize (registered type/precision); blanks stay
+    // unchanged (no clears); a value that cannot be converted refuses the plan. Expected snapshots are NEVER normalized.
+    for (const [h, c] of Object.entries(mapping)) if (c !== "@person" && c !== "@giftId") { // pseudo-columns never in values/expected
+      const d = g!.columns.find((x) => x.col === c)!; const n = normalize(d as never, rows[i][idx(h)]);
+      if (n.err) bad(`row ${i + 1}, ${h}: ${n.err}`);
+      if (n.v !== null) mapped[c as string] = n.v;
+    }
+    if (d.d === "new") { decided.push({ ordinal: i, action: "new", person: person!, values: mapped, expected: null }); return; }
+    if (!isObj(d.expected)) bad(`row ${i + 1}: expected snapshot required`);
+    const exp = d.expected as Record<string, string | null>;
+    if (d.d === "adopt") { if (!posInt(d.locator)) bad(`row ${i + 1}: bad locator`); decided.push({ ordinal: i, action: "adopt", locator: d.locator, person: person!, values: {}, expected: exp }); return; }
+    if (d.d === "correct") {
+      if (!validGiftId(d.giftId)) bad(`row ${i + 1}: bad Catapult Gift ID`);
+      if (giftH !== null) { const u = rows[i][idx(giftH)]; if (u !== d.giftId || !validGiftId(u) || gcount.get(u) !== 1) bad(`row ${i + 1}: the correction target must be this row's own unique Catapult Gift ID from the file`); }
+      const values = Object.fromEntries(Object.entries(mapped).filter(([c, v]) => exp[c] !== v));
+      if (!Object.keys(values).length) { held.push(i); return; } // nothing changed: not a write, keep it held/unchanged
+      decided.push({ ordinal: i, action: "correct", giftId: d.giftId, person: person!, values, expected: exp }); return;
+    }
+    bad(`row ${i + 1}: unknown decision`);
+  });
+  held.sort((a, b) => a - b);
+  const fileDigest = sha(o.csv);
+  const base = { client: o.client, registrationId: g!.id, registrationVersion: g!.version, registrationDigest: giftRegDigest(g!), actor: o.actor as string, fileName: o.fileName as string, fileDigest, fileDate: o.fileDate as string | null };
+  let plan: ReturnType<typeof planGiftJob>;
+  try { plan = planGiftJob(base, decided, held, rows.length, g!.columns.length); } catch (e) { if (e instanceof SourceImportError) bad(e.message, e.status); throw e; }
+  for (const r of plan.requests) {
+    // backend-equivalent row contract (types, required values, expected keys, budget) BEFORE anything is signed
+    try { validateGiftRequest(r, [g!]); } catch (e) { if (e instanceof SourceImportError) bad(`Not plannable: ${e.message}${typeof e.detail === "number" ? ` (row ${e.detail + 1})` : ""}`, e.status === 409 ? 400 : e.status); throw e; }
+    if (giftEnvelopeBytes(r) > GIFT_MAX_ENVELOPE_BYTES) bad("a batch exceeds the request byte budget", 413);
+  }
+  const token: JobToken = { typ: "job", jobId: plan.jobId, client: o.client, registrationId: g!.id, registrationVersion: g!.version, registrationDigest: base.registrationDigest, mappingDigest: mapDigest(mapping as Record<string, string>), fileDigest, fileName: base.fileName, totalOrdinals: rows.length, actor: base.actor, fileDate: base.fileDate, batchHashes: plan.manifest.batches.map((b) => b.hash), exp: o.now + JOB_TOKEN_TTL_MS };
+  const jobToken = sign(o.secret, "job", token); const batches = plan.requests.map((r) => r.rows);
+  const recovery = buildRecovery({ g: g!, token, jobToken, manifest: plan.manifest, mapping: mapping as Record<string, string>, batches, secret: o.secret, now: o.now });
+  return sized({ token: jobToken, jobId: plan.jobId, manifest: plan.manifest, batches, recovery, summary: { batches: plan.requests.length, decided: decided.length, held: held.length, total: rows.length } });
+}
+
+/** Verify a job token + manifest binding. Returns the token payload. */
+export function verifyJob(token: unknown, manifest: unknown, secret: string | undefined, now: number, client: string, regs?: readonly GiftRegistration[]): { t: JobToken; m: GiftJobManifest } {
+  const t = verify<JobToken>(token, secret, "job", now);
+  if (t.client !== client) bad("job belongs to another client");
+  if (!isObj(manifest)) bad("bad manifest");
+  const m = manifest as unknown as GiftJobManifest;
+  try { validateManifest(m); } catch (e) { if (e instanceof SourceImportError) bad(e.message, e.status); throw e; }
+  if (giftJobId(m) !== t.jobId) bad("manifest does not match the signed job");
+  const eq = m.client === t.client && m.registrationId === t.registrationId && m.registrationVersion === t.registrationVersion && m.registrationDigest === t.registrationDigest && m.fileDigest === t.fileDigest && m.fileName === t.fileName && m.totalOrdinals === t.totalOrdinals && m.actor === t.actor && m.fileDate === t.fileDate && JSON.stringify(m.batches.map((b) => b.hash)) === JSON.stringify(t.batchHashes);
+  if (!eq) bad("manifest fields differ from the signed job");
+  const g = registrationFor(client, regs); if (!g || g.id !== t.registrationId || g.version !== t.registrationVersion || giftRegDigest(g) !== t.registrationDigest) bad("gift registration changed since planning; plan again", 409);
+  return { t, m };
+}
+
+/** Upstream giftCommit body for one batch (rows must equal the manifest slice; backend re-checks). */
+export function commitBody(o: { client: string; token: unknown; manifest: unknown; batchIndex: unknown; rows: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client, o.regs);
+  if (!Number.isSafeInteger(o.batchIndex) || (o.batchIndex as number) < 0 || (o.batchIndex as number) >= m.batchCount) bad("bad batch index");
+  if (!Array.isArray(o.rows)) bad("bad rows");
+  const i = o.batchIndex as number;
+  const request: GiftCommitRequest = { client: m.client, registrationId: m.registrationId, registrationVersion: m.registrationVersion, registrationDigest: m.registrationDigest, actor: m.actor, fileName: m.fileName, fileDigest: m.fileDigest, fileDate: m.fileDate, requestId: jobRequestId(t.jobId, i), rows: o.rows as GiftRow[], job: { expectedJobId: t.jobId, batchIndex: i, manifest: m } };
+  try { verifyGiftJob(request); } catch (e) { if (e instanceof SourceImportError) bad(e.message, e.status); throw e; }
+  if (giftEnvelopeBytes(request) > GIFT_MAX_ENVELOPE_BYTES) bad("batch too large", 413);
+  return { op: "giftCommit", request };
+}
+
+/** Turn an upstream giftStatus body for batch i into a signed proof, or null (unconfirmed/inconsistent). */
+export function proofFor(o: { client: string; token: unknown; manifest: unknown; batchIndex: unknown; status: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }): string | null {
+  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client, o.regs);
+  if (!Number.isSafeInteger(o.batchIndex) || (o.batchIndex as number) < 0 || (o.batchIndex as number) >= m.batchCount) bad("bad batch index");
+  const i = o.batchIndex as number, rq = jobRequestId(t.jobId, i), sl = m.batches[i];
+  const slice = m.decided.slice(sl.first, sl.last + 1);
+  if (!isObj(o.status) || o.status.confirmed !== true || o.status.found !== true) return null;
+  const out = o.status.outcome;
+  if (!validOutcome(out, { requestId: rq, client: m.client, registrationId: m.registrationId, targets: slice.map((e) => ({ o: e.o, a: e.a, t: e.t, l: e.l })) })) return null;
+  const by = new Map(out.rows.map((x) => [x.ordinal, x]));
+  const rows: ProofRow[] = slice.map((e) => { const x = by.get(e.o)!; return { o: e.o, a: e.a, u: x.giftId, p: e.p, l: x.locator }; });
+  const p: BatchProof = { typ: "proof", jobId: t.jobId, client: m.client, fileDigest: m.fileDigest, registrationDigest: m.registrationDigest, batchIndex: i, requestId: rq, rows, exp: o.now + PROOF_TTL_MS };
+  return sign(o.secret, "proof", p);
+}
+
+/** Shared proof validation (export + review check): signature/type/expiry, same job/client/file/registration, derived
+ *  request id, in-range unique batch, rows == the exact manifest slice (ordinal/action/person/target/locator), lowercase
+ *  unique UUIDs across ALL proofs. Any failure throws (refuses the whole request); never a row hold. */
+export function provenMap(t: JobToken, m: GiftJobManifest, proofs: unknown, secret: string | undefined, now: number) {
+  if (!Array.isArray(proofs) || proofs.length > m.batchCount) bad("bad proofs");
+  const ids = new Map<number, string>(); const seenB = new Set<number>(), seenU = new Set<string>();
+  for (const s of proofs as unknown[]) {
+    const p = verify<BatchProof>(s, secret, "proof", now);
+    if (p.jobId !== t.jobId || p.client !== m.client || p.fileDigest !== m.fileDigest || p.registrationDigest !== m.registrationDigest) bad("proof belongs to another job/file/registration");
+    if (!Number.isSafeInteger(p.batchIndex) || p.batchIndex < 0 || p.batchIndex >= m.batchCount || seenB.has(p.batchIndex) || p.requestId !== jobRequestId(t.jobId, p.batchIndex)) bad("bad or duplicate proof batch");
+    seenB.add(p.batchIndex);
+    const sl = m.batches[p.batchIndex], slice = m.decided.slice(sl.first, sl.last + 1);
+    if (!Array.isArray(p.rows) || p.rows.length !== slice.length) bad("proof does not cover its whole batch");
+    p.rows.forEach((r, k) => { const e = slice[k];
+      if (!isObj(r) || r.o !== e.o || r.a !== e.a || r.p !== e.p || !validGiftId(r.u) || seenU.has(r.u) || (e.a === "correct" && r.u !== e.t) || (e.a === "adopt" && r.l !== e.l) || !posInt(r.l) || ids.has(r.o)) bad("proof row does not match the manifest");
+      ids.set(r.o, r.u); seenU.add(r.u); });
+  }
+  return ids;
+}
+
+const safeName = (n: string) => (n.replace(/\.csv$/i, "").replace(/[^A-Za-z0-9 .-]+/g, "-").replace(/_/g, "-").replace(/\s+/g, " ").trim().slice(0, 80) || "gifts");
+const q = (c: string) => `"${c.replace(/"/g, '""')}"`;
+/** Augmented REVIEW copy: original cells (formula-neutralized, so NOT a reimport-safe exact copy) + Catapult Gift ID only for proven rows. */
+export function durableExport(o: { client: string; csv: string; token: unknown; manifest: unknown; proofs: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  const { t, m } = verifyJob(o.token, o.manifest, o.secret, o.now, o.client, o.regs);
+  if (sha(o.csv) !== t.fileDigest) bad("This is not the file that was planned");
+  const ids = provenMap(t, m, o.proofs, o.secret, o.now);
+  const grid = parseCsv(o.csv); const headers = grid[0], rows = grid.slice(1);
+  if (rows.length !== m.totalOrdinals || rows.some((r) => r.length !== headers.length)) bad("Every row must have exactly as many cells as the header");
+  if (headers.some((h) => RESERVED.has(foldH(h)))) bad("The file already has a Catapult Gift ID, Gift ID Status or provisional preview column");
+  const held = new Set(m.held), decided = new Set(m.decided.map((e) => e.o));
+  const line = (cells: string[]) => cells.map((c) => q(neutralize(c).v)).join(",");
+  const out = [line([...headers, ...EXPORT_COLS])];
+  rows.forEach((r, i) => { const id = ids.get(i);
+    const status = id ? "saved (committed, verified)" : held.has(i) ? "held - not saved" : decided.has(i) ? "not confirmed - check status" : "not in plan";
+    out.push(line([...r, id ?? "", status])); });
+  const text = out.join("\r\n") + "\r\n";
+  return sized({ fileName: `${safeName(t.fileName)}-catapult-gift-ids.csv`, csv: text, proven: ids.size, held: held.size, unconfirmed: decided.size - ids.size, note: "Review copy: formula-like cells are escaped with a leading apostrophe, so this is not a reimport-safe exact copy." });
+}
+export { canonManifestJson };
+
+/** Strict website preflight for a preview query (kind/keys/ints/UUIDs/limit R) before any upstream read. */
+export function previewQuery(q: unknown, g: GiftRegistration) {
+  const R = previewRowCap(g.columns.length);
+  if (!isObj(q)) bad("bad preview query");
+  const ks = JSON.stringify(Object.keys(q).sort()); const uniq = (a: unknown[]) => new Set(a).size === a.length;
+  const list = (k: string, ok: (v: unknown) => boolean) => { const a = q[k]; if (!Array.isArray(a) || !a.length || a.length > R || !a.every(ok) || !uniq(a)) bad(`1..${R} unique ${k} per preview call`); };
+  if (q.kind === "locators" && ks === '["kind","locators"]') list("locators", posInt);
+  else if (q.kind === "gifts" && ks === '["giftIds","kind"]') list("giftIds", validGiftId);
+  else if (q.kind === "persons" && ks === '["kind","persons"]') list("persons", posInt);
+  else if (q.kind === "history" && (ks === '["kind","person"]' || ks === '["after","kind","person"]')) { if (!posInt(q.person) || (q.after !== undefined && !(Number.isSafeInteger(q.after) && (q.after as number) >= 0 && (q.after as number) <= 2147483647))) bad("bad history query"); }
+  else bad("bad preview query");
+  return q;
+}
+/** Strict projection of the upstream preview: everything is rebuilt from validated known fields for THIS registration and
+ *  THIS query; any mismatch is 502 (never relayed). Flags stay advisory; commit re-checks under lock. */
+export function projectPreview(body: unknown, g: GiftRegistration, query: Record<string, unknown>) {
+  const no = (): never => bad("Preview unavailable (unexpected response)", 502);
+  const R = previewRowCap(g.columns.length);
+  if (!isObj(body) || body.registrationId !== g.id || body.rowCap !== R || typeof body.giftOverridesActive !== "boolean") no();
+  const b = body as Record<string, unknown>;
+  const bool = (v: unknown) => (typeof v === "boolean" ? v : no());
+  const nn = (v: unknown) => (typeof v === "number" && Number.isSafeInteger(v) && v >= 0 ? v : no());
+  const cols = new Map(g.columns.map((c) => [c.col, c]));
+  const row = (x: unknown) => {
+    if (!isObj(x) || !posInt(x.locator)) no();
+    const r = x as Record<string, unknown>;
+    const gid = r.giftId === undefined || r.giftId === null ? null : validGiftId(r.giftId) ? r.giftId : no();
+    const conflict = r.identityConflict === undefined ? false : bool(r.identityConflict);
+    if (conflict && gid !== null) no();
+    if (r.matches !== undefined) { const m = nn(r.matches); if (m === 1) no(); return { locator: r.locator as number, matches: m, giftId: gid, identityConflict: conflict }; }
+    const person = r.person === null ? null : posInt(r.person) ? (r.person as number) : no();
+    if (bool(r.personReadable) !== (person !== null)) no();
+    if (!isObj(r.values) || Object.keys(r.values).length !== cols.size) no();
+    const values: Record<string, { v: string | null; readable: true } | { readable: false }> = {};
+    for (const [c, d] of cols) { const cv = (r.values as Record<string, unknown>)[c];
+      if (!isObj(cv)) no(); const cell = cv as Record<string, unknown>;
+      if (cell.readable === false) { values[c] = { readable: false }; continue; } // any relayed v is dropped
+      if (cell.readable !== true || !(cell.v === null || validValue(d as never, cell.v))) no();
+      values[c] = { v: cell.v as string | null, readable: true }; }
+    let baseline: Record<string, { present: boolean; provenance: "source" | null; equalsCurrent: boolean | null }> | null = null;
+    if (r.baseline !== null && r.baseline !== undefined) {
+      if (gid === null || !isObj(r.baseline) || Object.keys(r.baseline).length !== cols.size) no();
+      baseline = {};
+      for (const c of cols.keys()) { const e = (r.baseline as Record<string, unknown>)[c]; if (!isObj(e)) no(); const f = e as Record<string, unknown>;
+        const present = bool(f.present); const prov = f.provenance === null ? null : f.provenance === "source" ? "source" as const : no();
+        const eq = f.equalsCurrent === null ? null : bool(f.equalsCurrent);
+        if (!present && (prov !== null || eq !== null)) no();
+        baseline[c] = { present, provenance: prov, equalsCurrent: eq }; }
+    }
+    return { locator: r.locator as number, person, personReadable: person !== null, values, giftId: gid, identityConflict: conflict, donorMismatch: r.donorMismatch === undefined ? false : bool(r.donorMismatch), baseline };
+  };
+  const out: Record<string, unknown> = { registrationId: g.id, rowCap: R, giftOverridesActive: b.giftOverridesActive, note: "Read-only preview; every save re-checks under lock. Flags are advisory." };
+  const rowsOf = () => { if (!Array.isArray(b.rows)) no(); const rs = (b.rows as unknown[]).map(row); if (new Set(rs.map((r) => r.locator)).size !== rs.length) no(); return rs; };
+  if (query.kind === "persons") {
+    const ps = query.persons as number[];
+    if (!Array.isArray(b.persons) || b.persons.length !== ps.length) no();
+    out.persons = (b.persons as unknown[]).map((x, i) => { if (!isObj(x) || x.person !== ps[i]) no(); const y = x as Record<string, unknown>; return { person: ps[i], masterMatches: nn(y.masterMatches), portalOverlay: bool(y.portalOverlay), portalProspect: bool(y.portalProspect) }; });
+  } else if (query.kind === "locators") {
+    const ls = query.locators as number[]; const rs = rowsOf();
+    if (rs.length !== ls.length || rs.some((r, i) => r.locator !== ls[i])) no();
+    out.rows = rs;
+  } else if (query.kind === "gifts") {
+    const ids = query.giftIds as string[];
+    if (!Array.isArray(b.gifts) || b.gifts.length !== ids.length) no();
+    const gifts = (b.gifts as unknown[]).map((x, i) => { if (!isObj(x) || x.giftId !== ids[i]) no(); const y = x as Record<string, unknown>;
+      if (bool(y.found)) { if (!posInt(y.locator) || !(y.person === undefined || posInt(y.person))) no(); return { giftId: ids[i], found: true, locator: y.locator as number, person: (y.person as number | undefined) ?? null }; }
+      return { giftId: ids[i], found: false }; });
+    const locs = [...new Set(gifts.filter((x) => x.found).map((x) => (x as { locator: number }).locator))];
+    const rs = rowsOf(); if (rs.length !== locs.length || rs.some((r, i) => r.locator !== locs[i])) no();
+    out.gifts = gifts; out.rows = rs;
+  } else if (query.kind === "history") {
+    const after = (query.after as number | undefined) ?? 0; const rs = rowsOf();
+    if (rs.length > R || rs.some((r, i) => r.locator <= (i ? rs[i - 1].locator : after))) no();
+    const hasMore = bool(b.hasMore); const next = b.next === null ? null : posInt(b.next) ? b.next : no();
+    if (hasMore ? next !== rs[rs.length - 1]?.locator : next !== null) no();
+    // a candidate whose readable donor differs from the queried donor is held (never eligible)
+    out.rows = rs.map((r) => ("person" in r && r.person !== query.person ? { ...r, donorMismatch: true } : r));
+    out.hasMore = hasMore; out.next = next;
+  } else no();
+  return sized(out);
+}
+
+const sortedIdx = (a: unknown, n: number): number[] | null => {
+  if (!Array.isArray(a) || a.length > n) return null;
+  for (let k = 0; k < a.length; k++) { const x = a[k]; if (!Number.isSafeInteger(x) || (x as number) < 0 || (x as number) >= n || (k > 0 && (x as number) <= (a[k - 1] as number))) return null; }
+  return a as number[];
+};
+/** Strict projection of an upstream giftJobStatus body. Only the known shape passes; counts/index partition/state must be
+ *  self-consistent (committed + missing = exactly 0..batchCount-1; state complete iff nothing missing and nothing held).
+ *  Anything else is "unavailable" (never complete). Fixed messages only; the wrapper binds the REQUESTED job/client
+ *  (the upstream body does not carry them). */
+export function projectJobStatus(body: unknown, jobId: string, client: string) {
+  const unavailable = { jobId, client, confirmed: false as const, state: "unavailable" as const, note: "Job status unavailable or inconsistent; outcome unconfirmed. This does not prove nothing was saved." };
+  if (!isObj(body)) return unavailable;
+  if (body.confirmed === false) return body.state === "unconfirmed" ? { jobId, client, confirmed: false as const, state: "unconfirmed" as const, note: "No committed batch is verifiable for this job. This does not prove nothing was saved." } : unavailable;
+  if (body.confirmed !== true) return unavailable;
+  const n = body.batchCount; if (!Number.isSafeInteger(n) || (n as number) < 1 || (n as number) > GIFT_JOB_MAX_BATCHES) return unavailable;
+  const done = sortedIdx(body.committedBatches, n as number), miss = sortedIdx(body.missingBatches, n as number);
+  if (!done || !miss || done.length + miss.length !== n || new Set([...done, ...miss]).size !== n) return unavailable;
+  const held = body.heldRows, dec = body.decidedRows;
+  if (!Number.isSafeInteger(held) || (held as number) < 0 || !Number.isSafeInteger(dec) || (dec as number) < 0 || (dec as number) < (n as number) || (held as number) + (dec as number) > GIFT_JOB_MAX_ORDINALS) return unavailable; // every batch is nonempty
+  const want = miss.length === 0 && held === 0 ? "complete" : "partial";
+  if (body.state !== want) return unavailable;
+  const note = miss.length ? `Partial: ${done.length} of ${n} batches committed; missing batches are not confirmed either way. ${held} rows held.` : held ? `All batches committed; ${held} rows were held and not imported, so the file is not fully imported.` : "All decided rows committed; no rows held.";
+  return { jobId, client, confirmed: true as const, state: want as "complete" | "partial", batchCount: n as number, committedBatches: done, missingBatches: miss, heldRows: held as number, decidedRows: dec as number, note };
+}
+
+// ---------- F1a: reload-recovery file (server-signed from the validated plan; renewal changes exp ONLY) ----------
+export const RECOVERY_TYPE = "durable-gift-recovery/v1";
+export const RECOVERY_MAX_HEADER = 1_600_000, RECOVERY_MAX_FILE = 8_000_000, RENEW_MAX_BODY = 2_000_000;
+/** Exact header keys. Choices/held coverage are the manifest's own entries (decided o/a/t/l/p/h + held); full expected
+ *  snapshots live ONLY in the parts, which the manifest batch hashes bind. No batch states are ever stored. */
+const HEADER_KEYS = ["v", "type", "client", "table", "registrationId", "registrationVersion", "registrationDigest", "jobId", "manifest", "mapping", "mappingDigest", "fileDigest", "fileName", "fileDate", "actor", "batchRows", "batchCount", "partHashes", "createdAt"];
+export interface RecoveryHeader { v: 1; type: typeof RECOVERY_TYPE; client: string; table: string; registrationId: string; registrationVersion: number; registrationDigest: string; jobId: string; manifest: GiftJobManifest; mapping: Record<string, string>; mappingDigest: string; fileDigest: string; fileName: string; fileDate: string | null; actor: string; batchRows: number; batchCount: number; partHashes: string[]; createdAt: number }
+const canonJ = (x: unknown): string => JSON.stringify((function c(v: unknown): unknown { return Array.isArray(v) ? v.map(c) : isObj(v) ? Object.fromEntries(Object.keys(v).sort().map((k) => [k, c(v[k])])) : v; })(x));
+const headerMac = (secret: string, h: unknown) => createHmac("sha256", key(secret, "recovery")).update(`${RECOVERY_TYPE}\n${canonJ(h)}`).digest("base64url");
+function buildRecovery(o: { g: GiftRegistration; token: JobToken; jobToken: string; manifest: GiftJobManifest; mapping: Record<string, string>; batches: GiftRow[][]; secret: string | undefined; now: number }) {
+  if (!goodSecret(o.secret)) bad("server secret not configured", 500);
+  const m = o.manifest;
+  const header: RecoveryHeader = { v: 1, type: RECOVERY_TYPE, client: m.client, table: o.g.table, registrationId: m.registrationId, registrationVersion: m.registrationVersion, registrationDigest: m.registrationDigest, jobId: o.token.jobId, manifest: m, mapping: o.mapping, mappingDigest: o.token.mappingDigest, fileDigest: m.fileDigest, fileName: m.fileName, fileDate: m.fileDate, actor: m.actor, batchRows: m.batchRows, batchCount: m.batchCount, partHashes: m.batches.map((b) => b.hash), createdAt: o.now };
+  if (Buffer.byteLength(JSON.stringify(header), "utf8") > RECOVERY_MAX_HEADER) bad("No valid recovery file can be produced for this plan (header too large); split the file", 413);
+  const mac = headerMac(o.secret!, header);
+  const file = { header, headerMac: mac, jobToken: o.jobToken, parts: o.batches.map((rows, index) => ({ index, rows })) };
+  if (Buffer.byteLength(JSON.stringify(file), "utf8") > RECOVERY_MAX_FILE) bad("No valid recovery file can be produced for this plan (over 8 MB); split the file", 413);
+  return { header, headerMac: mac };
+}
+const exactObj = (o: unknown, keys: string[]) => isObj(o) && Object.keys(o).length === keys.length && keys.every((k) => k in o);
+/** Renew an (possibly expired) job token from a recovery file header. Authority = original job token MAC/type/context
+ *  (expiry ignored, nothing else) AND the typed header MAC; every field cross-bound across token/header/manifest and the
+ *  CURRENT registration (drift/removal => refused; whole-job lookup stays available separately). Output token is the
+ *  original payload with a new exp only, so jobId and every derived request id are unchanged. */
+export function renewRecovery(o: { client: string; table: string; header: unknown; headerMac: unknown; jobToken: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  const { t } = recoveryAuthority(o);
+  const renewed: JobToken = { ...t, exp: o.now + JOB_TOKEN_TTL_MS };
+  return { token: sign(o.secret, "job", renewed), jobId: t.jobId };
+}
+
+// ---------- F2a: historical review-copy check (read-only report; never writes, never calls Engage) ----------
+export const REVIEW_MAX_TEXT = 2_000_000, REVIEW_MAX_BODY = 4_000_000;
+export type ReviewResult = "verified" | "held:duplicate" | "held:held-in-plan" | "held:blank" | "held:not-proven";
+const VERIFIED_STATUS = "saved (committed, verified)";
+export function reviewCheck(o: { client: string; table: string; original: string; reviewCopy: string; header: unknown; headerMac: unknown; jobToken: unknown; proofs: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  const { t, m } = recoveryAuthority(o);
+  if (sha(o.original) !== t.fileDigest) bad("The original file does not match the planned file (byte digest differs)");
+  const ids = provenMap(t, m, o.proofs, o.secret, o.now);
+  const og = parseCsv(o.original), rg = parseCsv(o.reviewCopy);
+  const oh = og[0] ?? [], rh = rg[0] ?? [], orows = og.slice(1), rrows = rg.slice(1);
+  if (orows.length !== m.totalOrdinals || orows.some((r) => r.length !== oh.length)) bad("The original file is not rectangular or has the wrong row count");
+  // the owning export forward-neutralizes headers AND cells; compare forward only, never invert
+  const wantH = [...oh.map((h) => neutralize(h).v), ...EXPORT_COLS.map((h) => neutralize(h).v)];
+  if (rh.length !== wantH.length) bad("Review copy columns do not match the original plus the two ID columns");
+  for (let c = 0; c < wantH.length; c++) if (rh[c] !== wantH[c]) bad(`Review copy header differs at column ${c + 1}`);
+  if (rrows.length !== orows.length) bad("Review copy has a different row count");
+  for (let r = 0; r < orows.length; r++) {
+    if (rrows[r].length !== wantH.length) bad(`Review copy row ${r + 1} has the wrong number of cells`);
+    for (let c = 0; c < oh.length; c++) if (rrows[r][c] !== neutralize(orows[r][c]).v) bad(`Review copy differs from the original at row ${r + 1}, column ${c + 1}`);
+  }
+  const n = oh.length, okStatus = neutralize(VERIFIED_STATUS).v, held = new Set(m.held);
+  const count = new Map<string, number>(); for (const r of rrows) { const u = r[n]; if (u !== "") count.set(u, (count.get(u) ?? 0) + 1); }
+  const rows = rrows.map((r, o2) => {
+    const u = r[n], st = r[n + 1];
+    const result: ReviewResult = u !== "" && (count.get(u) ?? 0) > 1 ? "held:duplicate" : held.has(o2) ? "held:held-in-plan" : u === "" ? "held:blank"
+      : ids.get(o2) === u && validGiftId(u) && st === okStatus ? "verified" : "held:not-proven";
+    return result === "verified" ? { o: o2, result, giftId: ids.get(o2)! } : { o: o2, result };
+  });
+  const c = { verified: 0, held: { duplicate: 0, heldInPlan: 0, blank: 0, notProven: 0 } };
+  for (const r of rows) { if (r.result === "verified") c.verified++; else if (r.result === "held:duplicate") c.held.duplicate++; else if (r.result === "held:held-in-plan") c.held.heldInPlan++; else if (r.result === "held:blank") c.held.blank++; else c.held.notProven++; }
+  const total = rows.length;
+  if (total !== m.totalOrdinals || c.verified + c.held.duplicate + c.held.heldInPlan + c.held.blank + c.held.notProven !== total) bad("report invariant failed", 500);
+  return sized({ jobId: t.jobId, client: m.client, counts: { total, ...c }, rows });
+}
+function recoveryAuthority(o: { client: string; table: string; header: unknown; headerMac: unknown; jobToken: unknown; secret: string | undefined; now: number; regs?: readonly GiftRegistration[] }) {
+  if (!goodSecret(o.secret)) bad("server secret not configured", 500);
+  if (!exactObj(o.header, HEADER_KEYS)) bad("bad recovery header");
+  const h = o.header as unknown as RecoveryHeader;
+  if (typeof o.headerMac !== "string" || !/^[A-Za-z0-9_-]{43}$/.test(o.headerMac)) bad("bad recovery signature");
+  const want = Buffer.from(headerMac(o.secret!, h), "base64url"), got = Buffer.from(o.headerMac as string, "base64url");
+  if (got.length !== want.length || !timingSafeEqual(got, want)) bad("recovery signature invalid");
+  if (h.v !== 1 || h.type !== RECOVERY_TYPE) bad("wrong recovery type");
+  const t = verify<JobToken>(o.jobToken, o.secret, "job", o.now, true);
+  if (!isObj(h.manifest)) bad("bad manifest");
+  const m = h.manifest;
+  try { validateManifest(m); } catch (e) { if (e instanceof SourceImportError) bad(e.message, e.status); throw e; }
+  const hashes = m.batches.map((b) => b.hash);
+  const same = (a: unknown, b: unknown) => JSON.stringify(a) === JSON.stringify(b);
+  const checks: [string, boolean][] = [
+    ["jobId", t.jobId === h.jobId && giftJobId(m) === h.jobId],
+    ["client", t.client === o.client && h.client === o.client && m.client === o.client],
+    ["registration", t.registrationId === h.registrationId && m.registrationId === h.registrationId && t.registrationVersion === h.registrationVersion && m.registrationVersion === h.registrationVersion && t.registrationDigest === h.registrationDigest && m.registrationDigest === h.registrationDigest],
+    ["file", t.fileDigest === h.fileDigest && m.fileDigest === h.fileDigest && t.fileName === h.fileName && m.fileName === h.fileName && t.fileDate === h.fileDate && m.fileDate === h.fileDate && t.actor === h.actor && m.actor === h.actor && t.totalOrdinals === m.totalOrdinals],
+    ["mapping", isObj(h.mapping) && Object.values(h.mapping).every((v) => typeof v === "string") && t.mappingDigest === h.mappingDigest && mapDigest(h.mapping) === h.mappingDigest],
+    ["batches", h.batchRows === m.batchRows && h.batchCount === m.batchCount && same(h.partHashes, hashes) && same(t.batchHashes, hashes)],
+    ["table", typeof h.table === "string" && h.table === o.table],
+  ];
+  const badField = checks.find(([, ok]) => !ok); if (badField) bad(`recovery file does not match the signed job (${badField[0]})`);
+  const g = registrationFor(o.client, o.regs);
+  if (!g || g.table !== h.table || g.id !== t.registrationId || g.version !== t.registrationVersion || giftRegDigest(g) !== t.registrationDigest) bad("Gift registration changed or was removed since planning. Renewal and saving are refused; use the read-only job lookup until the registration is reviewed and restored or migrated.", 409);
+  return { t, m, h };
+}

@@ -1,4 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
+import { dbGiftEditsAvailable, mixedGiftIdentity, DB_GIFT_EDIT_UNAVAILABLE_UI, MIXED_GIFT_IDENTITY_UI, GIFT_EDIT_FAILED_UI } from "@/lib/portal-v2/gift-edit-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
 import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
@@ -27,6 +28,10 @@ const AUTH: Record<PortalClient, (r: NextRequest) => Promise<boolean>> = {
 const RECORDS: Record<PortalClient, () => Promise<{ index: { cptid: number; name: string; city?: string }[] } | null>> = {
   pvas: getPvasRecords, csnf: getCsnfRecords, jag: getJagRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords,
 };
+/** Base snapshot (records blob) with its asOf date, for the staff CSV contact updater (read-only). */
+export async function recordsFor(client: PortalClient) {
+  return (await RECORDS[client]()) as unknown as { asOf?: string; records?: Record<string, { name: string; contact?: Record<string, string> }> } | null;
+}
 // CPTIDs at or above this are placeholders in client data (PVAS has a 999999); they never set the next id.
 const PLACEHOLDER_CPTID = 900_000;
 
@@ -48,6 +53,18 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
   const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
   return { status: r.status, body: (await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown> };
 }
+
+/** W0: pass typed gift-edit refusals (400/409) through with their code; other failures keep the existing error shape. */
+function giftEditReply(r: { status: number; body: Record<string, unknown> | null | undefined }) {
+  const body = (r.body && typeof r.body === "object" && !Array.isArray(r.body) ? r.body : {}) as Record<string, unknown>;
+  if (r.status >= 200 && r.status < 300) return NextResponse.json(r.body);
+  // Strict mapping: only these exact (status, code) pairs pass through, always with FIXED local text (no backend text).
+  if (r.status === 400 && body.code === "mixed_gift_identity") return NextResponse.json({ error: MIXED_GIFT_IDENTITY_UI, code: "mixed_gift_identity" }, { status: 400 });
+  if (r.status === 409 && body.code === "database_gift_edits_unavailable") return NextResponse.json({ error: DB_GIFT_EDIT_UNAVAILABLE_UI, code: "database_gift_edits_unavailable" }, { status: 409 });
+  return NextResponse.json({ error: GIFT_EDIT_FAILED_UI }, { status: 500 });
+}
+
+export { giftEditReply as _giftEditReplyForTests };
 
 export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
   const { status, body: j } = await engageCall(client, op, body);
@@ -221,7 +238,7 @@ function applyOverrides(items: PortalGift[], overrides: PortalState["giftOverrid
 }
 async function withDbGifts(client: PortalClient, state: PortalState, strict = false): Promise<PortalState> {
   const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client, strict)), state.giftOverrides);
-  return { ...state, gifts: [...db, ...state.gifts] };
+  return { ...state, gifts: [...db, ...state.gifts], databaseGiftEditsAvailable: dbGiftEditsAvailable(state.databaseGiftEditsAvailable) };
 }
 
 /** Current campaign rows plus refresh-safe overrides, for gift-only donor lookup records. */
@@ -350,6 +367,11 @@ export function portalV2Route(client: PortalClient) {
   const cfg = PORTAL_V2[client];
   async function GET(req: NextRequest) {
     if (!(await AUTH[client](req))) return bad("unauthorized", 401);
+    if (req.nextUrl.searchParams.get("op") === "csvUpdates") {
+      // Separate "latest accepted CSV updates" note (hidden until the source-import read path is configured).
+      const { csvUpdatesNote } = await import("./source-import-apply");
+      return NextResponse.json(await csvUpdatesNote(client).catch(() => ({ configured: true, error: "CSV update history unavailable" })));
+    }
     try {
       const download = req.nextUrl.searchParams.get("report") === "campaign";
       const format = req.nextUrl.searchParams.get("format") ?? "pdf";
@@ -437,6 +459,8 @@ export function portalV2Route(client: PortalClient) {
       if (b.op === "matchDonor") return NextResponse.json({ matches: await matchDonorName(client, txt(b.name)) });
       if (b.op === "editGift" || b.op === "voidGift") {
         const g = b.gift ?? {};
+        // W0: a positive id together with ANY key is refused BEFORE normalization (which would otherwise drop the key).
+        if (mixedGiftIdentity(g)) return NextResponse.json({ error: MIXED_GIFT_IDENTITY_UI, code: "mixed_gift_identity" }, { status: 400 });
         const id = Number(g.id);
         // Database rows carry a key; anything else must be a positive SQL id.
         const key = id > 0 ? undefined : txt(g.key, 400);
@@ -446,14 +470,14 @@ export function portalV2Route(client: PortalClient) {
         if (b.op === "voidGift") {
           const reason = txt(b.reason, 500);
           if (!reason) return bad("Please enter a reason for voiding");
-          return NextResponse.json(await engage(client, "voidGift", { by, reason, gift: { id: id > 0 ? id : undefined, key, cptid: cptid ?? original?.cptid ?? null, donorName: txt(g.donorName) || original?.name, original } }));
+          return giftEditReply(await engageCall(client, "voidGift", { by, reason, gift: { id: id > 0 ? id : undefined, key, cptid: cptid ?? original?.cptid ?? null, donorName: txt(g.donorName) || original?.name, original } }));
         }
         const amount = g.amount === undefined ? undefined : Number(String(g.amount).replace(/[$,\s]/g, ""));
         if (amount !== undefined && !(amount > 0)) return bad("Enter an amount greater than $0");
         if (g.kind !== undefined && !["gift", "pledge"].includes(g.kind)) return bad("Type must be gift or pledge");
         let date: string | null | undefined = undefined;
         if (g.date !== undefined) { date = txt(g.date, 20) ? parseUsDate(g.date) : null; if (txt(g.date, 20) && !date) return bad("Use MM/DD/YYYY for the date"); }
-        return NextResponse.json(await engage(client, "editGift", { by, gift: { id: id > 0 ? id : undefined, key, cptid, donorName: g.donorName === undefined ? undefined : txt(g.donorName), kind: g.kind, amount, date, note: g.note === undefined ? undefined : txt(g.note, 1000), original } }));
+        return giftEditReply(await engageCall(client, "editGift", { by, gift: { id: id > 0 ? id : undefined, key, cptid, donorName: g.donorName === undefined ? undefined : txt(g.donorName), kind: g.kind, amount, date, note: g.note === undefined ? undefined : txt(g.note, 1000), original } }));
       }
       if (b.op === "getAsk" || b.op === "setAsk") {
         const cptid = Number(b.cptid);
