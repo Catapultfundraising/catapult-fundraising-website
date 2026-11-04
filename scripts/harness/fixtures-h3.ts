@@ -18,3 +18,7 @@ export const T = {
 } as const;
 export const H3_TABLES = Object.freeze(Object.values(T));
 export const H3_SEED = Object.freeze({ [T.MS]: [{ CPTID: 7001 }, { CPTID: 7002 }] });
+// H3b (PLAN-H3B §3): pre-existing raw rows L41 (7001) and L42 (7002) WITHOUT identities, plus donor 7003 in the master.
+// Raw cells are canonical text the backend accepts (decimal at scale 4, datetime2 seconds). FICTIONAL.
+const RAW = (row_id: number, CPTID: number, amt: string, dt: string) => ({ row_id, CPTID, Transaction: null, Gift_Amount: amt, Gift_Date: dt, Record_Type: "Gift" });
+export const H3B_SEED = Object.freeze({ [T.MS]: [{ CPTID: 7001 }, { CPTID: 7002 }, { CPTID: 7003 }], [T.RAW]: [RAW(41, 7001, "5.0000", "2025-03-01T00:00:00"), RAW(42, 7002, "7.0000", "2025-04-01T00:00:00")] });
