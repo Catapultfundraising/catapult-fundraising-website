@@ -4,6 +4,7 @@
 const { chromium } = require("playwright"); const crypto = require("crypto");
 const ok = (c, m) => { console.log(c ? "PASS" : "FAIL", m); if (!c) process.exitCode = 1; };
 const API = "/api/wcbhc-data-v2"; const OUT = process.env.OUT || "/tmp/qa-w0"; const CAP = !!process.env.CAPTURE;
+const BEFORE = process.env.BEFORE === "1"; /* BEFORE=1: same fictional state + actions on accepted 4495b54 (no W0); captures + legacy checks only */
 const UI = "Corrections to client-database gifts are unavailable for this client right now.";
 const gift = (o) => ({ cptid: 7011, client_id: null, donor_name: "Avery Fictional", kind: "gift", amount: 250, gift_date: "2026-01-05", note: null, source: "database", batch_id: null, created_by: "Client database", created_at: "2026-01-05", ...o });
 const state = (avail) => ({ prospects: [], updates: [], batches: [], giftOverrides: [], voidedGifts: [], ...(avail === undefined ? {} : { databaseGiftEditsAvailable: avail }),
@@ -33,24 +34,36 @@ const state = (avail) => ({ prospects: [], updates: [], batches: [], giftOverrid
     const nb = p.locator("text=Necessary Only"); if (await nb.count()) { await nb.first().click(); await nb.first().waitFor({ state: "detached" }); }
     return { p, ctx, row };
   }
+  async function cap(p, row, file, mobile) {
+    await p.evaluate(() => window.scrollTo(0, 0)); await row("Avery Fictional").scrollIntoViewIfNeeded();
+    if (mobile) await row("Avery Fictional").evaluate((el) => { const sc = el.closest(".overflow-auto"); if (sc) sc.scrollLeft = sc.scrollWidth; });
+    await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
+    await p.screenshot({ path: `${OUT}/${file}` });
+  }
+  if (BEFORE) {
+    for (const [vw, nm] of [[{ width: 1280, height: 900 }, "desktop"], [{ width: 390, height: 844 }, "mobile-scrolled"]]) {
+      const { ctx, row, p } = await run(vw, "before-" + nm, false);
+      ok(await row("Avery Fictional").getByRole("button", { name: "Edit" }).count() === 1, `BEFORE ${nm}: legacy UI shows database-key Edit even with databaseGiftEditsAvailable=false (field unknown pre-W0)`);
+      if (CAP) await cap(p, row, `w0-BEFORE-4495b54-${nm}.png`, nm !== "desktop");
+      await ctx.close();
+    }
+    console.log("external origins attempted/blocked:", ext.length, JSON.stringify([...new Set(ext)])); await b.close(); return;
+  }
   for (const [label, avail] of [["missing", undefined], ["malformed", "true"], ["false", false]]) {
     const { ctx, row, p } = await run({ width: 1280, height: 900 }, label, avail);
     ok(await row("Avery Fictional").getByRole("button", { name: "Edit" }).count() === 0 && await row("Avery Fictional").getByText("Edits unavailable").count() === 1, `${label}: database-key row shows no Edit/Void (fail closed)`);
     ok(await row("Blair Example").getByRole("button", { name: "Edit" }).count() === 1, `${label}: portal SQL-id row keeps Edit/Void`);
     ok(await p.getByText(UI, { exact: false }).count() >= 1, `${label}: explanation shown`);
-    if (CAP && label === "false") {
-      await p.evaluate(() => window.scrollTo(0, 0)); await p.evaluate(() => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))));
-      await row("Avery Fictional").scrollIntoViewIfNeeded(); await p.screenshot({ path: `${OUT}/w0-after-desktop.png`, fullPage: false });
-    }
+    if (CAP && label === "false") await cap(p, row, "w0-AFTER-desktop.png", false);
     await ctx.close();
   }
   { const { ctx, row, p } = await run({ width: 390, height: 844 }, "mobile", false);
     ok(await row("Avery Fictional").getByText("Edits unavailable").count() === 1, "390px: unavailable label rendered");
-    if (CAP) { await row("Avery Fictional").scrollIntoViewIfNeeded(); await p.screenshot({ path: `${OUT}/w0-after-mobile.png` }); }
+    if (CAP) { await cap(p, row, "w0-AFTER-mobile.png", false); await cap(p, row, "w0-AFTER-mobile-scrolled.png", true); }
     await ctx.close(); }
   { const { ctx, row, p } = await run({ width: 1280, height: 900 }, "true", true);
     ok(await row("Avery Fictional").getByRole("button", { name: "Edit" }).count() === 1, "literal true: database-key Edit available (legacy unchanged)");
-    if (CAP) { await row("Avery Fictional").scrollIntoViewIfNeeded(); await p.screenshot({ path: `${OUT}/w0-before-equivalent-available-desktop.png` }); }
+    if (CAP) await cap(p, row, "w0-AFTER-projection-true-desktop.png", false); /* same-head policy-true state; NOT a before baseline */
     await ctx.close(); }
   { const { ctx, row, p } = await run({ width: 1280, height: 900 }, "refused", true, true);
     await row("Avery Fictional").getByRole("button", { name: "Void" }).click();

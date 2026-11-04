@@ -1,5 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
-import { dbGiftEditsAvailable, mixedGiftIdentity, GIFT_EDIT_REFUSALS, DB_GIFT_EDIT_UNAVAILABLE_UI } from "@/lib/portal-v2/gift-edit-guard";
+import { dbGiftEditsAvailable, mixedGiftIdentity, DB_GIFT_EDIT_UNAVAILABLE_UI, MIXED_GIFT_IDENTITY_UI } from "@/lib/portal-v2/gift-edit-guard";
 import { NextRequest, NextResponse } from "next/server";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
 import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
@@ -57,10 +57,13 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
 /** W0: pass typed gift-edit refusals (400/409) through with their code; other failures keep the existing error shape. */
 function giftEditReply(r: { status: number; body: Record<string, unknown> }) {
   if (r.status >= 200 && r.status < 300) return NextResponse.json(r.body);
-  const code = typeof r.body.code === "string" && GIFT_EDIT_REFUSALS.has(r.body.code) ? r.body.code : undefined;
-  if (code) return NextResponse.json({ error: code === "database_gift_edits_unavailable" ? DB_GIFT_EDIT_UNAVAILABLE_UI : String(r.body.error || "refused").slice(0, 300), code }, { status: r.status });
+  // Strict mapping: only these exact (status, code) pairs pass through, always with FIXED local text (no backend text).
+  if (r.status === 400 && r.body.code === "mixed_gift_identity") return NextResponse.json({ error: MIXED_GIFT_IDENTITY_UI, code: "mixed_gift_identity" }, { status: 400 });
+  if (r.status === 409 && r.body.code === "database_gift_edits_unavailable") return NextResponse.json({ error: DB_GIFT_EDIT_UNAVAILABLE_UI, code: "database_gift_edits_unavailable" }, { status: 409 });
   return NextResponse.json({ error: String(r.body.error || `engage ${r.status}`).slice(0, 300) }, { status: 500 });
 }
+
+export { giftEditReply as _giftEditReplyForTests };
 
 export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
   const { status, body: j } = await engageCall(client, op, body);
@@ -456,7 +459,7 @@ export function portalV2Route(client: PortalClient) {
       if (b.op === "editGift" || b.op === "voidGift") {
         const g = b.gift ?? {};
         // W0: a positive id together with ANY key is refused BEFORE normalization (which would otherwise drop the key).
-        if (mixedGiftIdentity(g)) return NextResponse.json({ error: "Send either a gift id or a gift key, not both", code: "mixed_gift_identity" }, { status: 400 });
+        if (mixedGiftIdentity(g)) return NextResponse.json({ error: MIXED_GIFT_IDENTITY_UI, code: "mixed_gift_identity" }, { status: 400 });
         const id = Number(g.id);
         // Database rows carry a key; anything else must be a positive SQL id.
         const key = id > 0 ? undefined : txt(g.key, 400);

@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { NextRequest } from "next/server";
-import { dbGiftEditsAvailable, mixedGiftIdentity, DB_GIFT_EDIT_UNAVAILABLE_UI } from "../lib/portal-v2/gift-edit-guard";
+import { dbGiftEditsAvailable, mixedGiftIdentity, DB_GIFT_EDIT_UNAVAILABLE_UI, MIXED_GIFT_IDENTITY_UI } from "../lib/portal-v2/gift-edit-guard";
 
 const CRON = "c".repeat(32);
 Object.assign(process.env, { CRON_SECRET: CRON, PORTAL_WRITE_SECRET: "w".repeat(32), ENGAGE_PORTAL_URL_OVERRIDE: "http://engage.mock.invalid/api/portal-v2" });
@@ -23,15 +23,15 @@ test("projection is strict: only literal true enables database-key edit controls
 });
 
 test("mixed id+key detection: positive id with ANY key property (even empty/0/false)", () => {
-  for (const key of ["k", "", 0, false]) assert.equal(mixedGiftIdentity({ id: 4, key }), true);
-  assert.equal(mixedGiftIdentity({ id: 4 }), false); assert.equal(mixedGiftIdentity({ id: 4, key: null }), false); assert.equal(mixedGiftIdentity({ key: "k" }), false); assert.equal(mixedGiftIdentity({ id: 0, key: "k" }), false);
+  for (const key of ["k", "", 0, false, null]) assert.equal(mixedGiftIdentity({ id: 4, key }), true);
+  assert.equal(mixedGiftIdentity({ id: 4 }), false); assert.equal(mixedGiftIdentity({ key: "k" }), false); assert.equal(mixedGiftIdentity({ id: 0, key: "k" }), false);
 });
 
 test("[MOCK FETCH] actual route: mixed id+key refused 400 BEFORE normalization; nothing forwarded", async () => {
-  for (const op of ["editGift", "voidGift"]) for (const key of ["k1", ""]) {
+  for (const op of ["editGift", "voidGift"]) for (const key of ["k1", "", null]) {
     calls.length = 0;
     const r = await post({ op, by: "Pat Example", reason: "dup", gift: { id: 5, key, amount: "10" } });
-    assert.equal(r.status, 400); assert.equal((await r.json()).code, "mixed_gift_identity"); assert.equal(calls.length, 0);
+    assert.equal(r.status, 400); const j = await r.json(); assert.deepEqual(j, { error: MIXED_GIFT_IDENTITY_UI, code: "mixed_gift_identity" }); assert.equal(calls.length, 0);
   }
 });
 
@@ -54,4 +54,13 @@ test("website keeps NO activation/approval/latch list; state projection and UI u
   assert.ok(s.includes("databaseGiftEditsAvailable: dbGiftEditsAvailable(state.databaseGiftEditsAvailable)"));
   const b = s.slice(s.indexOf('b.op === "editGift" || b.op === "voidGift"')); assert.ok(b.indexOf("mixedGiftIdentity(g)") < b.indexOf("const key = id > 0 ? undefined"));
   const c = readFileSync("components/portal-v2.tsx", "utf8"); assert.ok(c.includes("dbGiftEditsAvailable(state.databaseGiftEditsAvailable)") && c.includes("Edits unavailable"));
+});
+
+test("[MOCK FETCH] strict refusal mapping: only exact (400,mixed)/(409,unavailable) pass, always FIXED local text; anything else => generic 500 without code", async () => {
+  const { _giftEditReplyForTests: m } = await import("../lib/portal-v2/server");
+  const J = async (status: number, body: Record<string, unknown>) => { const r = m({ status, body }); return { s: r.status, j: await r.json() }; };
+  assert.deepEqual(await J(400, { code: "mixed_gift_identity", error: "BACKEND SELECT x" }), { s: 400, j: { error: MIXED_GIFT_IDENTITY_UI, code: "mixed_gift_identity" } });
+  assert.deepEqual(await J(409, { code: "database_gift_edits_unavailable", error: "BACKEND" }), { s: 409, j: { error: DB_GIFT_EDIT_UNAVAILABLE_UI, code: "database_gift_edits_unavailable" } });
+  for (const [st, c] of [[409, "mixed_gift_identity"], [400, "database_gift_edits_unavailable"], [409, "other"], [503, "database_gift_edits_unavailable"]] as const) { const r = await J(st, { code: c, error: "e" }); assert.equal(r.s, 500); assert.equal(r.j.code, undefined); }
+  assert.deepEqual(await J(200, { changed: 1 }), { s: 200, j: { changed: 1 } });
 });

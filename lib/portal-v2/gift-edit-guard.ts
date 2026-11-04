@@ -6,13 +6,12 @@
  */
 export const dbGiftEditsAvailable = (v: unknown): boolean => v === true;
 
-/** true when a gift request names a positive SQL id AND carries any key property (even empty) — refused, never normalized. */
+/** true when a gift request names a positive SQL id AND carries a `key` PROPERTY (any value incl. null/""/0/false) — refused, never normalized. */
 export function mixedGiftIdentity(g: unknown): boolean {
   if (!g || typeof g !== "object") return false;
   const r = g as Record<string, unknown>;
-  return Number(r.id) > 0 && r.key !== undefined && r.key !== null;
+  return Number(r.id) > 0 && Object.prototype.hasOwnProperty.call(r, "key");
 }
 
-/** Backend refusal codes passed through to the browser with their status (no other backend detail). */
-export const GIFT_EDIT_REFUSALS = new Set(["mixed_gift_identity", "database_gift_edits_unavailable"]);
 export const DB_GIFT_EDIT_UNAVAILABLE_UI = "Corrections to client-database gifts are unavailable for this client right now. Dashboard-entered gifts can still be edited.";
+export const MIXED_GIFT_IDENTITY_UI = "Send either a gift id or a gift key, not both.";
