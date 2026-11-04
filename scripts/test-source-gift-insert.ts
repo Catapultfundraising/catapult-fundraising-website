@@ -45,7 +45,7 @@ test("approved policy: verified new gift becomes an insert carrying person; Type
 });
 
 test("livePreview: Engage policy digest must match; token binds insertPolicyDigest; no policy => no insert token", () => {
-  const st: EngageState = { registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [], insertPolicyDigest: insertPolicyDigest(WC), sourceLinks: [{ key: 9001, link: "7001", person: 7001, inMaster: true }], baselineKeys: [] };
+  const st: EngageState = { registryRev: REGISTRY_META.rev, overrideHold: false, personLink: "CPTID", duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [], insertPolicyDigest: insertPolicyDigest(WC), sourceLinks: [{ key: 9001, link: "7001", person: 7001, inMaster: true }], baselineKeys: [] };
   const meta = { fileName: "fictional.csv", csv: "x", fileDate: null, secret: "s".repeat(32), now: 1_800_000_000_000 };
   const b = { client: "wcbhc", table: "giving_history", mode: "update" as const, mapping, rows: [row("9001", "7001")], headers: Object.keys(mapping) };
   const lp = livePreview(b, st, { ...meta, policies: [WC] });
@@ -77,7 +77,7 @@ test("work-bounded batches: rows per batch from columns written; budget math; 50
 });
 
 test("baseline existence of ANY provenance (no destination row) holds the new key; missing baselineKeys fails closed", () => {
-  const st: EngageState = { registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [], insertPolicyDigest: insertPolicyDigest(WC), sourceLinks: [{ key: 9001, link: "7001", person: 7001, inMaster: true }], baselineKeys: [9001] };
+  const st: EngageState = { registryRev: REGISTRY_META.rev, overrideHold: false, personLink: "CPTID", duplicateKeys: [], current: [], baseline: [], overlayKeys: [], prospectKeys: [], insertPolicyDigest: insertPolicyDigest(WC), sourceLinks: [{ key: 9001, link: "7001", person: 7001, inMaster: true }], baselineKeys: [9001] };
   const meta = { fileName: "fictional.csv", csv: "x", fileDate: null, secret: "s".repeat(32), now: 1_800_000_000_000, policies: [WC] };
   const b = { client: "wcbhc", table: "giving_history", mode: "update" as const, mapping, rows: [row("9001", "7001")], headers: Object.keys(mapping) };
   const lp = livePreview(b, st, meta);

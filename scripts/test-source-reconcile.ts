@@ -126,7 +126,7 @@ test("unknown tables and keyless tables refuse; cross-client isolation", () => {
   assert.equal(d.schema, "pvas"); assert.equal(d.client, "pvas");
 });
 
-const prepared: PreparedClient = { approvalId: "review-2026-11-03-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03", tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200 }] }] };
+const prepared: PreparedClient = { approvalId: "review-2026-11-03-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03", tables: [{ table: "master", key: "CPTID", giftClass: "non_gift" as const, columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200 }] }] };
 const first = (over: Partial<ReconInput> = {}): ReconInput => ({ client: "fictional_x", table: "master", mode: "first-load", mapping: { id: "CPTID", n: "Account_Name" }, rows: [{ id: "7", n: "Fictional Org" }], baseline: null, current: new Map(), overlays: [], prepared, ...over });
 test("prepared first load: approval, empty destination, identity match (regression: first-load -> update)", () => {
   assert.throws(() => reconcile(first()), /not approved/);
@@ -194,7 +194,7 @@ test("every CSV header reported even when omitted from mapping", () => {
   assert.equal(r.columns.find((c) => c.header === "Extra")!.state, "ignored");
 });
 test("[fictional configured] prepared client: first load then later update keeps a manual edit protected", () => {
-  const p2: PreparedClient = { ...prepared, tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
+  const p2: PreparedClient = { ...prepared, tables: [{ table: "master", key: "CPTID", giftClass: "non_gift" as const, columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
   const fl = reconcile({ client: "fictional_x", table: "master", mode: "first-load", mapping: { id: "CPTID", n: "Account_Name", c: "City" }, rows: [{ id: "7", n: "Org A", c: "" }, { id: "8", n: "Org B", c: "Springfield" }, { id: "9", n: "", c: "X" }], baseline: null, current: new Map(), overlays: [], prepared: p2 }, [p2]);
   assert.deepEqual(fl.rows.map((r) => r.outcome), ["insert", "insert", "invalid"]);
   // after load: baseline == current; staff edited 8 in the portal

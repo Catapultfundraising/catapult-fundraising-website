@@ -29,7 +29,7 @@ const OUT: Record<string, string> = { apply: "Would update", unchanged: "Same", 
 async function call(body: Record<string, unknown>) {
   const r = await fetch("/api/research-source-import", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
-  if (!r.ok) throw Object.assign(new Error(j.error || `Request failed (${r.status})`), { status: r.status }); // status kept: 4xx = definitive refusal
+  if (!r.ok) throw Object.assign(new Error(j.error || `Request failed (${r.status})`), { status: r.status, code: typeof j.code === "string" ? j.code : "" }); // status/code kept: 4xx = definitive refusal
   return j;
 }
 
@@ -46,6 +46,7 @@ export default function SourceImportPage() {
   const [fileName, setFileName] = useState(""); const [fileDate, setFileDate] = useState(""); // blank = unknown, never today
   const [mapping, setMapping] = useState<Record<string, string>>({});
   const [result, setResult] = useState<Result | null>(null);
+  const [overrideHold, setOverrideHold] = useState(false); // PLAN-N: active dashboard gift correction holds this native gift table
   const [busy, setBusy] = useState(false); const [err, setErr] = useState("");
   const [token, setToken] = useState<string | null>(null); const [requestId, setRequestId] = useState("");
   const [applyAvailable, setApplyAvailable] = useState(false); const [actor, setActor] = useState("");
@@ -65,7 +66,7 @@ export default function SourceImportPage() {
   const guard = <T,>(p: Promise<T>) => fence.token().guard(p);
   const onErr = (e: Error) => { if (!(e instanceof StaleScope)) setErr(e.message); };
   useEffect(() => { setDemo(new URLSearchParams(window.location.search).get("demo") === "1"); call({ op: "clients" }).then((j) => { setClients(j.clients ?? []); setPreparedClients(j.prepared ?? []); }).catch((e) => setErr(e.message)); }, []);
-  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setAllocJob(null); setBatches([]); setConfirmed(false); setResult(null); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); setProfileMsg(""); setProfBusy(false); };
+  const reset = () => { fence.bump(); setBusy(false); if (running.current) return; setJob(null); setAllocJob(null); setBatches([]); setConfirmed(false); setResult(null); setOverrideHold(false); setErr(""); setToken(null); setRequestId(""); setApplyAvailable(false); setSaveMsg(""); setUnconfirmed(false); setProfileMsg(""); setProfBusy(false); };
   const clearFile = () => { setBigRows(null); setCsv(""); setHeaders([]); setMapping({}); setFileName(""); };
   // ONE effect for client/table so scope is invalidated once, before any request of the new scope starts.
   const prevClient = useRef("");
@@ -222,7 +223,9 @@ export default function SourceImportPage() {
         if (b.state !== "previewed" || !b.token) continue;
         let r: Record<string, unknown>;
         try { r = await call({ op: "apply", client, table, token: b.token, actor }); }
-        catch (e) { if (!tk.live()) break; const m = (e as Error).message; if (/expired|preview again/i.test(m)) { setBatch(b.index, { state: "failed", error: m, token: null }); continue; } setBatch(b.index, { state: "unconfirmed", error: m }); break; }
+        catch (e) { if (!tk.live()) break; const m = (e as Error).message;
+          if ((e as { code?: string }).code === "gift_override_active") { const done = batches.filter((x) => x.state === "saved" || x.state === "saved_with_holds").length; setBatch(b.index, { error: `${m} Earlier batches saved: ${done} of ${batches.length}. File not complete.` }); break; }
+          if (/expired|preview again/i.test(m)) { setBatch(b.index, { state: "failed", error: m, token: null }); continue; } setBatch(b.index, { state: "unconfirmed", error: m }); break; }
         if (!tk.live()) break;
         if (r.unconfirmed) { setBatch(b.index, { state: "unconfirmed" }); break; }
         setBatch(b.index, { state: b.heldRows ? "saved_with_holds" : "saved", savedRecords: Number(r.records ?? 0), token: null });
@@ -235,12 +238,14 @@ export default function SourceImportPage() {
   const loadDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 2).map((d) => d.col); const held = dests.find((d) => d.st === "held"); const hs = ["Constituent number", ...cols, ...(held ? [held.col] : []), "Spreadsheet note"]; const v = (k: string) => [k, ...cols.map(() => "B"), ...(held ? ["x"] : []), "n"].join(","); const t = [hs.join(","), v("900001"), v("900002"), v("900003"), v("900009"), v("abc")].join("\n"); useCsv(t, "fictional-demo.csv", Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : dests.find((d) => d.col === h)?.col ?? ""]))); };
   const loadBigDemo = () => { const cols = dests.filter((d) => d.st === "candidate" && d.col !== d.key && d.ty === "nvarchar").slice(0, 1).map((d) => d.col); const hs = ["Constituent number", ...cols]; reset(); clearFile(); setFileName("fictional-large-demo.csv"); setHeaders(hs);
     setBigRows(Array.from({ length: 1200 }, (_, i) => Object.fromEntries([["Constituent number", String(i < 3 ? 900001 + i : 910000 + i)], ...cols.map((c) => [c, "B"])]))); setMapping(Object.fromEntries(hs.map((h, i) => [h, i === 0 ? "CPTID" : h]))); if (!actor) setActor("Demo Reviewer"); };
-  const preview = () => { reset(); setBusy(true); const tk = fence.token(); guard(call({ op: "preview", client, table, csv, mapping, demo, fileName, fileDate: fileDate || null })).then((j) => { setResult(j.result); setToken(j.token ?? null); setRequestId(j.requestId ?? ""); setApplyAvailable(j.applyAvailable === true); }).catch(onErr).finally(() => { if (tk.live()) setBusy(false); }); };
+  const preview = () => { reset(); setBusy(true); const tk = fence.token(); guard(call({ op: "preview", client, table, csv, mapping, demo, fileName, fileDate: fileDate || null })).then((j) => { setResult(j.result); setOverrideHold(j.overrideHold === true); setToken(j.token ?? null); setRequestId(j.requestId ?? ""); setApplyAvailable(j.applyAvailable === true); }).catch(onErr).finally(() => { if (tk.live()) setBusy(false); }); };
   // Apply (hidden unless the server reports it configured). One request, never retried automatically; lost reply => Check status.
   const save = () => { setBusy(true); setSaveMsg(""); const tk = fence.token(); call({ op: "apply", client, table, token, actor }).then((j) => { if (!tk.live()) return;
       if (j.unconfirmed) { setUnconfirmed(true); setSaveMsg("Save not confirmed. Use Check status; do not upload again."); }
       else { setToken(null); setSaveMsg(j.replayed ? "Already saved earlier (same request)." : `Saved ${j.records} records (${j.values} values).`); }
-    }).catch((e) => { if (!tk.live()) return; setUnconfirmed(true); setSaveMsg(`Save not confirmed (${(e as Error).message}). Use Check status; do not upload again.`); }).finally(() => { if (tk.live()) setBusy(false); }); };
+    }).catch((e) => { if (!tk.live()) return;
+      if ((e as { code?: string }).code === "gift_override_active") { setSaveMsg(`${(e as Error).message} After the corrections are reconciled, this same preview may be saved again while it has not expired; otherwise preview again.`); return; }
+      setUnconfirmed(true); setSaveMsg(`Save not confirmed (${(e as Error).message}). Use Check status; do not upload again.`); }).finally(() => { if (tk.live()) setBusy(false); }); };
   const checkStatus = () => { const tk = fence.token(); call({ op: "status", client, table, requestId }).then((j) => { if (!tk.live()) return; setUnconfirmed(!j.found); if (j.found) { setToken(null); setSaveMsg("Saved: this request committed."); } else setSaveMsg("Still unconfirmed: Engage has no committed record of this request yet (it may still be in progress). Check again shortly; do not upload again."); }).catch((e) => tk.run(() => setSaveMsg(`Status unavailable (${(e as Error).message}); try again.`))); };
 
   return (
@@ -299,6 +304,7 @@ export default function SourceImportPage() {
       {err && <p role="alert" className="mt-4 rounded-lg bg-red-50 px-4 py-3 text-sm text-red-800">{err}</p>}
       {result && (
         <section className={`${card} mt-4`}>
+          {overrideHold && <p role="status" className="mb-3 rounded-lg border border-[rgb(var(--brass))]/40 bg-[rgb(var(--brass))]/10 px-4 py-3 text-sm text-[rgb(var(--navy))]">Held: a dashboard gift correction or void exists for this client, so gift source updates for this table are held. Nothing can be saved from this preview. This protects corrections that already exist; it does not cover edits made later.</p>}
           <p className="text-sm text-[rgb(var(--ink))]/70">{result.counts.update} existing rows would change{result.counts.insert ? ` · ${result.counts.insert} new records would be added` : ""} ({result.counts.applyValues} values) · {result.counts.held} held · {result.counts.invalid} invalid · {result.counts.unchanged} unchanged · {result.counts.conflicts} conflicts · {result.counts.protectedValues} protected · {result.notInSource.length} dashboard records not in file (never deleted)</p>
           <h3 className={`${label} mt-4`}>Columns</h3>
           <ul className="mt-2 text-sm">{result.columns.map((c) => <li key={c.header}><span className="text-[rgb(var(--navy))]">{c.header}</span> → {c.col ?? "ignored"}: <b>{c.state}</b> <span className="text-[rgb(var(--ink))]/60">{c.reason}</span></li>)}</ul>

@@ -3,7 +3,7 @@
 // Apply additionally needs SOURCE_IMPORT_APPLY=enabled AND the hard SOURCE_TRANSPORT_APPROVED constant (false).
 // The browser never sees the bearer secret or SQL credentials; previews are HMAC-bound and expire in 15 minutes.
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { REGISTRY_META, SOURCE_FIELDS } from "./source-registry";
+import { REGISTRY_META, SOURCE_FIELDS, OVERRIDE_HELD_TABLES } from "./source-registry";
 import { insertPolicyDigest, insertPolicyFor, type GiftInsertPolicy } from "./source-insert-policy";
 import { planWrites, preparedDigest, type Key, reconcile, SOURCE_TRANSPORT_APPROVED, SourceError, type ReconInput, type ReconResult, type WriteOp } from "./source-reconcile";
 
@@ -14,7 +14,7 @@ const secretOk = (env: Env) => (env.PORTAL_WRITE_SECRET ?? "").length >= 24;
 export const sourcePreviewConfigured = (env: Env = process.env) => env.SOURCE_IMPORT_PREVIEW === "enabled" && !!url(env) && secretOk(env);
 export const sourceApplyConfigured = (env: Env = process.env, transportApproved: boolean = SOURCE_TRANSPORT_APPROVED) => transportApproved && env.SOURCE_IMPORT_APPLY === "enabled" && sourcePreviewConfigured(env);
 
-export interface EngageState { registryRev: string; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: Key[]; current: { key: Key; person?: number | null; link?: string | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: Key; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[]; insertPolicyDigest?: string | null; sourceLinks?: { key: Key; link: string; person: number | null; inMaster: boolean }[]; baselineKeys?: Key[] }
+export interface EngageState { registryRev: string; overrideHold?: boolean; personLink?: string | null; destinationEmpty?: boolean; destinationOnlyJob?: boolean; preparedDigest?: string | null; duplicateKeys: Key[]; current: { key: Key; person?: number | null; link?: string | null; values: Record<string, string | null>; unreadable: string[] }[]; baseline: { key: Key; col: string; value: string | null }[]; overlayKeys: number[]; prospectKeys: number[]; insertPolicyDigest?: string | null; sourceLinks?: { key: Key; link: string; person: number | null; inMaster: boolean }[]; baselineKeys?: Key[] }
 /** Engage preview state -> reconciliation inputs. Only source-provenance baseline rows count; unreadable values are omitted (=> held). */
 export function stateToInputs(s: EngageState): Pick<ReconInput, "baseline" | "current" | "overlays" | "heldKeys" | "personOf" | "linkOf" | "sourceLink"> {
   if (s.registryRev !== REGISTRY_META.rev) throw new SourceError("Engage registry revision differs from this website; deploy both together");
@@ -78,6 +78,12 @@ export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "ove
   }
   // first load: empty prepared destination (Engage-reported) => no baseline/current; otherwise later updates
   const result: ReconResult = reconcile(base.mode === "first-load" ? { ...base, ...inputs, baseline: null, current: new Map() } : { ...base, ...inputs, insertPolicy: pol ? { digest: ipd!, required: pol.required } : null });
+  // PLAN-N: native gift tables (registry list or prepared giftClass native_gift) are held client-wide while ANY active
+  // dashboard gift correction/void exists. Engage must answer a strict boolean; anything else fails closed.
+  const held = OVERRIDE_HELD_TABLES.includes(`${base.client}.${base.table}`) || base.prepared?.tables.find((t) => t.table === base.table)?.giftClass === "native_gift";
+  if (held && typeof state.overrideHold !== "boolean") throw new SourceError("Engage did not report the gift correction check for this table; deploy both together");
+  const overrideHold = held && state.overrideHold === true;
+  if (overrideHold) holdForOverrides(result);
   const ops = planWrites(result).map((o) => {
     if (!meta.alloc) return o;
     // reserved first load: every insert carries the exact external identity its reserved CPTID belongs to
@@ -90,7 +96,16 @@ export function livePreview(base: Omit<ReconInput, "baseline" | "current" | "ove
   const heldRows = result.rows.filter((r) => r.outcome === "held" || r.outcome === "invalid" || r.fields.some((f) => ["held", "conflict", "protected", "invalid"].includes(f.outcome))).length + (meta.alloc?.extraHeld ?? 0);
   const job = meta.job ? { ...meta.job.ref, heldRows } : undefined;
   const token = ops.length ? signSourceToken({ v: 1, client: base.client, table: base.table, mode: base.mode, preparedDigest: base.prepared ? preparedDigest(base.prepared, base.table) : null, requestId, fileName: meta.fileName.slice(0, 300), fileDigest: meta.job ? meta.job.fileDigest : fileDigest(meta.csv), fileDate: meta.fileDate, registryRev: REGISTRY_META.rev, exp: (meta.now ?? Date.now()) + SOURCE_TOKEN_TTL_MS, ops, ...(job ? { job } : {}), insertPolicyDigest: ipd, ...(meta.alloc ? { allocatorDigest: meta.alloc.digest, identityConfigDigest: meta.alloc.identityConfigDigest } : {}) }, meta.secret) : null;
-  return { result, ops: ops.length, token, requestId, ...(job ? { job } : {}) };
+  return { result, ops: ops.length, token, requestId, overrideHold, ...(job ? { job } : {}) };
+}
+export const GIFT_OVERRIDE_HELD_TEXT = "Held: a dashboard gift correction/void exists for this client; gift source updates are held. Nothing was saved.";
+/** Every would-save row becomes held (no op, no token). Unchanged/invalid rows keep their outcome. No IDs/values from overrides. */
+function holdForOverrides(r: ReconResult) {
+  for (const row of r.rows) {
+    if (row.outcome !== "update" && row.outcome !== "insert") continue;
+    r.counts[row.outcome]--; r.counts.held++; row.outcome = "held"; row.reason = GIFT_OVERRIDE_HELD_TEXT;
+    for (const f of row.fields) if (f.outcome === "apply") { f.outcome = "held"; f.reason = GIFT_OVERRIDE_HELD_TEXT; r.counts.applyValues--; r.counts.heldValues++; }
+  }
 }
 
 export function applyRequestBody(token: unknown, actor: unknown, secret: string | undefined, now = Date.now()) {

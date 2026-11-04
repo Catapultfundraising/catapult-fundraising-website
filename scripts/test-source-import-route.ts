@@ -11,7 +11,7 @@ test("prepared new client: tables/fields, initial-load preview, then later updat
   const { __setPreparedForTests, preparedDigest } = await import("../lib/portal-v2/source-reconcile");
   const { REGISTRY_META } = await import("../lib/portal-v2/source-registry");
   const prepared = { approvalId: "review-2026-11-03-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03",
-    tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
+    tables: [{ table: "master", key: "CPTID", giftClass: "non_gift" as const, columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
   __setPreparedForTests([prepared]);
   const digest = preparedDigest(prepared, "master");
   let engageState: Record<string, unknown> = {};

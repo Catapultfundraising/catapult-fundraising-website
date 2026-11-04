@@ -79,7 +79,7 @@ async function livePreviewResponse(client: string, table: string, dests: ReturnT
   const lp = livePreview({ client, table, mode, mapping, rows, headers, prepared }, st, { fileName, csv: csvIn, fileDate, secret: process.env.PORTAL_WRITE_SECRET, ...(job ? { job } : {}), ...(alloc ? { alloc } : {}) });
   if (reg && !alloc && lp.result.rows.some((r) => r.outcome === "insert")) return bad("New records for this client are held: add them only through the reserved first load");
   const { dest: _d, ...result } = lp.result;
-  return NextResponse.json({ headers, result, mode, token: lp.token, requestId: lp.requestId, job: lp.job ?? null, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
+  return NextResponse.json({ headers, result, mode, overrideHold: lp.overrideHold, token: lp.token, requestId: lp.requestId, job: lp.job ?? null, fileName, fileDate, applyAvailable: sourceApplyConfigured() && !!lp.token });
 }
 
 /** Server allocator context for a client (null = not registered). Identity columns must be listed non-key master columns. */

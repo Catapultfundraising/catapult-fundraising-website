@@ -9,7 +9,7 @@ Object.assign(process.env, { RESEARCH_PASSWORD: "localpw", RESEARCH_AUTH_SECRET:
 const COOKIE = createHash("sha256").update("localpw:localsec").digest("hex");
 const sha = async (x: string) => createHash("sha256").update(x, "utf8").digest("hex");
 const PREP = { approvalId: "review-2026-11-03-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03",
-  tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Source_ID", ty: "nvarchar", len: 200, required: true }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
+  tables: [{ table: "master", key: "CPTID", giftClass: "non_gift" as const, columns: [{ col: "CPTID", ty: "int" }, { col: "Source_ID", ty: "nvarchar", len: 200, required: true }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }, { col: "City", ty: "nvarchar", len: 100 }] }] };
 const CFG = { approvalId: "alloc-fictional", approvalVersion: 1, client: "fictional_x", masterTable: "master", sourceSystem: "fictional_crm", forbiddenFrom: 900000, externalKeyCol: "Source_ID", identityCols: ["Source_ID", "Account_Name"] };
 const MAP = { "Source ID": "Source_ID", Name: "Account_Name", City: "City" };
 const HEADERS = ["Source ID", "Name", "City"];

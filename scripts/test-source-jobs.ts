@@ -104,7 +104,7 @@ test("livePreview heldRows: a row updating one field while another mapped field 
 test("prepared new client job: batches after the first stay first-load while Engage reports the destination holds only this job", async () => {
   const { __setPreparedForTests, preparedDigest } = await import("../lib/portal-v2/source-reconcile");
   const prepared = { approvalId: "review-fictional", approvalVersion: 1, client: "fictional_x", schema: "fictional_x", registryVersion: 3, approvedBy: "Reviewer", approvedAt: "2026-11-03",
-    tables: [{ table: "master", key: "CPTID", columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }] }] };
+    tables: [{ table: "master", key: "CPTID", giftClass: "non_gift" as const, columns: [{ col: "CPTID", ty: "int" }, { col: "Account_Name", ty: "nvarchar", len: 200, required: true }] }] };
   process.env.SOURCE_PREPARED_TEST_HOOK = "1"; __setPreparedForTests([prepared]);
   const rows = Array.from({ length: 1200 }, (_, i) => ({ ID: String(i + 1), N: `Org ${i + 1}` }));
   const { manifest, jobId } = await buildJobManifest(sha, { client: "fictional_x", table: "master", keyCol: "CPTID", mapping: { ID: "CPTID", N: "Account_Name" }, headers: ["ID", "N"], rows, fileName: "initial.csv", fileDate: null, actor: "Pat Example", registryRev: REGISTRY_META.rev, batchRows: jobBatchRows(1) });

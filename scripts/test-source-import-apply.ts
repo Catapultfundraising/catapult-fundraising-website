@@ -119,7 +119,7 @@ test("PVAS notes (update-only, person-linked): two notes one person, person-leve
 
 test("WCBHC gifts (update-only, person-linked): Transaction_ID key, CPTID verified; missing person held; no inserts", () => {
   const gb = { client: "wcbhc", table: "non_campaign_giving_history", mode: "update" as const, mapping: { GiftID: "ID", Person: "CPTID", Amt: "Donation_Amount" } };
-  const gs = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [],
+  const gs = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, overrideHold: false, personLink: "CPTID", duplicateKeys: [],
     current: [{ key: 71, person: 5001, values: { Donation_Amount: "100" }, unreadable: [] }, { key: 72, person: 5001, values: { Donation_Amount: "25.5" }, unreadable: [] }, { key: 73, person: null, values: { Donation_Amount: "10" }, unreadable: [] }],
     baseline: [71, 72, 73].map((k, i) => ({ key: k, col: "Donation_Amount", value: ["100", "25.5", "10"][i] })), overlayKeys: [], prospectKeys: [], ...over });
   const rows = [{ GiftID: "71", Person: "5001", Amt: "150" }, { GiftID: "72", Person: "5001", Amt: "25.50" }, { GiftID: "73", Person: "", Amt: "12" }];
@@ -133,7 +133,7 @@ test("WCBHC gifts (update-only, person-linked): Transaction_ID key, CPTID verifi
   assert.equal(livePreview({ ...gb, rows: [rows[0]] }, gs({ overlayKeys: [5001] }), meta).token, null);
   assert.match(livePreview({ ...gb, rows: [{ GiftID: "999", Person: "5001", Amt: "1" }] }, gs(), meta).result.rows[0].reason!, /update-only|no approved insert policy/);
   const cg = livePreview({ client: "wcbhc", table: "giving_history", mode: "update", mapping: { T: "Transaction_ID", P: "CPTID", A: "Gift_Amount" }, rows: [{ T: "9001", P: "44", A: "500" }] },
-    { registryRev: REGISTRY_META.rev, personLink: "CPTID", duplicateKeys: [], current: [{ key: 9001, person: 44, values: { Gift_Amount: "250" }, unreadable: [] }], baseline: [{ key: 9001, col: "Gift_Amount", value: "250" }], overlayKeys: [], prospectKeys: [] }, meta);
+    { registryRev: REGISTRY_META.rev, overrideHold: false, personLink: "CPTID", duplicateKeys: [], current: [{ key: 9001, person: 44, values: { Gift_Amount: "250" }, unreadable: [] }], baseline: [{ key: 9001, col: "Gift_Amount", value: "250" }], overlayKeys: [], prospectKeys: [] }, meta);
   assert.deepEqual(verifySourceToken(cg.token, SECRET, 2000).payload.ops.map((o) => [o.key, o.person]), [[9001, 44]]);
 });
 
@@ -142,7 +142,7 @@ test("crosswalk + key kinds in reconciliation: CSNF text link must match exactly
   const { parseKeyOf, canonLink } = await import("../lib/portal-v2/source-keys");
   assert.equal(parseKeyOf("bigint", "9999999999"), 9999999999); assert.equal(parseKeyOf("bigint", "9999999999.0"), 9999999999); assert.equal(parseKeyOf("bigint", "9007199254740993"), null); assert.equal(parseKeyOf("bigint", "1.5"), null);
   assert.equal(parseKeyOf("text", "01234"), "01234"); assert.equal(parseKeyOf("text", " 01234"), null); assert.equal(canonLink("int", "00555"), "555"); assert.equal(canonLink("int", "555.5"), null); assert.equal(canonLink("text", "001A"), "001A");
-  const cs = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, personLink: "Account_ID", duplicateKeys: [],
+  const cs = (over: Partial<EngageState> = {}): EngageState => ({ registryRev: REGISTRY_META.rev, overrideHold: false, personLink: "Account_ID", duplicateKeys: [],
     current: [{ key: 11, person: 7001, link: "001A", values: { Amount: "100" }, unreadable: [] }, { key: 12, person: null, link: "002B", values: { Amount: "5" }, unreadable: [] }],
     baseline: [{ key: 11, col: "Amount", value: "100" }, { key: 12, col: "Amount", value: "5" }], overlayKeys: [], prospectKeys: [], ...over });
   const cb = { client: "csnf", table: "Raw_Data_Gift_File", mode: "update" as const, mapping: { GiftID: "ID", Acct: "Account_ID", Amt: "Amount" } };
@@ -151,6 +151,6 @@ test("crosswalk + key kinds in reconciliation: CSNF text link must match exactly
   assert.deepEqual(verifySourceToken(lp.token, SECRET, 2000).payload.ops.map((o) => [o.key, o.person, o.link]), [[11, 7001, "001A"]]);
   for (const Acct of ["001a", "001A ", "002B", ""]) assert.equal(livePreview({ ...cb, rows: [{ GiftID: "11", Acct, Amt: "150" }] }, cs(), meta).token, null, Acct);
   const pt = livePreview({ client: "pvas", table: "givebutter_pledges", mode: "update", mapping: { Id: "Id", C: "Givebutter_Contact_ID", S: "Status" }, rows: [{ Id: "01234", C: "555", S: "fulfilled" }, { Id: "1234", C: "555", S: "x" }] },
-    { registryRev: REGISTRY_META.rev, personLink: "Givebutter_Contact_ID", duplicateKeys: [], current: [{ key: "01234", person: 8001, link: "555", values: { Status: "active" }, unreadable: [] }], baseline: [{ key: "01234", col: "Status", value: "active" }], overlayKeys: [], prospectKeys: [] }, meta);
+    { registryRev: REGISTRY_META.rev, overrideHold: false, personLink: "Givebutter_Contact_ID", duplicateKeys: [], current: [{ key: "01234", person: 8001, link: "555", values: { Status: "active" }, unreadable: [] }], baseline: [{ key: "01234", col: "Status", value: "active" }], overlayKeys: [], prospectKeys: [] }, meta);
   assert.deepEqual(pt.result.rows.map((r) => [r.key, r.outcome]), [["01234", "update"], ["1234", "held"]]);
 });

@@ -18,7 +18,10 @@ const REGISTRY_CLIENTS = [...new Set(SOURCE_FIELDS.map((f) => f.c))];
 
 // ---------- destinations ----------
 export type Dest = { col: string; ty: string; len: number | null; p: number | null; s: number | null; st: SourceField["st"]; why: string };
-export interface PreparedTable { table: string; key: string; columns: { col: string; ty: string; len?: number | null; p?: number | null; s?: number | null; required?: boolean }[] }
+/** giftClass (required, explicit per table, never inferred): "native_gift" adds the client-wide active dashboard gift
+ *  correction hold (PLAN-N); "non_gift" adds nothing. Must equal Engage PreparedDest.giftClass (digest prepared/v3). */
+export type GiftClass = "native_gift" | "non_gift";
+export interface PreparedTable { table: string; key: string; giftClass: GiftClass; columns: { col: string; ty: string; len?: number | null; p?: number | null; s?: number | null; required?: boolean }[] }
 /** approvalId must equal the Engage copy of the same reviewed registration (PreparedDest.approvalId). */
 /** Optional columns missing from a first-load row are written as explicit NULL (never DB defaults). */
 export interface PreparedClient { approvalId: string; approvalVersion: number; client: string; schema: string; registryVersion: number; approvedBy: string; approvedAt: string; tables: PreparedTable[] }
@@ -35,7 +38,7 @@ export function __setPreparedForTests(p: readonly PreparedClient[] | null) {
 export function preparedDigest(p: PreparedClient, table: string) {
   const t = p.tables.find((x) => x.table === table); if (!t) throw new SourceError("no such prepared table");
   const cols = [...t.columns].sort((a, b) => (a.col < b.col ? -1 : 1)).map((c) => [c.col, c.ty, c.len ?? null, c.p ?? null, c.s ?? null, !!c.required]);
-  return createHash("sha256").update(JSON.stringify(["prepared/v2", p.approvalId, p.approvalVersion, p.client, p.schema, t.table, t.key, cols])).digest("hex");
+  return createHash("sha256").update(JSON.stringify(["prepared/v3", p.approvalId, p.approvalVersion, p.client, p.schema, t.table, t.key, t.giftClass, cols])).digest("hex");
 }
 const TYPES = new Set(["nvarchar", "varchar", "int", "bigint", "float", "decimal", "numeric", "bit", "date", "datetime2"]);
 
@@ -61,6 +64,7 @@ export function validatePrepared(p: PreparedClient): PreparedClient {
   for (const t of p.tables ?? []) {
     if (!IDENT.test(t.table) || seenT.has(t.table.toLowerCase())) errs.push(`bad/duplicate table ${t.table}`);
     seenT.add(t.table.toLowerCase());
+    if (t.giftClass !== "native_gift" && t.giftClass !== "non_gift") errs.push(`${t.table}: explicit giftClass required`);
     const seenC = new Set<string>();
     for (const c of t.columns) {
       if (!IDENT.test(c.col) || c.col.toLowerCase() === "row_id" || seenC.has(c.col.toLowerCase())) errs.push(`bad/duplicate column ${t.table}.${c.col}`);
