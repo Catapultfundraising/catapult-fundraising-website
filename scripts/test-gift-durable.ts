@@ -470,3 +470,103 @@ test("F1b exact bytes: BOM+CRLF text kept by the panel reader gives fileDigest =
   assert.ok(panel.includes("ignoreBOM: true") && !/\bfl\.text\(\)/.test(panel), "panel reads exact bytes, never File.text()");
   assert.ok(!/localStorage|sessionStorage|indexedDB|document\.cookie/.test(panel), "no browser storage");
 });
+
+// ---------- F2a review-copy check ----------
+const goodOutcome = (rq: string) => ({ requestId: rq, client: "jag", registrationId: REG.id, committed: true, counts: { new: 1, adopt: 1, correct: 1 }, rows: [{ ordinal: 0, action: "new", giftId: "0000bbbb-0000-4000-8000-00000000abcd", locator: 90 }, { ordinal: 2, action: "adopt", giftId: "0000cccc-0000-4000-8000-00000000abcd", locator: 41 }, { ordinal: 3, action: "correct", giftId: UUID1, locator: 12 }] });
+async function reviewSetup() {
+  const L = await lib(); const p = await plan(); const rq = L.jobRequestId(p.jobId, 0);
+  const proof = L.proofFor({ client: "jag", token: p.token, manifest: p.manifest, batchIndex: 0, status: { found: true, confirmed: true, outcome: goodOutcome(rq) }, secret: SECRET, now: NOW })!;
+  const ex = L.durableExport({ client: "jag", csv: CSV, token: p.token, manifest: p.manifest, proofs: [proof], secret: SECRET, now: NOW });
+  const base = { client: "jag", table: REG.table, original: CSV, reviewCopy: ex.csv, header: p.recovery.header, headerMac: p.recovery.headerMac, jobToken: p.token, proofs: [proof], secret: SECRET, now: NOW };
+  return { L, p, proof, ex, base, rq };
+}
+
+test("F2a review check: round trip verified; fixed results/counts; no cell echo; export parity", async () => {
+  const { L, base, ex } = await reviewSetup();
+  const r = L.reviewCheck(base);
+  assert.deepEqual(r.rows.map((x) => x.result), ["verified", "held:held-in-plan", "verified", "verified"]);
+  assert.equal(r.counts.total, 4); assert.equal(r.counts.verified, 3); assert.equal(r.counts.held.heldInPlan, 1);
+  assert.equal(r.counts.verified, ex.proven, "same proven rows as the export");
+  assert.ok(!JSON.stringify(r).includes("SUM"), "no input cells echoed");
+  // expired job token is fine for the read-only check (authority = MAC + header, expiry ignored)
+  assert.equal(L.reviewCheck({ ...base, now: NOW + 30 * 60_000 }).counts.verified, 3);
+});
+
+test("F2a review check refusals: original bytes, headers (forward neutralize), cells, rows; adversarial validly-MACed proofs refuse WHOLE request", async () => {
+  const { L, p, base, ex, rq } = await reviewSetup();
+  assert.throws(() => L.reviewCheck({ ...base, original: base.original.replace("7003", "7004") }), /byte digest/);
+  assert.throws(() => L.reviewCheck({ ...base, original: "\uFEFF" + base.original }), /byte digest/);
+  const lines = ex.csv.split("\r\n");
+  const swapCols = lines.map((l) => l).join("\r\n").replace('"Donor","Amount"', '"Amount","Donor"');
+  assert.throws(() => L.reviewCheck({ ...base, reviewCopy: swapCols }), /header differs at column 1/);
+  assert.throws(() => L.reviewCheck({ ...base, reviewCopy: ex.csv.replace("\"'=SUM(A1)\"", "\"=SUM(A1)\"") }), /row 2, column 2|Stray|quote/);
+  assert.throws(() => L.reviewCheck({ ...base, reviewCopy: ex.csv.replace('"Catapult Gift ID","Gift ID Status"', '"Gift ID Status","Catapult Gift ID"') }), /header differs/);
+  assert.throws(() => L.reviewCheck({ ...base, reviewCopy: [lines[0], lines[2], lines[1], ...lines.slice(3)].join("\r\n") }), /differs from the original at row 1/);
+  assert.throws(() => L.reviewCheck({ ...base, reviewCopy: lines.slice(0, 3).join("\r\n") + "\r\n" }), /row count/);
+  // validly signed but adversarial proofs (test secret), each refuses the whole request
+  const sign = (payload: unknown) => { const { createHmac } = require("node:crypto") as typeof import("node:crypto"); const k = createHmac("sha256", SECRET).update("catapult-durable-gift/proof/v1").digest(); const body = Buffer.from(JSON.stringify(payload)).toString("base64url"); return `${body}.${createHmac("sha256", k).update(body).digest("base64url")}`; };
+  const good = JSON.parse(Buffer.from(base.proofs[0].split(".")[0], "base64url").toString());
+  const variants: [string, unknown][] = [
+    ["wrong request id", { ...good, requestId: "0".repeat(32) }],
+    ["action altered", { ...good, rows: good.rows.map((r: { o: number }) => (r.o === 2 ? { ...r, a: "new" } : r)) }],
+    ["target altered", { ...good, rows: good.rows.map((r: { o: number }) => (r.o === 3 ? { ...r, u: "0000dddd-0000-4000-8000-00000000abcd" } : r)) }],
+    ["person altered", { ...good, rows: good.rows.map((r: { o: number; p: number }) => (r.o === 0 ? { ...r, p: r.p + 1 } : r)) }],
+    ["locator altered", { ...good, rows: good.rows.map((r: { o: number }) => (r.o === 2 ? { ...r, l: 42 } : r)) }],
+    ["missing row", { ...good, rows: good.rows.slice(1) }],
+    ["duplicate uuid", { ...good, rows: good.rows.map((r: { o: number }) => (r.o === 0 ? { ...r, u: "0000cccc-0000-4000-8000-00000000abcd" } : r)) }],
+    ["cross job", { ...good, jobId: "a".repeat(64) }],
+    ["cross client", { ...good, client: "csnf" }],
+    ["cross file", { ...good, fileDigest: "b".repeat(64) }],
+    ["cross registration", { ...good, registrationDigest: "c".repeat(64) }],
+    ["expired", { ...good, exp: NOW - 1 }],
+  ];
+  for (const [what, v] of variants) assert.throws(() => L.reviewCheck({ ...base, proofs: [sign(v)] }), (e: unknown) => e instanceof L.DurableGiftError, what);
+  assert.throws(() => L.reviewCheck({ ...base, proofs: [base.proofs[0], base.proofs[0]] }), /bad proofs|duplicate/);
+  assert.throws(() => L.reviewCheck({ ...base, proofs: [`${base.proofs[0].split(".")[0]}.AAAA`] }), /signature/);
+  void p; void rq;
+});
+
+test("F2a row holds from CSV content only: duplicate (all occurrences, non-empty only), held-in-plan, blank, not-proven; formula-like headers", async () => {
+  const { L, base, ex } = await reviewSetup();
+  const lines = ex.csv.trim().split("\r\n");
+  const { parseCsv: pc } = await import("../lib/portal-v2/csv-parse");
+  const setId = (i: number, id: string, st?: string) => { const c = pc(lines[i] + "\r\n")[0]; c[c.length - 2] = id; if (st) c[c.length - 1] = st; lines[i] = c.map((x) => `"${x.replace(/"/g, '""')}"`).join(","); };
+  const r0 = () => L.reviewCheck({ ...base, reviewCopy: lines.join("\r\n") + "\r\n" }).rows.map((x) => x.result);
+  setId(4, "0000bbbb-0000-4000-8000-00000000abcd"); // duplicate of row 1's verified ID
+  assert.deepEqual(r0(), ["held:duplicate", "held:held-in-plan", "verified", "held:duplicate"]);
+  setId(4, UUID1.toUpperCase()); assert.equal(r0()[3], "held:not-proven", "uppercase");
+  setId(4, "PROV-0123456789abcdef0123456789abcdef"); assert.equal(r0()[3], "held:not-proven");
+  setId(4, UUID1, "held - not saved"); assert.equal(r0()[3], "held:not-proven", "wrong status text");
+  setId(4, ""); setId(2, ""); assert.deepEqual(r0().slice(1), ["held:held-in-plan", "verified", "held:blank"], "multiple blanks are blank, not duplicate");
+  // formula-like / leading-unicode headers compared via forward neutralize
+  const L2 = await lib(); void L2;
+  const csvF = "=Donor,+Amount,\u00A0Date,Type\r\n7001,1,2026-01-05T00:00:00,Gift\r\n";
+  const mapF = { "=Donor": "@person", "+Amount": "Gift_Amount", "\u00A0Date": "Gift_Date", Type: "Record_Type" };
+  const p2 = L.buildDurablePlan({ client: "jag", csv: csvF, mapping: mapF, decisions: [{ o: 0, d: "new" }], actor: "Pat", fileName: "f.csv", fileDate: null, secret: SECRET, now: NOW });
+  const rq2 = L.jobRequestId(p2.jobId, 0);
+  const pf2 = L.proofFor({ client: "jag", token: p2.token, manifest: p2.manifest, batchIndex: 0, status: { found: true, confirmed: true, outcome: { requestId: rq2, client: "jag", registrationId: REG.id, committed: true, counts: { new: 1, adopt: 0, correct: 0 }, rows: [{ ordinal: 0, action: "new", giftId: "0000bbbb-0000-4000-8000-00000000abcd", locator: 90 }] } }, secret: SECRET, now: NOW })!;
+  const ex2 = L.durableExport({ client: "jag", csv: csvF, token: p2.token, manifest: p2.manifest, proofs: [pf2], secret: SECRET, now: NOW });
+  const b2 = { ...base, original: csvF, reviewCopy: ex2.csv, header: p2.recovery.header, headerMac: p2.recovery.headerMac, jobToken: p2.token, proofs: [pf2] };
+  assert.equal(L.reviewCheck(b2).counts.verified, 1);
+  assert.throws(() => L.reviewCheck({ ...b2, reviewCopy: ex2.csv.replace("\"'=Donor\"", "\"=Donor\"") }), /header differs at column 1/);
+});
+
+test("[ROUTE] F2a durableGiftReviewCheck: auth/type/body/caps/proof vectors; no Engage call", async () => {
+  const calls: unknown[] = []; globalThis.fetch = (async (_u: unknown, init: { body: string }) => { calls.push(JSON.parse(init.body)); return Response.json({}); }) as unknown as typeof fetch;
+  const { POST } = await import("../app/api/research-source-import/route");
+  const { L, base } = await reviewSetup(); L.__setGiftRegistrationsForTests([REG]);
+  const post = (body: Record<string, unknown>, h: Record<string, string> = {}, raw?: string) => POST(new NextRequest("http://localhost:3100/api/research-source-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", host: "localhost:3100", cookie: `catapult_research_auth=${COOKIE}`, ...h }, body: raw ?? JSON.stringify(body) }));
+  // the route signs with process.env secret == SECRET
+  const body = { op: "durableGiftReviewCheck", client: "jag", table: REG.table, original: base.original, reviewCopy: base.reviewCopy, header: base.header, headerMac: base.headerMac, jobToken: base.jobToken, proofs: base.proofs };
+  const ok = await post(body); assert.equal(ok.status, 200); assert.equal((await ok.json()).counts.verified, 3);
+  assert.equal((await post(body, { cookie: "" })).status, 401);
+  assert.equal((await post(body, { origin: "https://evil.example" })).status, 403);
+  assert.equal((await post({ ...body, extra: 1 })).status, 400);
+  for (const k of ["client", "table", "original", "reviewCopy"]) for (const v of [1, null, ["x"], { a: 1 }]) assert.equal((await post({ ...body, [k]: v })).status, 400, `${k}=${JSON.stringify(v)}`);
+  assert.equal((await post({ ...body, original: "é".repeat(1_000_001) })).status, 413, "2 MB per file measured in UTF-8 bytes");
+  assert.equal((await post({}, {}, JSON.stringify({ ...body, pad: "x".repeat(4_000_001) }))).status, 413);
+  assert.equal((await post({ ...body, proofs: [`${base.proofs[0].split(".")[0]}.AAAA`] })).status, 400);
+  assert.equal((await post({ ...body, original: base.original + "x" })).status, 400);
+  assert.equal(calls.length, 0, "never calls Engage");
+  L.__setGiftRegistrationsForTests([]);
+});

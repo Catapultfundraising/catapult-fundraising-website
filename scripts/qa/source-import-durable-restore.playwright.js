@@ -42,7 +42,7 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     const outer = p.locator("select").first(); await outer.locator("option[value=jag]").waitFor({ state: "attached", timeout: 120000 });
     let w = resp("durableGiftContext"); await outer.selectOption("jag"); const real = await (await w).json(); await frames();
     ok(real.available === false && real.lookupAvailable === false && await p.locator("[data-testid=durable-gift], [data-testid=durable-lookup-only]").count() === 0, `${vp.name}: actual route, empty registry + unconfigured transport => nothing rendered (production state)`);
-    const log = []; let refuseNext = false; let renewMode = "ok"; let deferRenew = null; const proofPlan = {}; let commitN = 0;
+    const log = []; let deferReview = null; let refuseNext = false; let renewMode = "ok"; let deferRenew = null; const proofPlan = {}; let commitN = 0;
     await p.route("**" + API, async (route) => {
       const bd = bdy(route.request()); if (!String(bd.op || "").startsWith("durableGift")) return route.continue();
       log.push(bd);
@@ -64,6 +64,7 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
         return J({ committed: true, requestId: rid(i), outcome: { requestId: rid(i), client: "jag", registrationId: "fict_gifts", committed: true, counts: { new: rows.filter((r) => r.action === "new").length, adopt: rows.filter((r) => r.action === "adopt").length, correct: rows.filter((r) => r.action === "correct").length }, rows: rows.map((r, k) => ({ ordinal: r.ordinal, action: r.action, giftId: r.giftId ?? `${String(i).padStart(4, "0")}${String(k).padStart(4, "0")}-0000-4000-8000-000000000000`, locator: r.locator ?? 1000 + r.ordinal })) } }); }
       if (bd.op === "durableGiftPreview") return J({ rows: [], giftOverridesActive: true }); // "changed live" data: restore must never consult it
       if (bd.op === "durableGiftJobLookup") return J({ jobId: bd.jobId, client: bd.client, confirmed: true, state: "partial", batchCount: PARTS.length, committedBatches: [1], missingBatches: Array.from({ length: PARTS.length }, (_, i) => i).filter((i) => i !== 1), heldRows: HELD.length, decidedRows: ROWS.length, note: "Partial." });
+      if (bd.op === "durableGiftReviewCheck") { if (deferReview) { const g = deferReview; deferReview = null; await g.p; } return J({ jobId: JOB, client: "jag", counts: { total: 606, verified: PARTS[1].length, held: { duplicate: 0, heldInPlan: HELD.length, blank: 606 - HELD.length - PARTS[1].length, notProven: 0 } }, rows: Array.from({ length: 606 }, (_, o) => (PARTS[1].some((r) => r.ordinal === o) ? { o, result: "verified", giftId: "0000bbbb-0000-4000-8000-00000000abcd" } : { o, result: HELD.includes(o) ? "held:held-in-plan" : "held:blank" })) }); }
       if (bd.op === "durableGiftExport") return J({ fileName: "fictional-606-catapult-gift-ids.csv", csv: "x", proven: PARTS[1].length, held: HELD.length, unconfirmed: ROWS.length - PARTS[1].length });
       return J({ error: "unknown" }, 400);
     });
@@ -106,6 +107,7 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     let s = await st();
     ok(s[0] === "pending" && s[1] === "saved" && s[2] === "unconfirmed" && s[4] === "unconfirmed" && s[3] === "pending", `${vp.name}: canonical pending => pending; proof => saved; 502 unavailable and wrong-ID pending => unconfirmed`);
     const saveBtn = sec.locator("button", { hasText: "Save batches" });
+    ok(await sec.locator("input[aria-label='Returned review copy']").isDisabled(), `${vp.name}: review-copy check unavailable while batches are uncertain`);
     ok(await saveBtn.isDisabled() && await sec.locator("input[aria-label='Confirm whole-file save']").isDisabled() && await outer.isDisabled() && await restoreIn.isDisabled(), `${vp.name}: unconfirmed batches => no save, scope and file inputs locked`);
     ok(await sec.locator("[data-testid=durable-restored]").count() === 1 && await sec.locator("select[aria-label^='Decision row'], select[aria-label^='Map '], input[aria-label='Durable gift export']").count() === 0, `${vp.name}: restored job is read-only (no decision/mapping/CSV inputs)`);
     proofPlan[2] = "pending"; proofPlan[4] = "pending";
@@ -137,6 +139,17 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     w = resp("durableGiftExport"); const dl = p.waitForEvent("download"); await expBtn.click(); const ex = bdy((await w).request()); await dl;
     ok(ex.csv.charCodeAt(0) === 0xfeff && ex.token === "renewed.tok", `${vp.name}: exact original (BOM kept) accepted; export sent with renewed token`);
     ok(await saveBtn.isDisabled(), `${vp.name}: nothing pending => Save disabled`);
+    // F2a read-only review report (fictional mocked op): sends authority + session proofs; never changes states or save authority
+    const before = JSON.stringify(await st());
+    await sec.locator("[data-testid=durable-review] summary").click();
+    w = resp("durableGiftReviewCheck"); await sec.locator("input[aria-label='Returned review copy']").setInputFiles({ name: "review.csv", mimeType: "text/csv", buffer: Buffer.from("x\r\n") }); const rv = bdy((await w).request());
+    await sec.locator("[data-testid=durable-review-report]").waitFor();
+    ok(rv.original.charCodeAt(0) === 0xfeff && rv.jobToken === "renewed.tok" && rv.headerMac === "A".repeat(43) && Array.isArray(rv.proofs) && rv.proofs.length >= 1 && /545|606 rows/.test(await sec.locator("[data-testid=durable-review-report]").innerText()), `${vp.name}: review check sends exact original + recovery authority + session proofs; report rendered`);
+    ok(JSON.stringify(await st()) === before && await saveBtn.isDisabled(), `${vp.name}: report never changes batch states or save authority`);
+    { let relV; deferReview = { p: new Promise((r) => { relV = r; }) };
+      const vq = p.waitForRequest((r) => isOp(r, "durableGiftReviewCheck")); await sec.locator("input[aria-label='Returned review copy']").setInputFiles({ name: "review2.csv", mimeType: "text/csv", buffer: Buffer.from("y\r\n") }); await vq; await frames();
+      ok(await sec.locator("input[aria-label='Returned review copy']").isDisabled() && await saveBtn.isDisabled(), `${vp.name}: review check is single-flight (inputs disabled while pending)`);
+      const vr = resp("durableGiftReviewCheck"); relV(); await vr; await frames(); }
     if (CAPTURE) { // capture-only CSS (disclosed): cookie banner dismissed, sticky header static, dev overlay hidden
       const nb3 = p.locator("button", { hasText: "Necessary Only" }); if (await nb3.count()) { await nb3.first().click({ force: true }); await nb3.first().waitFor({ state: "detached" }); }
       await p.addStyleTag({ content: "header, [class*='sticky'] { position: static !important; } nextjs-portal { display: none !important; }" });

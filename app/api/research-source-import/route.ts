@@ -12,7 +12,7 @@ import { buildProfile, checkProfile, type ProfileContext } from "@/lib/portal-v2
 import { insertPolicyDigest } from "@/lib/portal-v2/source-insert-policy";
 import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePlan, summarizeStatus, exportText, priorDigest, validRequestId, validateAttestHeaders } from "@/lib/portal-v2/source-baseline-attest";
 import { stageGift, exportGift, giftColumns, GiftPreviewError, GIFT_CLIENT, GIFT_TABLE, GIFT_PERSON_COL } from "@/lib/portal-v2/gift-preview";
-import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, projectJobStatus, renewRecovery, RENEW_MAX_BODY, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
+import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, projectJobStatus, renewRecovery, RENEW_MAX_BODY, reviewCheck, REVIEW_MAX_TEXT, REVIEW_MAX_BODY, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
 import { giftRegDigest, previewRowCap, jobRequestId, validOutcome } from "@/lib/portal-v2/gift-identity-plan";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
@@ -210,7 +210,7 @@ export async function POST(req: NextRequest) {
     if (typeof b.op === "string" && b.op.startsWith("durableGift")) {
       const g = registrationFor(client);
       const now = Date.now(), secret = process.env.RESEARCH_AUTH_SECRET;
-      const OPS = ["durableGiftJobLookup", "durableGiftRenew", "durableGiftContext", "durableGiftPlan", "durableGiftExport", "durableGiftCommit", "durableGiftPreview", "durableGiftProof", "durableGiftJobStatus"];
+      const OPS = ["durableGiftJobLookup", "durableGiftRenew", "durableGiftReviewCheck", "durableGiftContext", "durableGiftPlan", "durableGiftExport", "durableGiftCommit", "durableGiftPreview", "durableGiftProof", "durableGiftJobStatus"];
       if (!OPS.includes(b.op)) return bad("unknown op");
       // Read-only whole-job lookup, independent of the (mutable) gift registration: fixed client code + jobId only,
       // existing backend giftJobStatus (fixed client/job query), strict projection. Never a proof, never enables a write.
@@ -241,6 +241,12 @@ export async function POST(req: NextRequest) {
           if (Buffer.byteLength(text, "utf8") > RENEW_MAX_BODY) return bad("Renewal request too large", 413);
           if (typeof b.client !== "string" || typeof b.table !== "string" || !exactBody(b, ["op", "client", "table", "header", "headerMac", "jobToken"])) return bad("bad durableGiftRenew body");
           return NextResponse.json(renewRecovery({ client, table, header: b.header, headerMac: b.headerMac, jobToken: b.jobToken, secret, now }));
+        }
+        if (b.op === "durableGiftReviewCheck") {
+          if (Buffer.byteLength(text, "utf8") > REVIEW_MAX_BODY) return bad("Review check request too large", 413);
+          if (!exactBody(b, ["op", "client", "table", "original", "reviewCopy", "header", "headerMac", "jobToken", "proofs"]) || typeof b.client !== "string" || typeof b.table !== "string" || typeof b.original !== "string" || typeof b.reviewCopy !== "string") return bad("bad durableGiftReviewCheck body");
+          if (Buffer.byteLength(b.original, "utf8") > REVIEW_MAX_TEXT || Buffer.byteLength(b.reviewCopy, "utf8") > REVIEW_MAX_TEXT) return bad("Each file must be 2 MB or smaller", 413);
+          return NextResponse.json(reviewCheck({ client, table, original: b.original, reviewCopy: b.reviewCopy, header: b.header, headerMac: b.headerMac, jobToken: b.jobToken, proofs: b.proofs, secret, now }));
         }
         if (b.op === "durableGiftExport") {
           if (!exactBody(b, ["op", "client", "table", "csv", "token", "manifest", "proofs"]) || typeof b.csv !== "string") return bad("bad durableGiftExport body");

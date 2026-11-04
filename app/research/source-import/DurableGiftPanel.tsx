@@ -78,6 +78,8 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
   const [lookId, setLookId] = useState(""); const [look, setLook] = useState<JobLook | null>(null);
   const [restored, setRestored] = useState<Record<string, unknown> | null>(null); const [drift, setDrift] = useState(false);
   const [downloadedFor, setDownloadedFor] = useState(""); const [orig, setOrig] = useState<{ text: string; digest: string } | null>(null);
+  type Report = { counts: { total: number; verified: number; held: { duplicate: number; heldInPlan: number; blank: number; notProven: number } }; rows: { o: number; result: string; giftId?: string }[] };
+  const [report, setReport] = useState<Report | null>(null); const [rpage, setRpage] = useState(0);
   const [busy, setBusy] = useState(false); const [writing, setWriting] = useState(false); const [err, setErr] = useState(""); const [note, setNote] = useState("");
 
   // scope lock: a dispatched save/status or any unconfirmed batch keeps the parent client/table selectors locked
@@ -86,7 +88,7 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
   useEffect(() => () => onLockChange?.(false), [onLockChange]);
 
   /** any scope/input change: fence all pending async work and drop derived state */
-  const invalidate = () => { fence.bump(); setRestored(null); setDrift(false); setOrig(null); inflight.current = false; setChecks([]); setPlan(null); setConfirm(false); setBatch([]); setProofs({}); setHist(null); setErr(""); setNote(""); setBusy(false); };
+  const invalidate = () => { fence.bump(); setReport(null); setRestored(null); setDrift(false); setOrig(null); inflight.current = false; setChecks([]); setPlan(null); setConfirm(false); setBatch([]); setProofs({}); setHist(null); setErr(""); setNote(""); setBusy(false); };
   useEffect(() => {
     const tk = fence.token();
     call({ op: "durableGiftContext", client, table }).then((r) => tk.run(() => setCtx(r.ok ? (r.j as Ctx) : { available: false }))).catch(() => tk.run(() => setCtx({ available: false })));
@@ -266,7 +268,7 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
       if (rn.status === 409 || rn.status === 404) { t2.run(() => { setDrift(true); setLookId(String(h.jobId)); }); return; }
       if (!rn.ok || typeof rn.j.token !== "string" || !rn.j.token || rn.j.jobId !== h.jobId) throw new Error("Not restored: the renewal reply was not valid for this job.");
       const m = h.manifest as { decided: unknown[]; held: unknown[]; totalOrdinals: number; batchCount: number; batches: unknown[] };
-      const p: Plan = { token: rn.j.token as string, jobId: String(h.jobId), manifest: m, batches: (f.parts as { rows: Plan["batches"][number] }[]).map((x) => x.rows), summary: { batches: m.batchCount, decided: m.decided.length, held: m.held.length, total: m.totalOrdinals } };
+      const p: Plan = { token: rn.j.token as string, jobId: String(h.jobId), recovery: { header: h, headerMac: String(f.headerMac) }, manifest: m, batches: (f.parts as { rows: Plan["batches"][number] }[]).map((x) => x.rows), summary: { batches: m.batchCount, decided: m.decided.length, held: m.held.length, total: m.totalOrdinals } };
       const st: BatchState[] = p.batches.map(() => "unknown"); const pr: Record<number, string> = {};
       t2.run(() => { setPlan(p); setRestored(h); setDownloadedFor(p.jobId); setBatch([...st]); });
       for (let i = 0; i < p.batches.length; i++) {
@@ -279,6 +281,25 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
       }
       t2.run(() => setNote(st.includes("unconfirmed") ? "Restored. Some batches are unconfirmed: check their status again before saving." : "Restored. Every batch status was checked; pending batches can be resent with the same request ids."));
     }, !lookupOnly);
+  };
+
+  /** F2a: read-only check of a returned review copy against the original + this session's server proofs. Single flight from
+   *  before the first read; never changes batch states, decisions or save authority. */
+  const onReview = (el: HTMLInputElement) => {
+    const fl = el.files?.[0]; el.value = ""; if (!fl) return;
+    if (inflight.current || locked || !plan?.recovery) return;
+    const original = restored ? orig?.text : csv?.text;
+    if (original === undefined) { setErr("Choose the original CSV file first"); return; }
+    const pl = plan;
+    void once(async (tk) => {
+      let rc: string;
+      try { rc = (await tk.guard(readExact(fl))).text; } catch (e) { if (!tk.live()) throw e; throw new Error("File is not valid UTF-8 text"); }
+      const r = await tk.guard(call({ op: "durableGiftReviewCheck", ...scope, original, reviewCopy: rc, header: pl.recovery!.header, headerMac: pl.recovery!.headerMac, jobToken: pl.token, proofs: Object.values(proofs) }));
+      if (!r.ok) throw new Error(errText(r.j));
+      const j = r.j as unknown as Report & { jobId?: string };
+      if (j.jobId !== pl.jobId || !isObj(j.counts) || !Array.isArray(j.rows)) throw new Error("Review check reply was not valid for this job");
+      tk.run(() => { setReport({ counts: j.counts, rows: j.rows }); setRpage(0); });
+    });
   };
 
   /** leave a restored job: only when nothing is unknown, unconfirmed or in flight */
@@ -409,6 +430,15 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
           {!C.saveAvailable && <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">Saving gift IDs is turned off.</p>}
           <ul className="mt-3 space-y-1" data-testid="durable-batches">{batch.map((s, i) => <li key={i} data-state={s}>Batch {i + 1}: {s === "saved" ? "saved" : s === "unconfirmed" ? "unconfirmed (may or may not be saved)" : s === "unknown" ? "status not checked yet" : s === "refused" ? "refused by Engage (nothing saved)" : "not sent yet"} {s !== "pending" && s !== "refused" && !proofs[i] && <button type="button" className={linkBtn} disabled={busy} onClick={() => { void checkBatch(i); }}>Check status</button>}{proofs[i] && " (verified)"}</li>)}</ul>
           {note && <p role="status" className="mt-2">{note}</p>}
+          <details className="mt-4" data-testid="durable-review"><summary className="cursor-pointer font-semibold">Check a returned review copy (read-only)</summary>
+            <p className="mt-1 text-xs text-[rgb(var(--ink))]/70">Compares a review copy downloaded earlier with the original file and this session&apos;s verified batches. It only reports; it never saves or changes decisions.</p>
+            <label className="mt-2 block"><span className={label}>Returned review copy (CSV)</span><input type="file" accept=".csv,text/csv" aria-label="Returned review copy" className={input} disabled={busy || locked || !plan.recovery || (!!restored && !orig)} onChange={(e) => onReview(e.currentTarget)} /></label>
+            {report && <div className="mt-2" data-testid="durable-review-report">
+              <p>{report.counts.total} rows: {report.counts.verified} verified; held: {report.counts.held.duplicate} duplicate ID, {report.counts.held.heldInPlan} held in plan, {report.counts.held.blank} blank, {report.counts.held.notProven} not proven.</p>
+              <div className="overflow-x-auto"><table className="mt-1 w-full min-w-[520px] text-left text-xs"><thead><tr className="uppercase text-[rgb(var(--ink))]/60"><th className="px-2 py-1">Row</th><th className="px-2 py-1">Result</th><th className="px-2 py-1">Catapult Gift ID (verified only)</th></tr></thead>
+                <tbody>{report.rows.slice(rpage * PAGE, rpage * PAGE + PAGE).map((r) => <tr key={r.o} className="border-t border-[rgb(var(--line))]"><td className="px-2 py-1">{r.o + 1}</td><td className="px-2 py-1">{r.result}</td><td className="px-2 py-1 font-mono">{r.giftId ?? ""}</td></tr>)}</tbody></table></div>
+              <div className="mt-1 flex gap-3 text-xs"><button type="button" className={linkBtn} disabled={rpage === 0} onClick={() => setRpage(rpage - 1)}>Previous</button><span>Page {rpage + 1} of {Math.max(1, Math.ceil(report.rows.length / PAGE))}</span><button type="button" className={linkBtn} disabled={(rpage + 1) * PAGE >= report.rows.length} onClick={() => setRpage(rpage + 1)}>Next</button></div></div>}
+          </details>
         </div>)}
       {lookupJsx}
     </details>
