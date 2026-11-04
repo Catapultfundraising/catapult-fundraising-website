@@ -18,13 +18,24 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 const keysAre = (o: Record<string, unknown>, ks: string[]) => JSON.stringify(Object.keys(o).sort()) === JSON.stringify([...ks].sort());
 const nat = (v: unknown, max = Number.MAX_SAFE_INTEGER): v is number => Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= max;
 const txt = (v: unknown, max: number) => typeof v === "string" && v.trim().length > 0 && v === v.trim() && v.length <= max;
-const realDate = (s: unknown) => typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) && new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s;
+/** total (never throws): real calendar date YYYY-MM-DD */
+export const realDate = (s: unknown): s is string => {
+  if (typeof s !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const y = Number(s.slice(0, 4)), m = Number(s.slice(5, 7)), d = Number(s.slice(8, 10));
+  if (y < 1 || m < 1 || m > 12 || d < 1) return false;
+  return d <= new Date(Date.UTC(y, m, 0)).getUTCDate();
+};
+const COL_TYPES = new Set(["decimal", "numeric", "date", "datetime2", "bit", "int", "bigint", "float", "nvarchar", "varchar"]);
+const intIn = (v: unknown, lo: number, hi: number) => Number.isSafeInteger(v) && (v as number) >= lo && (v as number) <= hi;
+/** owning registration column schema: identifier, known SQL type, len null|-1|1..8000, p null|1..38, s null|0..p */
+const validColDef = (c: Record<string, unknown>) => typeof c.col === "string" && IDENT.test(c.col) && c.col.length <= 128 && typeof c.ty === "string" && COL_TYPES.has(c.ty)
+  && (c.len === null || c.len === -1 || intIn(c.len, 1, 8000)) && (c.p === null || intIn(c.p, 1, 38)) && (c.s === null || (intIn(c.s, 0, 38) && (c.p === null || (c.s as number) <= (c.p as number))));
 
 /** One fixed message for every malformed upstream plan/status; the cause is never echoed. */
 export class AttestShapeError extends Error { constructor() { super("Engage returned a preview that failed validation; nothing was saved. Try again or report it."); } }
 const no = (): never => { throw new AttestShapeError(); };
 
-export interface PlanCtx { from: number; to: number; mapped: readonly string[]; cell: (o: number, col: string) => string }
+export interface PlanCtx { from: number; to: number; mapped: readonly string[]; cell: (o: number, col: string) => string; /** parsed donor cell of the operator's file */ donor: (o: number) => string }
 export interface ValidPlan {
   planDigest: string;
   candidates: { o: number; giftId: string; locator: number | null; person: number | null }[];
@@ -78,6 +89,8 @@ export function validateAttestPlan(body: unknown, c: PlanCtx): ValidPlan {
     const rh = rowHold.get(o), cols = colSeen.get(o);
     if (rh !== undefined) { if (cols) no(); if (WHOLE_REASONS.includes(rh)) whole.add(rh); byOrdinal.push({ o, kind: "held", reason: rh }); continue; }
     const k = cand.get(o); if (!k || !cols || cols.size !== M.size) no();
+    // a covered record passed every identity check on Engage: locator and donor are known, and the donor is the file's donor
+    if (k!.locator === null || k!.person === null || String(k!.person) !== c.donor(o)) no();
     const eligible: string[] = [], colHolds: { col: string; reason: string }[] = [];
     for (const col of [...c.mapped].sort()) { const s = cols!.get(col); if (!s) no(); if (s === "row") eligible.push(col); else colHolds.push({ col, reason: (b.held as { o: number; col?: string; reason: string }[]).find((h) => h.o === o && h.col === col)!.reason }); }
     if (eligible.length) anyEligible = true;
@@ -102,9 +115,10 @@ export function validateAttestContext(v: unknown): AttestContext {
   if (!isObj(v)) return off;
   if (v.available === false) return keysAre(v, ["available", "lookupAvailable"]) && typeof v.lookupAvailable === "boolean" ? { available: false, lookupAvailable: v.lookupAvailable } : off;
   if (!keysAre(v, ["available", "capsByMappedCount", "columns", "configured", "lookupAvailable", "maxFileBytes", "registrationId", "registrationVersion"]) || v.available !== true || v.configured !== true || typeof v.lookupAvailable !== "boolean"
-    || !txt(v.registrationId, 64) || !nat(v.registrationVersion) || v.maxFileBytes !== ATTEST_MAX_FILE_BYTES || JSON.stringify(v.capsByMappedCount) !== JSON.stringify(CAPS_BY_MAPPED_COUNT)
+    || !txt(v.registrationId, 64) || !intIn(v.registrationVersion, 1, Number.MAX_SAFE_INTEGER) || v.maxFileBytes !== ATTEST_MAX_FILE_BYTES || JSON.stringify(v.capsByMappedCount) !== JSON.stringify(CAPS_BY_MAPPED_COUNT)
     || !Array.isArray(v.columns) || v.columns.length < 1 || v.columns.length > 64) return off;
-  for (const c of v.columns as unknown[]) if (!isObj(c) || !keysAre(c, ["col", "len", "p", "s", "ty"]) || typeof c.col !== "string" || !IDENT.test(c.col) || typeof c.ty !== "string") return off;
+  const names = new Set<string>();
+  for (const c of v.columns as unknown[]) { if (!isObj(c) || !keysAre(c, ["col", "len", "p", "s", "ty"]) || !validColDef(c) || names.has(c.col as string)) return off; names.add(c.col as string); }
   return v as AttestContext;
 }
 
@@ -143,8 +157,8 @@ export function validateAttestStatusOut(v: unknown, requestId: string, client: s
   if (!keysAre(v, ["found", "requestId", "result", "state"]) || v.found !== true || v.state !== "committed" || !isObj(v.result)) return null;
   const r = v.result, c = r.counts;
   if (!keysAre(r, ["approvalRef", "client", "counts", "planDigest", "priorSourceDate", "registrationId", "registrationVersion", "table"]) || r.client !== client || r.table !== table || typeof r.planDigest !== "string" || !HEX64.test(r.planDigest)
-    || !realDate(r.priorSourceDate) || !txt(r.registrationId, 64) || !Number.isSafeInteger(r.registrationVersion) || !txt(r.approvalRef, 200)
-    || !isObj(c) || !keysAre(c, ["records", "values"]) || !Number.isSafeInteger(c.records) || !Number.isSafeInteger(c.values) || (c.records as number) < 1 || (c.records as number) > (c.values as number)) return null;
+    || !realDate(r.priorSourceDate) || !txt(r.registrationId, 64) || !intIn(r.registrationVersion, 1, Number.MAX_SAFE_INTEGER) || !txt(r.approvalRef, 200)
+    || !isObj(c) || !keysAre(c, ["records", "values"]) || !intIn(c.records, 1, 32000) || !intIn(c.values, 1, 32000) || (c.records as number) > (c.values as number)) return null;
   return v as AttestStatusOut;
 }
 
@@ -159,3 +173,22 @@ export const REFUSAL_TEXT: Record<string, string> = {
   "preview-too-large": "The preview response is too large. Narrow the row range.",
 };
 export const REFUSAL_FALLBACK = "Engage refused this preview. Nothing was saved.";
+
+export interface ExportExpect { client: string; table: string; registrationId: string; registrationVersion: number; mapping: Record<string, string>; fileSha256: string; sourceDate: string; statement: string; approvedBy: string; approvedAt: string; approvalRef: string; ordinalFrom: number; ordinalTo: number; plan: ValidPlan }
+const PACKET_KEYS = ["approvalRef", "approvedAt", "approvedBy", "client", "mapping", "priorFile", "provenanceStatement", "registrationDigest", "registrationId", "registrationVersion", "table"];
+export const EXPORT_NOTE = "Metadata only. Not an approval; applying needs a separate reviewed approval.";
+/** Exact metadata-only proposal schema, bound to the operator's own file digest, draft, scope and the validated plan. */
+export function validateAttestExport(text: unknown, e: ExportExpect): boolean {
+  if (typeof text !== "string" || new TextEncoder().encode(text).length > ATTEST_EXPORT_MAX_BYTES) return false;
+  let x: unknown; try { x = JSON.parse(text); } catch { return false; }
+  if (!isObj(x) || !keysAre(x, ["counts", "kind", "note", "ordinalFrom", "ordinalTo", "packet", "planDigest"]) || x.kind !== "gift-attest-proposal/v1" || x.note !== EXPORT_NOTE) return false;
+  const p = x.packet;
+  if (!isObj(p) || !keysAre(p, PACKET_KEYS) || p.client !== e.client || p.table !== e.table || p.registrationId !== e.registrationId || p.registrationVersion !== e.registrationVersion || typeof p.registrationDigest !== "string" || !HEX64.test(p.registrationDigest)) return false;
+  if (!isObj(p.mapping) || JSON.stringify(Object.entries(p.mapping).sort()) !== JSON.stringify(Object.entries(e.mapping).sort())) return false;
+  const f = p.priorFile;
+  if (!isObj(f) || !keysAre(f, ["name", "sha256", "sourceDate"]) || f.name !== "prior-source-export.csv" || f.sha256 !== e.fileSha256 || f.sourceDate !== e.sourceDate) return false;
+  if (p.provenanceStatement !== e.statement || p.approvedBy !== e.approvedBy || p.approvedAt !== e.approvedAt || p.approvalRef !== e.approvalRef) return false;
+  if (x.ordinalFrom !== e.ordinalFrom || x.ordinalTo !== e.ordinalTo || x.planDigest !== e.plan.planDigest) return false;
+  const c = x.counts; if (!isObj(c) || JSON.stringify(Object.entries(c).sort()) !== JSON.stringify(Object.entries(e.plan.counts).sort())) return false;
+  return true;
+}

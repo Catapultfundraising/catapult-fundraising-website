@@ -30,7 +30,7 @@ function plan(over: (p: Record<string, unknown>) => void = () => {}) {
   const p: Record<string, unknown> = { planDigest: "d".repeat(64), candidates: cands, rows, held, counts };
   over(p); return p;
 }
-const ctx = { from: 0, to: 3, mapped: MAPPED, cell: CELL };
+const ctx = { from: 0, to: 3, mapped: MAPPED, cell: CELL, donor: (o: number) => GRID[o + 1][0] };
 
 test("[GOLDEN] shared fixture byte-identical to Catapult-Calling (sha pinned) and caps equal the owning preview sizing", async () => {
   const raw = readFileSync("lib/portal-v2/gift-attest-golden.json");
@@ -71,9 +71,30 @@ test("validator: a covered plan passes; every coverage/grammar/count/key/value v
   R("duplicate uuid", (p) => { (p.candidates as Record<string, unknown>[])[1].giftId = U(1); });
   R("candidates not ascending", (p) => { (p.candidates as unknown[]).reverse(); });
   R("bad digest", (p) => { p.planDigest = "x"; });
+  R("covered candidate with null locator", (p) => { (p.candidates as Record<string, unknown>[])[0].locator = null; });
+  R("covered candidate with null person", (p) => { (p.candidates as Record<string, unknown>[])[1].person = null; });
+  R("covered candidate donor differs from the file donor cell", (p) => { (p.candidates as Record<string, unknown>[])[0].person = 7999; });
+  // a row-held candidate may legitimately carry nulls (e.g. identity missing)
+  assert.equal(validateAttestPlan(plan((p) => { (p.candidates as Record<string, unknown>[])[2].locator = null; (p.candidates as Record<string, unknown>[])[2].person = null; }), ctx).byOrdinal[2].kind, "held");
   // a whole-plan hold done right: every candidate held with the same reason, nothing eligible
   const whole = (p: Record<string, unknown>) => { p.rows = []; p.held = [0, 1, 2].map((o) => ({ o, reason: "client has active portal gift edits/voids (protected)" })).concat([{ o: 3, reason: "no committed association for the attested file" }]); p.counts = { candidates: 3, eligible: 0, held: 4, outOfScopeAssociated: 0, "client has active portal gift edits/voids (protected)": 3, "no committed association for the attested file": 1 }; };
   assert.equal(validateAttestPlan(plan(whole), ctx).byOrdinal.filter((x) => x.kind === "held").length, 4);
+});
+
+test("context/date/export boundaries: owning column schema, version>=1, no duplicate cols; total date check never throws; exact export schema bound to file/draft/plan", async () => {
+  const { validateAttestContext, realDate, validateAttestExport, validateAttestPlan, CAPS_BY_MAPPED_COUNT, EXPORT_NOTE } = await import("../lib/portal-v2/gift-attest");
+  const good = { available: true, lookupAvailable: true, configured: true, registrationId: "fict_gifts", registrationVersion: 1, columns: COLS3, capsByMappedCount: [...CAPS_BY_MAPPED_COUNT], maxFileBytes: 2800000 };
+  assert.equal(validateAttestContext(good).available, true);
+  for (const bad of [{ ...good, registrationVersion: 0 }, { ...good, columns: [COLS3[0], COLS3[0]] }, { ...good, columns: [{ ...COLS3[0], len: "bad" }] }, { ...good, columns: [{ ...COLS3[0], p: {} }] }, { ...good, columns: [{ ...COLS3[0], s: -99 }] }, { ...good, columns: [{ ...COLS3[0], ty: "madeup" }] }, { ...good, columns: [{ ...COLS3[0], s: 20, p: 10 }] }])
+    assert.equal(validateAttestContext(bad).available, false, JSON.stringify(bad.columns ?? bad.registrationVersion));
+  for (const d of ["2025-99-99", "2025-02-30", "2024-02-30", "0000-01-01", "2025-13-01", "x"]) assert.equal(realDate(d), false, d);
+  assert.equal(realDate("2024-02-29"), true);
+  const plan0 = validateAttestPlan(plan(), ctx);
+  const E = { client: "jag", table: REG.table, registrationId: "fict_gifts", registrationVersion: 1, mapping: MAP, fileSha256: createHash("sha256").update(CSV).digest("hex"), sourceDate: DRAFT.sourceDate, statement: DRAFT.statement, approvedBy: DRAFT.approvedBy, approvedAt: DRAFT.approvedAt, approvalRef: DRAFT.approvalRef, ordinalFrom: 0, ordinalTo: 3, plan: plan0 };
+  const exp = (o: Record<string, unknown> = {}, pk: Record<string, unknown> = {}) => JSON.stringify({ kind: "gift-attest-proposal/v1", note: EXPORT_NOTE, packet: { client: "jag", table: REG.table, registrationId: "fict_gifts", registrationVersion: 1, registrationDigest: "a".repeat(64), mapping: MAP, priorFile: { name: "prior-source-export.csv", sha256: E.fileSha256, sourceDate: E.sourceDate }, provenanceStatement: E.statement, approvedBy: E.approvedBy, approvedAt: E.approvedAt, approvalRef: E.approvalRef, ...pk }, ordinalFrom: 0, ordinalTo: 3, planDigest: plan0.planDigest, counts: plan0.counts, ...o });
+  assert.equal(validateAttestExport(exp(), E), true);
+  for (const [n, t] of [["extra key (cells)", exp({ rows: [["7001"]] })], ["wrong sha", exp({}, { priorFile: { name: "prior-source-export.csv", sha256: "0".repeat(64), sourceDate: E.sourceDate } })], ["wrong digest", exp({ planDigest: "e".repeat(64) })], ["wrong range", exp({ ordinalTo: 2 })], ["wrong client", exp({}, { client: "pvas" })], ["wrong mapping", exp({}, { mapping: { Donor: "@person" } })], ["wrong counts", exp({ counts: { ...plan0.counts, eligible: 0 } })], ["wrong ref", exp({}, { approvalRef: "X" })], ["not json", "{}"], ["oversize", exp({ note: "x".repeat(70000) })]] as [string, string][])
+    assert.equal(validateAttestExport(t, E), false, n);
 });
 
 test("status: full upstream projection first, then redacted output; browser validator binds the requested id", async () => {
@@ -91,6 +112,10 @@ test("status: full upstream projection first, then redacted output; browser vali
   assert.equal(validateAttestStatusOut(ok, "f".repeat(32), q.client, q.table), null, "other request id");
   assert.equal(validateAttestStatusOut({ ...ok, extra: 1 }, q.requestId, q.client, q.table), null);
   assert.equal(validateAttestStatusOut(ok, q.requestId, "pvas", q.table), null);
+  const okr = ok as { result: Record<string, unknown> };
+  for (const [n, r] of [["version -1", { ...okr.result, registrationVersion: -1 }], ["version 0", { ...okr.result, registrationVersion: 0 }], ["values 32001", { ...okr.result, counts: { records: 1, values: 32001 } }], ["date 2025-99-99", { ...okr.result, priorSourceDate: "2025-99-99" }]] as [string, unknown][])
+    assert.equal(validateAttestStatusOut({ ...ok, result: r }, q.requestId, q.client, q.table), null, n);
+  assert.equal(projectAttestStatus({ found: true, confirmed: true, state: "committed", result: { ...result, priorSourceDate: "2025-99-99" } }, q).state, "unreadable", "malformed date never throws");
 });
 
 // ---------------- actual imported route ----------------
@@ -131,6 +156,9 @@ test("[ROUTE] preview: server builds packet/ordinals/sha; strict body/draft/mapp
   assert.deepEqual(sent.input.ordinals, [0, 1, 2, 3]); assert.equal(sent.input.priorFileB64, B64);
   assert.equal((sent.input.packet.priorFile as { sha256: string }).sha256, okj.fileSha256);
   assert.ok(Buffer.byteLength(okj.export) <= 65536 && !okj.export.includes("7001"), "metadata-only export (no cells)");
+  const GA = await import("../lib/portal-v2/gift-attest");
+  const vp = GA.validateAttestPlan(okj.plan, ctx);
+  assert.equal(GA.validateAttestExport(okj.export, { client: "jag", table: REG.table, registrationId: REG.id, registrationVersion: 1, mapping: MAP, fileSha256: okj.fileSha256, sourceDate: DRAFT.sourceDate, statement: DRAFT.statement, approvedBy: DRAFT.approvedBy, approvedAt: DRAFT.approvedAt, approvalRef: DRAFT.approvalRef, ordinalFrom: 0, ordinalTo: 3, plan: vp }), true, "route export passes the shared exact schema");
   calls.length = 0;
   const BADS: [string, unknown][] = [
     ["extra key", { ...PREV, extra: 1 }], ["draft extra", { ...PREV, draft: { ...DRAFT, x: 1 } }], ["unconfirmed", { ...PREV, draft: { ...DRAFT, confirmed: false } }],
@@ -140,7 +168,7 @@ test("[ROUTE] preview: server builds packet/ordinals/sha; strict body/draft/mapp
     ["reversed range", { ...PREV, draft: { ...DRAFT, ordinalFrom: 2, ordinalTo: 1 } }], ["beyond file", { ...PREV, draft: { ...DRAFT, ordinalTo: 4 } }], ["string range", { ...PREV, draft: { ...DRAFT, ordinalFrom: "0" } }],
     ["reserved header", { ...PREV, fileB64: Buffer.from(CSV.replace("Type", "Catapult Gift ID")).toString("base64"), draft: { ...DRAFT, mapping: { Donor: "@person", Amount: "Gift_Amount" } } }],
     ["invalid utf8", { ...PREV, fileB64: Buffer.from([0x44, 0x0d, 0x0a, 0xff, 0x0d, 0x0a]).toString("base64") }],
-    ["non-string client", { ...PREV, client: ["jag"] }],
+    ["non-string client", { ...PREV, client: ["jag"] }], ["invalid month date", { ...PREV, draft: { ...DRAFT, sourceDate: "2025-99-99" } }],
   ];
   for (const [n, b] of BADS) { const r = await post(POST, b); assert.ok(r.status === 400 || r.status === 413, `${n}: ${r.status}`); }
   assert.equal(calls.length, 0, "no upstream call for any invalid request");
@@ -164,6 +192,7 @@ test("[ROUTE] status: works with EMPTY registry when transport configured; reque
   const ok = await (await S()).json(); assert.equal(ok.state, "committed"); assert.equal(ok.requestId, rid); assert.equal(ok.result.payloadHash, undefined);
   assert.deepEqual(calls[0], { op: "giftAttestStatus", client: "jag", table: REG.table, requestId: rid });
   reply = () => Response.json({ found: true, confirmed: true, state: "committed", result: { ...result, requestId: "f".repeat(32) } }); assert.equal((await (await S()).json()).state, "unreadable");
+  reply = () => Response.json({ found: true, confirmed: true, state: "committed", result: { ...result, priorSourceDate: "2025-99-99" } }); const md = await S(); assert.equal(md.status, 200); assert.equal((await md.json()).state, "unreadable");
   reply = () => Response.json({ error: "x" }, { status: 500 }); assert.equal((await S()).status, 502);
   assert.equal((await S({ requestId: "x" })).status, 400); assert.equal((await S({ table: "bad-table" })).status, 400); assert.equal((await post(POST, { op: "durableGiftAttestStatus", client: "zzz", table: REG.table, requestId: rid })).status, 400);
 });

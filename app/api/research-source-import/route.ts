@@ -14,7 +14,7 @@ import { attestDestination, validateDraft, buildPrior, buildPacket, summarizePla
 import { stageGift, exportGift, giftColumns, GiftPreviewError, GIFT_CLIENT, GIFT_TABLE, GIFT_PERSON_COL } from "@/lib/portal-v2/gift-preview";
 import { buildDurablePlan, commitBody, proofFor, durableExport, registrationFor, verifyJob, previewQuery, projectPreview, projectJobStatus, renewRecovery, RENEW_MAX_BODY, reviewCheck, REVIEW_MAX_TEXT, REVIEW_MAX_BODY, DurableGiftError, DURABLE_MAX_BODY } from "@/lib/portal-v2/gift-durable";
 import { giftRegDigest, previewRowCap, jobRequestId, validOutcome } from "@/lib/portal-v2/gift-identity-plan";
-import { validateAttestPlan, projectAttestStatus, capForMapped, ATTEST_MAX_FILE_BYTES, ATTEST_EXPORT_MAX_BYTES, AttestShapeError, REFUSAL_TEXT, REFUSAL_FALLBACK, STATUS_TEXT, CAPS_BY_MAPPED_COUNT } from "@/lib/portal-v2/gift-attest";
+import { realDate as attestRealDate, EXPORT_NOTE, validateAttestPlan, projectAttestStatus, capForMapped, ATTEST_MAX_FILE_BYTES, ATTEST_EXPORT_MAX_BYTES, AttestShapeError, REFUSAL_TEXT, REFUSAL_FALLBACK, STATUS_TEXT, CAPS_BY_MAPPED_COUNT } from "@/lib/portal-v2/gift-attest";
 import { isReservedGiftHeader } from "@/lib/portal-v2/gift-durable";
 import { applyRequestBody, describeFreshness, livePreview, postToEngage, sourceApplyConfigured, sourcePreviewConfigured, type EngageState } from "@/lib/portal-v2/source-import-apply";
 
@@ -242,7 +242,7 @@ export async function POST(req: NextRequest) {
         if (!d || typeof d !== "object" || Array.isArray(d) || !exactBody(d, DK)) return bad("bad attestation draft");
         if (d.confirmed !== true) return bad("Confirm that this exact file is the prior export originally loaded into the raw gift table");
         const t = (v: unknown, n: number) => typeof v === "string" && v.trim().length > 0 && v === v.trim() && v.length <= n && !/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/.test(v);
-        if (typeof d.sourceDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d.sourceDate) || new Date(`${d.sourceDate}T00:00:00Z`).toISOString().slice(0, 10) !== d.sourceDate) return bad("Source export date required (real YYYY-MM-DD; unknown dates cannot be attested)");
+        if (typeof d.sourceDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(d.sourceDate) || !attestRealDate(d.sourceDate)) return bad("Source export date required (real YYYY-MM-DD; unknown dates cannot be attested)");
         if (!t(d.statement, 2000) || !/prior source export/i.test(d.statement as string) || !/originally loaded/i.test(d.statement as string)) return bad("Statement must say this prior source export is the file originally loaded into the raw gift table");
         if (!t(d.approvedBy, 200) || !t(d.approvalRef, 200) || typeof d.approvedAt !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$/.test(d.approvedAt) || Number.isNaN(Date.parse(d.approvedAt)) || new Date(d.approvedAt).toISOString() !== d.approvedAt.replace("Z", ".000Z")) return bad("Name (as stated), UTC time (YYYY-MM-DDTHH:MM:SSZ) and reference are required");
         const mp = d.mapping; if (!mp || typeof mp !== "object" || Array.isArray(mp)) return bad("bad mapping");
@@ -268,9 +268,10 @@ export async function POST(req: NextRequest) {
         if (Buffer.byteLength(JSON.stringify(out.body), "utf8") > 4_000_000) return NextResponse.json({ error: new AttestShapeError().message, code: "upstream_invalid" }, { status: 502 });
         const hIdx = new Map(Object.entries(mp as Record<string, string>).filter(([, c]) => c !== "@person").map(([h, c]) => [c, headers.indexOf(h)]));
         let plan;
-        try { plan = validateAttestPlan(out.body, { from: from as number, to: to as number, mapped, cell: (o, c) => rows[o][hIdx.get(c)!] }); }
+        const pIdx = headers.indexOf(personH as string);
+        try { plan = validateAttestPlan(out.body, { from: from as number, to: to as number, mapped, cell: (o, c) => rows[o][hIdx.get(c)!], donor: (o) => rows[o][pIdx] }); }
         catch { return NextResponse.json({ error: new AttestShapeError().message, code: "upstream_invalid" }, { status: 502 }); }
-        const exp = JSON.stringify({ kind: "gift-attest-proposal/v1", note: "Metadata only. Not an approval; applying needs a separate reviewed approval.", packet: { ...packet, mapping: packet.mapping }, ordinalFrom: from, ordinalTo: to, planDigest: plan.planDigest, counts: plan.counts }, null, 1);
+        const exp = JSON.stringify({ kind: "gift-attest-proposal/v1", note: EXPORT_NOTE, packet: { ...packet, mapping: packet.mapping }, ordinalFrom: from, ordinalTo: to, planDigest: plan.planDigest, counts: plan.counts }, null, 1);
         if (Buffer.byteLength(exp, "utf8") > ATTEST_EXPORT_MAX_BYTES) return bad("Proposal export would exceed 64 KiB");
         const reply = { plan: out.body, fileSha256: fileSha, export: exp };
         if (Buffer.byteLength(JSON.stringify(reply), "utf8") > 4_000_000) return NextResponse.json({ error: new AttestShapeError().message, code: "upstream_invalid" }, { status: 502 });

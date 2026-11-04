@@ -22,7 +22,7 @@ const CTX = { available: true, lookupAvailable: true, configured: true, registra
   const b = await chromium.launch({ executablePath: "/root/.cache/ms-playwright/chromium-1248/chrome-linux64/chrome" });
   const blocked = [];
   for (const vp of [{ name: "desktop", width: 1440, height: 1000 }, { name: "mobile390", width: 390, height: 844 }]) {
-    const ctx = await b.newContext({ viewport: { width: vp.width, height: vp.height }, extraHTTPHeaders: { "x-forwarded-proto": "https" } });
+    const ctx = await b.newContext({ viewport: { width: vp.width, height: vp.height }, extraHTTPHeaders: { "x-forwarded-proto": "https" }, acceptDownloads: true });
     await ctx.addCookies([{ name: "catapult_research_auth", value: sha("localpw:localsec"), url: ORIGIN }]);
     await ctx.route((u) => new URL(u.href).origin !== ORIGIN, (r) => { blocked.push(new URL(r.request().url()).origin); return r.abort(); });
     const p = await ctx.newPage();
@@ -33,6 +33,10 @@ const CTX = { available: true, lookupAvailable: true, configured: true, registra
     await p.goto(ORIGIN + "/research/source-import", { waitUntil: "load", timeout: 180000 });
     await frames(); const nb = p.locator("button", { hasText: "Necessary Only" }); if (await nb.count()) { await nb.first().click(); await nb.first().waitFor({ state: "detached" }); }
     const outer = p.locator("select").first(); await outer.locator("option[value=jag]").waitFor({ state: "attached", timeout: 120000 });
+    // explicit cookie-banner dismissal right before every capture: wait for the hydrated button, click, require it detached
+    const dismiss = async () => { const nb2 = p.getByRole("button", { name: "Necessary Only" }); if (await nb2.count()) { await nb2.first().click(); await nb2.first().waitFor({ state: "detached" }); }
+      await frames(); if (await p.getByRole("button", { name: "Necessary Only" }).count()) throw new Error("cookie banner still present"); };
+    const shot = async (loc, path) => { await dismiss(); await p.addStyleTag({ content: "header, [class*='sticky'] { position: static !important; } nextjs-portal { display: none !important; }" }); await frames(); await loc.screenshot({ path }); };
     const tsel = p.locator("select").nth(1);
     const pick = async (client, op) => { await outer.selectOption(client); const o = tsel.locator("option:not([value=''])").first(); await o.waitFor({ state: "attached", timeout: 120000 }); const w = resp(op); await tsel.selectOption(await o.getAttribute("value")); const r = await w; await frames(); return r; };
     if (MODE === "after") { // production state: actual route (transport unconfigured locally) => section hidden entirely
@@ -40,14 +44,15 @@ const CTX = { available: true, lookupAvailable: true, configured: true, registra
       ok(real.available === false && real.lookupAvailable === false && await p.locator("[data-testid=gift-attest]").count() === 0, `${vp.name}: actual route, unconfigured => no attestation section`);
       await outer.selectOption(""); await frames();
     }
-    let ctxReply = CTX; let planReply = PLAN(); let hold = null; const log = [];
+    let ctxReply = CTX; let planReply = PLAN(); let hold = null; const log = []; let expMut = (x) => x; let shaReply = sha(CSV);
+    const mkExport = (bd, plan) => expMut(JSON.stringify({ kind: "gift-attest-proposal/v1", note: "Metadata only. Not an approval; applying needs a separate reviewed approval.", packet: { client: bd.client, table: bd.table, registrationId: "fict_gifts", registrationVersion: 1, registrationDigest: "a".repeat(64), mapping: bd.draft.mapping, priorFile: { name: "prior-source-export.csv", sha256: sha(Buffer.from(bd.fileB64, "base64")), sourceDate: bd.draft.sourceDate }, provenanceStatement: bd.draft.statement, approvedBy: bd.draft.approvedBy, approvedAt: bd.draft.approvedAt, approvalRef: bd.draft.approvalRef }, ordinalFrom: bd.draft.ordinalFrom, ordinalTo: bd.draft.ordinalTo, planDigest: plan.planDigest, counts: plan.counts }, null, 1));
     await p.route("**" + API, async (route) => {
       const bd = bdy(route.request());
       if (bd.op === "durableGiftContext") return route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ available: false, lookupAvailable: false }) });
       if (!String(bd.op || "").startsWith("durableGiftAttest")) return route.continue();
       log.push(bd); const J = (o, s = 200) => route.fulfill({ status: s, contentType: "application/json", body: JSON.stringify(o) });
       if (bd.op === "durableGiftAttestContext") return J(ctxReply);
-      if (bd.op === "durableGiftAttestPreview") { if (hold) { const g = hold; hold = null; await g.p; } return J({ plan: planReply, fileSha256: sha(CSV), export: "{}" }); }
+      if (bd.op === "durableGiftAttestPreview") { if (hold) { const g = hold; hold = null; await g.p; } return J({ plan: planReply, fileSha256: shaReply, export: mkExport(bd, planReply) }); }
       if (bd.op === "durableGiftAttestStatus") return J(bd.requestId === "a".repeat(32) ? { requestId: bd.requestId, found: true, state: "committed", result: { client: bd.client, table: bd.table, registrationId: "fict_gifts", registrationVersion: 1, planDigest: "c".repeat(64), approvalRef: "FICT-1", priorSourceDate: "2025-06-30", counts: { records: 3, values: 9 } } } : { requestId: "f".repeat(32), found: false, state: "unconfirmed" });
       return J({ error: "unknown" }, 400);
     });
@@ -56,7 +61,7 @@ const CTX = { available: true, lookupAvailable: true, configured: true, registra
       const host = p.locator("[data-testid=durable-gift], [data-testid=baseline-attest]").last().locator("xpath=..");
       await p.addStyleTag({ content: "header, [class*='sticky'] { position: static !important; } nextjs-portal { display: none !important; }" }); await p.evaluate(() => window.scrollTo(0, 0)); await frames();
       ok(await p.locator("[data-testid=gift-attest]").count() === 0, `${vp.name}: before (a0290cc): no gift attestation section`);
-      if (CAPTURE) await host.screenshot({ path: `${OUT}/before-${vp.name}-panels.png` });
+      if (CAPTURE) await shot(host, `${OUT}/before-${vp.name}-panels.png`);
       await ctx.close(); continue;
     }
     const sec = p.locator("[data-testid=gift-attest]"); await sec.waitFor(); await sec.locator("summary").click();
@@ -72,10 +77,20 @@ const CTX = { available: true, lookupAvailable: true, configured: true, registra
     const txt = await sec.locator("[data-testid=gift-attest-plan]").innerText();
     ok(/5\s*values eligible/.test(txt) && /3\s*held/.test(txt) && /manual edit/.test(txt) && /portal edit exists/.test(txt) && /no committed association/.test(txt), `${vp.name}: summary + per-row holds rendered`);
     if (CAPTURE) { await p.addStyleTag({ content: "header, [class*='sticky'] { position: static !important; } nextjs-portal { display: none !important; }" }); await p.evaluate(() => window.scrollTo(0, 0)); await frames();
-      await sec.screenshot({ path: `${OUT}/after-${vp.name}-attest.png` });
-      const host = sec.locator("xpath=.."); await host.screenshot({ path: `${OUT}/after-${vp.name}-panels.png` });
-      const tbl = sec.locator("[data-testid=gift-attest-rows]"); await tbl.scrollIntoViewIfNeeded(); await frames(); await tbl.screenshot({ path: `${OUT}/after-${vp.name}-rows.png` });
-      if (vp.name === "mobile390") { await tbl.evaluate((e) => { const th = e.querySelectorAll("th"); e.scrollLeft = th[th.length - 1].offsetLeft - 8; }); await frames(); await tbl.screenshot({ path: `${OUT}/after-${vp.name}-rows-heldcolumn.png` }); } }
+      await shot(sec, `${OUT}/after-${vp.name}-attest.png`);
+      const host = sec.locator("xpath=.."); await shot(host, `${OUT}/after-${vp.name}-panels.png`);
+      const tbl = sec.locator("[data-testid=gift-attest-rows]"); await tbl.scrollIntoViewIfNeeded(); await frames(); await shot(tbl, `${OUT}/after-${vp.name}-rows.png`);
+      if (vp.name === "mobile390") { await tbl.evaluate((e) => { const th = e.querySelectorAll("th"); e.scrollLeft = th[th.length - 1].offsetLeft - 8; }); await frames(); await shot(tbl, `${OUT}/after-${vp.name}-rows-heldcolumn.png`); } }
+    // actual downloaded proposal: exact metadata-only schema, bound to this file/draft/plan, no cell values
+    const dl = p.waitForEvent("download"); await sec.locator("button", { hasText: "Download proposal" }).click(); const got = JSON.parse(fs.readFileSync(await (await dl).path(), "utf8"));
+    ok(JSON.stringify(Object.keys(got).sort()) === JSON.stringify(["counts", "kind", "note", "ordinalFrom", "ordinalTo", "packet", "planDigest"]) && got.packet.priorFile.sha256 === sha(CSV) && got.planDigest === "d".repeat(64) && got.ordinalTo === 3 && !JSON.stringify(got).includes("7001") && !JSON.stringify(got).includes("2026-01-05"), `${vp.name}: downloaded proposal is the exact metadata-only schema bound to the file digest/plan (no cells)`);
+    // corrupted export / mismatched digest are refused (no proposal shown)
+    for (const [name, mut] of [["export with wrong file sha", () => { expMut = (x) => x.replace(sha(CSV), "0".repeat(64)); }], ["export with extra cells", () => { expMut = (x) => JSON.stringify({ ...JSON.parse(x), rows: [["7001", "5"]] }); }], ["reply fileSha256 mismatch", () => { shaReply = "1".repeat(64); }]]) {
+      mut(); w = resp("durableGiftAttestPreview"); await sec.locator("button", { hasText: "Preview attestation" }).click(); await w;
+      await sec.locator("[role=alert]", { hasText: "failed validation" }).waitFor();
+      ok(await sec.locator("[data-testid=gift-attest-plan]").count() === 0, `${vp.name}: ${name} refused; no proposal shown`);
+      expMut = (x) => x; shaReply = sha(CSV);
+    }
     // malformed upstream plan (value differs from the file cell) is refused in the browser too
     planReply = PLAN(); planReply.rows[0].value = "999";
     w = resp("durableGiftAttestPreview"); await sec.locator("button", { hasText: "Preview attestation" }).click(); await w;
@@ -92,7 +107,7 @@ const CTX = { available: true, lookupAvailable: true, configured: true, registra
     await sec2.locator("input[aria-label='Gift attestation request id']").fill("a".repeat(32));
     w = resp("durableGiftAttestStatus"); await sec2.locator("button", { hasText: "Check status" }).click(); await w;
     await sec2.locator("[role=status]", { hasText: "Committed attestation found" }).waitFor();
-    if (CAPTURE) { await p.evaluate(() => window.scrollTo(0, 0)); await frames(); await sec2.screenshot({ path: `${OUT}/after-${vp.name}-lookup-only.png` }); }
+    if (CAPTURE) { await p.evaluate(() => window.scrollTo(0, 0)); await frames(); await shot(sec2, `${OUT}/after-${vp.name}-lookup-only.png`); }
     await sec2.locator("input[aria-label='Gift attestation request id']").fill("b".repeat(32));
     w = resp("durableGiftAttestStatus"); await sec2.locator("button", { hasText: "Check status" }).click(); await w;
     await sec2.locator("[role=status]", { hasText: "Status unavailable" }).waitFor();

@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from "react";
 import { Loader2 } from "lucide-react";
 import { createScopeFence } from "@/lib/portal-v2/scope-fence";
 import { parseCsv } from "@/lib/portal-v2/csv-parse";
-import { validateAttestContext, validateAttestPlan, validateAttestStatusOut, STATUS_TEXT, type AttestContext, type ValidPlan } from "@/lib/portal-v2/gift-attest";
+import { validateAttestContext, validateAttestPlan, validateAttestStatusOut, validateAttestExport, STATUS_TEXT, type AttestContext, type ValidPlan } from "@/lib/portal-v2/gift-attest";
 
 const label = "text-[13px] font-semibold uppercase tracking-wider text-[rgb(var(--brass))]";
 const input = "mt-1 w-full rounded-lg border border-[rgb(var(--line))] bg-white px-3 py-2 text-sm text-[rgb(var(--navy))] focus:border-[rgb(var(--brass))] focus:outline-none";
@@ -70,8 +70,12 @@ export default function GiftAttest({ client, table, locked }: { client: string; 
       const r = await tk.guard(call({ op: "durableGiftAttestPreview", client, table, fileB64: b64(file.bytes), draft }));
       if (!r.ok) throw new Error(typeof r.j.error === "string" ? r.j.error : "Preview failed; nothing was saved.");
       const hIdx = new Map(Object.entries(mp).filter(([, c]) => c !== "@person").map(([h, c]) => [c, file.headers.indexOf(h)]));
-      const plan = validateAttestPlan(r.j.plan, { from, to, mapped: mappedCols, cell: (o, c) => file.rows[o][hIdx.get(c)!] });
-      if (typeof r.j.export !== "string" || typeof r.j.fileSha256 !== "string") throw new Error("Preview failed validation; nothing was saved.");
+      const pi = file.headers.indexOf(Object.entries(mp).find(([, c]) => c === "@person")?.[0] ?? "");
+      const plan = validateAttestPlan(r.j.plan, { from, to, mapped: mappedCols, cell: (o, c) => file.rows[o][hIdx.get(c)!], donor: (o) => (pi < 0 ? "" : file.rows[o][pi]) });
+      const d = await tk.guard(crypto.subtle.digest("SHA-256", file.bytes as unknown as ArrayBuffer));
+      const localSha = Array.from(new Uint8Array(d), (x) => x.toString(16).padStart(2, "0")).join("");
+      if (r.j.fileSha256 !== localSha || !validateAttestExport(r.j.export, { client, table, registrationId: ctx.registrationId, registrationVersion: ctx.registrationVersion, mapping: mp, fileSha256: localSha, sourceDate: f.sourceDate, statement: f.statement, approvedBy: f.approvedBy, approvedAt: f.approvedAt, approvalRef: f.approvalRef, ordinalFrom: from, ordinalTo: to, plan }))
+        throw new Error("Engage returned a preview that failed validation; nothing was saved. Try again or report it.");
       tk.run(() => setRes({ plan, fileSha256: r.j.fileSha256 as string, export: r.j.export as string }));
     } catch (e) { if (tk.live()) setErr((e as Error).message || "Preview failed; nothing was saved."); }
     finally { if (tk.live()) setBusy(false); }
