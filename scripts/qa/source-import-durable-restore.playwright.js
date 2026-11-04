@@ -42,7 +42,7 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
     const outer = p.locator("select").first(); await outer.locator("option[value=jag]").waitFor({ state: "attached", timeout: 120000 });
     let w = resp("durableGiftContext"); await outer.selectOption("jag"); const real = await (await w).json(); await frames();
     ok(real.available === false && real.lookupAvailable === false && await p.locator("[data-testid=durable-gift], [data-testid=durable-lookup-only]").count() === 0, `${vp.name}: actual route, empty registry + unconfigured transport => nothing rendered (production state)`);
-    const log = []; let renewMode = "ok"; let deferRenew = null; const proofPlan = {}; let commitN = 0;
+    const log = []; let refuseNext = false; let renewMode = "ok"; let deferRenew = null; const proofPlan = {}; let commitN = 0;
     await p.route("**" + API, async (route) => {
       const bd = bdy(route.request()); if (!String(bd.op || "").startsWith("durableGift")) return route.continue();
       log.push(bd);
@@ -60,6 +60,7 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
         if (k === "unavailable") return J({ confirmed: false, state: "unavailable", requestId: rid(bd.batchIndex) }, 502);
         return J({ confirmed: false, state: "pending", requestId: rid(bd.batchIndex) }); }
       if (bd.op === "durableGiftCommit") { commitN++; const i = bd.batchIndex; const rows = PARTS[i];
+        if (refuseNext) { refuseNext = false; return J({ error: "Engage refused this batch (validation failed). Nothing in this batch was saved.", code: "refused", requestId: rid(i) }, 400); }
         return J({ committed: true, requestId: rid(i), outcome: { requestId: rid(i), client: "jag", registrationId: "fict_gifts", committed: true, counts: { new: rows.filter((r) => r.action === "new").length, adopt: rows.filter((r) => r.action === "adopt").length, correct: rows.filter((r) => r.action === "correct").length }, rows: rows.map((r, k) => ({ ordinal: r.ordinal, action: r.action, giftId: r.giftId ?? `${String(i).padStart(4, "0")}${String(k).padStart(4, "0")}-0000-4000-8000-000000000000`, locator: r.locator ?? 1000 + r.ordinal })) } }); }
       if (bd.op === "durableGiftPreview") return J({ rows: [], giftOverridesActive: true }); // "changed live" data: restore must never consult it
       if (bd.op === "durableGiftJobLookup") return J({ jobId: bd.jobId, client: bd.client, confirmed: true, state: "partial", batchCount: PARTS.length, committedBatches: [1], missingBatches: Array.from({ length: PARTS.length }, (_, i) => i).filter((i) => i !== 1), heldRows: HELD.length, decidedRows: ROWS.length, note: "Partial." });
@@ -142,6 +143,15 @@ const buf = (o) => ({ name: "fictional-606-recovery.json", mimeType: "applicatio
       await p.evaluate(() => window.scrollTo(0, 0)); await frames(); await sec.screenshot({ path: `${OUT}/${vp.name}-restored.png` }); }
     await sec.locator("button", { hasText: "Leave restored job" }).click(); await sec.locator("input[aria-label='Durable gift export']").waitFor();
     ok(await sec.locator("[data-testid=durable-restored]").count() === 0 && await sec.locator("[data-testid=durable-plan]").count() === 0, `${vp.name}: Leave restored job (allowed once nothing is uncertain) clears all restored state`);
+    if (vp.name === "desktop") { // definitive refusal: batch held, never resent, no "all committed"
+      for (const k of Object.keys(proofPlan)) delete proofPlan[k];
+      const lp = p.waitForResponse((r) => isOp(r.request(), "durableGiftProof") && bdy(r.request()).batchIndex === PARTS.length - 1, { timeout: 120000 });
+      await restoreIn.setInputFiles(buf(FILE())); await lp; await sec.locator("[role=status]", { hasText: "Restored" }).waitFor();
+      await sec.locator("input[aria-label='Confirm whole-file save']").check(); refuseNext = true; const c0 = commitN;
+      w = resp("durableGiftCommit"); await saveBtn.click(); await w; await sec.locator("[role=alert]", { hasText: "refused" }).waitFor();
+      ok(commitN === c0 + 1 && await li(0).getAttribute("data-state") === "refused" && await saveBtn.isDisabled() && await sec.locator("text=All batches committed").count() === 0, `${vp.name}: 400 refused => batch held as refused, run stops, Save disabled, never "all committed"`);
+      await saveBtn.click({ force: true }).catch(() => {}); await frames();
+      ok(commitN === c0 + 1, `${vp.name}: refused batch is never resent`); }
     await ctx.close();
   }
   console.log("blocked external origins:", JSON.stringify([...new Set(blocked)]), "count", blocked.length);

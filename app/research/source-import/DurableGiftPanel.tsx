@@ -217,8 +217,9 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
     const st = [...batch];
     if (st.includes("unconfirmed") || st.includes("unknown")) { setNote("A batch is unconfirmed or unchecked: check its status first."); return; }
     if (downloadedFor !== plan!.jobId) { setNote("Download the recovery file first."); return; }
+    if (st.includes("refused")) { setNote("Engage refused a batch of this job. It is held: nothing more is sent for this job here."); return; }
     for (let i = 0; i < plan!.batches.length; i++) {
-      if (st[i] === "saved") continue;
+      if (st[i] !== "pending") continue; // dispatch ONLY pending batches
       const requestId = await sha32(`${plan!.jobId}:${i}`); if (!tk.live()) return;
       st[i] = "unconfirmed"; setBatch([...st]); // BEFORE awaiting: a lost reply can never look like "not sent"
       let status = 0, j: Record<string, unknown> | null = null;
@@ -234,7 +235,7 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
       }
       throw new Error(`Batch ${i + 1}: outcome unconfirmed (it may or may not have been saved). Check its status before anything else.`);
     }
-    tk.run(() => setNote("All batches committed (verified replies)."));
+    tk.run(() => setNote(st.every((x) => x === "saved") ? "All batches committed (verified replies)." : "Pending batches were sent; not every batch is saved."));
   }, true);
 
   /** saved = signed proof bound to the derived request id; pending = ONLY the route's canonical 200 pending state with the
@@ -403,7 +404,7 @@ export default function DurableGiftPanel({ client, table, onLockChange }: { clie
             <span className="ml-2 text-xs text-[rgb(var(--ink))]/70">Contains donor gift rows and original snapshots. Store it like the source export. It is not saved in this browser. Required before saving.</span></div>}
           {restored && <label className="mt-2 block"><span className={label}>Original CSV (for the review copy)</span><input type="file" accept=".csv,text/csv" aria-label="Original CSV" className={input} disabled={busy || locked} onChange={(e) => onOrig(e.currentTarget)} /></label>}
           <div className="mt-3 flex flex-wrap gap-3">
-            <button type="button" className={navyBtn} disabled={busy || !confirm || !C.saveAvailable || batch.includes("unconfirmed") || batch.includes("unknown") || !batch.includes("pending") || downloadedFor !== plan.jobId} onClick={() => { void saveAll(); }}>Save batches</button>
+            <button type="button" className={navyBtn} disabled={busy || !confirm || !C.saveAvailable || batch.includes("unconfirmed") || batch.includes("unknown") || batch.includes("refused") || !batch.includes("pending") || downloadedFor !== plan.jobId} onClick={() => { void saveAll(); }}>Save batches</button>
             <button type="button" className={navyBtn} disabled={busy || !Object.keys(proofs).length || (!!restored && !orig)} onClick={() => { void exportCopy(); }}>Download review copy</button></div>
           {!C.saveAvailable && <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">Saving gift IDs is turned off.</p>}
           <ul className="mt-3 space-y-1" data-testid="durable-batches">{batch.map((s, i) => <li key={i} data-state={s}>Batch {i + 1}: {s === "saved" ? "saved" : s === "unconfirmed" ? "unconfirmed (may or may not be saved)" : s === "unknown" ? "status not checked yet" : s === "refused" ? "refused by Engage (nothing saved)" : "not sent yet"} {s !== "pending" && s !== "refused" && !proofs[i] && <button type="button" className={linkBtn} disabled={busy} onClick={() => { void checkBatch(i); }}>Check status</button>}{proofs[i] && " (verified)"}</li>)}</ul>
