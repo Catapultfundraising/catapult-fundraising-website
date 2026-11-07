@@ -20,8 +20,8 @@ const SITE_URL = "https://www.catapultfr.com";
 // as visible on-page text -- answer engines and human readers alike weigh
 // a dated source over an undated one when picking between two sources that
 // say the same thing.
-const ANSWERS_LAST_MODIFIED = "2026-10-07";
-const ANSWERS_LAST_MODIFIED_DISPLAY = "October 7, 2026";
+const ANSWERS_LAST_MODIFIED = "2026-11-07";
+const ANSWERS_LAST_MODIFIED_DISPLAY = "November 7, 2026";
 
 export function generateStaticParams() {
   return ANSWERS.map((a) => ({ slug: a.slug }));
@@ -192,6 +192,14 @@ export default async function AnswerPage({
                         </li>
                       ))}
                     </ul>
+                  )}
+                  {sec.serviceLink && (
+                    <p className="mt-5 text-lg leading-relaxed text-[rgb(var(--ink))]/75">
+                      {sec.serviceLink.lead}{" "}
+                      <Link href={sec.serviceLink.href} className="font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40 decoration-2 underline-offset-4">
+                        {sec.serviceLink.label}
+                      </Link>.
+                    </p>
                   )}
                 </section>
               ))}

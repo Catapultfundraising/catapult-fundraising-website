@@ -4,11 +4,11 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ArrowRight, X } from "lucide-react";
-import { CGA_WEBINAR } from "@/lib/webinars";
+import { CGA_WEBINAR, isUpcomingWebinar } from "@/lib/webinars";
 
 // Slim, dismissible site-wide promo for the CGA webinar. A gentler alternative
 // to a pop-up: it never covers content, closing it is remembered per browser,
-// and it switches itself off once the webinar has ended.
+// and it switches itself off once the webinar starts.
 const DISMISS_KEY = "catapult-cga-webinar-bar-dismissed";
 const HIDDEN_PREFIXES = [
   CGA_WEBINAR.href,
@@ -24,9 +24,9 @@ export function WebinarBar() {
   const [show, setShow] = useState(false);
 
   useEffect(() => {
-    const over = Date.now() > new Date(CGA_WEBINAR.endIso).getTime();
+    const upcoming = isUpcomingWebinar(CGA_WEBINAR);
     const dismissed = window.localStorage.getItem(DISMISS_KEY) === "1";
-    setShow(!over && !dismissed);
+    setShow(upcoming && !dismissed);
   }, []);
 
   if (!show || HIDDEN_PREFIXES.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {

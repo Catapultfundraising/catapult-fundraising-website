@@ -1,3 +1,4 @@
+import { ServiceBuyerSummary } from "@/components/service-buyer-summary";
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
@@ -173,12 +174,18 @@ export default function DonorEngagementPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrowInHeading
+        serviceHeading
         eyebrow="Mid-Level Donor Program & Donor Engagement"
         title="Your mid-level donors are your next major donors. Most of them are still getting form letters."
         description="A dedicated Engagement Officer treats every qualifying donor like a portfolio assignment, building the relationship before the ask and reporting results daily."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/f814dca4-4b83-4023-925a-9a7274bbf2d2.jpeg"
       />
+      <ServiceBuyerSummary title="Is this the right mid-level support for your team?">
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Fit</dt><dd className="mt-1">For loyal donors between annual fund appeals and major gift portfolios who need personal cultivation and qualification.</dd></div>
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Your team</dt><dd className="mt-1">Reviews and approves the donor list, deconflicts existing portfolios and introduces the program through leadership.</dd></div>
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Catapult’s work</dt><dd className="mt-1">We identify and prioritize donors, assign an Engagement Officer and manage cultivation, solicitation, fulfillment and reporting.</dd></div>
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Handoff</dt><dd className="mt-1">Qualification conversations identify donors ready for a warm handoff to your major gift team.</dd></div>
+      </ServiceBuyerSummary>
       <ServiceDetail
         heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/e7459f00-18d5-4f0b-b9ee-658a617fb8e3.png"
         heroImageAlt="Illustration of a donor upgrade funnel moving mid-level donors toward major gift status"
@@ -246,7 +253,7 @@ export default function DonorEngagementPage() {
         ]}
       />
 
-      <CtaBand />
+      <CtaBand heading="Discuss your mid-level donor program" description="Tell us about the donors between your annual fund and major gift portfolios, and the support your team needs." contactLabel="Discuss a Mid-Level Program" />
     </>
   );
 }

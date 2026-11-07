@@ -110,6 +110,7 @@ export default function IsThePhonathonDeadPost() {
         <p className={P}>The classic phonathon was built for the old math. Hire a room of callers, hand them a long list and a script, and push volume. When nearly everyone answered, volume worked. When half the people don&rsquo;t answer and the other half are wary of anyone asking for money, volume just burns through your list.</p>
         <p className={P}>There&rsquo;s a second problem that gets less attention. In a traditional student phonathon, every fall starts over. The best callers graduate. New callers learn on your donors. And a donor who gave for fifteen years gets the same script as someone who gave once in 2011.</p>
         <h2 className={H2}>Telefundraising is not telemarketing</h2>
+        <p className={P}>Our <Link href="/services/telefundraising" className="font-semibold text-[rgb(var(--navy))] underline">telefundraising and phonathon program</Link> covers segmentation, trained callers and donor follow-up.</p>
         <p className={P}>People give to people, not to fancy letters or technology. A good calling program is an extension of face-to-face fundraising: the right person, the right ask, at the right time. It is not a call center reading a script.</p>
         <p className={P}>Our goal on every call is simple. Leave every person feeling good about the organization, whether they give on that call or not. Loyalty follows when we&rsquo;re loyal to the donor first.</p>
         <h2 className={H2}>What still works</h2>
@@ -138,7 +139,7 @@ export default function IsThePhonathonDeadPost() {
         <p className={P}>A lot of our university partners split the file. Students keep the young-alumni segments. Our engagement officers take lapsed donors, leadership-level annual donors and anyone who&rsquo;s ready for an upgrade conversation.</p>
         <h2 className={H2}>Where to start</h2>
         <p className={P}>Pull last year&rsquo;s numbers: contact rate, pledge rate, average gift, fulfillment rate and cost per dollar raised. If you can&rsquo;t get those five numbers easily, that&rsquo;s your first finding.</p>
-        <p className={P}>Then look at who you&rsquo;re calling and who&rsquo;s calling them. That&rsquo;s usually where the answer is. If you&rsquo;d like a second set of eyes, here&rsquo;s how our <Link href="/services/telefundraising" className="font-semibold text-[rgb(var(--navy))] underline">telefundraising and phonathon program</Link> works, or <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">let&rsquo;s talk</Link>.</p>
+        <p className={P}>Then look at who you&rsquo;re calling and who&rsquo;s calling them. That&rsquo;s usually where the answer is. If you&rsquo;d like a second set of eyes, <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">let&rsquo;s talk</Link>.</p>
 
         <h2 className={H2}>Questions we hear</h2>
         <dl className="mt-6 space-y-6">

@@ -4,10 +4,10 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, CalendarDays } from "lucide-react";
-import { CGA_WEBINAR } from "@/lib/webinars";
+import { CGA_WEBINAR, isUpcomingWebinar } from "@/lib/webinars";
 
 // In-page CGA webinar invitation for legacy / planned-giving content. Renders
-// until the webinar ends, then disappears on its own.
+// until the webinar starts, then disappears on its own.
 export function WebinarCallout({
   lead = "Want to put this into practice? Join our free live webinar with Endowment Partners.",
   inset = false,
@@ -16,11 +16,11 @@ export function WebinarCallout({
   /** true when placed inside an existing card/section (no outer section padding) */
   inset?: boolean;
 }) {
-  const [over, setOver] = useState(false);
+  const [show, setShow] = useState(false);
   useEffect(() => {
-    setOver(Date.now() > new Date(CGA_WEBINAR.endIso).getTime());
+    setShow(isUpcomingWebinar(CGA_WEBINAR));
   }, []);
-  if (over) return null;
+  if (!show) return null;
 
   const card = (
     <Link

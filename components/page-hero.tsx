@@ -11,9 +11,11 @@ interface PageHeroProps {
    * Used on service, company, and hub pages; articles keep a plain eyebrow.
    */
   eyebrowInHeading?: boolean;
+  /** Core services: service name is the sole H1; benefit stays supporting copy. */
+  serviceHeading?: boolean;
 }
 
-export function PageHero({ eyebrow, title, description, backgroundImage, eyebrowInHeading = false }: PageHeroProps) {
+export function PageHero({ eyebrow, title, description, backgroundImage, eyebrowInHeading = false, serviceHeading = false }: PageHeroProps) {
   return (
     <section className="relative overflow-hidden bg-[rgb(var(--navy))] text-[rgb(var(--paper))]">
       {backgroundImage ? (
@@ -36,7 +38,16 @@ export function PageHero({ eyebrow, title, description, backgroundImage, eyebrow
         <div className="grain absolute inset-0" />
       )}
       <div className="relative mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
-        {eyebrowInHeading ? (
+        {serviceHeading ? (
+          <>
+            <h1 className="max-w-4xl font-display text-4xl tracking-tight text-balance sm:text-5xl lg:text-6xl">
+              {eyebrow}
+            </h1>
+            <p className="mt-4 max-w-4xl font-display text-2xl text-balance text-[rgb(var(--brass-light))] sm:text-3xl">
+              {title}
+            </p>
+          </>
+        ) : eyebrowInHeading ? (
           <h1>
             <span className="block font-display text-base uppercase tracking-[0.25em] text-[rgb(var(--brass-light))] sm:text-lg">
               {eyebrow}

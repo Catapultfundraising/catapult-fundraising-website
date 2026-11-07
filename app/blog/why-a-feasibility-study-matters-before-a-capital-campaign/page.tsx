@@ -144,6 +144,7 @@ export default function FeasibilityStudyPost() {
           </div>
         </div>
 
+        <p className="mt-6 text-lg leading-relaxed text-[rgb(var(--ink))]/75">If your board needs to test a goal before announcing it, review Catapult’s confidential interviews, written report and board presentation in our <Link href="/services/feasibility-study" className="font-semibold text-[rgb(var(--navy))] underline">feasibility study service</Link>.</p>
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Setting a goal you can actually reach
         </h2>
@@ -390,14 +391,7 @@ export default function FeasibilityStudyPost() {
         </p>
 
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
-          Catapult Fundraising conducts{" "}
-          <Link
-            href="/services/feasibility-study"
-            className="font-semibold text-[rgb(var(--navy))] underline"
-          >
-            capital campaign feasibility studies
-          </Link>
-          , readiness assessments, and full{" "}
+          Catapult Fundraising conducts capital campaign feasibility studies, readiness assessments, and full{" "}
           <Link href="/services/capital-campaign" className="font-semibold text-[rgb(var(--navy))] underline">
             capital campaign consulting
           </Link>{" "}
