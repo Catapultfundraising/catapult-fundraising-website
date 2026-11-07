@@ -17,7 +17,7 @@ test("preserves Anthony's edited copy and corrected source-photo caption", () =>
   assert.doesNotMatch(a.hero_caption, /Editorial illustration/);
 });
 test("includes all source imagery and a durable native-player recording", () => {
-  for (const f of ["hero-susan.jpg", "graphic-lifetime-promise.jpg", "graphic-loyalty-signals.jpg", "graphic-catapult-calling.jpg", "graphic-endowment-services.jpg", "graphic-fit-review.jpg", "webinar-poster.jpg", "og-cga.jpg"]) {
+  for (const f of ["hero-susan.jpg", "graphic-lifetime-promise-v2.jpg", "graphic-loyalty-signals-v2.jpg", "graphic-catapult-calling-v2.jpg", "graphic-endowment-services-v2.jpg", "graphic-fit-review-v2.jpg", "webinar-poster.jpg", "og-cga.jpg"]) {
     assert.ok(fs.statSync(path.join(assets, f)).size > 5000, f);
   }
   const video = path.join(assets, "cga-webinar-replay.mp4");
@@ -47,4 +47,17 @@ test("registers a dated article in discovery and sitemap", () => {
   const page = fs.readFileSync(path.join(route, "page.tsx"), "utf8");
   assert.match(page, /"BlogPosting"/);
   assert.match(page, /datePublished: DATE/);
+});
+
+test("uses the explicit Phonathon reference style and versioned verified graphic assets", () => {
+  const manifest = JSON.parse(fs.readFileSync(path.join(assets, "graphic-style-manifest.json"), "utf8"));
+  assert.equal(manifest.reference_url, "https://www.catapultfr.com/blog/is-the-phonathon-dead");
+  assert.equal(Object.keys(manifest.graphics).length, 5);
+  const page = fs.readFileSync(path.join(route, "page.tsx"), "utf8");
+  for (const [file, digest] of Object.entries(manifest.graphics)) {
+    assert.match(file, /-v2\.jpg$/);
+    assert.ok(page.includes(file));
+    assert.equal(crypto.createHash("sha256").update(fs.readFileSync(path.join(assets, file))).digest("hex"), digest);
+    assert.ok(!fs.existsSync(path.join(assets, file.replace("-v2.jpg", ".jpg"))));
+  }
 });

@@ -12,11 +12,11 @@ const IMG = `/blog/${SLUG}`;
 const DATE = "2026-11-06";
 const DESCRIPTION = "Anthony Alonso and Diane Tuntland on finding CGA prospects with Catapult’s calling services and building a sustainable program with Endowment Partners.";
 const GRAPHICS: Record<string, { file: string; alt: string }> = {
-  "Lifetime Promise": { file: "graphic-lifetime-promise.jpg", alt: "A gift today, fixed lifetime payments and future mission support, subject to the gift agreement." },
-  "Loyalty Signals": { file: "graphic-loyalty-signals.jpg", alt: "Look at years of giving, gift frequency, lifetime support and mission involvement." },
-  "Catapult Calling": { file: "graphic-catapult-calling.jpg", alt: "Review the donor file, thank and qualify interest, connect with a specialist, and follow through and steward." },
-  "Endowment Services": { file: "graphic-endowment-services.jpg", alt: "Endowment Partners supports program design, investment management, payments and reporting, and ongoing administration." },
-  "Fit Review": { file: "graphic-fit-review.jpg", alt: "Assess donor opportunity, staff capacity, program costs and financial readiness before committing." },
+  "Lifetime Promise": { file: "graphic-lifetime-promise-v2.jpg", alt: "A gift today, fixed lifetime payments and future mission support, subject to the gift agreement." },
+  "Loyalty Signals": { file: "graphic-loyalty-signals-v2.jpg", alt: "Look at years of giving, gift frequency, lifetime support and mission involvement." },
+  "Catapult Calling": { file: "graphic-catapult-calling-v2.jpg", alt: "Review the donor file, thank and qualify interest, connect with a specialist, and follow through and steward." },
+  "Endowment Services": { file: "graphic-endowment-services-v2.jpg", alt: "Endowment Partners supports program design, investment management, payments and reporting, and ongoing administration." },
+  "Fit Review": { file: "graphic-fit-review-v2.jpg", alt: "Assess donor opportunity, staff capacity, program costs and financial readiness before committing." },
 };
 
 export const metadata = {
