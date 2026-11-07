@@ -20,6 +20,21 @@ export interface Post {
 
 export const POSTS: Post[] = [
   {
+  "slug": "charitable-gift-annuities-loyal-donors",
+  "date": "2026-11-06",
+  "title": "Charitable Gift Annuities Start With the Donors You Already Know",
+  "description": "Find CGA prospects with Catapult’s donor calling services and explore program setup, investments and administration with Diane Tuntland of Endowment Partners.",
+  "readTime": "9 min read",
+  "image": "/blog/charitable-gift-annuities-loyal-donors/hero-susan.jpg",
+  "alt": "Original presentation photograph portraying Susan, an illustrative CGA donor",
+  "pillars": [
+    "Planned Giving"
+  ],
+  "services": [
+    "legacy-giving"
+  ]
+},
+  {
     "slug": "dont-ask-at-the-party-cultivation-events-major-donors",
     "date": "2026-10-30",
     "title": "Don’t Ask at the Party: How to Run a Cultivation Event That Builds Major Donors",
