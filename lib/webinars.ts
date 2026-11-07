@@ -14,3 +14,9 @@ export const CGA_WEBINAR = {
   registerUrl: "https://us06web.zoom.us/webinar/register/WN_qly-kKiKRLOU3OS2ai_ySw",
   image: "/webinars/cga/ep-catapult-cga-webinar.jpg",
 };
+
+/** Live registration promotion only; an on-demand URL must be separately verified. */
+export function isUpcomingWebinar(webinar: { startIso: string }, now = Date.now()): boolean {
+  const start = Date.parse(webinar.startIso);
+  return Number.isFinite(start) && Number.isFinite(now) && now < start;
+}

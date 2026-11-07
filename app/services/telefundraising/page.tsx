@@ -176,7 +176,7 @@ export default function AnnualFundPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrowInHeading
+        serviceHeading
         eyebrow="Telefundraising & Outsourced Phonathon"
         title="The phone still works when you use it the right way."
         description="AF Connect is our annual fund calling program. It pairs experienced callers with personal pre-call letters and asks built from each donor's own giving history, to renew, upgrade and win back the donors who matter most."
@@ -248,7 +248,7 @@ export default function AnnualFundPage() {
         pillars={["Annual Fund", "Fundraising Strategy"]}
       />
 
-      <CtaBand />
+      <CtaBand heading="Discuss your calling program" description="Tell us about your donor segments, calling program and follow-up needs." contactLabel="Discuss a Calling Program" />
     </>
   );
 }

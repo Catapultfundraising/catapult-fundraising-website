@@ -1,3 +1,4 @@
+import { FeasibilityReportOutline } from "@/components/feasibility-report-outline";
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
@@ -197,7 +198,7 @@ export default function FeasibilityStudyPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrowInHeading
+        serviceHeading
         eyebrow="Capital Campaign Feasibility Study"
         title="Test the goal before you announce it."
         description="Catapult's feasibility study puts a confidential conversation in front of every prospect who would have to fund your campaign, then hands your board a defensible goal, a gift chart, and a leadership list instead of a guess."
@@ -219,6 +220,7 @@ export default function FeasibilityStudyPage() {
           "Board presentation built from the final report",
         ]}
       />
+      <FeasibilityReportOutline />
 
       <section className="border-y border-[rgb(var(--line))] bg-white py-14 lg:py-16">
         <div className="mx-auto max-w-4xl px-6 lg:px-10">
@@ -282,7 +284,7 @@ export default function FeasibilityStudyPage() {
         </div>
       </section>
 
-      <CtaBand />
+      <CtaBand heading="Scope your feasibility study" description="Tell us about the goal you want to test, your prospect pool and the decisions your board needs to make." contactLabel="Scope a Feasibility Study" />
     </>
   );
 }

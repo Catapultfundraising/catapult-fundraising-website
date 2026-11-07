@@ -90,6 +90,7 @@ export default function CapitalCampaignGiftChartPost() {
       <div className="clear-both" />
 
 
+        <p className="mt-6 text-lg leading-relaxed text-[rgb(var(--ink))]/75">If you need help turning a gift chart into a campaign plan, review the phases and responsibilities in our <Link href="/services/capital-campaign" className="font-semibold text-[rgb(var(--navy))] underline">capital campaign consulting service</Link>.</p>
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))] sm:text-[34px]">
           Run a real feasibility study, not a formality
         </h2>
@@ -183,11 +184,7 @@ export default function CapitalCampaignGiftChartPost() {
         </p>
 
         <p className="mt-12 text-lg leading-relaxed text-[rgb(var(--ink))]/70">
-          See how Catapult&rsquo;s{" "}
-          <Link href="/services/capital-campaign" className="font-semibold text-[rgb(var(--navy))] underline">
-            capital campaign consulting
-          </Link>{" "}
-          builds the gift chart and runs the quiet phase with your leadership. Considering a capital campaign and want an honest read on your gift chart and readiness?{" "}
+          Considering a capital campaign and want an honest read on your gift chart and readiness?{" "}
           <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">
             Start a conversation with Catapult Fundraising
           </Link>

@@ -1,3 +1,4 @@
+import { ServiceBuyerSummary } from "@/components/service-buyer-summary";
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
@@ -171,12 +172,18 @@ export default function LegacyGivingPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrowInHeading
+        serviceHeading
         eyebrow="Planned Giving Consulting & Legacy Programs"
         title="Your most loyal donors are ready for a legacy conversation. Legacy Call finds them."
         description="A full-service, two-tier planned giving methodology, not a single survey, that uncovers bequests and deferred gifts most capital campaigns leave on the table."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a0d01eb-79d6-4dfe-b7ce-54b1b8418ee0.png"
       />
+      <ServiceBuyerSummary title="Choose where your planned giving program needs support">
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Start</dt><dd className="mt-1">Review readiness and put gift acceptance policies, ways-to-give language, commitment forms and recognition plans in place.</dd></div>
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Grow</dt><dd className="mt-1">Identify loyal prospects and use Legacy Call qualification and Gift Planning Specialist follow-up to develop planned commitments.</dd></div>
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Reignite</dt><dd className="mt-1">Review past planned giving efforts, donor materials and a legacy society that has stopped growing to shape the next outreach.</dd></div>
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Responsibilities and handoff</dt><dd className="mt-1">Your team reviews and approves the donor list. Catapult handles qualification, specialist conversations, confirmation and reporting, then makes a warm hand-off to your planned giving or stewardship team.</dd></div>
+      </ServiceBuyerSummary>
       <ServiceDetail
         heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/3774d10f-a730-4365-a433-58fea8d6d1a6.png"
         heroImageAlt="A donor's hands writing in a personal journal, symbolizing legacy and planned giving"
@@ -244,7 +251,7 @@ export default function LegacyGivingPage() {
         pillars={["Planned Giving"]}
       />
 
-      <CtaBand />
+      <CtaBand heading="Review your legacy program" description="Tell us whether you want to start, grow or reignite planned giving, and how your team handles donor follow-up." contactLabel="Review a Legacy Program" />
     </>
   );
 }

@@ -125,6 +125,7 @@ export default function HowToStartAPlannedGivingProgramPost() {
         </ul>
         <p className={P}>Here&rsquo;s what surprises most people. About 20 to 25 percent of the donors we call already have the organization in their will. The organization just didn&rsquo;t know.</p>
         <h2 className={H2}>Step 5: Hand interested donors to an experienced specialist</h2>
+        <p className={P}>Our <Link href="/services/planned-giving" className="font-semibold text-[rgb(var(--navy))] underline">Legacy Call program</Link> pairs qualification with specialist follow-up and a warm hand-off to your team.</p>
         <p className={P}>Donors who say yes need a different kind of conversation, about wills, beneficiary designations, IRAs, life insurance or a percentage of the estate. That belongs with someone who has done it for years.</p>
         <p className={P}>In our Legacy Call program, that&rsquo;s a team of retired planned giving professionals with 20 or more years of experience. They work as an extension of your development office and stay with each donor through several conversations. Be patient. A planned gift can take up to two years to confirm.</p>
         <h2 className={H2}>Step 6: Document, then steward</h2>
@@ -140,7 +141,7 @@ export default function HowToStartAPlannedGivingProgramPost() {
         <blockquote className="mt-8 border-l-4 border-[rgb(var(--brass))] pl-6 font-display text-xl italic leading-snug text-[rgb(var(--navy))]">Thousands of loyal donors are waiting to be asked. If all we do is thank a donor for twenty years of giving, that alone is a success.</blockquote>
         <h2 className={H2}>Where to start</h2>
         <p className={P}>This week, run one report: every donor with ten or more gifts. Look at the names. Then ask how many of them have ever been asked about a legacy gift.</p>
-        <p className={P}>If you&rsquo;d like help, here&rsquo;s how our <Link href="/services/planned-giving" className="font-semibold text-[rgb(var(--navy))] underline">planned giving consulting and Legacy Call program</Link> works, or <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">let&rsquo;s talk about your file</Link>.</p>
+        <p className={P}>If you&rsquo;d like help applying this to your donors, <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">let&rsquo;s talk about your file</Link>.</p>
 
         <h2 className={H2}>Questions we hear</h2>
         <dl className="mt-6 space-y-6">

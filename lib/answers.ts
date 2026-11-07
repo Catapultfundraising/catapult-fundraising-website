@@ -22,6 +22,8 @@ export interface AnswerSection {
   heading: string;
   body?: string[];
   bullets?: string[];
+  /** Contextual next step within this section, rather than a repeated footer link. */
+  serviceLink?: RelatedLink & { lead: string };
 }
 
 export interface Answer {
@@ -341,7 +343,7 @@ export const ANSWERS: Answer[] = [
     primaryService: {
       label: "Capital campaign consulting firm",
       href: "/services/capital-campaign",
-      blurb: "Catapult is one national firm across all five campaign phases, including staffing the public phase with trained Engagement Officers.",
+      blurb: "Review who handles feasibility, campaign planning, volunteer coaching and public-phase donor outreach in Catapult’s campaign consulting scope.",
     },
     pillar: "Capital Campaigns",
     question: "How do you choose a capital campaign consulting firm?",
@@ -361,6 +363,7 @@ export const ANSWERS: Answer[] = [
       },
       {
         heading: "How the feasibility study is run",
+        serviceLink: { lead: "Review the interview process and board-report deliverables in Catapult’s", label: "feasibility study service", href: "/services/feasibility-study" },
         body: [
           "A real study is built on confidential interviews, not a survey link. Ask how many interviews are included, who conducts them, and what the final report contains. You should come out of it with a confirmed or corrected goal, a gift chart built from your actual prospects, and a timeline you can defend to the board.",
         ],
@@ -402,7 +405,7 @@ export const ANSWERS: Answer[] = [
     primaryService: {
       label: "Capital campaign feasibility study",
       href: "/services/feasibility-study",
-      blurb: "How Catapult runs a study: confidential interviews, a tested goal, a gift chart, and a written report for your board.",
+      blurb: "Review Catapult’s confidential interview process, your team’s approvals, and the written findings, gift chart scenarios and recommendations presented to your board.",
     },
     pillar: "Feasibility Studies",
     question: "What is a capital campaign feasibility study, and who should conduct one?",
@@ -430,6 +433,7 @@ export const ANSWERS: Answer[] = [
       },
       {
         heading: "What you get at the end",
+        serviceLink: { lead: "To see how study findings feed planning, volunteer coaching and the public phase, review our", label: "capital campaign consulting service", href: "/services/capital-campaign" },
         bullets: [
           "A confirmed goal, or a corrected one, with the reasoning and the prospect capacity behind it.",
           "A gift chart showing how many gifts at each level the goal requires.",
@@ -457,7 +461,6 @@ export const ANSWERS: Answer[] = [
     related: [
       { label: "Why a Feasibility Study Matters Before a Capital Campaign", href: "/blog/why-a-feasibility-study-matters-before-a-capital-campaign" },
       { label: "Feasibility Studies", href: "/services/feasibility-study" },
-      { label: "Capital Campaign Consulting", href: "/services/capital-campaign" },
       { label: "How Much Does a Capital Campaign Cost?", href: "/blog/how-much-does-a-capital-campaign-cost" },
     ],
   },
@@ -895,7 +898,7 @@ export const ANSWERS: Answer[] = [
     primaryService: {
       label: "Mid-level donor engagement",
       href: "/services/mid-level-donor-program",
-      blurb: "Catapult's 8-stage Donor Engagement program assigns an Engagement Officer to your mid-level donors and builds a qualified major gift pipeline.",
+      blurb: "Review donor selection, your team’s list approval, Engagement Officer cultivation and reporting, and the handoff to your major gift team.",
     },
     pillar: "Donor Acquisition & Retention",
     question: "What is a mid-level donor program, and how do you build one?",
@@ -933,6 +936,7 @@ export const ANSWERS: Answer[] = [
       },
       {
         heading: "Start with loyalty, not just wealth",
+        serviceLink: { lead: "For loyal donors ready for a legacy conversation, review qualification, specialist follow-up and handoff in our", label: "planned giving and Legacy Call service", href: "/services/planned-giving" },
         body: [
           "Your most consistent donors are often your best mid-level and legacy prospects, even when a wealth screen does not flag them. Our free Donor Loyalty Assessment is a quick way to see how many loyal donors are sitting in your file without anyone assigned to them.",
         ],

@@ -2,7 +2,17 @@ import Link from "next/link";
 import { ArrowRight, CalendarCheck } from "lucide-react";
 import { MEETING_LINK } from "@/lib/constants";
 
-export function CtaBand() {
+interface CtaBandProps {
+  heading?: string;
+  description?: string;
+  contactLabel?: string;
+}
+
+export function CtaBand({
+  heading = "Ready to catapult your next campaign?",
+  description = "Tell us about your goal, timeline, and donor base. We’ll respond within one business day.",
+  contactLabel = "Start the Conversation",
+}: CtaBandProps) {
   return (
     <section className="relative overflow-hidden bg-[rgb(var(--navy))] py-16 text-[rgb(var(--paper))]">
       <div
@@ -12,10 +22,10 @@ export function CtaBand() {
       <div className="relative mx-auto flex max-w-7xl flex-col items-start justify-between gap-8 px-6 lg:flex-row lg:items-end lg:px-10">
         <div className="max-w-xl">
           <h2 className="font-display text-4xl tracking-tight text-balance sm:text-5xl">
-            Ready to catapult your next campaign?
+            {heading}
           </h2>
           <p className="mt-4 text-[rgb(var(--paper))]/70">
-            Tell us about your goal, timeline, and donor base. We&rsquo;ll respond within one business day.
+            {description}
           </p>
         </div>
         <div className="flex shrink-0 flex-wrap items-center gap-3">
@@ -23,7 +33,7 @@ export function CtaBand() {
             href="/contact"
             className="group inline-flex items-center gap-2 rounded-full bg-[rgb(var(--brass))] px-7 py-3.5 text-sm font-semibold text-[rgb(var(--navy-deep))] transition-transform hover:scale-[1.02]"
           >
-            Start the Conversation
+            {contactLabel}
             <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" />
           </Link>
           {/* Second path for visitors who would rather pick a time than write a message. */}

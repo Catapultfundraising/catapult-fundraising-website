@@ -201,7 +201,7 @@ export default function CapitalCampaignPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
       <PageHero
-        eyebrowInHeading
+        serviceHeading
         eyebrow="Capital Campaign Consulting Services"
         title="The full-service firm that carries your campaign from first feasibility call to final pledge."
         description="Catapult is the only national firm that plans your capital campaign from the earliest quiet-phase strategy through a professionally staffed public-phase calling program, wrapping every campaign in one accountable partner instead of three vendors."
