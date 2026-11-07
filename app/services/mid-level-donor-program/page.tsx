@@ -182,7 +182,7 @@ export default function DonorEngagementPage() {
       />
       <ServiceBuyerSummary title="Is this the right mid-level support for your team?">
         <div><dt className="font-semibold text-[rgb(var(--navy))]">Fit</dt><dd className="mt-1">For loyal donors between annual fund appeals and major gift portfolios who need personal cultivation and qualification.</dd></div>
-        <div><dt className="font-semibold text-[rgb(var(--navy))]">Your team</dt><dd className="mt-1">Reviews and approves the donor list, deconflicts existing portfolios and introduces the program through leadership.</dd></div>
+        <div><dt className="font-semibold text-[rgb(var(--navy))]">Your team</dt><dd className="mt-1">Reviews and approves the donor list, checks for donors already assigned to another portfolio and introduces the program through leadership.</dd></div>
         <div><dt className="font-semibold text-[rgb(var(--navy))]">Catapult’s work</dt><dd className="mt-1">We identify and prioritize donors, assign an Engagement Officer and manage cultivation, solicitation, fulfillment and reporting.</dd></div>
         <div><dt className="font-semibold text-[rgb(var(--navy))]">Handoff</dt><dd className="mt-1">Qualification conversations identify donors ready for a warm handoff to your major gift team.</dd></div>
       </ServiceBuyerSummary>
