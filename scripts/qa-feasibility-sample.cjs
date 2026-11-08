@@ -28,11 +28,16 @@ async function main() {
   browser = await chromium.launch({ headless: true, args: ["--no-sandbox"] });
   const context = await browser.newContext({ viewport: { width: 1440, height: 1100 }, extraHTTPHeaders: { "x-forwarded-proto": "https" } });
   const page = await context.newPage();
+  async function shot(name) {
+    await page.waitForFunction(() => [...document.querySelectorAll('img[src*="/media/"]')].every(i => i.complete && i.naturalWidth));
+    await page.evaluate(() => window.scrollTo(0, 0));
+    await page.screenshot({ path: `${out}/${name}.png`, fullPage: true });
+  }
   const errors = []; page.on("pageerror", e => errors.push(e.message));
   await page.goto(origin + path);
   await page.getByRole("button", { name: "Necessary Only", exact: true }).click();
   assert.ok(page.url().endsWith("/login"));
-  await page.screenshot({ path: `${out}/login-desktop.png`, fullPage: true });
+  await shot("login-desktop");
   for (const name of ["page-001.webp", "document.pdf", "asset-manifest.json", "page-127.webp"]) {
     assert.equal((await context.request.get(origin + path + "/media/" + name)).status(), 401);
   }
@@ -57,20 +62,20 @@ async function main() {
   const cookie = (await context.cookies()).find(c => c.name === "catapult_feasibility_sample");
   assert.ok(cookie.httpOnly && cookie.secure && cookie.sameSite === "Strict" && cookie.path === path);
   checks.push("scoped Secure HttpOnly Strict session; initial full-resolution images <= 7");
-  await page.screenshot({ path: `${out}/reader-desktop.png`, fullPage: true });
+  await shot("reader-desktop");
   await page.getByRole("button", { name: "Next page" }).click();
   assert.ok(await page.getByRole("button", { name: "Go", exact: true }).isDisabled());
   assert.ok(await page.getByLabel("Zoom", { exact: true }).isDisabled());
   await page.screenshot({ path: `${out}/animated-turn-desktop.png` });
   await page.getByText("Page 2 of 126", { exact: false }).waitFor();
-  await page.screenshot({ path: `${out}/spread-desktop.png`, fullPage: true });
+  await shot("spread-desktop");
   await page.getByLabel("Page", { exact: true }).fill("63");
   await page.getByRole("button", { name: "Go", exact: true }).click();
   await page.getByText("Page 62 of 126", { exact: false }).waitFor(); // library normalizes to spread start
   await page.getByLabel("Zoom", { exact: true }).selectOption("2");
   const region = page.getByRole("region", { name: "Feasibility study reader", exact: true });
   assert.ok(await region.evaluate(el => el.scrollWidth > el.clientWidth));
-  await page.screenshot({ path: `${out}/zoom-desktop.png`, fullPage: true });
+  await shot("zoom-desktop");
   await region.focus(); await page.keyboard.press("End");
   await page.getByText("Page 126 of 126", { exact: false }).waitFor();
   await region.focus(); await page.keyboard.press("Home");
@@ -96,18 +101,18 @@ async function main() {
     const el = document.querySelector('[aria-label="Feasibility study reader"]');
     return el && el.scrollWidth === el.clientWidth;
   });
-  await page.screenshot({ path: `${out}/reader-tablet.png`, fullPage: true });
+  await shot("reader-tablet");
   await page.setViewportSize({ width: 320, height: 844 });
   await page.waitForFunction(() => {
     const el = document.querySelector('[aria-label="Feasibility study reader"]');
     return el && el.scrollWidth === el.clientWidth;
   });
   assert.ok(await page.evaluate(() => document.documentElement.scrollWidth === window.innerWidth));
-  await page.screenshot({ path: `${out}/reader-small-mobile.png`, fullPage: true });
+  await shot("reader-small-mobile");
   checks.push("Fit without horizontal overflow at 320px and 768px");
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForFunction(() => !document.querySelector('[aria-label="Next page"]').disabled);
-  await page.screenshot({ path: `${out}/reader-mobile.png`, fullPage: true });
+  await shot("reader-mobile");
   await page.getByRole("button", { name: "Next page" }).click();
   await page.getByText("Page 2 of 126", { exact: false }).waitFor();
   await page.getByLabel("Page", { exact: true }).fill("126"); await page.getByRole("button", { name: "Go", exact: true }).click();
@@ -117,13 +122,13 @@ async function main() {
   await page.getByText("Reduced motion:", { exact: false }).waitFor();
   await page.getByRole("button", { name: "Previous page" }).click();
   await page.getByText("Page 125 of 126", { exact: false }).waitFor();
-  await page.screenshot({ path: `${out}/reduced-motion-mobile.png`, fullPage: true });
+  await shot("reduced-motion-mobile");
   checks.push("reduced-motion static single-page navigation");
   await page.route("**/media/page-*.webp", route => route.abort());
   await page.getByLabel("Page", { exact: true }).fill("42");
   await page.getByRole("button", { name: "Go", exact: true }).click();
   await page.getByRole("heading", { name: "Prefer a different way to read?" }).waitFor();
-  await page.screenshot({ path: `${out}/pdf-fallback.png`, fullPage: true });
+  await shot("pdf-fallback");
   checks.push("image-load failure shows native PDF open/download fallback");
   assert.deepEqual(errors, []);
   writeFileSync(`${out}/qa-results.json`, JSON.stringify({ ok: true, checks, browserErrors: errors }, null, 2));
