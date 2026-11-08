@@ -30,6 +30,7 @@ async function main() {
   const page = await context.newPage();
   const errors = []; page.on("pageerror", e => errors.push(e.message));
   await page.goto(origin + path);
+  await page.getByRole("button", { name: "Necessary Only", exact: true }).click();
   assert.ok(page.url().endsWith("/login"));
   await page.screenshot({ path: `${out}/login-desktop.png`, fullPage: true });
   for (const name of ["page-001.webp", "document.pdf", "asset-manifest.json", "page-127.webp"]) {
@@ -41,7 +42,10 @@ async function main() {
   const tlsOrigin = origin.replace("http:", "https:");
   assert.equal((await context.request.post(origin + path + "/session", { headers: { Origin: tlsOrigin }, data: { password: "wrong" } })).status(), 401);
   // Local HTTP QA emulates Vercel TLS termination, matching x-forwarded-proto.
-  await page.route("**/feasibility-study/session", route => route.continue({ headers: { ...route.request().headers(), origin: tlsOrigin } }));
+  await page.route("**/feasibility-study/session", async route => {
+    const response = await route.fetch({ headers: { ...route.request().headers(), origin: tlsOrigin } });
+    await route.fulfill({ response });
+  });
   await page.getByLabel("Sales-library password").fill(password);
   await page.getByRole("button", { name: "Open the sample" }).click();
   await page.waitForURL(origin + path);
@@ -55,6 +59,9 @@ async function main() {
   checks.push("scoped Secure HttpOnly Strict session; initial full-resolution images <= 7");
   await page.screenshot({ path: `${out}/reader-desktop.png`, fullPage: true });
   await page.getByRole("button", { name: "Next page" }).click();
+  assert.ok(await page.getByRole("button", { name: "Go", exact: true }).isDisabled());
+  assert.ok(await page.getByLabel("Zoom", { exact: true }).isDisabled());
+  await page.screenshot({ path: `${out}/animated-turn-desktop.png` });
   await page.getByText("Page 2 of 126", { exact: false }).waitFor();
   await page.screenshot({ path: `${out}/spread-desktop.png`, fullPage: true });
   await page.getByLabel("Page", { exact: true }).fill("63");
@@ -113,7 +120,8 @@ async function main() {
   await page.screenshot({ path: `${out}/reduced-motion-mobile.png`, fullPage: true });
   checks.push("reduced-motion static single-page navigation");
   await page.route("**/media/page-*.webp", route => route.abort());
-  await page.getByRole("button", { name: "Previous page" }).click();
+  await page.getByLabel("Page", { exact: true }).fill("42");
+  await page.getByRole("button", { name: "Go", exact: true }).click();
   await page.getByRole("heading", { name: "Prefer a different way to read?" }).waitFor();
   await page.screenshot({ path: `${out}/pdf-fallback.png`, fullPage: true });
   checks.push("image-load failure shows native PDF open/download fallback");

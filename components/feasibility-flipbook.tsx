@@ -13,6 +13,7 @@ export function FeasibilityFlipbook() {
   const [reduced, setReduced] = useState(false), [mobile, setMobile] = useState(false);
   const [paperWidth, setPaperWidth] = useState(400);
   const [error, setError] = useState(false), [ready, setReady] = useState(false);
+  const [turning, setTurning] = useState(false);
   const [jump, setJump] = useState("1");
   useEffect(() => {
     const motion = matchMedia("(prefers-reduced-motion: reduce)"), narrow = matchMedia("(max-width: 1023px)");
@@ -47,20 +48,24 @@ export function FeasibilityFlipbook() {
         swipeDistance: 35, startPage: page - 1,
       });
       flip.current = book;
+      // A jump during the library's active corner animation can invalidate its
+      // temporary page nodes. Keep all navigation atomic until it returns to read.
+      book.on("changeState", e => { if (!disposed) setTurning(e.data !== "read"); });
       const loadNearby = (index: number) => {
         nodes.forEach((node, i) => {
           const img = node.firstElementChild as HTMLImageElement;
           if (Math.abs(i - index) <= 3 && !img.getAttribute("src")) img.src = imageUrl(i + 1);
         });
       };
-      book.on("flip", e => { const n = Number(e.data); setPage(n + 1); setJump(String(n + 1)); loadNearby(n); });
+      book.on("flip", e => { if (disposed) return; const n = Number(e.data); setPage(n + 1); setJump(String(n + 1)); loadNearby(n); });
       book.loadFromHTML(nodes); loadNearby(page - 1); setReady(true);
     }).catch(() => setError(true));
-    return () => { disposed = true; flip.current?.destroy(); flip.current = null; container.replaceChildren(); setReady(false); };
+    return () => { disposed = true; flip.current?.destroy(); flip.current = null; container.replaceChildren(); setReady(false); setTurning(false); };
     // Page changes are owned by the library; recreating on every turn loses animation.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [reduced, mobile, paperWidth, error]);
   function go(n: number, animate = false) {
+    if (turning) return;
     n = Math.max(1, Math.min(SAMPLE_PAGES, n));
     if (reduced) { setPage(n); setJump(String(n)); return; }
     if (animate && n > page) flip.current?.flipNext();
@@ -76,17 +81,17 @@ export function FeasibilityFlipbook() {
     <p className={styles.notice}>Fictional sales sample · Client and prospect identities and individual wealth capacities are fictionalized.</p>
     <div className={styles.toolbar} aria-label="Document controls">
       <div className={styles.paging}>
-        <button aria-label="Previous page" disabled={page === 1 || (!reduced && !ready)} onClick={() => go(page - (mobile || reduced || page === 2 ? 1 : 2), true)}>← Previous</button>
+        <button aria-label="Previous page" disabled={turning || page === 1 || (!reduced && !ready)} onClick={() => go(page - (mobile || reduced || page === 2 ? 1 : 2), true)}>← Previous</button>
         <form onSubmit={e => { e.preventDefault(); const n = Number(jump); if (Number.isInteger(n) && n >= 1 && n <= SAMPLE_PAGES) go(n); }}>
           <label htmlFor="sample-page">Page</label>
           <input id="sample-page" type="number" min="1" max={SAMPLE_PAGES} value={jump} onChange={e => setJump(e.target.value)} />
-          <span>of {SAMPLE_PAGES}</span><button type="submit">Go</button>
+          <span>of {SAMPLE_PAGES}</span><button type="submit" disabled={turning || (!reduced && !ready)}>Go</button>
         </form>
-        <button aria-label="Next page" disabled={page >= SAMPLE_PAGES || (!reduced && !ready)} onClick={() => go(page + (mobile || reduced || page === 1 ? 1 : 2), true)}>Next →</button>
+        <button aria-label="Next page" disabled={turning || page >= SAMPLE_PAGES || (!reduced && !ready)} onClick={() => go(page + (mobile || reduced || page === 1 ? 1 : 2), true)}>Next →</button>
       </div>
       <div className={styles.actions}>
         <label htmlFor="sample-zoom">Zoom</label>
-        <select id="sample-zoom" value={zoom} onChange={e => setZoom(Number(e.target.value))}><option value="1">Fit</option><option value="1.5">150%</option><option value="2">200%</option></select>
+        <select id="sample-zoom" disabled={turning} value={zoom} onChange={e => setZoom(Number(e.target.value))}><option value="1">Fit</option><option value="1.5">150%</option><option value="2">200%</option></select>
         <a href={`${pdfUrl}?download=1`}>Download PDF ↓</a>
       </div>
     </div>

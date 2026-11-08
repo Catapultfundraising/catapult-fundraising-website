@@ -9,6 +9,7 @@ declare module "page-flip" {
       disableFlipByClick: boolean; swipeDistance: number; startPage: number;
     });
     on(event: "flip", callback: (event: { data: number }) => void): void;
+    on(event: "changeState", callback: (event: { data: string }) => void): void;
     loadFromHTML(elements: HTMLElement[]): void;
     turnToPage(index: number): void;
     flipNext(): void;
