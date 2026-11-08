@@ -139,3 +139,20 @@ export function deckQuotes(deck: Deck): Testimonial[] {
     .filter((q): q is Testimonial => Boolean(q));
   return [...quotes.filter((q) => !last.includes(q.id)), ...held];
 }
+
+// Discoverable entry points in the protected library. Each destination keeps its
+// own existing authorization; these links never grant access to internal tools.
+export const SALES_LIBRARY_SAMPLES = [
+  {
+    href: "/samples/feasibility-study",
+    name: "Sample feasibility study",
+    description: "Turn through a complete fictional study, from findings to campaign recommendations. Opens with the sales-library password.",
+    action: "Explore the study",
+  },
+  {
+    href: "/demo-dashboard",
+    name: "Sample data dashboard",
+    description: "Explore a working campaign dashboard with fictional donor data, sample reports, and gift-chart tools. No client records are used.",
+    action: "Explore the dashboard",
+  },
+] as const;

@@ -3,12 +3,12 @@ import Image from "next/image";
 import { ArrowRight, Download } from "lucide-react";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
-import { DECKS } from "@/lib/decks";
+import { DECKS, SALES_LIBRARY_SAMPLES } from "@/lib/decks";
 
 export const metadata = {
   title: "Sales Decks | Catapult Fundraising",
   description:
-    "Password-protected hub for the four Catapult Fundraising service decks, with client quotes and downloadable PDFs.",
+    "Password-protected Catapult sales library, with service decks, a sample feasibility study, and a fictional data dashboard.",
   robots: { index: false, follow: false },
 };
 
@@ -18,10 +18,24 @@ export default function DecksIndexPage() {
       <PageHero
         eyebrow="Sales Library"
         title="Every deck, one link."
-        description="The four service decks, ready to present from any browser, with the client quotes that back them up and a PDF for when the wifi gives out."
+        description="Service decks and sample deliverables, ready to explore from any browser. Present a deck, turn through a sample study, or try a data dashboard."
       />
 
       <section className="mx-auto max-w-6xl px-6 py-14 lg:px-10 lg:py-16">
+        <section aria-labelledby="sample-deliverables-heading" className="mb-12">
+          <h2 id="sample-deliverables-heading" className="font-display text-3xl text-[rgb(var(--navy))]">See the work before we begin.</h2>
+          <p className="mt-3 max-w-2xl text-[rgb(var(--ink))]/70">Two fictional samples that show how we turn donor information into campaign decisions.</p>
+          <div className="mt-6 grid gap-6 sm:grid-cols-2">
+            {SALES_LIBRARY_SAMPLES.map((sample) => (
+              <Link key={sample.href} href={sample.href} className="group flex flex-col bg-[rgb(var(--navy))] p-6 text-white transition-colors hover:bg-[rgb(var(--navy-deep))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[rgb(var(--brass))]">
+                <h3 className="font-display text-2xl">{sample.name}</h3>
+                <p className="mt-3 flex-1 text-sm leading-relaxed text-white/80">{sample.description}</p>
+                <span className="mt-6 inline-flex items-center gap-2 text-sm font-semibold">{sample.action}<ArrowRight aria-hidden="true" className="h-4 w-4 transition-transform group-hover:translate-x-1" /></span>
+              </Link>
+            ))}
+          </div>
+        </section>
+
         <div className="grid gap-8 sm:grid-cols-2">
           {DECKS.map((deck) => (
             <div

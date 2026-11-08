@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { randomBytes } from "node:crypto";
-import { samplePasswordValid, sampleToken, sampleTokenValid, SAMPLE_TTL } from "../lib/feasibility-sample-auth";
+import { createHash, randomBytes } from "node:crypto";
+import { sampleDeckTokenValid, samplePasswordValid, sampleToken, sampleTokenValid, SAMPLE_TTL } from "../lib/feasibility-sample-auth";
 import { SAMPLE_PAGES, sampleAsset } from "../lib/feasibility-sample";
 
 test("strict media allowlist and pagination bounds", () => {
@@ -19,6 +19,12 @@ test("scoped sessions expire, reject tampering, rotate, and fail closed", () => 
     assert.ok(!samplePasswordValid("incorrect"));
     const now = Date.now(), token = sampleToken(now)!;
     assert.ok(sampleTokenValid(token, now));
+    const deck = createHash("sha256").update(`${process.env.DECKS_PASSWORD}:${process.env.DECKS_AUTH_SECRET}`).digest("hex");
+    assert.ok(sampleDeckTokenValid(deck));
+    assert.ok(!sampleDeckTokenValid(token)); // sample-only cookie is never a deck session
+    assert.ok(!sampleTokenValid(deck, now)); // sales reuse is an explicit one-way read grant
+    assert.ok(!sampleDeckTokenValid("0".repeat(64)));
+    assert.ok(!sampleDeckTokenValid(undefined));
     assert.ok(!sampleTokenValid(token, now + SAMPLE_TTL * 1000));
     assert.ok(!sampleTokenValid(token + "0", now));
     assert.ok(!sampleTokenValid(token.replace(/.$/, token.endsWith("0") ? "1" : "0"), now));
@@ -27,8 +33,10 @@ test("scoped sessions expire, reject tampering, rotate, and fail closed", () => 
     assert.ok(!sampleTokenValid("catapult_decks_auth", now));
     process.env.DECKS_PASSWORD = randomBytes(24).toString("hex");
     assert.ok(!sampleTokenValid(token, now));
+    assert.ok(!sampleDeckTokenValid(deck));
     delete process.env.DECKS_AUTH_SECRET;
     assert.equal(sampleToken(now), null);
+    assert.ok(!sampleDeckTokenValid(deck));
     assert.ok(!samplePasswordValid(process.env.DECKS_PASSWORD));
     assert.ok(!sampleTokenValid(token, now));
   } finally {

@@ -20,6 +20,8 @@ an immediate single-page image, not just a shorter animation.
 Uses existing `DECKS_PASSWORD` and `DECKS_AUTH_SECRET` only. Dedicated 8-hour HMAC session,
 domain-separated from every other gate, HttpOnly, Secure, SameSite=Strict, path restricted to
 `/samples/feasibility-study`. This cookie cannot authorize decks, research or client dashboards.
+A valid existing sales-deck cookie may also read the sample and its media (one-way only), so
+visitors coming from the protected `/decks` library do not enter the same password twice.
 Missing either setting fails closed. Password/secret rotation invalidates sessions.
 Page and every media route authorize server-side; private, no-store responses. No manifest
 endpoint is exposed. Public metadata JSON contains only exact byte counts and SHA-256 hashes.

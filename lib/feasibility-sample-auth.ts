@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import { cookies } from "next/headers";
 import { SAMPLE_COOKIE } from "./feasibility-sample";
 
@@ -33,6 +33,14 @@ export function sampleTokenValid(token: string | undefined, now = Date.now()) {
   const expected = createHmac("sha256", c.secret).update(`${scope}:${exp}:${c.password}`).digest("hex");
   return equal(mac, expected);
 }
+// One-way reuse of the existing sales-library gate, not research/client sessions.
+// Must remain byte-compatible with middleware.ts and /api/decks-login.
+export function sampleDeckTokenValid(token: string | undefined) {
+  const c = config();
+  if (!c || !token || !/^[a-f0-9]{64}$/.test(token)) return false;
+  return equal(token, createHash("sha256").update(`${c.password}:${c.secret}`).digest("hex"));
+}
 export async function sampleAuthorized() {
-  return sampleTokenValid((await cookies()).get(SAMPLE_COOKIE)?.value);
+  const jar = await cookies();
+  return sampleTokenValid(jar.get(SAMPLE_COOKIE)?.value) || sampleDeckTokenValid(jar.get("catapult_decks_auth")?.value);
 }
