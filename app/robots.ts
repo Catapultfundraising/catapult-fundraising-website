@@ -14,6 +14,8 @@ const DISALLOWED_INTERNAL_TOOLS = [
   "/research",
   "/assets",
   "/decks",
+  "/samples/feasibility-study",
+  "/api/feasibility-sample-upload",
   "/jag-dashboard",
   "/jag-admin",
   "/csnf-dashboard",
