@@ -131,6 +131,23 @@ export default function CampaignReadinessAssessmentPage() {
           </p>
         </div>
 
+        <aside aria-labelledby="feasibility-next-step" className="mt-8 rounded-2xl border border-[rgb(var(--line))] border-l-4 border-l-[rgb(var(--brass))] bg-white p-6">
+          <h2 id="feasibility-next-step" className="font-display text-2xl text-[rgb(var(--navy))]">
+            Ready to test your campaign goal with donors?
+          </h2>
+          <p className="mt-3 text-lg leading-relaxed text-[rgb(var(--ink))]/75">
+            This free assessment is a starting point, not a substitute for a capital campaign
+            feasibility study. Confidential donor interviews help test your goal, case for support,
+            and potential campaign leadership before you commit to a launch.
+          </p>
+          <Link
+            href="/services/feasibility-study"
+            className="mt-5 inline-flex rounded-full bg-[rgb(var(--brass))] px-6 py-3 text-sm font-semibold text-[rgb(var(--navy-deep))] transition-transform hover:scale-[1.02]"
+          >
+            Explore our capital campaign feasibility study
+          </Link>
+        </aside>
+
         <h2 className="mt-12 font-display text-3xl text-[rgb(var(--navy))]">Common questions</h2>
         <dl className="mt-5 space-y-7">
           {FAQS.map((f) => (

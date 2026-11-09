@@ -357,6 +357,7 @@ export const ANSWERS: Answer[] = [
     sections: [
       {
         heading: "Who will actually do the work",
+        serviceLink: { lead: "See how Catapult’s senior counsel supports your team through our", label: "capital campaign consultant services", href: "/services/capital-campaign" },
         body: [
           "The most common complaint about campaign counsel is a senior partner who wins the work and a junior associate who shows up after the contract is signed. Ask for the name of the person who will attend your committee meetings, coach your volunteers, and write your reports, and ask to speak with them before you sign.",
         ],
@@ -376,6 +377,7 @@ export const ANSWERS: Answer[] = [
       },
       {
         heading: "What happens in the public phase",
+        serviceLink: { lead: "Compare the planning, volunteer coaching and public-phase support included when you work with Catapult as your", label: "capital campaign consulting firm", href: "/services/capital-campaign" },
         body: [
           "Many campaign firms plan the public phase and then leave it to staff or hand it to a separate telefunding vendor. That handoff is where prospect data gets lost and accountability gets blurry. Ask who will reach your broader community, how callers are trained on your case, and how results are reported.",
         ],
