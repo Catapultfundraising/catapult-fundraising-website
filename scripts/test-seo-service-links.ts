@@ -6,7 +6,7 @@ const answer = getAnswerBySlug("how-do-you-choose-a-capital-campaign-consulting-
 assert.ok(answer);
 assert.equal(answer.primaryService?.href, "/services/capital-campaign");
 for (const heading of ["Who will actually do the work", "What happens in the public phase"]) {
-  const link = answer.sections?.find(section => section.heading === heading)?.serviceLink;
+  const link: { lead: string; label: string; href: string } | undefined = answer.sections?.find(section => section.heading === heading)?.serviceLink;
   assert.equal(link?.href, "/services/capital-campaign");
   assert.match(link?.label ?? "", /capital campaign consult/);
 }
