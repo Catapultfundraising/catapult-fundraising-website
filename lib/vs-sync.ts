@@ -1,3 +1,4 @@
+import { formatStudyDate } from "@/lib/study-dates";
 // ---------------------------------------------------------------------------
 // Builds a study portal's dashboard payload directly from VanillaSoft.
 //
@@ -244,14 +245,6 @@ export function declineReason(comment: string, fieldValue = ""): string {
 /** Name of the VanillaSoft contact field callers fill in on a Declined result. */
 export const DECLINE_REASON_FIELD = "Reason For Declining";
 
-function formatDate(iso: string): string {
-  if (!iso) return "";
-  const d = new Date(iso);
-  if (Number.isNaN(d.getTime())) return "";
-  return `${d.getUTCMonth() + 1}/${d.getUTCDate()}/${d.getUTCFullYear()}`;
-}
-
-
 // ---------------------------------------------------------------------------
 // Name backfill for contacts the API can no longer describe.
 //
@@ -349,7 +342,7 @@ export async function buildPortalDataFromVanillaSoft(
     const scheduledAt = contact?.scheduled_call_date_time ?? null;
 
     if (outcome?.status === "completed") {
-      completedInterviews.push({ name: nameOf(id), org: orgOf(id), date: formatDate(outcome.lastDate) });
+      completedInterviews.push({ name: nameOf(id), org: orgOf(id), date: formatStudyDate(outcome.lastDate) });
     } else if (outcome?.status === "declined" && contact && DECEASED_NOTE.test(customField(contact, DECLINE_REASON_FIELD))) {
       // Older records: coded Declined with "Deceased" entered as the reason.
       deceased.push({ name: nameOf(id), reason: "Passed Away" });
@@ -366,7 +359,7 @@ export async function buildPortalDataFromVanillaSoft(
       // on a future date (Jose Solorio, CSNF, Oct 2026); then he falls through to Scheduled.
       toBeRescheduled.push({ name: nameOf(id), org: orgOf(id) });
     } else if (scheduledAt && new Date(scheduledAt) >= asOf && lastBooking.get(id) !== "callback") {
-      scheduledInterviews.push({ name: nameOf(id), org: orgOf(id), date: formatDate(scheduledAt) });
+      scheduledInterviews.push({ name: nameOf(id), org: orgOf(id), date: formatStudyDate(scheduledAt) });
     } else if (outcome?.status !== "closed") {
       inCallingProcess++;
     }
