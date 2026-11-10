@@ -20,7 +20,8 @@ test("includes all source imagery and a durable native-player recording", () => 
   for (const f of ["hero-susan.jpg", "graphic-lifetime-promise-v2.jpg", "graphic-loyalty-signals-v2.jpg", "graphic-catapult-calling-v2.jpg", "graphic-endowment-services-v2.jpg", "graphic-fit-review-v2.jpg", "webinar-poster.jpg", "og-cga.jpg"]) {
     assert.ok(fs.statSync(path.join(assets, f)).size > 5000, f);
   }
-  const video = path.join(assets, "cga-webinar-replay.mp4");
+  const video = path.join(assets, "cga-webinar-replay-privacy-edited-2026-11-09.mp4");
+  assert.equal(crypto.createHash("sha256").update(fs.readFileSync(video)).digest("hex"), "bc2eddb64d4a4a6be247c762afa44f74053c164014dafc544d77caeaa6e75c27");
   const size = fs.statSync(video).size;
   assert.ok(size > 1000000 && size < 100 * 1024 * 1024);
   const fd = fs.openSync(video, "r");
@@ -60,4 +61,15 @@ test("uses the explicit Phonathon reference style and versioned verified graphic
     assert.equal(crypto.createHash("sha256").update(fs.readFileSync(path.join(assets, file))).digest("hex"), digest);
     assert.ok(!fs.existsSync(path.join(assets, file.replace("-v2.jpg", ".jpg"))));
   }
+});
+// Both native playback and the browser fallback must use the reviewed edit.
+test("article replay uses only the versioned privacy-edited recording", () => {
+  const page = fs.readFileSync(path.join(route, "page.tsx"), "utf8");
+  assert.equal(page.split("cga-webinar-replay-privacy-edited-2026-11-09.mp4").length - 1, 2);
+  assert.doesNotMatch(page, /cga-webinar-replay\.mp4|zoom\.us|<iframe/);
+  assert.match(page, /<source src=\{`\$\{IMG\}\/cga-webinar-replay-privacy-edited-2026-11-09\.mp4`\} type="video\/mp4"/);
+  assert.ok(page.includes('href={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`}'));
+  assert.match(page, /poster=\{`\$\{IMG\}\/webinar-poster\.jpg`\}/);
+  assert.match(page, /61 minutes\. Recorded November 4, 2026\./);
+  assert.equal(fs.existsSync(path.join(assets, "cga-webinar-replay.mp4")), false);
 });
