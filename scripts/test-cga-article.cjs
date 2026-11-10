@@ -31,7 +31,7 @@ test("includes all source imagery and a durable native-player recording", () => 
   assert.equal(bytes.subarray(4, 8).toString(), "ftyp");
   const page = fs.readFileSync(path.join(route, "page.tsx"), "utf8");
   assert.match(page, /controls playsInline preload="metadata"/);
-  assert.match(page, /relative aspect-video/);
+  assert.match(page, /<video className="block h-auto w-full"/);
   assert.doesNotMatch(page, /download_token|access_token|zoom\.us\/rec\/download/);
 });
 test("credits Diane and offers separate next steps to both firms", () => {
@@ -65,11 +65,23 @@ test("uses the explicit Phonathon reference style and versioned verified graphic
 // Both native playback and the browser fallback must use the reviewed edit.
 test("article replay uses only the versioned privacy-edited recording", () => {
   const page = fs.readFileSync(path.join(route, "page.tsx"), "utf8");
-  assert.equal(page.split("cga-webinar-replay-privacy-edited-2026-11-09.mp4").length - 1, 2);
+  assert.equal(page.split("cga-webinar-replay-privacy-edited-2026-11-09.mp4").length - 1, 3);
   assert.doesNotMatch(page, /cga-webinar-replay\.mp4|zoom\.us|<iframe/);
   assert.match(page, /<source src=\{`\$\{IMG\}\/cga-webinar-replay-privacy-edited-2026-11-09\.mp4`\} type="video\/mp4"/);
   assert.ok(page.includes('href={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`}'));
   assert.match(page, /poster=\{`\$\{IMG\}\/webinar-poster\.jpg`\}/);
   assert.match(page, /61 minutes\. Recorded November 4, 2026\./);
   assert.equal(fs.existsSync(path.join(assets, "cga-webinar-replay.mp4")), false);
+});
+
+test("replay uses native document flow and offers a visible direct playback link", () => {
+  const page = fs.readFileSync(path.join(route, "page.tsx"), "utf8");
+  const replay = page.split("function WebinarReplay() {")[1].split("export default function")[0];
+  assert.match(replay, /<video className="block h-auto w-full" controls playsInline preload="metadata"/);
+  assert.doesNotMatch(replay, /<div|absolute|inset-0|h-full|overflow-hidden|rounded-|shadow-|transform|filter|aspect-video/);
+  const afterVideo = replay.split("<\/video>")[1];
+  assert.ok(afterVideo.includes('href={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`}'));
+  assert.match(afterVideo, /target="_blank" rel="noopener noreferrer"/);
+  assert.match(afterVideo, /Open the recording in a new tab/);
+  assert.doesNotMatch(afterVideo, /hidden|aria-hidden/);
 });
