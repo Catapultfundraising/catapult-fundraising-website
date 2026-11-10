@@ -1,3 +1,4 @@
+import { OUTCOME_FIELD, validateOutcome } from "./outcome";
 import { get as blobGet } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
@@ -481,6 +482,24 @@ export function portalV2Route(client: PortalClient) {
         return NextResponse.json(await engage(client, "editProspect", { cptid, prospect, by }));
       }
       // ---- record tools: contact edits, wealth screening, duplicates (all saved in Engage SQL portal_updates) ----
+      if (b.op === "setOutcome") {
+        const cptid = b.cptid;
+        if (typeof cptid !== "number" || !Number.isSafeInteger(cptid) || cptid <= 0) return bad("Valid cptid required");
+        if (typeof b.by !== "string" || !b.by.trim() || b.by.length > 200) return bad("Enter your name (at most 200 characters)");
+        let outcome;
+        try { outcome = validateOutcome(b.value, b.note); } catch (e) { return bad((e as Error).message); }
+        const state = await withDbGifts(client, await engage<PortalState>(client, "state"));
+        const ov = buildOverlay(state.updates as unknown as UpdateRow[]);
+        const records = await RECORDS[client]();
+        const exists = records?.index.some((r) => r.cptid === cptid) || state.prospects.some((p) => p.cptid === cptid) || state.gifts.some((g) => g.cptid === cptid);
+        if (!exists) return bad("Record not found", 404);
+        if (ov.mergedInto.has(cptid) || ov.deleted.has(cptid)) return bad("Reload the current record before editing", 409);
+        const current = ov.outcome.get(cptid);
+        if ((current?.value ?? "") === outcome.value && (current?.note ?? "") === outcome.note) return NextResponse.json({ ok: true, unchanged: true, outcome });
+        await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Dashboard outcome (CPTID ${cptid})`, by, newRows: [], gifts: [],
+          updates: [{ cptid, field: OUTCOME_FIELD, oldValue: current ? JSON.stringify({ value: current.value, note: current.note }) : null, newValue: JSON.stringify(outcome) }], summary: { dashboardOutcome: true, cptid } });
+        return NextResponse.json({ ok: true, outcome });
+      }
       if (b.op === "setContact") {
         const cptid = Number(b.cptid);
         if (!(cptid > 0)) return bad("cptid required");

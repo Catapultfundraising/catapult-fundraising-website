@@ -82,6 +82,7 @@ function overlayRecord(base: Full, o: Overlay, lookup: (c: number) => Full | nul
     r.summary = sm;
     r.mergedFrom = merged;
   }
+  r.outcome = o.outcome.get(r.cptid) ?? { value: "", note: "" };
   const ce = o.contact.get(r.cptid);
   if (ce) r.contact = { ...(r.contact ?? {}), ...ce };
   r.contactHistory = [...(o.contactHistory.get(r.cptid) ?? [])].reverse();
