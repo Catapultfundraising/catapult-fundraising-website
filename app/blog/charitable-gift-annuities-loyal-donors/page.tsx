@@ -82,16 +82,16 @@ function InlineLinks({ text }: { text: string }) {
 function WebinarReplay() {
   return (
     <figure className="clear-both my-10" aria-label="Watch the webinar">
-      <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-[rgb(var(--navy))] shadow-sm">
-        <video className="absolute inset-0 h-full w-full object-contain" controls playsInline preload="metadata"
-          poster={`${IMG}/webinar-poster.jpg`}
-          aria-label="Turning Donor Relationships into Charitable Gift Annuities, Anthony Alonso and Diane Tuntland">
-          <source src={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`} type="video/mp4" />
-          Your browser does not support embedded video. <a href={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`}>Open the webinar recording</a>.
-        </video>
-      </div>
+      <video className="block h-auto w-full" controls playsInline preload="metadata"
+        poster={`${IMG}/webinar-poster.jpg`}
+        aria-label="Turning Donor Relationships into Charitable Gift Annuities, Anthony Alonso and Diane Tuntland">
+        <source src={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`} type="video/mp4" />
+        Your browser does not support embedded video. <a href={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`}>Open the webinar recording</a>.
+      </video>
       <figcaption className="mt-3 text-sm leading-relaxed text-[rgb(var(--ink))]/60">
         Anthony Alonso and Diane Tuntland · 61 minutes. Recorded November 4, 2026.
+        <a href={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`} target="_blank" rel="noopener noreferrer"
+          className="mt-2 block underline underline-offset-4">Open the recording in a new tab</a>
       </figcaption>
     </figure>
   );
