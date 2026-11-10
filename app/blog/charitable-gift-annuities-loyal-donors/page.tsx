@@ -86,12 +86,12 @@ function WebinarReplay() {
         <video className="absolute inset-0 h-full w-full object-contain" controls playsInline preload="metadata"
           poster={`${IMG}/webinar-poster.jpg`}
           aria-label="Turning Donor Relationships into Charitable Gift Annuities, Anthony Alonso and Diane Tuntland">
-          <source src={`${IMG}/cga-webinar-replay.mp4`} type="video/mp4" />
-          Your browser does not support embedded video. <a href={`${IMG}/cga-webinar-replay.mp4`}>Open the webinar recording</a>.
+          <source src={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`} type="video/mp4" />
+          Your browser does not support embedded video. <a href={`${IMG}/cga-webinar-replay-privacy-edited-2026-11-09.mp4`}>Open the webinar recording</a>.
         </video>
       </div>
       <figcaption className="mt-3 text-sm leading-relaxed text-[rgb(var(--ink))]/60">
-        Anthony Alonso and Diane Tuntland · 64 minutes. Recorded November 4, 2026.
+        Anthony Alonso and Diane Tuntland · 61 minutes. Recorded November 4, 2026.
       </figcaption>
     </figure>
   );
