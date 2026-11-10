@@ -20,8 +20,8 @@ const {PDFDocument}=require(process.cwd()+'/node_modules/pdf-lib');
   if(name.endsWith('-data-auth')){const c=name.split('/').pop().split('-')[0];return new Proxy({}, {get:()=>async()=>authClient===c})}
   if(name.endsWith('-data-store'))return new Proxy({}, {get:()=>async()=>({index:idx})});
   if(name==='@/lib/portal-v2/server')return{engage:fakeEngage};
-  if(name==='@/lib/portal-v2/record-overlay'){
-   const p=process.cwd()+'/lib/portal-v2/record-overlay.ts';const m=new Module(p,module);m.filename=p;m.paths=Module._nodeModulePaths(process.cwd());m._compile(ts.transpileModule(fs.readFileSync(p,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,p);return m.exports;
+  if(name==='@/lib/portal-v2/record-overlay'||(name==='./outcome'&&parent?.filename.endsWith('/lib/portal-v2/record-overlay.ts'))){
+   const p=process.cwd()+'/lib/portal-v2/'+(name==='./outcome'?'outcome':'record-overlay')+'.ts';const m=new Module(p,module);m.filename=p;m.paths=Module._nodeModulePaths(process.cwd());m._compile(ts.transpileModule(fs.readFileSync(p,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020}}).outputText,p);return m.exports;
   }
   return actualLoad.call(this,name,parent,isMain)
  };

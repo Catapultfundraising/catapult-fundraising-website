@@ -5,11 +5,14 @@
 // giving grouped by year with each gift in a dropdown, and duplicate merge / delete.
 // Every change is saved in Azure SQL through /api/{client}-data-v2 (Engage portal_updates); the Monday refresh never overwrites it.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRecordNav } from "@/components/dashboard-shared";
 import { ChevronDown, ChevronRight, GitMerge, Pencil, RotateCcw, Search, Trash2, X } from "lucide-react";
 
+import { OUTCOME_NOTE_LIMIT, OUTCOME_OPTIONS, validateOutcome, type Outcome } from "@/lib/portal-v2/outcome";
+
 type AnyRec = {
+  outcome?: Outcome & { by?: string; at?: string };
   cptid: number; name: string; kind?: string; contact?: Record<string, string | undefined>; ds?: Record<string, string> | null;
   summary?: { lifetime?: number }; gifts?: GiftRow[];
   contactHistory?: { key: string; label: string; from: string; to: string; by: string; at: string }[];
@@ -73,6 +76,61 @@ function NameBox({ by, setBy }: { by: string; setBy: (v: string) => void }) {
       <input value={by} onChange={(e) => setBy(e.target.value)} placeholder="Required to save" className={inputCls} />
     </label>
   );
+}
+
+// Key the editor by client + record so pending saves cannot update a different donor.
+export function OutcomeSection(props: { client: string; r: AnyRec; onSaved: () => void }) {
+  return <OutcomeEditor key={`outcome:${props.client}/${props.r.cptid}`} {...props} />;
+}
+function OutcomeEditor({ client, r, onSaved }: { client: string; r: AnyRec; onSaved: () => void }) {
+  const [value, setValue] = useState<Outcome["value"]>(r.outcome?.value ?? "");
+  const [note, setNote] = useState(r.outcome?.note ?? "");
+  const [saved, setSaved] = useState<Outcome>(r.outcome ?? { value: "", note: "" });
+  const [by, setBy] = useBy(client);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState("");
+  const alive = useRef(true);
+  useEffect(() => { alive.current = true; return () => { alive.current = false; }; }, []);
+  useEffect(() => {
+    const next = r.outcome ?? { value: "" as const, note: "" };
+    setValue(next.value); setNote(next.note); setSaved(next); setMessage("");
+  }, [r.outcome]);
+  async function save() {
+    setMessage("");
+    let outcome: Outcome;
+    try {
+      if (!by.trim() || by.length > 200) throw new Error("Enter your name to save (at most 200 characters)");
+      outcome = validateOutcome(value, note);
+    } catch (e) { setMessage((e as Error).message); return; }
+    setBusy(true);
+    try {
+      await v2(client, { op: "setOutcome", cptid: r.cptid, ...outcome, by });
+      if (!alive.current) return;
+      setSaved(outcome); setValue(outcome.value); setNote(outcome.note); setMessage("Outcome saved."); onSaved();
+    } catch { if (alive.current) setMessage("Save not confirmed. Reload the record before retrying."); }
+    finally { if (alive.current) setBusy(false); }
+  }
+  return <Sec title="Outcome">
+    <p className="mb-3 text-xs text-[rgb(var(--ink))]/60">Dashboard only. This does not hide the record or change Engage calling outcomes.</p>
+    <div className="space-y-3">
+      <label className="block text-xs">Outcome
+        <select aria-label="Outcome" className={inputCls} value={value} disabled={busy} onChange={(e) => { setValue(e.target.value as Outcome["value"]); setNote(""); setMessage(""); }}>
+          <option value="">No outcome selected</option>
+          {OUTCOME_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
+        </select>
+      </label>
+      {value === "Other" && <label className="block text-xs">Explanation for Other (required)
+        <textarea className={inputCls} value={note} disabled={busy} maxLength={OUTCOME_NOTE_LIMIT} rows={2} onChange={(e) => setNote(e.target.value)} />
+        <span>{note.length}/{OUTCOME_NOTE_LIMIT} characters</span>
+      </label>}
+      <NameBox by={by} setBy={setBy} />
+      <div className="flex gap-2">
+        <button className={navyBtn} disabled={busy || (value === saved.value && note === saved.note)} onClick={save}>{busy ? "Saving..." : "Save outcome"}</button>
+        <button className={lineBtn} disabled={busy || (!value && !note)} onClick={() => { setValue(""); setNote(""); setMessage("Select Save outcome to clear the saved value."); }}>Clear outcome</button>
+      </div>
+      {message && <p role="status" className="text-xs">{message}</p>}
+    </div>
+  </Sec>;
 }
 
 // ---------------------------------------------------------------- Contact

@@ -5,7 +5,7 @@ import { RecordNav, SafeBoundary, cmpValues, DateInput, HistoryList, parseUsDate
 import { useUrlId } from "@/lib/use-url-state";
 import { ProspectDocuments } from "@/components/prospect-documents";
 import { AskAmountPanel } from "@/components/ask-amount-panel";
-import { ContactSection, GiftsByYear, MergeDeleteButtons, RecordBanners, WealthSection } from "@/components/record-tools";
+import { OutcomeSection, ContactSection, GiftsByYear, MergeDeleteButtons, RecordBanners, WealthSection } from "@/components/record-tools";
 import { Search, X, Download, FileSpreadsheet, FileText } from "lucide-react";
 import type { DonorRecord, IndexRow } from "@/lib/pvas-data-store";
 import { ACTIVITY_KINDS, EMPTY_TRACKING, PROSPECT_STATUSES, type PvasTracking } from "@/lib/pvas-tracking-types";
@@ -106,7 +106,7 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
       )}
       {recId !== null && (
         <SafeBoundary label="This record" onReset={() => setRecId(recId)}>
-          <RecordModal cptid={recId} onClose={() => setRecId(null)} />
+          <RecordModal key={`record:pvas/${recId}`} cptid={recId} onClose={() => setRecId(null)} />
         </SafeBoundary>
       )}
     </RecordNav.Provider>
@@ -288,7 +288,9 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
   useEffect(() => {
     if (lastId.current !== cptid) { setR(null); lastId.current = cptid; }
     setErr(false);
-    fetch(`/api/pvas-data-records?id=${cptid}`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : Promise.reject())).then(setR).catch(() => setErr(true));
+    let active = true;
+    fetch(`/api/pvas-data-records?id=${cptid}`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : Promise.reject())).then((record) => { if (active) setR(record); }).catch(() => { if (active) setErr(true); });
+    return () => { active = false; };
   }, [cptid, ver]);
   if (err) return <Modal title="Record not found" onClose={onClose}><p>No record for CPTID {cptid}.</p></Modal>;
   if (!r) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
@@ -324,6 +326,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         ))}
       </div>
       <div className="grid gap-4 md:grid-cols-2">
+        <OutcomeSection client="pvas" r={r as never} onSaved={reload} />
         <ContactSection client="pvas" r={r as never} onSaved={reload} />
         <WealthSection client="pvas" r={r as never} pirName={tracking.pirs[String(r.cptid)]?.name} onSaved={reload} />
         <Sec title="Giving summary">

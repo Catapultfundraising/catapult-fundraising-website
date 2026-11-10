@@ -1,5 +1,8 @@
+import { OUTCOME_FIELD, readOutcome, type Outcome } from "./outcome";
+
 // Dashboard-origin record edits saved in Engage SQL (engage.portal_updates, latest row per cptid+field wins).
 // The weekly refresh never writes these, so they always win over client-database data:
+//   dashboard:outcome  optional dashboard-only outcome + Other explanation (atomic JSON)
 //   contact:<key>   edited contact field (old_value = what it replaced -> "Old contact information")
 //   wealth:capacity / wealth:rating   staff override of the wealth screening
 //   wealth:request  DonorSearch screening requested (JSON of the search inputs); processed by Viktor's screening job
@@ -13,7 +16,7 @@ export type ContactKey = (typeof CONTACT_KEYS)[number];
 export const CONTACT_LABELS: Record<ContactKey, string> = {
   street: "Street address", city: "City", state: "State", zip: "ZIP", phone: "Phone", mobile: "Mobile", phone2: "Phone 2", phone3: "Phone 3", email: "Email", email2: "Email 2", email3: "Email 3", workEmail: "Work email",
 };
-export const OVERLAY_FIELD = (f: string) => f.startsWith("contact:") || f.startsWith("wealth:") || f === "merged_into" || f === "deleted" || f === "notdup";
+export const OVERLAY_FIELD = (f: string) => f === OUTCOME_FIELD || f.startsWith("contact:") || f.startsWith("wealth:") || f === "merged_into" || f === "deleted" || f === "notdup";
 
 export type UpdateRow = { id?: number; cptid: number; field: string; old_value: string | null; new_value: string | null; created_by?: string | null; created_at?: string | null };
 export type Stamp = { by: string; at: string };
@@ -21,6 +24,7 @@ export type ContactChange = { key: string; label: string; from: string; to: stri
 export type DsResult = { status: "matched" | "no_match" | "error"; fields?: Record<string, string>; quality?: number; message?: string; inputs?: Record<string, string> };
 
 export interface Overlay {
+  outcome: Map<number, Outcome & Stamp>;
   contact: Map<number, Partial<Record<ContactKey, string>>>;
   contactHistory: Map<number, ContactChange[]>;
   wealth: Map<number, { capacity?: { value: string; from: string } & Stamp; rating?: { value: string; from: string } & Stamp }>;
@@ -36,11 +40,13 @@ const st = (u: UpdateRow): Stamp => ({ by: u.created_by ?? "", at: u.created_at 
 const json = <T,>(v: string | null): T | null => { try { return v ? (JSON.parse(v) as T) : null; } catch { return null; } };
 
 export function buildOverlay(updates: UpdateRow[]): Overlay {
-  const o: Overlay = { contact: new Map(), contactHistory: new Map(), wealth: new Map(), ds: new Map(), request: new Map(), mergedInto: new Map(), deleted: new Map(), notdup: new Set(), log: [] };
+  const o: Overlay = { outcome: new Map(), contact: new Map(), contactHistory: new Map(), wealth: new Map(), ds: new Map(), request: new Map(), mergedInto: new Map(), deleted: new Map(), notdup: new Set(), log: [] };
   const rows = [...updates].filter((u) => OVERLAY_FIELD(u.field)).sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0));
   for (const u of rows) {
     const c = Number(u.cptid);
-    if (u.field.startsWith("contact:")) {
+    if (u.field === OUTCOME_FIELD) {
+      o.outcome.set(c, { ...readOutcome(u.new_value), ...st(u) });
+    } else if (u.field.startsWith("contact:")) {
       const key = u.field.slice(8) as ContactKey;
       if (!(CONTACT_KEYS as readonly string[]).includes(key)) continue;
       const cur = o.contact.get(c) ?? {}; cur[key] = u.new_value ?? ""; o.contact.set(c, cur);
