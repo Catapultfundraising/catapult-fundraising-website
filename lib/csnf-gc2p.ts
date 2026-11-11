@@ -1,3 +1,4 @@
+import { campaignAskAmount } from "./portal-v2/effective-ask";
 import { buildGiftChart, type GiftChart, type GiftChartRow } from "@/lib/gift-chart";
 import type { CsnfSnapshot, IndexRow } from "@/lib/csnf-data-store";
 import { STATUS_RANK, type CsnfTracking } from "@/lib/csnf-tracking-types";
@@ -46,7 +47,7 @@ export function seatGc2p(goal: number, pool: PoolPerson[], t?: CsnfTracking | nu
     const need = (r.gifts as number) * GC2P_RATIO;
     const pinned = all.filter((p) => pinOf(p) === level);
     const auto = all
-      .filter((p) => !used.has(p.cptid) && p.rating >= level)
+      .filter((p) => !used.has(p.cptid) && ((p as { askEdited?: boolean; askConflict?: boolean }).askEdited || (p as { askConflict?: boolean }).askConflict ? campaignAskAmount(p) : p.rating) >= level)
       .sort((a, b) => rank(a) - rank(b) || b.lifetime - a.lifetime || b.rating - a.rating)
       .slice(0, Math.max(0, need - pinned.length));
     auto.forEach((p) => used.add(p.cptid));
@@ -56,7 +57,7 @@ export function seatGc2p(goal: number, pool: PoolPerson[], t?: CsnfTracking | nu
   // Prospects whose amount (pinned level, ask or rating) is under the lowest level shown: listed on a final "Below $X" row, never dropped.
   const belowLevel = Math.min(...seated.map((x) => x.level));
   const seatedIds = new Set(seated.flatMap((x) => x.people.map((p) => p.cptid)));
-  const amountOf = (p: PoolPerson) => Number(st[p.cptid]?.level || (p as { ask?: number }).ask || p.rating || 0);
+  const amountOf = (p: PoolPerson) => Number(st[p.cptid]?.level || campaignAskAmount(p));
   const below = all.filter((p) => !seatedIds.has(p.cptid) && amountOf(p) > 0 && amountOf(p) < belowLevel).sort((a, b) => amountOf(b) - amountOf(a) || b.lifetime - a.lifetime);
   const notShown = goal - seated.reduce((s, x) => s + x.row.value, 0);
   const vals = Object.values(st);

@@ -1,3 +1,4 @@
+import { campaignAskAmount } from "./portal-v2/effective-ask";
 import { buildGiftChart, type GiftChart, type GiftChartRow, type GiftTier } from "@/lib/gift-chart";
 import type { PvasSnapshot, IndexRow } from "@/lib/pvas-data-store";
 import { STATUS_RANK, type PvasTracking } from "@/lib/pvas-tracking-types";
@@ -65,7 +66,7 @@ export function seatGc2p(goal: number, pool: PoolPerson[], t?: PvasTracking | nu
   const levels = chart.rows.filter((r) => r.level !== null && r.gifts !== null && (r.level as number) >= GC2P_MIN_LEVEL);
   // Committee-pinned level wins; otherwise the Campaign Ask, rounded down to a chart level.
   const seatOf = (p: PoolPerson) => {
-    const v = st[p.cptid]?.level || p.ask || p.rating;
+    const v = st[p.cptid]?.level || campaignAskAmount(p);
     return allLevels.find((l) => v >= l) ?? null;
   };
   const rank = (p: PoolPerson) => STATUS_RANK[st[p.cptid]?.status ?? ""] ?? 99;
@@ -77,7 +78,7 @@ export function seatGc2p(goal: number, pool: PoolPerson[], t?: PvasTracking | nu
   // Prospects whose amount (pinned level, ask or rating) is under the lowest level shown: listed on a final "Below $X" row, never dropped.
   const belowLevel = Math.min(...seated.map((x) => x.level));
   const seatedIds = new Set(seated.flatMap((x) => x.people.map((p) => p.cptid)));
-  const amountOf = (p: PoolPerson) => Number(st[p.cptid]?.level || (p as { ask?: number }).ask || p.rating || 0);
+  const amountOf = (p: PoolPerson) => Number(st[p.cptid]?.level || campaignAskAmount(p));
   const below = all.filter((p) => !seatedIds.has(p.cptid) && amountOf(p) > 0 && amountOf(p) < belowLevel).sort((a, b) => amountOf(b) - amountOf(a) || b.lifetime - a.lifetime);
   const notShown = goal - seated.reduce((s, x) => s + x.row.value, 0);
   const vals = Object.values(st);

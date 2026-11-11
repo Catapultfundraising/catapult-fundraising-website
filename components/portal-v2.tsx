@@ -1,4 +1,6 @@
 "use client";
+import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
+import { buildOverlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
@@ -27,8 +29,19 @@ export function PortalV2Provider({ client, children }: { client: PortalClient; c
     const r = await fetch(PORTAL_V2[client].api, { cache: "no-store" });
     setState(r.ok ? await r.json() : null);
   }, [client]);
-  useEffect(() => { void reload(); }, [reload]);
+  useEffect(() => {
+    const refresh = () => { void reload(); };
+    refresh(); window.addEventListener("campaign-ask-refresh", refresh);
+    return () => window.removeEventListener("campaign-ask-refresh", refresh);
+  }, [reload]);
   return <V2.Provider value={{ client, state, reload }}>{children}</V2.Provider>;
+}
+export function useCampaignAskSnapshot<T>(snapshot: T): T {
+  const { client, state } = useV2();
+  return useMemo(() => {
+    const updates = (state?.updates ?? []) as UpdateRow[];
+    return overlayCampaignAsks(snapshot, buildOverlay(updates), askEdits(updates), client !== "wcbhc" && client !== "baq");
+  }, [snapshot, state, client]);
 }
 function useV2() { const c = useContext(V2); if (!c) throw new Error("PortalV2Provider missing"); return c; }
 async function post(client: PortalClient, body: unknown) {

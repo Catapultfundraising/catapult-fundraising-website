@@ -317,7 +317,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
       </div>
       <TrackingPanel cptid={r.cptid} />
       <ProspectDocuments key={`csnf-${r.cptid}`} client="csnf" cptid={r.cptid} />
-      <AskAmountPanel client="csnf" cptid={r.cptid} base={((r as { portfolio?: { ask?: number } }).portfolio?.ask) || (r.board ?? []).find((b) => b.active && b.ask)?.ask || 0} />
+      <AskAmountPanel client="csnf" cptid={r.cptid} base={(r as unknown as { campaignAsk?: { ask?: number } }).campaignAsk?.ask ?? (r as { portfolio?: { ask?: number } }).portfolio?.ask ?? 0} onSaved={reload} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         {[["Lifetime giving", usd(s.lifetime)], ["Gifts", String(s.gifts)], ["Largest gift", usd(s.largest)], ["Years giving", String(s.years)], ["Last gift", s.last || "None"]].map(([k, v]) => (
           <div key={k} className="rounded-xl border border-[rgb(var(--line))] p-3">

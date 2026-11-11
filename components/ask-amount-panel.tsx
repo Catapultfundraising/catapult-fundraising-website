@@ -2,12 +2,12 @@
 
 import { useEffect, useState } from "react";
 
-type AskState = { edited: boolean; ask: number | null; oldAsk: number | null; by?: string; at?: string };
+type AskState = { edited: boolean; ask: number | null; oldAsk: number | null; by?: string; at?: string; askConflict?: boolean };
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 /** Editable campaign ask on a prospect record. Edits are saved to Azure SQL (engage.portal_updates via Portal v2)
  *  and win over the weekly refresh; the value it replaced is kept as the Old ask amount. */
-export function AskAmountPanel({ client, cptid, base }: { client: string; cptid: number; base: number }) {
+export function AskAmountPanel({ client, cptid, base, onSaved }: { client: string; cptid: number; base: number; onSaved?: () => void }) {
   const [st, setSt] = useState<AskState | null>(null);
   const [editing, setEditing] = useState(false);
   const [val, setVal] = useState("");
@@ -16,11 +16,16 @@ export function AskAmountPanel({ client, cptid, base }: { client: string; cptid:
   const api = `/api/${client}-data-v2`;
   const post = (body: Record<string, unknown>) => fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ ...body, cptid }) })
     .then(async (r) => { const j = await r.json().catch(() => ({})); if (!r.ok) throw new Error(j.error || "Could not save"); return j as AskState; });
-  useEffect(() => { setSt(null); setEditing(false); setErr(""); post({ op: "getAsk" }).then(setSt).catch(() => setSt({ edited: false, ask: null, oldAsk: null })); }, [cptid]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    let active = true;
+    setSt(null); setEditing(false); setErr("");
+    post({ op: "getAsk" }).then((next) => { if (active) setSt(next); }).catch(() => { if (active) setSt({ edited: false, ask: null, oldAsk: null }); });
+    return () => { active = false; };
+  }, [client, cptid]); // eslint-disable-line react-hooks/exhaustive-deps
   const current = st?.edited ? st.ask ?? 0 : base;
   async function save() {
     setBusy(true); setErr("");
-    try { setSt(await post({ op: "setAsk", amount: val, current })); setEditing(false); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
+    try { setSt(await post({ op: "setAsk", amount: val, current })); setEditing(false); onSaved?.(); window.dispatchEvent(new Event("campaign-ask-refresh")); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
   return (
     <div className="mb-4 flex flex-wrap items-end gap-6 rounded-xl border border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5 p-3">
@@ -35,10 +40,11 @@ export function AskAmountPanel({ client, cptid, base }: { client: string; cptid:
           </div>
         ) : (
           <div className="mt-1 flex items-center gap-3">
-            <p className="font-display text-xl text-[rgb(var(--navy))]">{st === null ? "..." : current ? usd(current) : "Not set"}</p>
+            <p className="font-display text-xl text-[rgb(var(--navy))]">{st === null ? "..." : (st?.edited && st.ask !== null) || current ? usd(current) : "Not set"}</p>
             {st !== null && <button onClick={() => { setVal(current ? String(current) : ""); setEditing(true); }} className="rounded-md border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium text-[rgb(var(--navy))]">Edit</button>}
           </div>
         )}
+        {st?.askConflict && <p className="mt-1 text-xs text-[rgb(var(--navy))]">Merged records have conflicting campaign asks. Review the merged records and save the intended ask on this survivor.</p>}
         {err && <p className="mt-1 text-xs text-[rgb(var(--navy))]">{err}</p>}
       </div>
       <div>

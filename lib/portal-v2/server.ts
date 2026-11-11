@@ -1,3 +1,4 @@
+import { askEdits, effectiveAsk } from "./effective-ask";
 import { OUTCOME_FIELD, validateOutcome } from "./outcome";
 import { get as blobGet } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
@@ -460,14 +461,21 @@ export function portalV2Route(client: PortalClient) {
         const cptid = Number(b.cptid);
         if (!(cptid > 0)) return bad("cptid required");
         const state = await engage<PortalState>(client, "state");
-        const edits = (state.updates as unknown as { cptid: number; field: string; old_value: string | null; new_value: string | null; created_by?: string; created_at?: string }[])
-          .filter((u) => Number(u.cptid) === cptid && u.field === "ask");
-        const last = edits[edits.length - 1];
-        if (b.op === "getAsk") return NextResponse.json({ edited: !!last, ask: last ? Number(last.new_value) || 0 : null, oldAsk: last ? Number(last.old_value) || 0 : null, by: last?.created_by ?? "", at: last?.created_at ?? "" });
+        const overlay = buildOverlay(state.updates as unknown as UpdateRow[]);
+        const target = finalId(overlay, cptid);
+        const edits = askEdits(state.updates as unknown as UpdateRow[]);
+        const data = await RECORDS[client]() as unknown as { records?: Record<string, { portfolio?: { ask?: number }; board?: { active?: boolean; ask?: number }[] }> } | null;
+        const resolved = effectiveAsk(target, overlay, edits, (id) => {
+          const record = data?.records?.[String(id)];
+          return record?.portfolio?.ask ?? (client !== "wcbhc" && client !== "baq" ? record?.board?.find((row) => row.active && row.ask)?.ask : undefined);
+        });
+        const last = edits.get(resolved.askFromCptid ?? target);
+        if (b.op === "getAsk") return NextResponse.json({ edited: !!resolved.askEdited, ask: resolved.ask ?? null, oldAsk: last?.oldValue ?? null, by: last?.by ?? "", at: last?.at ?? "", askConflict: !!resolved.askConflict });
+        if (target !== cptid || overlay.deleted.has(cptid)) return bad("This record was merged or deleted. Reopen the surviving record.", 409);
         const amount = Number(String(b.amount ?? "").replace(/[$,\s]/g, ""));
         if (!(amount >= 0) || !Number.isFinite(amount)) return bad("Enter a dollar amount");
-        const current = last ? Number(last.new_value) || 0 : Number(b.current) || 0;
-        if (amount === current) return NextResponse.json({ edited: !!last, ask: current, oldAsk: last ? Number(last.old_value) || 0 : null, unchanged: true });
+        const current = resolved.ask !== undefined ? resolved.ask ?? 0 : Number(b.current) || 0;
+        if (edits.has(target) && amount === current) return NextResponse.json({ edited: !!resolved.askEdited, ask: current, oldAsk: last?.oldValue ?? null, unchanged: true });
         await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Ask amount edit (CPTID ${cptid})`, by, newRows: [], gifts: [],
           updates: [{ cptid, field: "ask", oldValue: String(current), newValue: String(amount) }], summary: { askEdit: true, cptid, from: current, to: amount } });
         return NextResponse.json({ edited: true, ask: amount, oldAsk: current, by });
