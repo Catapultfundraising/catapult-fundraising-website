@@ -2,6 +2,8 @@
 export const NJ_EVENT = "nj-conference-2026-11-12";
 export const NJ_CUTOFF = "2026-11-12T20:15:00.000Z";
 export const NJ_NOTE_PREFIX = "CATAPULT_GIVEAWAY_V1\n";
+export const NJ_CONSENT_TEXT = "By entering, you agree to receive emails from Catapult Fundraising. You can unsubscribe at any time.";
+export const NJ_CONSENT_VERSION = "entry-email-agreement-v1";
 export const NJ_SERVICES = [
   "Capital campaign planning",
   "Legacy Call / planned giving",
@@ -36,8 +38,7 @@ export function validateNjFields(body: Record<string, unknown>): NjFields | null
   if (!firstName || !lastName || !email || !organization || phone === null || serviceInterest === null) return null;
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
   if (serviceInterest && !(NJ_SERVICES as readonly string[]).includes(serviceInterest)) return null;
-  if (body.marketingConsent !== undefined && typeof body.marketingConsent !== "boolean") return null;
-  return { firstName, lastName, email, organization, phone, serviceInterest, marketingConsent: body.marketingConsent === true };
+  return { firstName, lastName, email, organization, phone, serviceInterest, marketingConsent: true };
 }
 
 /** Staff and reserved QA domains cannot enter the live draw. */

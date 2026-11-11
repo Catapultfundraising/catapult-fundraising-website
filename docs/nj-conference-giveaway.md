@@ -27,16 +27,24 @@ followed by JSON:
   "cutoff": "2026-11-12T20:15:00.000Z",
   "firstName": "...", "lastName": "...", "email": "...",
   "organization": "...", "phone": "",
-  "serviceInterest": "", "marketingConsent": false
+  "serviceInterest": "", "marketingConsent": true,
+  "consentText": "By entering, you agree to receive emails from Catapult Fundraising. You can unsubscribe at any time.",
+  "consentVersion": "entry-email-agreement-v1"
 }
 ```
 
 The note's `hs_timestamp` equals `acceptedAt`; HubSpot also supplies its own
 `createdAt`. The receipt snapshot, not the contact's current email, determines
 eligibility. No participant-provided timestamp is trusted. Required: name,
-email, organization. Phone, one configured service interest, and separate
-unchecked marketing consent are optional. Neither interest nor consent changes
-eligibility. Consent is evidence only: this release does not subscribe anyone.
+email, organization. Phone and one configured service interest are optional. The form displays:
+"By entering, you agree to receive emails from Catapult Fundraising. You can unsubscribe at any time."
+There is no consent checkbox. The server records `marketingConsent: true`,
+the exact `consentText` and `consentVersion`, ignoring legacy/client consent
+assertions rather than rejecting them. Consent is evidence only: this release
+does not activate subscriptions, set marketing-contact status, or override
+existing opt-outs. Prior schema-v1 receipts with `marketingConsent: false`
+remain eligible; the freeze supports both historical and current receipts.
+Neither service interest nor historical consent changes drawing odds.
 Internal/reserved QA domains are rejected server-side and excluded again at draw.
 
 HubSpot notes do not provide a uniqueness constraint. **Retries and concurrent

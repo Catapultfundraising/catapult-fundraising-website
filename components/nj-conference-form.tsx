@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
-import { NJ_CUTOFF, NJ_SERVICES } from "@/lib/nj-conference";
+import { NJ_CUTOFF, NJ_SERVICES, NJ_CONSENT_TEXT } from "@/lib/nj-conference";
 
 const inputClass = "mt-2 min-h-12 w-full rounded-md border border-[rgb(var(--line))] bg-white px-3 py-3 text-base text-[rgb(var(--navy))] focus:outline-none focus:ring-2 focus:ring-[rgb(var(--navy))]";
 
@@ -34,10 +34,7 @@ export function NjConferenceForm() {
       const response = await fetch("/api/nj-conference", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...Object.fromEntries(data.entries()),
-          marketingConsent: data.get("marketingConsent") === "on",
-        }),
+        body: JSON.stringify(Object.fromEntries(data.entries())),
       });
       const result = await response.json();
       if (!response.ok || result.ok !== true) {
@@ -54,6 +51,7 @@ export function NjConferenceForm() {
       <h2 className="font-display text-3xl text-[rgb(var(--navy))]">You&apos;re entered!</h2>
       <p className="mt-4 leading-relaxed">Your entry is saved for the $50 Starbucks gift card drawing on November 12 at 3:15 p.m. Eastern.</p>
       <p className="mt-3 text-sm">One entry per email. Repeat submissions do not add chances. We&apos;ll use the winner&apos;s contact details to arrange the prize.</p>
+      <p className="mt-3 text-sm">{NJ_CONSENT_TEXT}</p>
     </div>
   );
 
@@ -76,15 +74,12 @@ export function NjConferenceForm() {
           {NJ_SERVICES.map(service => <option key={service}>{service}</option>)}
         </select>
       </label>
-      <label className="flex min-h-12 cursor-pointer items-start gap-3 py-2 text-sm leading-relaxed">
-        <input type="checkbox" name="marketingConsent" className="mt-1 h-5 w-5 shrink-0 accent-[rgb(var(--navy))]" />
-        <span>Yes, email me Catapult Fundraising news and service information. <strong>Optional, not required to enter.</strong> You can unsubscribe at any time.</span>
-      </label>
+      <p className="text-sm leading-relaxed">{NJ_CONSENT_TEXT}</p>
       <div className="hidden" aria-hidden="true"><label htmlFor="nj-website">Leave blank</label><input id="nj-website" name="website" type="text" tabIndex={-1} autoComplete="off" /></div>
       <button disabled={busy || closed} type="submit" className="min-h-14 w-full rounded-md bg-[rgb(var(--navy))] px-5 py-4 text-base font-bold text-white transition hover:bg-[rgb(var(--navy-deep))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[rgb(var(--navy))] disabled:cursor-not-allowed disabled:opacity-60">
         {closed ? "Entries closed" : busy ? "Saving your entry…" : "Enter to win"}
       </button>
-      <p className="text-xs leading-relaxed">We use your details to administer this giveaway. Choosing a service does not subscribe you to marketing. See our <Link href="/data-privacy" className="underline underline-offset-2">privacy policy</Link>.</p>
+      <p className="text-xs leading-relaxed">We use your details to administer this giveaway and for Catapult Fundraising emails. You can unsubscribe at any time. See our <Link href="/data-privacy" className="underline underline-offset-2">privacy policy</Link>.</p>
     </form>
   );
 }

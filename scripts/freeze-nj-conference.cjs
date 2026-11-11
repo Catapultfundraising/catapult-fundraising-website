@@ -8,6 +8,8 @@ const crypto = require("node:crypto");
 const EVENT = "nj-conference-2026-11-12";
 const PREFIX = "CATAPULT_GIVEAWAY_V1\n";
 const CUTOFF = "2026-11-12T20:15:00.000Z";
+const CONSENT_TEXT = "By entering, you agree to receive emails from Catapult Fundraising. You can unsubscribe at any time.";
+const CONSENT_VERSION = "entry-email-agreement-v1";
 const SERVICES = ["Capital campaign planning", "Legacy Call / planned giving", "Mid-level donor programs", "Annual fund / donor calling"];
 const hash = value => crypto.createHash("sha256").update(value).digest("hex");
 const excluded = email => {
@@ -52,6 +54,8 @@ function freeze(pages, now = Date.now()) {
         !requiredText("email", 254) || !requiredText("organization", 160) ||
         !requiredText("phone", 40, false) || !requiredText("serviceInterest", 100, false) ||
         typeof row.marketingConsent !== "boolean" ||
+        ((row.consentVersion !== undefined || row.consentText !== undefined) &&
+          (row.consentVersion !== CONSENT_VERSION || row.consentText !== CONSENT_TEXT || row.marketingConsent !== true)) ||
         !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(row.email) ||
         row.email !== row.email.toLowerCase() ||
         (row.serviceInterest && !SERVICES.includes(row.serviceInterest)) ||

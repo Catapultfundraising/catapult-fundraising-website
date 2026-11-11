@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
-import { NJ_CUTOFF, NJ_EVENT, NJ_NOTE_PREFIX, excludedNjEmail, validateNjFields } from "@/lib/nj-conference";
+import { NJ_CUTOFF, NJ_EVENT, NJ_NOTE_PREFIX, NJ_CONSENT_TEXT, NJ_CONSENT_VERSION, excludedNjEmail, validateNjFields } from "@/lib/nj-conference";
 
 export const runtime = "nodejs";
 const reply = (body: object, status = 200) => NextResponse.json(body, {
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const acceptedAt = new Date().toISOString();
   if (Date.parse(acceptedAt) >= Date.parse(NJ_CUTOFF)) return reply({ error: "Entries are now closed." }, 410);
   const entryKey = createHash("sha256").update(`${NJ_EVENT}\n${fields.email}`).digest("hex");
-  const snapshot = { schemaVersion: 1, eventId: NJ_EVENT, entryKey, acceptedAt, cutoff: NJ_CUTOFF, ...fields };
+  const snapshot = { schemaVersion: 1, eventId: NJ_EVENT, entryKey, acceptedAt, cutoff: NJ_CUTOFF, ...fields, marketingConsent: true, consentText: NJ_CONSENT_TEXT, consentVersion: NJ_CONSENT_VERSION };
   try {
     const saved = await fetch("https://api.hubapi.com/crm/v3/objects/notes", {
       method: "POST",

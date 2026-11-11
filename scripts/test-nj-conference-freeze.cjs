@@ -47,3 +47,11 @@ test("unrelated notes ignored; zero entrants explicit; pre-cutoff in-flight rece
   row.createdAt = "2026-11-12T20:15:02.000Z";
   assert.equal(freeze([{ results: [row] }], now).count, 1);
 });
+
+test("accepts historical optional-consent receipts and current server-owned evidence; rejects corrupt versioned evidence", () => {
+  const consent = { marketingConsent: true, consentVersion: "entry-email-agreement-v1", consentText: "By entering, you agree to receive emails from Catapult Fundraising. You can unsubscribe at any time." };
+  assert.equal(freeze([{ results: [note("1"), note("2", "other@nonprofit.org", undefined, consent)] }], now).count, 2);
+  for (const extra of [{ ...consent, consentText: "tampered" }, { ...consent, consentVersion: "unknown" }, { ...consent, marketingConsent: false }]) {
+    assert.throws(() => freeze([{ results: [note("3", undefined, undefined, extra)] }], now), /Invalid event snapshot/);
+  }
+});

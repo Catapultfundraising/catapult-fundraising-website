@@ -35,6 +35,6 @@ export default function NjConferencePage() {
 function GiveawayRules() {
   return (<>
           <p className="mt-5 text-sm leading-relaxed">No purchase necessary. Conference attendees only. One entry per email. Entries close at 3:15 p.m. Eastern on November 12. One winner will be selected at random from eligible entries. Your odds depend on the number of eligible entries. Catapult staff and test entries are excluded.</p>
-          <p className="mt-4 text-xs leading-relaxed">Sponsored by Catapult Fundraising. Starbucks is not a sponsor of or affiliated with this giveaway. Marketing consent is optional and does not affect your chances of winning.</p>
+          <p className="mt-4 text-xs leading-relaxed">Sponsored by Catapult Fundraising. Starbucks is not a sponsor of or affiliated with this giveaway.</p>
   </>);
 }
