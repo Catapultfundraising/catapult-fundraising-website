@@ -18,7 +18,12 @@ export function NjConferenceForm() {
     const timer = setInterval(check, 1000);
     return () => clearInterval(timer);
   }, []);
-  useEffect(() => { if (success || error) notice.current?.focus(); }, [success, error]);
+  useEffect(() => {
+    if (success || error) {
+      notice.current?.focus({ preventScroll: true });
+      notice.current?.scrollIntoView({ block: "center", behavior: "instant" });
+    }
+  }, [success, error]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
