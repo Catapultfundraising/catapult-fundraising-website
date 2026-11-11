@@ -1,9 +1,10 @@
 "use client";
+import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
-import { PortalV2Provider, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
+import { PortalV2Provider, useCampaignAskSnapshot, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
 } from "recharts";
@@ -369,7 +370,7 @@ function GiftChartTab({ d }: { d: PvasSnapshot }) {
     else {
       // Level not seated on the GC2P (under the lowest level shown): list the prospects whose amount falls in this band.
       const higher = chart.rows.map((r) => r.level).filter((l): l is number => l !== null && l > level).sort((p, q) => p - q)[0] ?? Infinity;
-      nav?.drillIds(`${formatDollars(level)} level`, "Prospects whose amount falls in this band", below.filter((p) => (p.ask || p.rating || 0) >= level && (p.ask || p.rating || 0) < higher).map((p) => p.cptid));
+      nav?.drillIds(`${formatDollars(level)} level`, "Prospects whose amount falls in this band", below.filter((p) => (campaignAskAmount(p)) >= level && (campaignAskAmount(p)) < higher).map((p) => p.cptid));
     }
   };
   const stOf = (id: number) => tracking.prospects[String(id)];
@@ -443,7 +444,7 @@ function GiftChartTab({ d }: { d: PvasSnapshot }) {
           {below.length > 0 && (
             <div onClick={() => seatList(null)} title="Click to list the prospects" className="grid cursor-pointer grid-cols-[110px_1fr_140px] items-center gap-3 rounded border-t border-[rgb(var(--line))] pt-1.5 text-sm hover:bg-[rgb(var(--brass))]/10">
               <span className="font-medium">Below {formatDollars(belowLevel)}</span>
-              <span className="text-xs text-[rgb(var(--ink))]/60">{usd(below.reduce((a, p) => a + (p.ask || p.rating || 0), 0))} total</span>
+              <span className="text-xs text-[rgb(var(--ink))]/60">{usd(below.reduce((a, p) => a + (campaignAskAmount(p)), 0))} total</span>
               <span className="text-right tabular-nums">{below.length} prospect{below.length === 1 ? "" : "s"}</span>
             </div>
           )}
@@ -477,11 +478,11 @@ function GiftChartTab({ d }: { d: PvasSnapshot }) {
           ))}
           {below.length > 0 && (
             <div>
-              <p className="mb-1 font-display text-lg text-[rgb(var(--navy))]">Below {formatDollars(belowLevel)} · {below.length} prospect{below.length === 1 ? "" : "s"} · {usd(below.reduce((a, p) => a + (p.ask || p.rating || 0), 0))}</p>
+              <p className="mb-1 font-display text-lg text-[rgb(var(--navy))]">Below {formatDollars(belowLevel)} · {below.length} prospect{below.length === 1 ? "" : "s"} · {usd(below.reduce((a, p) => a + (campaignAskAmount(p)), 0))}</p>
               <Table
                 csvName={`GC2P Below ${formatDollars(belowLevel)}`}
                 exportSub={`${formatDollars(goal)} goal`}
-                rows={below.map((p) => ({ ...p, amount: p.ask || p.rating || 0 })) as never}
+                rows={below.map((p) => ({ ...p, amount: campaignAskAmount(p) })) as never}
                 cols={[
                   { key: "name", label: "Prospect" },
                   { key: "amount", label: "Ask / Rating", fmt: (v: unknown) => usd(v as number), right: true },
@@ -624,7 +625,7 @@ function Portfolio({ d }: { d: PvasSnapshot }) {
   }).sort((a, b) => b.ask - a.ask);
   const cols = [
     { key: "name", label: "Prospect" }, { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
-    { key: "ask", label: "Campaign Ask", fmt: (v: unknown) => (v ? usd(v as number) : ""), right: true },
+    { key: "ask", label: "Campaign Ask", fmt: (v: unknown, r: { askConflict?: boolean; askBlank?: boolean; askEdited?: boolean }) => r.askConflict ? "Review merged asks" : r.askBlank ? "" : (v || r.askEdited ? usd(v as number) : ""), right: true },
     { key: "priority", label: "2026 Priority" }, { key: "type", label: "Type" }, { key: "donorType", label: "Donor Type" },
     { key: "lifetime", label: "Lifetime", fmt: (v: unknown) => usd(v as number), right: true },
     { key: "ds", label: "DS" }, { key: "capacity", label: "Capacity" }, { key: "task", label: "Task" },
@@ -702,11 +703,14 @@ function Givebutter({ d }: { d: PvasSnapshot }) {
 }
 
 export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
+  return <CrmProvider><PortalV2Provider client="pvas"><PvasDashboardBody data={data} /></PortalV2Provider></CrmProvider>;
+}
+function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
+  const data = useCampaignAskSnapshot(snapshot);
   const [tab, setTab] = useUrlState<Tab | "Prospect Ratings">("tab", "Overview", [...TABS, "Prospect Ratings"]);
   const staff = useBoardReviewStaff("pvas");
   return (
-    <CrmProvider>
-    <PortalV2Provider client="pvas">
+
     <main className="min-h-screen bg-[rgb(var(--paper))]">
       <header className="bg-[rgb(var(--navy))] px-6 py-8 text-white">
         <div className="mx-auto flex max-w-7xl flex-wrap items-end justify-between gap-4">
@@ -756,8 +760,7 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
         </p>
       </div>
     </main>
-    </PortalV2Provider>
-    </CrmProvider>
+
   );
 }
 

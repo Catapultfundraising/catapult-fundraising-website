@@ -1,3 +1,4 @@
+import { askEdits, effectiveAsk } from "./effective-ask";
 import { NextRequest, NextResponse } from "next/server";
 import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, screeningPending, type Overlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
@@ -52,7 +53,7 @@ const minDate = (a: string, b: string) => (!a ? b : !b ? a : a < b ? a : b);
 const maxDate = (a: string, b: string) => (!a ? b : !b ? a : a > b ? a : b);
 
 /** Fold merged duplicates into the surviving record and apply dashboard edits (contact, wealth). Client data itself is untouched. */
-function overlayRecord(base: Full, o: Overlay, lookup: (c: number) => Full | null): Full {
+function overlayRecord(base: Full, o: Overlay, edits: ReturnType<typeof askEdits>, boardCampaignAsk: boolean, lookup: (c: number) => Full | null): Full {
   const r: Full = JSON.parse(JSON.stringify(base));
   const sources = mergedSources(o, r.cptid);
   if (sources.length) {
@@ -69,7 +70,6 @@ function overlayRecord(base: Full, o: Overlay, lookup: (c: number) => Full | nul
       r.committees = [...new Set([...(r.committees ?? []), ...(s.committees ?? [])])];
       r.flags = [...new Set([...(r.flags ?? []), ...(s.flags ?? []).filter((f) => f !== "Added on the dashboard")])];
       if (s.givebutter) r.givebutter = [...(r.givebutter ?? []), ...s.givebutter];
-      if (!r.portfolio && s.portfolio) r.portfolio = s.portfolio;
       if ((!r.ds || !Object.keys(r.ds).length) && s.ds && Object.keys(s.ds).length) { r.ds = s.ds; r.dsFromCptid = c; }
       sm.lifetime = Math.round((num(sm.lifetime) + num(ssum.lifetime)) * 100) / 100;
       sm.gifts = num(sm.gifts) + num(ssum.gifts);
@@ -82,6 +82,22 @@ function overlayRecord(base: Full, o: Overlay, lookup: (c: number) => Full | nul
     r.summary = sm;
     r.mergedFrom = merged;
   }
+  const baseAsk = (id: number) => {
+    const source = lookup(id);
+    const portfolio = source?.portfolio as { ask?: number } | undefined;
+    return portfolio?.ask ?? (boardCampaignAsk ? (source?.board as { active?: boolean; ask?: number }[] | undefined)?.find((b) => b.active && b.ask)?.ask : undefined);
+  };
+  const ask = effectiveAsk(r.cptid, o, edits, baseAsk);
+  // Preserve the survivor's metadata; otherwise inherit only a single unambiguous source portfolio.
+  // A merge chain can contain multiple portfolios. Never choose whichever happens to be first.
+  if (!r.portfolio && !ask.askConflict) {
+    const portfolios = sources.map((c) => lookup(c)?.portfolio).filter(Boolean);
+    const distinct = new Map(portfolios.map((p) => [JSON.stringify(p), p]));
+    if (distinct.size === 1) r.portfolio = [...distinct.values()][0];
+  }
+  r.campaignAsk = ask;
+  if (r.portfolio) r.portfolio = { ...(r.portfolio as object), ...ask, ask: ask.ask ?? 0 };
+  if (boardCampaignAsk && r.board) r.board = (r.board as { active?: boolean }[]).map((b) => b.active ? { ...b, ...ask, ask: ask.ask ?? 0 } : b);
   r.outcome = o.outcome.get(r.cptid) ?? { value: "", note: "" };
   const ce = o.contact.get(r.cptid);
   if (ce) r.contact = { ...(r.contact ?? {}), ...ce };
@@ -148,7 +164,7 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
       const target = finalId(o, asked);
       const base = lookup(target);
       if (!base) return NextResponse.json({ error: "not found" }, { status: 404 });
-      const out = overlayRecord(base, o, lookup);
+      const out = overlayRecord(base, o, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup);
       if (target !== asked) out.redirectedFrom = { cptid: asked, name: lookup(asked)?.name ?? `CPTID ${asked}` };
       return NextResponse.json(out, { headers: { "Cache-Control": "no-store" } });
     }

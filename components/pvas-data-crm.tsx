@@ -316,7 +316,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
       </div>
       <TrackingPanel cptid={r.cptid} />
       <ProspectDocuments key={`pvas-${r.cptid}`} client="pvas" cptid={r.cptid} />
-      <AskAmountPanel client="pvas" cptid={r.cptid} base={((r as { portfolio?: { ask?: number } }).portfolio?.ask) || (r.board ?? []).find((b) => b.active && b.ask)?.ask || 0} />
+      <AskAmountPanel client="pvas" cptid={r.cptid} base={(r as unknown as { campaignAsk?: { ask?: number } }).campaignAsk?.ask ?? (r as { portfolio?: { ask?: number } }).portfolio?.ask ?? 0} onSaved={reload} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
         {[["Lifetime giving", usd(s.lifetime)], ["Gifts", String(s.gifts)], ["Largest gift", usd(s.largest)], ["Years giving", String(s.years)], ["Last gift", s.last || "None"]].map(([k, v]) => (
           <div key={k} className="rounded-xl border border-[rgb(var(--line))] p-3">
@@ -342,7 +342,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         <Sec title="Board, committee, portfolio and notes">
           {(r.board ?? []).map((b, i) => <Field key={i} k={b.board || "Board"} v={`${b.title ?? ""} ${b.term ?? ""}${b.active ? "" : " (former)"}${b.ask ? ` · Ask ${usd(b.ask)} · Get ${usd(b.get ?? 0)}` : ""}`} />)}
           {(r.committees ?? []).map((x, i) => <Field key={i} k="Committee" v={x} />)}
-          {r.portfolio && <Field k="Campaign portfolio" v={[`Primary Solicitor: ${r.portfolio.solicitor}`, r.portfolio.ask ? `Campaign Ask ${usd(r.portfolio.ask)}` : "", r.portfolio.priority && `2026 priority ${r.portfolio.priority}`, r.portfolio.prevAsk ? `Previous ask ${usd(r.portfolio.prevAsk)}` : ""].filter(Boolean).join(" · ")} />}
+          {r.portfolio && <Field k="Campaign portfolio" v={[`Primary Solicitor: ${r.portfolio.solicitor}`, (!(r.portfolio as { askBlank?: boolean }).askBlank && (r.portfolio.ask || (r.portfolio as { askEdited?: boolean }).askEdited)) ? `Campaign Ask ${usd(r.portfolio.ask)}` : "", r.portfolio.priority && `2026 priority ${r.portfolio.priority}`, r.portfolio.prevAsk ? `Previous ask ${usd(r.portfolio.prevAsk)}` : ""].filter(Boolean).join(" · ")} />}
           {r.portfolio?.task && <Field k="Task" v={`${r.portfolio.task}${r.portfolio.due ? ` (due ${r.portfolio.due})` : ""}`} />}
           {r.portfolio?.naming && <Field k="Naming interest" v={r.portfolio.naming} />}
           {r.portfolio?.relationship && <Field k="Relationship" v={r.portfolio.relationship} />}
