@@ -100,16 +100,19 @@ const ROUTE_LAST_MODIFIED: Record<string, string> = {
   "/blog/catapult-vs-fundraising-consultants": "2026-08-12",
   "/blog/national-make-a-will-month-planned-giving-conversation": "2026-08-29",
   "/answers": "2026-08-29",
+  "/answers/how-much-does-a-capital-campaign-consultant-cost": "2026-11-10",
+  "/answers/what-is-a-capital-campaign-feasibility-study": "2026-11-10",
+  "/answers/how-much-does-a-feasibility-study-cost": "2026-11-10",
 };
 
-// Every /answers/[slug] page renders from the single shared lib/answers.ts
-// data file, so they all share that file's own last-real-edit date rather
-// than needing 31 separate entries above.
-const ANSWERS_LAST_MODIFIED = "2026-11-10";
+// Legacy fallback for answers without a route-specific last-edited date.
+// Content edits to individual answers belong in ROUTE_LAST_MODIFIED above.
+const ANSWERS_LAST_MODIFIED = "2026-10-07";
 
 const FALLBACK_DATE = "2026-08-29";
 
 function lastModifiedFor(route: string): Date {
+  if (ROUTE_LAST_MODIFIED[route]) return new Date(ROUTE_LAST_MODIFIED[route]);
   if (route.startsWith("/answers/")) return new Date(ANSWERS_LAST_MODIFIED);
   return new Date(ROUTE_LAST_MODIFIED[route] ?? FALLBACK_DATE);
 }
