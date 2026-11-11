@@ -314,6 +314,7 @@ export const ANSWERS: Answer[] = [
       },
       {
         heading: "What you should get for the fee",
+        serviceLink: { lead: "If you are comparing proposals and ready to hire counsel, review the scope of Catapult’s", label: "capital campaign consulting service", href: "/services/capital-campaign" },
         bullets: [
           "A feasibility study with real interviews, not a survey link, and a written report with a confirmed or corrected goal.",
           "A gift chart built from your actual prospect data, tested against capacity rather than aspiration.",
@@ -428,6 +429,7 @@ export const ANSWERS: Answer[] = [
       },
       {
         heading: "Why it has to be an outside consultant",
+        serviceLink: { lead: "When you are ready to commission independent donor interviews rather than assess readiness internally, explore Catapult’s", label: "feasibility study service", href: "/services/feasibility-study" },
         body: [
           "This is the part organizations most often try to save money on, and the part where doing it internally quietly destroys the value. A longtime donor will not tell the executive director that they have doubts about the board, or that they think the building is the wrong project, or that their real capacity is triple what they have been giving. They will tell a neutral third party who is not going to ask them for the gift.",
           "The same holds inside the building. Board members and staff are far more candid about internal readiness, staffing gaps and past campaign fatigue when the interviewer does not report to anyone in the room.",
@@ -495,6 +497,7 @@ export const ANSWERS: Answer[] = [
       },
       {
         heading: "What a study should include for that fee",
+        serviceLink: { lead: "To commission a study with these deliverables, review the interview process and board reporting included in Catapult’s", label: "feasibility study service", href: "/services/feasibility-study" },
         body: [
           "A written report, not a slide summary. A confirmed or corrected goal with the capacity reasoning behind it. A gift chart. A revised case for support. Project prioritization. A recommended Campaign Chair and Steering Committee list. A candid readiness assessment of staffing, data and board engagement. And a presentation of findings to the board, which is where the value usually lands, because the board hears the donor feedback from a neutral party rather than filtered through staff.",
         ],
