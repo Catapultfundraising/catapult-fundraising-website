@@ -1,3 +1,5 @@
+import { readLeadAttribution } from "@/lib/lead-attribution";
+
 /**
  * Fires a GA4 `generate_lead` event after a form is actually submitted.
  *
@@ -15,7 +17,7 @@ export function trackLeadSubmission(formId: string) {
   const gtag = (window as unknown as { gtag?: (...args: unknown[]) => void }).gtag;
   if (typeof gtag !== "function") return;
   try {
-    gtag("event", "generate_lead", { form_id: formId });
+    gtag("event", "generate_lead", { form_id: formId, ...readLeadAttribution() });
   } catch {
     // Analytics must never break a form submission.
   }

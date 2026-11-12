@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { LEAD_EMAILS } from "@/lib/constants";
+import { attributionText, sanitizeAttribution, type LeadAttribution } from "@/lib/lead-attribution";
 
 const HUBSPOT_NOTES_BASE = "https://api.hubapi.com/crm/v3/objects/notes";
 const NOTE_TO_CONTACT_ASSOCIATION_TYPE_ID = 202;
@@ -38,6 +39,7 @@ async function sendEmailNotification(fields: {
   phone: string;
   service: string;
   message: string;
+  attribution?: LeadAttribution;
 }) {
   const apiKey = process.env.RESEND_API_KEY;
 
@@ -56,6 +58,7 @@ async function sendEmailNotification(fields: {
       <tr><td><strong>Phone</strong></td><td>${escapeHtml(fields.phone || "")}</td></tr>
       <tr><td><strong>Service interested in</strong></td><td>${escapeHtml(fields.service || "Not specified")}</td></tr>
       <tr><td><strong>Message</strong></td><td>${escapeHtml(fields.message)}</td></tr>
+      ${attributionText(fields.attribution || {}) ? `<tr><td><strong>Campaign attribution</strong></td><td>${escapeHtml(attributionText(fields.attribution || {}))}</td></tr>` : ""}
     </table>
   `;
 
@@ -92,12 +95,15 @@ function buildNoteBody(fields: {
   phone: string;
   service: string;
   message: string;
+  attribution?: LeadAttribution;
 }) {
   const lines = ["Contact Form Submission", "", `Name: ${fields.name}${fields.title ? `, ${fields.title}` : ""}`];
   if (fields.org) lines.push(`Organization: ${fields.org}`);
   lines.push(`Email: ${fields.email}`);
   if (fields.phone) lines.push(`Phone: ${fields.phone}`);
   lines.push(`Service interested in: ${fields.service || "Not specified"}`, "", "Message:", fields.message);
+  const attribution = attributionText(fields.attribution || {});
+  if (attribution) lines.push("", "Campaign attribution (visitor-supplied):", attribution);
   return lines.join("\n");
 }
 
@@ -147,7 +153,8 @@ async function createSubmissionNote({
 
 export async function POST(req: NextRequest) {
   try {
-    const { name, title, org, email, phone, service, message, company, startedAt } = await req.json();
+    const { name, title, org, email, phone, service, message, company, startedAt, attribution: rawAttribution } = await req.json();
+    const attribution = sanitizeAttribution(rawAttribution);
 
     // Anti-spam: "company" here is a honeypot input that is hidden from real
     // visitors via CSS, so only an automated form-filler would ever put
@@ -190,6 +197,7 @@ export async function POST(req: NextRequest) {
       phone,
       service,
       message,
+      attribution,
     });
 
     if (!emailResult.sent) {
@@ -220,6 +228,7 @@ export async function POST(req: NextRequest) {
       phone: phone || "",
       service: service || "",
       message,
+      attribution,
     });
 
     const hubspotRes = await fetch(
