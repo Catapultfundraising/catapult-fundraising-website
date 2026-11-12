@@ -16,6 +16,7 @@ import { Send, CheckCircle, AlertCircle } from "lucide-react";
 import { FIRM_EMAIL, SERVICE_LINKS } from "@/lib/constants";
 import { cn } from "@/lib/utils";
 import { trackLeadSubmission } from "@/lib/analytics";
+import { captureLeadAttribution, readLeadAttribution } from "@/lib/lead-attribution";
 
 const SERVICE_OPTIONS = [...SERVICE_LINKS.map((s) => s.label), "Not sure yet"];
 
@@ -71,6 +72,8 @@ export function ContactForm() {
     setErrorMessage(null);
 
     try {
+      captureLeadAttribution();
+      const attribution = readLeadAttribution();
       const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -84,6 +87,7 @@ export function ContactForm() {
           message,
           company,
           startedAt: formStartedAt,
+          attribution,
         }),
       });
 

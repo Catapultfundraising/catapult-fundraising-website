@@ -3,6 +3,8 @@
 import { useEffect, useState } from "react";
 import Script from "next/script";
 import Link from "next/link";
+import { LeadAttribution } from "@/components/lead-attribution";
+import { ATTRIBUTION_KEY } from "@/lib/lead-attribution";
 import {
   HUBSPOT_PORTAL_ID,
   LINKEDIN_PARTNER_ID,
@@ -29,6 +31,9 @@ export function CookieConsent() {
 
   function choose(value: ConsentValue) {
     window.localStorage.setItem(CONSENT_KEY, value);
+    if (value === "necessary") {
+      try { window.sessionStorage.removeItem(ATTRIBUTION_KEY); } catch {}
+    }
     setConsent(value);
     setVisible(false);
   }
@@ -37,6 +42,7 @@ export function CookieConsent() {
     <>
       {consent === "accepted" && (
         <>
+          <LeadAttribution />
           <Script
             id="ga4-loader"
             strategy="afterInteractive"
