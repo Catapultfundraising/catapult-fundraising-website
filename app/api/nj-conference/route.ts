@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { NJ_CUTOFF, NJ_EVENT, NJ_NOTE_PREFIX, NJ_CONSENT_TEXT, NJ_CONSENT_VERSION, excludedNjEmail, validateNjFields } from "@/lib/nj-conference";
+import { syncNjContact, notifyNjEntry } from "@/lib/nj-conference-delivery";
 
 export const runtime = "nodejs";
 const reply = (body: object, status = 200) => NextResponse.json(body, {
@@ -35,6 +36,7 @@ export async function POST(req: NextRequest) {
   if (Date.parse(acceptedAt) >= Date.parse(NJ_CUTOFF)) return reply({ error: "Entries are now closed." }, 410);
   const entryKey = createHash("sha256").update(`${NJ_EVENT}\n${fields.email}`).digest("hex");
   const snapshot = { schemaVersion: 1, eventId: NJ_EVENT, entryKey, acceptedAt, cutoff: NJ_CUTOFF, ...fields, marketingConsent: true, consentText: NJ_CONSENT_TEXT, consentVersion: NJ_CONSENT_VERSION };
+  let noteId: string;
   try {
     const saved = await fetch("https://api.hubapi.com/crm/v3/objects/notes", {
       method: "POST",
@@ -45,13 +47,21 @@ export async function POST(req: NextRequest) {
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
-    if (!saved.ok || typeof (await saved.json()).id !== "string") throw new Error("persistence");
-    // Retried/concurrent receipts have the same entryKey. The private draw
-    // collapses them, rather than trusting eventually consistent CRM search.
-    return reply({ ok: true, message: "Your entry is saved. One entry per email; repeat submissions do not add chances." });
+    if (!saved.ok) throw new Error("persistence");
+    const id: unknown = (await saved.json()).id;
+    if (typeof id !== "string" || !/^\d+$/.test(id)) throw new Error("persistence");
+    noteId = id;
   } catch {
     // Do not log entrant data, tokens, or upstream error bodies.
     console.error("NJ giveaway receipt persistence failed");
     return reply({ error: "We could not confirm your entry was saved. Please retry with the same email or speak with us at the booth." }, 503);
   }
+  // Both are best-effort and independent, after durable acceptance only. Never
+  // report an entry failure after its receipt was saved, or rewrite that receipt.
+  await Promise.all([
+    syncNjContact(token, fields, noteId),
+    notifyNjEntry(fields, acceptedAt, noteId),
+  ]);
+  // Retried/concurrent receipts share entryKey; the private draw deduplicates.
+  return reply({ ok: true, message: "Your entry is saved. One entry per email; repeat submissions do not add chances." });
 }
