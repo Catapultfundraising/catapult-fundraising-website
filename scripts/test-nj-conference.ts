@@ -9,6 +9,9 @@ async function main() {
   const realNow = Date.now;
   const RealDate = Date;
   const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN;
+  const resendKey = process.env.RESEND_API_KEY;
+  process.env.RESEND_API_KEY = "mock-only";
+  let deliveryCalls = 0;
   let clock = Date.parse("2026-11-12T18:00:00.000Z");
   // Both Date.now and new Date are controlled so cutoff/receipt tests agree.
   class TestDate extends RealDate {
@@ -21,7 +24,13 @@ async function main() {
   let saved: any[] = [];
   let mode = "ok";
   global.fetch = async (url, init) => {
-    assert.equal(String(url), "https://api.hubapi.com/crm/v3/objects/notes");
+    if (String(url) !== "https://api.hubapi.com/crm/v3/objects/notes") {
+      deliveryCalls++;
+      if (String(url).startsWith("https://api.hubapi.com/crm/v3/objects/contacts/")) return Response.json({ id: "123" });
+      if (String(url).startsWith("https://api.hubapi.com/crm/v4/objects/notes/")) return new Response(null, { status: 204 });
+      if (String(url) === "https://api.resend.com/emails") return Response.json({ id: "mock" });
+      throw new Error("Unexpected mocked delivery endpoint");
+    }
     assert.equal(init?.method, "POST");
     const payload = JSON.parse(String(init?.body));
     saved.push(payload);
@@ -66,8 +75,10 @@ async function main() {
       { ...valid, email: "qa@example.com" },
     ]) {
       const before = saved.length;
+      const beforeDelivery = deliveryCalls;
       assert.equal((await POST(request(bad))).status, 400);
       assert.equal(saved.length, before);
+      assert.equal(deliveryCalls, beforeDelivery, "no contact/notification for rejected input");
     }
     assert.equal((await POST(request(valid, "https://attacker.invalid"))).status, 403);
     assert.equal((await POST(new NextRequest("https://www.catapultfr.com/api/nj-conference", { method: "POST", body: "x".repeat(8193) }))).status, 413);
@@ -90,6 +101,8 @@ async function main() {
     assert.equal(excludedNjEmail("staff@sub.catapultfr.com"), true);
     console.log("PASS: validation, server-owned consent evidence/backward clients, durable success, concurrent identity, failures, origin, body size and cutoff boundary (all mocked)");
   } finally {
+    if (resendKey === undefined) delete process.env.RESEND_API_KEY;
+    else process.env.RESEND_API_KEY = resendKey;
     global.fetch = realFetch; global.Date = RealDate; Date.now = realNow;
     if (token === undefined) delete process.env.HUBSPOT_PRIVATE_APP_TOKEN;
     else process.env.HUBSPOT_PRIVATE_APP_TOKEN = token;
