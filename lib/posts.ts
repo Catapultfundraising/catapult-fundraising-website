@@ -19,6 +19,24 @@ export interface Post {
 }
 
 export const POSTS: Post[] = [
+{
+  "slug": "sustainable-fundraising-diversified-revenue",
+  "date": "2026-11-17",
+  "title": "Sustainable Fundraising Starts With a Broader Base of Support",
+  "description": "Understand where your revenue is vulnerable, build relationships before you need the next gift, and give supporters a reason to stay involved over time.",
+  "readTime": "8 min read",
+  "image": "/blog/sustainable-fundraising-diversified-revenue/panel-hero.jpg",
+  "alt": "Six speakers on the Sustainable Fundraising panel",
+  "pillars": [
+    "Annual Fund",
+    "Major Gifts",
+    "Planned Giving"
+  ],
+  "services": [
+    "donor-engagement",
+    "legacy-giving"
+  ]
+},
   {
   "slug": "charitable-gift-annuities-loyal-donors",
   "date": "2026-11-06",

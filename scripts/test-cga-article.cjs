@@ -44,7 +44,7 @@ test("registers a dated article in discovery and sitemap", () => {
   assert.ok(posts.includes(SLUG));
   const sitemap = fs.readFileSync("app/sitemap.ts", "utf8");
   assert.equal(sitemap.split(`/blog/${SLUG}`).length - 1, 2);
-  assert.ok(sitemap.includes('"/blog": "2026-11-06"'));
+  assert.ok(sitemap.includes('"/blog/charitable-gift-annuities-loyal-donors": "2026-11-06"'));
   const page = fs.readFileSync(path.join(route, "page.tsx"), "utf8");
   assert.match(page, /"BlogPosting"/);
   assert.match(page, /datePublished: DATE/);
