@@ -1,0 +1,114 @@
+# Sustainable Fundraising Starts With a Broader Base of Support
+
+By Anthony R. Alonso, President & CEO, Catapult Fundraising
+
+A strong fundraising year can hide a vulnerable funding model. When one grant, one donor or one corporate partner accounts for a large share of the budget, a decision outside your organization can change what you are able to deliver.
+
+That was the starting point for our November 6 conversation, “Sustainable Fundraising: Building Diversified Revenue Streams,” at the [Nonprofit Growth Summit hosted by Nexus Marketing](https://nexusmarketing.com/nonprofit-growth-summit/).
+
+I joined Heather Nelson of BridgeRaise, Kia Croom of Kia Croom Fundraising & Philanthropy, Patrice Davis of GrantWin Consulting and Ron Smith of ViTreo Group. Andrea Saynes of Nexus Marketing moderated the discussion. Each brought a different perspective, from corporate partnerships and grant strategy to individual giving and campaign planning.
+
+Together, we kept coming back to the same practical work: understand where your revenue is vulnerable, build relationships before you need the next gift, and give supporters a reason to stay involved over time.
+
+**Watch the full panel**
+
+Sustainable Fundraising: Building Diversified Revenue Streams. Presented by Nexus Marketing at the Nonprofit Growth Summit, November 6, 2026. Recording: approximately 54 minutes.
+
+[VIDEO PLAYER]
+
+## Build a funding mix your mission can depend on
+
+When an organization depends heavily on one source of revenue, that source has enormous influence over its future. A change in government priorities, a foundation's guidelines or a company's leadership can create a problem even when your programs are doing excellent work.
+
+Kia Croom described the strain she had seen when organizations relied heavily on public funding and then faced government cutbacks. Her advice was to take concentration risk seriously while you still have time to address it.
+
+That starts with a clear picture of your own revenue. Look at the categories, then look at the relationships inside each one. Several grants may still leave you exposed to the same government budget. Several corporate gifts may depend on the same industry or the same person making an introduction.
+
+There is no universal funding percentage that makes every nonprofit safe. Your mission, service model and access to funding all matter. The useful question for the board is how much of your work would be at risk if a major source changed, and what you could realistically do in response.
+
+### Give the plan a longer horizon
+
+Patrice Davis made an important point about grant-funded organizations. Replacing a large government commitment with foundation grants takes time, and the available grants may not support the same costs.
+
+She encouraged nonprofits to look more broadly at eligible funding opportunities, develop budgets that extend beyond the current year, and seek multiyear support from funders that offer it. She also emphasized protecting grant eligibility through timely audits and sound financial management.
+
+Capacity-building support belongs in that conversation. Funding for systems and infrastructure can help an organization develop its individual giving and planned giving programs. Those capabilities take work to build.
+
+Ron Smith encouraged organizations to consider mission-appropriate revenue beyond traditional fundraising, including the use of facilities or property. Any opportunity needs a careful look at fit and feasibility. The purpose is to create dependable support for the work you are already here to do.
+
+Ron also reminded us that long-term planning needs room to adjust. Boards and executives are often focused on the next payroll or immediate operating need. Setting aside time to look several years ahead helps them make deliberate choices about what to build next.
+
+## Give individual donors a path to deeper involvement
+
+A broader funding base also means paying closer attention to the people who already support you.
+
+In my work with nonprofits, I see mid-level donors who could become more involved and loyal, long-time donors who have never had a personal conversation about a legacy gift. Their giving history tells us they care. We need to find out what that commitment could mean for the future.
+
+Start by assigning responsibility for those relationships. Someone should know the donor, understand their interests and follow through after a conversation. A donor who gives year after year should feel that the organization recognizes the relationship.
+
+### Offer commitments that fit the donor
+
+Our fundraising calendars can narrow the conversations we have. We call it annual giving, organize the appeal around our fiscal year and return with another request the following year.
+
+The donor may be ready to think differently.
+
+During the panel, I offered an example of a donor giving $1,000 a year. A conversation about a $4,000 commitment, payable in four quarterly installments, gives that donor another way to consider participating. If that amount is beyond their comfort level, $500 a quarter would still represent a $2,000 annual commitment.
+
+Those are illustrations of how to structure a conversation, not a formula for every donor. The amount and timing should reflect the person's capacity, interests and connection to your work. Listen carefully to the response and agree on something the donor can sustain.
+
+A multiyear commitment can be another option. What matters is helping the donor understand what their support will make possible and giving them a practical way to participate.
+
+### Make room for the legacy conversation
+
+Long-term loyalty should also prompt a conversation about planned giving.
+
+Someone who has made a modest gift for many years may have a strong connection to your mission. Ask what the organization means to them and whether they have considered including it in their estate plans. A simple bequest conversation can be an appropriate starting point, with qualified advisers involved as needed.
+
+Future legacy commitments and cash available for current operations serve different purposes. Plan for both, and keep stewarding the relationship after someone tells you they have included your organization.
+
+My central point in the panel was that we have a responsibility to be loyal to the donor. Ask for their advice. Learn why they care. Invite them to see the work and share what they think.
+
+I also raised the importance of engaging Latino communities more thoughtfully. That includes welcoming people into leadership and listening to the community connections they bring. A broader base of support grows through relationships with people whose generosity we may have overlooked.
+
+## Build corporate partnerships around shared priorities
+
+Corporate fundraising brought several of the panel's perspectives together.
+
+Heather Nelson pointed out that a partnership can become vulnerable when it depends on one contact inside a company. People change jobs. Build appropriate relationships across the organization so the connection to your mission can continue.
+
+She also encouraged nonprofits to approach corporate relationships with a longer-term view. A company may require annual renewals while still sharing a vision for what the partnership could accomplish over several years.
+
+Kia's advice was to qualify the opportunity carefully. Understand what the company or foundation funds and where that overlaps with your work. An initial sponsorship may provide a starting point for a deeper relationship that includes employees, leadership and broader participation.
+
+Patrice reinforced the need to speak to the funder's interests. A proposal can become weaker when it focuses so heavily on the nonprofit's needs that it loses the connection to what the funder wants to accomplish.
+
+### Make the next step clear
+
+Preparation should lead to a specific invitation.
+
+Kia reminded us that the person you meet may need to make the case to colleagues inside the company. Help them understand the opportunity, the amount you are requesting and the ways their organization could participate. A general presentation can leave too much for that person to figure out.
+
+Heather encouraged accessible first steps and thoughtful questions that get a prospective partner talking. Ron added that a decline in one funding cycle does not necessarily close the relationship. Stay in touch appropriately and pay attention to changes in priorities.
+
+And when it is time to ask, allow the other person time to respond. I see fundraisers make a thoughtful request and then begin talking themselves out of it before the donor has answered. Silence can simply mean someone is considering the idea.
+
+You can begin applying this discussion with your next board or development meeting. Review the largest dependencies in your revenue mix. Decide which donor relationships need personal attention. Identify the corporate and grant opportunities that fit your mission and your capacity to follow through.
+
+Assign an owner and a next step to each priority. Then return to the plan regularly.
+
+Sustainable fundraising takes consistent attention to the people and institutions that make your work possible. Thank you to Nexus Marketing, Andrea and my fellow panelists for a conversation that gave nonprofit leaders practical places to begin.
+
+**Continue the conversation**
+
+If you would like to talk through your donor pipeline or fundraising priorities, [schedule a conversation with Anthony](https://go.catapultfr.com/meetings/anthonya).
+
+**Panel credits and source**
+
+This article draws on the November 6, 2026 panel, “Sustainable Fundraising: Building Diversified Revenue Streams,” at the [Nonprofit Growth Summit, presented by Nexus Marketing](https://nexusmarketing.com/nonprofit-growth-summit/).
+
+- Anthony R. Alonso, President & CEO, Catapult Fundraising
+- Heather Nelson, President and Lead Consultant, [BridgeRaise](https://www.bridgeraise.com/)
+- Kia Croom, CEO, [Kia Croom Fundraising & Philanthropy](https://kiacroom.com/)
+- Patrice Davis, CEO, [GrantWin Consulting](https://grantwinconsulting.com/)
+- Ron Smith, Fundraising Consultant, [ViTreo Group](https://www.vitreogroup.ca/)
+- Moderator: Andrea Saynes, Nexus Marketing
