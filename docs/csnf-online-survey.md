@@ -85,8 +85,10 @@ pretending this website has Graph credentials. The parent task supplied the
 safe append/dedup Excel exporter and verified SharePoint write access by
 creating a new exact-source blank response workbook in the CSNF study's
 **Interview Question Responses** folder. No source questionnaire or interview
-workbook was replaced. Its scheduled exporter must remain activation-gated
-until approved launch. Deployment approval, server-side export authentication
+workbook was replaced. The parent staged the safe hourly exporter as the
+**paused** `/client/csnf-survey-excel-export` job, with
+`config.launchApproved=false` as a second gate. It must remain paused and
+activation-gated until approved launch. Deployment approval, server-side export authentication
 and an approved full-path check are still required before claiming active
 end-to-end response delivery.
 
