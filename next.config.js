@@ -37,6 +37,11 @@ const nextConfig = {
   },
   async redirects() {
     return [
+      {
+        source: "/resources/cga-webinar",
+        destination: "/blog/charitable-gift-annuities-loyal-donors",
+        permanent: true,
+      },
       // Referral tracking link (code-only; key kept internally)
       {
         source: "/r/4827",
