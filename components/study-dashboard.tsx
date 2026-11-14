@@ -72,12 +72,23 @@ export function StudyDashboard({ data, eyebrow, title, description, pdfPath, sho
           <section aria-labelledby="online-survey-results" className="mb-8 rounded-2xl border border-[rgb(var(--line))] bg-white p-6">
             <h2 id="online-survey-results" className="font-display text-2xl">Survey Results</h2>
             {data.surveyResults ? <>
-              <p className="mt-2 text-sm">{data.surveyResults.responseCount} online survey responses · Through {new Date(data.surveyResults.asOf).toLocaleString("en-US", { timeZone: "America/Los_Angeles", dateStyle: "medium", timeStyle: "short" })} Pacific</p>
-              <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">Reported separately from interviews. Counts use respondents answering each question; multiple selections may exceed that total. Written comments and participant details are not displayed.</p>
-              <div className="mt-6 space-y-6">{data.surveyResults.questions.map(q => <div key={q.id}>
-                <h3 className="font-semibold">{q.label}</h3><p className="mt-1 text-xs">{q.answered} answered</p>
-                <dl className="mt-2 space-y-1 text-sm">{q.counts.map(c => <div key={c.label} className="flex justify-between gap-4 border-b border-[rgb(var(--line))] py-2"><dt>{c.label}</dt><dd className="shrink-0 font-semibold">{c.count}{q.answered ? ` (${Math.round(c.count / q.answered * 100)}%)` : ""}</dd></div>)}</dl>
-              </div>)}</div>
+              <p className="mt-2 text-sm">Through {new Date(data.surveyResults.asOf).toLocaleString("en-US", { timeZone: "America/Los_Angeles", dateStyle: "medium", timeStyle: "short" })} Pacific</p>
+              <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">Reported separately from interviews. Each survey session is counted once in its latest state at the cutoff. In-progress answers are not final submissions. Counts use sessions answering each question; multiple selections may exceed that total. Written comments and participant details are not displayed.</p>
+              <p className="mt-4 font-semibold">Submitted surveys: {data.surveyResults.responseCount} · In-progress surveys (not submitted): {data.surveyResults.partialResponseCount ?? 0}</p>
+              <div className="mt-6 space-y-7">{data.surveyResults.questions.map(q => {
+                const partial = data.surveyResults!.partialQuestions?.find(p => p.id === q.id);
+                return <section key={q.id}>
+                  <h3 className="font-semibold">{q.label}</h3>
+                  <table className="mt-3 w-full border-collapse text-left text-xs sm:text-sm">
+                    <caption className="sr-only">Submitted and in-progress answers to {q.label}</caption>
+                    <thead><tr className="border-b border-[rgb(var(--line))]"><th scope="col" className="w-1/2 py-2 pr-3">Response</th><th scope="col" className="px-2 py-2 text-right">Submitted<br /><span className="font-normal">{q.answered} answered</span></th><th scope="col" className="py-2 pl-2 text-right">In-progress<br /><span className="font-normal">{partial?.answered ?? 0} answered</span></th></tr></thead>
+                    <tbody>{q.counts.map(c => {
+                      const pc = partial?.counts.find(p => p.label === c.label)?.count ?? 0;
+                      return <tr key={c.label} className="border-b border-[rgb(var(--line))]"><th scope="row" className="py-2 pr-3 font-normal">{c.label}</th><td className="px-2 py-2 text-right">{c.count}{q.answered ? ` (${Math.round(c.count / q.answered * 100)}%)` : ""}</td><td className="py-2 pl-2 text-right">{pc}{partial?.answered ? ` (${Math.round(pc / partial.answered * 100)}%)` : ""}</td></tr>;
+                    })}</tbody>
+                  </table>
+                </section>;
+              })}</div>
             </> : <p className="mt-3 text-sm">Survey results have not yet been published. The next successful study refresh will publish a separate survey snapshot.</p>}
           </section>
         )}

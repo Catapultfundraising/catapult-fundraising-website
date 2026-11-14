@@ -91,7 +91,7 @@ async function run(req: NextRequest, save: boolean) {
       // publish an apparent zero or carry a stale survey count into a new week.
       const now = new Date();
       const cutoff = save && isCronRequest(req) && !forced ? surveyWeeklyCutoff(now) : now;
-      data.surveyResults = aggregateSurvey(await listSurveyResponses(), cutoff);
+      data.surveyResults = aggregateSurvey(await listSurveyResponses(cutoff), cutoff);
     }
     if (save) await saveJagDashboardData(data, portal.dataPath);
 

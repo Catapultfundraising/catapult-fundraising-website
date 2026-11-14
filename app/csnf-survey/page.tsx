@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 export default function Page() {
   const accepting = process.env.CSNF_SURVEY_ENABLED === "true" && process.env.VERCEL_ENV !== "preview";
   return <div className="min-h-screen bg-white font-sans text-[#1f2933]">
-    <header className="border-b-4 border-[#FFD51D]"><div className="mx-auto max-w-5xl px-6 py-6"><Image src="/csnf/csnf-logo.png" alt="College of Southern Nevada Foundation" width={553} height={283} className="h-16 w-auto sm:h-20" priority /></div></header>
+    <header className="border-b-4 border-[#FFD51D]"><div className="mx-auto max-w-3xl px-6 py-6"><Image src="/csnf/csnf-logo.png" alt="College of Southern Nevada Foundation" width={553} height={283} className="h-16 w-auto sm:h-20" priority /></div></header>
     <div>
       <section className="bg-[#004990] text-white"><div className="mx-auto max-w-3xl px-6 py-12 sm:py-16"><p className="text-sm font-bold uppercase tracking-widest text-[#FFD51D]">Northwest Campus Campaign</p><h1 className="mt-3 text-3xl font-bold sm:text-5xl">CSNF Survey</h1><p className="mt-5 text-lg">Thank you for sharing your perspective on the proposed CSN Northwest Campus. Your responses will help assess community support and philanthropic potential for the project. Please select the response that best reflects your views.</p></div></section>
       <section aria-labelledby="case-summary" className="mx-auto max-w-3xl px-6 py-10">

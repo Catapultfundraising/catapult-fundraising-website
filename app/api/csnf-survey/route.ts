@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     try { body = JSON.parse(Buffer.concat(chunks).toString("utf8")); }
     catch { return json({ error: "Invalid response." }, 400); }
     const receipt = await saveSurvey(body);
-    return json({ ok: true, id: receipt.id }, 200);
+    return json({ ok: true, ...receipt }, 200);
   } catch (error) {
     if (error instanceof SurveyValidationError) return json({ error: error.message }, 400);
     if (error instanceof SurveyConflictError) return json({ error: error.message }, 409);

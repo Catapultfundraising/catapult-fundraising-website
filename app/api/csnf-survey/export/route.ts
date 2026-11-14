@@ -1,7 +1,7 @@
 import { timingSafeEqual } from "node:crypto";
 import { NextRequest, NextResponse } from "next/server";
 import { listSurveyResponses } from "@/lib/csnf-survey-store";
-import { SURVEY_QUESTIONS, SURVEY_VERSION } from "@/lib/csnf-online-survey";
+import { SURVEY_QUESTIONS, SURVEY_VERSION, SURVEY_SCHEMA_VERSION, IDENTITY_FIELDS } from "@/lib/csnf-online-survey";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   }
   try {
     return NextResponse.json({
-      schemaVersion: 1, surveyVersion: SURVEY_VERSION, questions: SURVEY_QUESTIONS,
+      schemaVersion: SURVEY_SCHEMA_VERSION, surveyVersion: SURVEY_VERSION, questions: SURVEY_QUESTIONS, identityFields: IDENTITY_FIELDS,
       responses: await listSurveyResponses(),
     }, { headers });
   } catch {

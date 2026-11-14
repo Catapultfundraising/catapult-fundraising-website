@@ -404,13 +404,28 @@ export async function buildSummaryPdf(slug: string) {
         {slug === "csnf" && <View>
           <Text style={styles.sectionTitle}>Survey Results</Text>
           {data.surveyResults ? <>
-            <Text style={styles.meta}>{data.surveyResults.responseCount} online survey responses · Through {new Date(data.surveyResults.asOf).toLocaleString("en-US", { timeZone: "America/Los_Angeles", dateStyle: "medium", timeStyle: "short" })} Pacific</Text>
-            <Text style={styles.signalDetail}>Separate from interviews. Denominators are answered responses per question. Multiple selections may exceed the respondent total. No written comments or participant details are included.</Text>
-            {data.surveyResults.questions.map(q => <View key={q.id} wrap={false}>
-              <Text style={styles.sectionTitle}>{q.label}</Text>
-              <Text style={styles.signalDetail}>{q.answered} answered</Text>
-              {q.counts.map(c => <Text key={c.label} style={styles.meta}>{c.label}: {c.count}{q.answered ? ` (${Math.round(c.count / q.answered * 100)}%)` : ""}</Text>)}
-            </View>)}
+            <Text style={styles.meta}>Through {new Date(data.surveyResults.asOf).toLocaleString("en-US", { timeZone: "America/Los_Angeles", dateStyle: "medium", timeStyle: "short" })} Pacific</Text>
+            <Text style={styles.signalDetail}>Separate from interviews. Each survey session is counted once at the cutoff. In-progress answers are not final submissions. Denominators are answered sessions per question; multiple selections may exceed the total. No written comments or participant details are included.</Text>
+            <Text style={styles.meta}>Submitted surveys: {data.surveyResults.responseCount} · In-progress surveys (not submitted): {data.surveyResults.partialResponseCount ?? 0}</Text>
+            {data.surveyResults.questions.map(q => {
+              const partial = data.surveyResults!.partialQuestions?.find(p => p.id === q.id);
+              return <View key={q.id} wrap={false} style={{ marginTop: 10 }}>
+                <Text style={{ fontSize: 10, fontWeight: 700, marginBottom: 5 }}>{q.label}</Text>
+                <View style={{ flexDirection: "row", borderBottomWidth: 0.5, borderBottomColor: LINE, paddingBottom: 4 }}>
+                  <Text style={{ width: "56%", fontSize: 8, fontWeight: 700 }}>Response</Text>
+                  <Text style={{ width: "22%", fontSize: 8, textAlign: "right" }}>Submitted ({q.answered} answered)</Text>
+                  <Text style={{ width: "22%", fontSize: 8, textAlign: "right" }}>In-progress ({partial?.answered ?? 0} answered)</Text>
+                </View>
+                {q.counts.map(c => {
+                  const pc = partial?.counts.find(p => p.label === c.label)?.count ?? 0;
+                  return <View key={c.label} style={{ flexDirection: "row", paddingVertical: 3, borderBottomWidth: 0.3, borderBottomColor: LINE }}>
+                    <Text style={{ width: "56%", fontSize: 8, paddingRight: 5 }}>{c.label}</Text>
+                    <Text style={{ width: "22%", fontSize: 8, textAlign: "right" }}>{c.count}{q.answered ? ` (${Math.round(c.count / q.answered * 100)}%)` : ""}</Text>
+                    <Text style={{ width: "22%", fontSize: 8, textAlign: "right" }}>{pc}{partial?.answered ? ` (${Math.round(pc / partial.answered * 100)}%)` : ""}</Text>
+                  </View>;
+                })}
+              </View>;
+            })}
           </> : <Text style={styles.meta}>Survey results have not yet been published.</Text>}
         </View>}
         <Footer reportDate={data.reportDate} clientName={CLIENT_NAME} />

@@ -21,7 +21,8 @@ fixture = {
   stats: blankStats, completedInterviews: [], scheduledInterviews: [], toBeRescheduled: [],
   declined: [], deceased: [], feasibilitySignals: [], missionThemes: [], quotes: [],
   surveyResults: aggregateSurvey([
-    { id: "00000000-0000-4000-8000-000000000001", surveyVersion: SURVEY_VERSION, submittedAt: "2026-11-13T20:00:00Z", answers: { q1: "Good", q4: ["Other", "Economic growth"], q1_comments: "PRIVATE_FIXTURE_COMMENT_MUST_NOT_APPEAR" } },
+    { id: "00000000-0000-4000-8000-000000000001", status: "submitted", revision: 1000001, firstName: "PRIVATE_NAME", lastName: "PRIVATE_LAST", telephone: "PRIVATE_PHONE", surveyVersion: SURVEY_VERSION, createdAt: "2026-11-13T19:00:00.000Z", updatedAt: "2026-11-13T20:00:00.000Z", submittedAt: "2026-11-13T20:00:00.000Z", answers: { q1: "Good", q4: ["Economic growth"], q1_comments: "PRIVATE_FIXTURE_COMMENT_MUST_NOT_APPEAR" } },
+    { id: "00000000-0000-4000-8000-000000000002", status: "draft", revision: 3, firstName: "PRIVATE_DRAFT", lastName: "PRIVATE_LAST", telephone: "PRIVATE_PHONE", surveyVersion: SURVEY_VERSION, createdAt: "2026-11-13T19:00:00.000Z", updatedAt: "2026-11-13T20:00:00.000Z", submittedAt: null, answers: { q1: "Average", q4: ["Other"], q1_comments: "PRIVATE_FIXTURE_COMMENT_MUST_NOT_APPEAR" } },
   ], new Date("2026-11-14T07:59:59.999Z")),
 };
 (async () => {
@@ -35,9 +36,11 @@ fixture = {
   const { extractText } = await import("unpdf");
   const extracted = await extractText(new Uint8Array(bytes), { mergePages: true });
   assert.ok(extracted.text.includes("Survey Results"));
-  assert.ok(extracted.text.includes("1 online survey responses"));
+  assert.ok(extracted.text.includes("Submitted surveys: 1"));
+  assert.ok(extracted.text.includes("In-progress surveys (not submitted): 1"));
   assert.ok(extracted.text.includes("Pacific"));
   assert.ok(!extracted.text.includes("PRIVATE_FIXTURE_COMMENT"));
+  for (const secret of ["PRIVATE_NAME", "PRIVATE_LAST", "PRIVATE_PHONE", "PRIVATE_DRAFT"]) assert.ok(!extracted.text.includes(secret));
   assert.ok(!extracted.text.includes("00000000-0000-4000"));
   console.log(`PASS actual CSNF PDF fixture: ${extracted.totalPages} pages; separate Survey Results, count/cutoff and no raw comments or IDs.`);
 })().catch(e => { console.error(e); process.exit(1); });

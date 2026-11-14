@@ -1,5 +1,12 @@
 // Online questionnaire; separate from the existing VanillaSoft interview module.
-export const SURVEY_VERSION = "csnf-2026-11";
+export const SURVEY_VERSION = "csnf-2026-11-v2";
+export const SURVEY_SCHEMA_VERSION = 2;
+export const SUBMITTED_REVISION = 1000001;
+export const IDENTITY_FIELDS = [
+  { id: "firstName", label: "First name", required: true },
+  { id: "lastName", label: "Last name", required: true },
+  { id: "telephone", label: "Telephone", required: false },
+] as const;
 export interface SurveyQuestion {
   id: string;
   label: string;
@@ -11,7 +18,8 @@ export interface SurveyQuestion {
 const YES_NO = ["Yes", "No", "Maybe", "Don’t know"];
 // Source: "CSNF Donor Assessment Study Online Questions.docx", supplied in
 // Tina Romero's November 13, 2026 email attachment. Printed date is a placeholder, not launch.
-// No required identity fields were present in the approved questionnaire.
+// Required names, optional telephone and identified autosave were subsequently
+// authorized by Anthony during his preview review. Questions remain verbatim.
 export const SURVEY_QUESTIONS: SurveyQuestion[] = [
   { id: "q1", label: "1. How would you describe the reputation and image of the College of Southern Nevada in the community?", type: "single", options: ["Very good", "Good", "Average", "Problematic", "Don’t know"] },
   { id: "q1_comments", label: "Comments:", type: "text", commentFor: "q1" },
@@ -34,29 +42,50 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
   { id: "q10", label: "10. Is there anything else you would like to share that we have not asked?\nComments:", type: "text" },
 ];
 export type SurveyAnswers = Record<string, string | string[]>;
-export interface SurveyResponse {
+export interface SurveyIdentity { firstName: string; lastName: string; telephone: string }
+export interface SurveyWrite extends SurveyIdentity {
   id: string;
-  submittedAt: string;
+  writeToken: string;
+  revision: number;
+  status: "draft" | "submitted";
   surveyVersion: string;
   answers: SurveyAnswers;
 }
+export interface SurveyResponse extends Omit<SurveyWrite, "writeToken"> {
+  createdAt: string;
+  updatedAt: string;
+  submittedAt: string | null;
+}
+export interface SurveyQuestionResults { id: string; label: string; answered: number; counts: { label: string; count: number }[] }
 export interface SurveyResults {
   surveyVersion: string;
   asOf: string;
   responseCount: number;
-  questions: { id: string; label: string; answered: number; counts: { label: string; count: number }[] }[];
+  questions: SurveyQuestionResults[];
+  partialResponseCount: number;
+  partialQuestions: SurveyQuestionResults[];
 }
 
 export class SurveyValidationError extends Error {}
 export class SurveyConflictError extends Error {}
 
-export function validateSurvey(input: unknown): { id: string; surveyVersion: string; answers: SurveyAnswers } {
+export function validateSurvey(input: unknown): SurveyWrite {
   const fail = (): never => { throw new SurveyValidationError("Please check your responses and try again."); };
   if (!input || typeof input !== "object" || Array.isArray(input)) return fail();
   const body = input as Record<string, unknown>;
-  if (Object.keys(body).some(k => !["id", "surveyVersion", "answers", "website"].includes(k))) return fail();
+  if (Object.keys(body).some(k => !["id", "writeToken", "revision", "status", "surveyVersion", "firstName", "lastName", "telephone", "answers", "website"].includes(k))) return fail();
   if (body.website || body.surveyVersion !== SURVEY_VERSION || typeof body.id !== "string" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(body.id)) return fail();
+  if (typeof body.writeToken !== "string" || !/^[0-9a-f]{64}$/.test(body.writeToken)) return fail();
+  if (!Number.isSafeInteger(body.revision) || (body.status !== "draft" && body.status !== "submitted")) return fail();
+  if (body.status === "draft" ? Number(body.revision) < 1 || Number(body.revision) >= SUBMITTED_REVISION : body.revision !== SUBMITTED_REVISION) return fail();
+  const identity: SurveyIdentity = { firstName: "", lastName: "", telephone: "" };
+  for (const key of ["firstName", "lastName", "telephone"] as const) {
+    const value = body[key] ?? (key === "telephone" ? "" : null);
+    if (typeof value !== "string" || value.length > (key === "telephone" ? 80 : 120) || /[\u0000-\u001f\u007f]/.test(value)) return fail();
+    identity[key] = value.trim();
+    if (key !== "telephone" && !identity[key]) return fail();
+  }
   if (!body.answers || typeof body.answers !== "object" || Array.isArray(body.answers)) return fail();
   const supplied = body.answers as Record<string, unknown>;
   if (Object.keys(supplied).some(k => !SURVEY_QUESTIONS.some(q => q.id === k))) return fail();
@@ -75,26 +104,34 @@ export function validateSurvey(input: unknown): { id: string; surveyVersion: str
     }
     if (q.required && answers[q.id].length === 0) return fail();
   }
-  if (!Object.values(answers).some(v => v.length)) return fail();
-  return { id: body.id, surveyVersion: SURVEY_VERSION, answers };
+  return { id: body.id, writeToken: body.writeToken, revision: Number(body.revision), status: body.status, surveyVersion: SURVEY_VERSION, ...identity, answers };
 }
 
 // Only fixed-choice counts are reportable. Never include names, free text,
 // individual response rows or contact details in client-facing summaries.
 export function aggregateSurvey(responses: SurveyResponse[], asOf: Date): SurveyResults {
   if (!Number.isFinite(asOf.getTime())) throw new Error("Invalid survey cutoff");
-  const eligible = responses.filter(r => r.surveyVersion === SURVEY_VERSION && Date.parse(r.submittedAt) <= asOf.getTime());
-  return {
-    surveyVersion: SURVEY_VERSION, asOf: asOf.toISOString(), responseCount: eligible.length,
-    questions: SURVEY_QUESTIONS.filter(q => q.type !== "text").map(q => ({
-      id: q.id, label: q.label,
-      answered: eligible.filter(r => (r.answers[q.id]?.length ?? 0) > 0).length,
-      counts: (q.options ?? []).map(label => ({
-        label, count: eligible.filter(r => {
-          const v = r.answers[q.id]; return Array.isArray(v) ? v.includes(label) : v === label;
-        }).length,
-      })),
+  const latest = new Map<string, SurveyResponse>();
+  for (const r of responses) {
+    if (r.surveyVersion !== SURVEY_VERSION || Date.parse(r.updatedAt) > asOf.getTime()) continue;
+    if (!latest.has(r.id) || latest.get(r.id)!.revision < r.revision) latest.set(r.id, r);
+  }
+  const eligible = [...latest.values()];
+  const submitted = eligible.filter(r => r.status === "submitted");
+  const partial = eligible.filter(r => r.status === "draft");
+  const breakdown = (cohort: SurveyResponse[]) => SURVEY_QUESTIONS.filter(q => q.type !== "text").map(q => ({
+    id: q.id, label: q.label,
+    answered: cohort.filter(r => (r.answers[q.id]?.length ?? 0) > 0).length,
+    counts: (q.options ?? []).map(label => ({
+      label, count: cohort.filter(r => {
+        const v = r.answers[q.id]; return Array.isArray(v) ? v.includes(label) : v === label;
+      }).length,
     })),
+  }));
+  return {
+    surveyVersion: SURVEY_VERSION, asOf: asOf.toISOString(),
+    responseCount: submitted.length, questions: breakdown(submitted),
+    partialResponseCount: partial.length, partialQuestions: breakdown(partial),
   };
 }
 
