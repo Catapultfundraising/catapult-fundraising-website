@@ -18,6 +18,7 @@ async function get(path: string, opts: Parameters<typeof blobGet>[1]) {
 export const JAG_DATA_PATH = "jag-data/snapshot.json";
 
 export interface Person {
+  solicitor?: string; solicitor2?: string; assignmentConflict?: boolean;
   cptid: number; name: string; lifetime: number; gifts: number; first: string; last: string;
   largest: number; years: number; ds: string; capacity: string; capMin: number; qs: string;
 }
@@ -53,10 +54,12 @@ export async function getJagSnapshot(): Promise<JagSnapshot | null> {
 export const JAG_RECORDS_PATH = "jag-data/records.json";
 
 export interface IndexRow {
+  solicitor?: string; solicitor2?: string; assignmentConflict?: boolean;
   cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number;
   last: string; years: number; band: string; ds?: string; capacity?: string; capMin: number;
 }
 export interface DonorRecord {
+  assignment?: { solicitor: string; solicitor2: string; assignmentConflict?: boolean };
   cptid: number; name: string; kind?: string;
   contact?: Record<string, string>; flags?: string[]; ds?: Record<string, string>;
   softCredits?: Record<string, string>;

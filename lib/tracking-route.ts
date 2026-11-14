@@ -15,8 +15,8 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
   async function withSecondary(t: Tracking): Promise<Tracking> {
     const sec = await secondarySolicitors(client);
     for (const [id, v] of Object.entries(sec)) {
-      if (t.prospects[id]) t.prospects[id] = { ...t.prospects[id], solicitor2: v || undefined };
-      else if (v) t.prospects[id] = { status: "Active", solicitor2: v, updatedAt: "", by: "" };
+      if (t.prospects[id]) t.prospects[id] = { ...t.prospects[id], solicitor2: v };
+      else t.prospects[id] = { status: "Active", solicitor2: v, updatedAt: "", by: "" };
     }
     return t;
   }

@@ -1,3 +1,4 @@
+import { assignmentResolver, type AssignmentTracking } from "./effective-assignment";
 import { askEdits, effectiveAsk } from "./effective-ask";
 import { NextRequest, NextResponse } from "next/server";
 import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
@@ -48,6 +49,18 @@ export function prospectRecord(p: Prospect): Full {
     notes: [p.note ?? "", `Added ${p.created_at ? new Date(p.created_at).toLocaleDateString("en-US") : ""} by ${p.created_by ?? "dashboard"}`].filter(Boolean),
   };
 }
+/** Note-only source rebuilds can create positive-CPTID placeholders over a saved manual prospect.
+ * Enrich that existing identity, never recreate it or discard source notes/gifts. Named source rows
+ * and populated source contact fields remain authoritative; explicit dashboard contact edits apply later. */
+export function enrichProspectRecord(base: Full, prospect?: Prospect): Full {
+  if (!prospect) return base;
+  const manual = prospectRecord(prospect);
+  const placeholder = !String(base.name ?? "").trim() || String(base.name).trim().toLowerCase() === `cptid ${base.cptid}`;
+  const contact = { ...(base.contact ?? {}) };
+  for (const [key, value] of Object.entries(manual.contact ?? {})) if (!contact[key]?.trim() && value) contact[key] = value;
+  return { ...base, ...(placeholder ? { name: manual.name, kind: manual.kind } : {}), contact };
+}
+
 const num = (v: unknown) => Number(v) || 0;
 const minDate = (a: string, b: string) => (!a ? b : !b ? a : a < b ? a : b);
 const maxDate = (a: string, b: string) => (!a ? b : !b ? a : a > b ? a : b);
@@ -123,7 +136,13 @@ export function overlaidIndex(base: Idx[], prospects: Prospect[], campaign: Retu
     if (have.has(p.cptid) || extra.some((r) => r.cptid === p.cptid)) continue;
     extra.push({ cptid: p.cptid, name: p.name, kind: "Campaign donor", city: "", lifetime: 0, gifts: 0, largest: 0, last: "", years: 0, band: "", capMin: 0 });
   }
-  const all = [...base, ...extra];
+  const manualById = new Map(prospects.map((p) => [p.cptid, p]));
+  const all = [...base.map((r) => {
+    const p = manualById.get(r.cptid);
+    if (!p) return r;
+    const identity = enrichProspectRecord({ cptid: r.cptid, name: r.name, kind: r.kind, contact: { city: r.city ?? "" } }, p);
+    return { ...r, name: identity.name ?? r.name, kind: identity.kind ?? r.kind, city: identity.contact?.city ?? r.city };
+  }), ...extra];
   const byId = new Map(all.map((r) => [r.cptid, r]));
   const gone = (c: number) => o.mergedInto.has(c) || o.deleted.has(c);
   return all.filter((r) => !gone(r.cptid)).map((r) => {
@@ -139,14 +158,14 @@ export function overlaidIndex(base: Idx[], prospects: Prospect[], campaign: Retu
 // GET ?id=<CPTID> -> one full donor record; no id -> the lookup index. Prospects added on the dashboard (Engage SQL)
 // are included so every name on every screen opens a record, even before the next refresh picks them up.
 // Dashboard edits (contact, wealth, merges, deletes) are applied on read; merged/deleted records leave the index.
-export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, load: () => Promise<Data>) {
+export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, load: () => Promise<Data>, getTracking: () => Promise<AssignmentTracking> = async () => ({ prospects: {} }), getState = portalCampaignStateSafe) {
   async function GET(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     const data = await load();
     if (!data) return NextResponse.json({ error: "records not loaded" }, { status: 503 });
     const drill = req.nextUrl.searchParams.get("drill");
     if (drill) return NextResponse.json({ cptids: drillIds(client, data.records as Record<string, Rec>, drill, req.nextUrl.searchParams.get("v") ?? "") });
-    const state = await portalCampaignStateSafe(client);
+    const [state, tracking] = await Promise.all([getState(client), getTracking()]);
     const prospects = (state?.prospects ?? []) as Prospect[];
     const o = buildOverlay((state?.updates ?? []) as unknown as UpdateRow[]);
     // Committee/campaign-only donors can have a valid campaign CPTID but no master
@@ -154,10 +173,11 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
     const campaign = campaignRecords(state?.gifts ?? []);
     const lookup = (c: number): Full | null => {
       const rec = data.records[String(c)] as Full | undefined;
-      if (rec) return rec;
       const p = prospects.find((x) => x.cptid === c);
+      if (rec) return enrichProspectRecord(rec, p);
       return p ? prospectRecord(p) : (campaign.get(c) ?? null);
     };
+    const assignment = assignmentResolver(data.records, tracking, (state?.updates ?? []) as UpdateRow[], o);
     const id = req.nextUrl.searchParams.get("id");
     if (id) {
       const asked = Number(id);
@@ -165,10 +185,13 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
       const base = lookup(target);
       if (!base) return NextResponse.json({ error: "not found" }, { status: 404 });
       const out = overlayRecord(base, o, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup);
+      const a = assignment(target);
+      out.assignment = a;
+      if (out.portfolio) out.portfolio = { ...(out.portfolio as object), solicitor: a.solicitor, secondary: a.solicitor2 };
       if (target !== asked) out.redirectedFrom = { cptid: asked, name: lookup(asked)?.name ?? `CPTID ${asked}` };
       return NextResponse.json(out, { headers: { "Cache-Control": "no-store" } });
     }
-    const index = overlaidIndex(data.index, prospects, campaign, o);
+    const index = overlaidIndex(data.index, prospects, campaign, o).map((r) => ({ ...r, ...assignment(r.cptid) }));
     return NextResponse.json({ asOf: data.asOf, index }, { headers: { "Cache-Control": "private, max-age=20" } });
   }
   return { GET };

@@ -1,5 +1,7 @@
 "use client";
 
+import { viewAssignment } from "@/lib/portal-v2/effective-assignment";
+
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from "react";
 import { RecordNav, SafeBoundary, cmpValues, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
 import { useUrlId } from "@/lib/use-url-state";
@@ -74,7 +76,7 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
     window.addEventListener("crm-index-refresh", f);
     return () => window.removeEventListener("crm-index-refresh", f);
   }, []);
-  const ctx = useMemo<Ctx>(() => ({ index, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking, setRecId]);
+  const ctx = useMemo<Ctx>(() => ({ index: index?.map((r) => ({ ...r, ...viewAssignment(r, index, tracking) })) ?? null, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking, setRecId]);
   const [pick, setPick] = useState<{ name: string; rows: IndexRow[] } | null>(null);
   const openName = useCallback((name: string, cptid?: number | null) => {
     if (cptid && cptid > 0) { setRecId(cptid); return; }
@@ -140,6 +142,7 @@ export const indexCols: { key: keyof IndexRow; label: string; kind?: ExportKind 
   { key: "name", label: "Name" }, { key: "kind", label: "Type" }, { key: "city", label: "City" },
   { key: "lifetime", label: "Lifetime", kind: "usd" }, { key: "gifts", label: "# Gifts", kind: "num" },
   { key: "largest", label: "Largest", kind: "usd" }, { key: "last", label: "Last Gift" },
+  { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
   { key: "ds", label: "DS Rating" }, { key: "capacity", label: "Capacity" },
 ];
 export function indexPayload(title: string, sub: string, rows: IndexRow[]): ExportPayload {
@@ -155,7 +158,7 @@ export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: numbe
   const [sort, setSort] = useState<{ k: keyof IndexRow; dir: 1 | -1 }>({ k: "lifetime", dir: -1 });
   const shown = useMemo(() => {
     const ql = q.toLowerCase();
-    const r = q ? rows.filter((x) => `${x.name} ${x.city ?? ""} ${x.cptid}`.toLowerCase().includes(ql)) : rows;
+    const r = q ? rows.filter((x) => `${x.name} ${x.city ?? ""} ${x.cptid} ${x.solicitor ?? ""} ${x.solicitor2 ?? ""}`.toLowerCase().includes(ql)) : rows;
     return [...r].sort((a, b) => cmpValues(a[sort.k], b[sort.k]) * sort.dir);
   }, [rows, q, sort]);
   return (
@@ -257,7 +260,10 @@ export function recordPayload(r: DonorRecord, t?: PvasTracking): ExportPayload {
   const st = t?.prospects[String(r.cptid)];
   const acts = (t?.activity ?? []).filter((a) => a.cptid === r.cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
   const c = r.contact ?? {};
+  const assignment = viewAssignment({ cptid: r.cptid, ...r.assignment }, null, t ?? { prospects: {} });
   const prof: (string | number | null)[][] = [
+    ["Primary solicitor", assignment.solicitor || "Unassigned", "", "", "", ""],
+    ["Secondary solicitor", assignment.solicitor2 || "Unassigned", "", "", "", ""],
     ["CPTID", String(r.cptid), "", "", "", ""], ["Type", r.kind ?? "", "", "", "", ""],
     ["Address", [c.street, c.city, c.state, c.zip].filter(Boolean).join(", "), "", "", "", ""],
     ["Phone", [c.phone, c.mobile].filter(Boolean).join(" / "), "", "", "", ""], ["Email", [c.email, c.workEmail].filter(Boolean).join(" / "), "", "", "", ""],
@@ -309,12 +315,16 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
             <FileText className="h-3.5 w-3.5" />View PIR
           </a>
         )}
-        {tracking.prospects[String(r.cptid)]?.solicitor2 && <span className="rounded-full bg-[rgb(var(--paper))] px-2.5 py-0.5 text-xs">Secondary solicitor: {tracking.prospects[String(r.cptid)].solicitor2}</span>}
+        {(["solicitor", "solicitor2"] as const).map((key) => {
+          const a = viewAssignment({ cptid: r.cptid, ...r.assignment }, index, tracking);
+          return <span key={key} className="rounded-full bg-[rgb(var(--paper))] px-2.5 py-0.5 text-xs">{key === "solicitor" ? "Primary solicitor" : "Secondary solicitor"}: {a[key] || "Unassigned"}</span>;
+        })}
         {tracking.prospects[String(r.cptid)] && <span className="rounded-full border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium">{tracking.prospects[String(r.cptid)].status}</span>}
         <MergeDeleteButtons client="pvas" r={r as never} index={index} onChanged={reload} />
         <DownloadButtons get={() => recordPayload(r, tracking)} small />
       </div>
-      <TrackingPanel cptid={r.cptid} />
+      {r.assignment?.assignmentConflict && <p className="mb-3 text-sm">Merged source assignments conflict. Review the merged records before choosing a solicitor.</p>}
+      <TrackingPanel key={r.cptid} cptid={r.cptid} assignment={r.assignment} />
       <ProspectDocuments key={`pvas-${r.cptid}`} client="pvas" cptid={r.cptid} />
       <AskAmountPanel client="pvas" cptid={r.cptid} base={(r as unknown as { campaignAsk?: { ask?: number } }).campaignAsk?.ask ?? (r as { portfolio?: { ask?: number } }).portfolio?.ask ?? 0} onSaved={reload} />
       <div className="mb-4 grid grid-cols-2 gap-3 md:grid-cols-5">
@@ -342,7 +352,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         <Sec title="Board, committee, portfolio and notes">
           {(r.board ?? []).map((b, i) => <Field key={i} k={b.board || "Board"} v={`${b.title ?? ""} ${b.term ?? ""}${b.active ? "" : " (former)"}${b.ask ? ` · Ask ${usd(b.ask)} · Get ${usd(b.get ?? 0)}` : ""}`} />)}
           {(r.committees ?? []).map((x, i) => <Field key={i} k="Committee" v={x} />)}
-          {r.portfolio && <Field k="Campaign portfolio" v={[`Primary Solicitor: ${r.portfolio.solicitor}`, (!(r.portfolio as { askBlank?: boolean }).askBlank && (r.portfolio.ask || (r.portfolio as { askEdited?: boolean }).askEdited)) ? `Campaign Ask ${usd(r.portfolio.ask)}` : "", r.portfolio.priority && `2026 priority ${r.portfolio.priority}`, r.portfolio.prevAsk ? `Previous ask ${usd(r.portfolio.prevAsk)}` : ""].filter(Boolean).join(" · ")} />}
+          {r.portfolio && <Field k="Campaign portfolio" v={[`Primary Solicitor: ${r.portfolio.solicitor || "Unassigned"}`, `Secondary Solicitor: ${r.portfolio.secondary || "Unassigned"}`, (!(r.portfolio as { askBlank?: boolean }).askBlank && (r.portfolio.ask || (r.portfolio as { askEdited?: boolean }).askEdited)) ? `Campaign Ask ${usd(r.portfolio.ask)}` : "", r.portfolio.priority && `2026 priority ${r.portfolio.priority}`, r.portfolio.prevAsk ? `Previous ask ${usd(r.portfolio.prevAsk)}` : ""].filter(Boolean).join(" · ")} />}
           {r.portfolio?.task && <Field k="Task" v={`${r.portfolio.task}${r.portfolio.due ? ` (due ${r.portfolio.due})` : ""}`} />}
           {r.portfolio?.naming && <Field k="Naming interest" v={r.portfolio.naming} />}
           {r.portfolio?.relationship && <Field k="Relationship" v={r.portfolio.relationship} />}
@@ -372,15 +382,16 @@ function useByName() {
   useEffect(() => { setBy(localStorage.getItem("pvas-by") ?? ""); }, []);
   return [by, (v: string) => { setBy(v); localStorage.setItem("pvas-by", v); }] as const;
 }
-function TrackingPanel({ cptid }: { cptid: number }) {
-  const { tracking, setTracking } = useCrm();
+function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { solicitor: string; solicitor2: string } }) {
+  const { index, tracking, setTracking } = useCrm();
   const cur = tracking.prospects[String(cptid)];
   const acts = tracking.activity.filter((a) => a.cptid === cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
   const [by, setBy] = useByName();
   const [status, setStatus] = useState<string>(cur?.status ?? "Active");
   const [level, setLevel] = useState(cur?.level ? String(cur.level) : "");
-  const [solicitor, setSolicitor] = useState(cur?.solicitor ?? "");
-  const [solicitor2, setSolicitor2] = useState(cur?.solicitor2 ?? "");
+  const a = viewAssignment({ cptid, ...assignment }, index, tracking);
+  const [solicitor, setSolicitor] = useState(a.solicitor);
+  const [solicitor2, setSolicitor2] = useState(a.solicitor2);
   const [reason, setReason] = useState(cur?.reason ?? "");
   const [kind, setKind] = useState<string>("Visit");
   const [date, setDate] = useState(todayUs());

@@ -227,7 +227,7 @@ export async function buildBaq() {
   for (const p of pool) {
     if (p.cptid >= SYNTH_BASE || !R.has(p.cptid)) continue;
     const x = rec(p.cptid);
-    x.portfolio = { solicitor: p.solicitor, secondary: "", ask: p.ask, prevAsk: 0, priority: p.status, task: p.note, due: "", relationship: p.history, naming: "", donorType: p.donorType };
+    x.portfolio = { solicitor: p.solicitor, secondary: x.portfolio?.secondary ?? "", ask: p.ask, prevAsk: 0, priority: p.status, task: p.note, due: "", relationship: p.history, naming: "", donorType: p.donorType };
     x.calling.push({ batch: "$25M gift chart", tier: p.status, interviewer: p.solicitor, appt: "" });
   }
   const lists: [string, Set<number | null | undefined>][] = [["Campaign committee / board", new Set(board.map((b) => b.cptid))], ["$25M gift chart", new Set(pool.map((p) => p.cptid))], ["Feasibility study", new Set(fp.map((f) => f.cptid))]];

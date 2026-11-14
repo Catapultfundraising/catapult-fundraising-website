@@ -1,4 +1,6 @@
 "use client";
+
+import { filterAssignments, isUnassigned, assignmentMembers, belongsToSolicitor } from "@/lib/portal-v2/effective-assignment";
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 
 import { useMemo, useState } from "react";
@@ -166,6 +168,7 @@ function cellOut(c: AnyCol, r: Record<string, unknown>): string | number {
 
 const personCols: { key: keyof Person; label: string; fmt?: (v: never) => string; right?: boolean }[] = [
   { key: "name", label: "Name" },
+  { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
   { key: "lifetime", label: "Lifetime", fmt: (v: number) => usd(v), right: true },
   { key: "gifts", label: "# Gifts", right: true },
   { key: "largest", label: "Largest", fmt: (v: number) => usd(v), right: true },
@@ -461,7 +464,7 @@ function GiftChartTab({ d }: { d: JagSnapshot }) {
                 <Table
                   csvName={`GC2P ${formatDollars(x.level)} Level`}
                   exportSub={`${formatDollars(goal)} goal`}
-                  rows={x.people.map((p) => ({ ...p, solicitor2: stOf(p.cptid)?.solicitor2 ?? "", status: stOf(p.cptid)?.status ?? "Unassigned", solicitor: stOf(p.cptid)?.solicitor ?? "", pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
+                  rows={x.people.map((p) => ({ ...p, solicitor2: p.solicitor2 ?? "", status: stOf(p.cptid)?.status ?? "Unassigned", solicitor: p.solicitor ?? "", pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
                   cols={[
                     { key: "name", label: "Prospect" },
                     { key: "status", label: "Status" },
@@ -526,6 +529,7 @@ function Prospects({ d }: { d: JagSnapshot }) {
     { k: "Lapsed $1K+", rows: d.lapsed, n: d.lapsedCount, desc: "Lifetime $1K or more, no gift in the last 3 years. Reactivation pool." },
   ];
   const [sel, setSel] = useState(0);
+  const [assignmentFilter, setAssignmentFilter] = useState("all");
   const p = pools[sel];
   return (
     <div className="space-y-4">
@@ -539,7 +543,12 @@ function Prospects({ d }: { d: JagSnapshot }) {
       </div>
       <Card>
         <H sub={`${p.desc}${p.n > p.rows.length ? ` Showing top ${p.rows.length} of ${num(p.n)}.` : ""}`}>{p.k} prospects</H>
-        <Table rows={p.rows as never} cols={personCols as never} csvName={`${p.k} Prospects`} />
+        <label className="mb-3 block text-xs">Assignment
+          <select aria-label="Assignment" value={assignmentFilter} onChange={(e) => setAssignmentFilter(e.target.value)} className="ml-2 rounded-md border border-[rgb(var(--line))] bg-white px-3 py-1.5">
+            <option value="all">All prospects</option><option value="assigned">Assigned (either solicitor)</option><option value="unassigned">Unassigned (both blank)</option><option value="review">Merged assignments to review</option>
+          </select>
+        </label>
+        <Table rows={filterAssignments(p.rows, assignmentFilter) as never} cols={personCols as never} csvName={`${p.k} Prospects`} />
       </Card>
     </div>
   );
@@ -700,7 +709,8 @@ export function JagDataDashboard({ data }: { data: JagSnapshot }) {
   return <CrmProvider><PortalV2Provider client="jag"><JagDashboardBody data={data} /></PortalV2Provider></CrmProvider>;
 }
 function JagDashboardBody({ data: snapshot }: { data: JagSnapshot }) {
-  const data = useCampaignAskSnapshot(snapshot);
+  const { index, tracking } = useCrm();
+  const data = useCampaignAskSnapshot(snapshot, index, tracking);
   const [tab, setTab] = useUrlState<Tab | "Prospect Ratings">("tab", "Overview", [...TABS, "Prospect Ratings"]);
   const staff = useBoardReviewStaff("jag");
   return (

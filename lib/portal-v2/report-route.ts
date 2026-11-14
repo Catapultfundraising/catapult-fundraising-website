@@ -1,8 +1,9 @@
+import { assignmentResolver } from "./effective-assignment";
 import { NextRequest, NextResponse } from "next/server";
 import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 import { campaignRecords } from "@/lib/portal-v2/campaign-records";
-import { overlaidIndex, type Data, type Prospect } from "@/lib/portal-v2/records-route";
+import { enrichProspectRecord, overlaidIndex, type Data, type Prospect } from "@/lib/portal-v2/records-route";
 import { parseCapacity, FIELD_BY_ID, XLSX_MAX_ROWS, queryErrors, reportNotes, runReport, sanitizeQuery, usesTracking, type ReportRow } from "@/lib/portal-v2/report-fields";
 import type { PortalClient, PortalGift, PortalState } from "@/lib/portal-v2/clients";
 
@@ -32,11 +33,12 @@ export function buildReportRows(data: NonNullable<Data>, state: PortalState | nu
     if (g.kind === "pledge") cur.pledged += Number(g.amount) || 0; else cur.received += Number(g.amount) || 0;
     camp.set(t, cur);
   }
-  // Secondary solicitor is saved in Engage SQL (latest row per CPTID wins), same as the tracking API.
-  const sec = new Map<number, string>();
-  for (const u of [...(state?.updates ?? [])].sort((a, b) => (Number(a.id) || 0) - (Number(b.id) || 0))) if (u.field === "solicitor2") sec.set(Number(u.cptid), u.new_value ?? "");
+  const assignment = assignmentResolver(data.records, tracking, (state?.updates ?? []) as UpdateRow[], o);
   const pById = new Map(prospects.map((p) => [p.cptid, p]));
-  const recOf = (c: number) => (data.records[String(c)] ?? null) as Rec | null;
+  const recOf = (c: number) => {
+    const base = data.records[String(c)];
+    return base ? enrichProspectRecord(base as Parameters<typeof enrichProspectRecord>[0], pById.get(c)) as Rec : null;
+  };
   return index.map((r) => {
     const rec = recOf(r.cptid);
     const p = pById.get(r.cptid);
@@ -53,13 +55,14 @@ export function buildReportRows(data: NonNullable<Data>, state: PortalState | nu
     for (const s of mergedSources(o, r.cptid)) first = minDate(first, recOf(s)?.summary?.first ?? "");
     const t = tracking?.prospects[String(r.cptid)];
     const cm = camp.get(r.cptid);
+    const a = assignment(r.cptid);
     const row: ReportRow = {
       cptid: r.cptid, name: r.name, kind: r.kind ?? "", flags: (rec?.flags ?? (p ? ["Added on the dashboard"] : [])).join("; "),
       lifetime: r.lifetime || 0, gifts: r.gifts || 0, largest: r.largest || 0, first, last: r.last || "", years: r.years || 0, band: r.band || "",
       ds: w?.rating?.value || x.ds || pick(screened, RATING_KEYS), capacity: w?.capacity?.value || x.capacity || pick(screened, CAP_KEYS),
       capacityMin: null, capacityRead: "",
       campaignPledged: state ? Math.round((cm?.pledged ?? 0) * 100) / 100 : null, campaignReceived: state ? Math.round((cm?.received ?? 0) * 100) / 100 : null,
-      status: t?.status ?? "", solicitor: t?.solicitor ?? "", solicitor2: sec.get(r.cptid) ?? t?.solicitor2 ?? "",
+      status: t?.status ?? "", solicitor: a.solicitor, solicitor2: a.solicitor2, assignmentReview: a.assignmentConflict ? "Merged assignments need review" : "",
     };
     for (const k of CONTACT) row[k] = c[k] ?? (k === "street" ? c.address ?? "" : "");
     // Index city is only a fallback when nobody (client file or staff) has set a city; a staff-cleared city stays blank.

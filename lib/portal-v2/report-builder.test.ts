@@ -75,7 +75,7 @@ async function main() {
   assert.equal((await post5({ query: { fields: ["name", "status"] } })).status, 503);
   assert.equal((await post5({ query: { fields: ["name"], filters: [{ field: "solicitor", op: "not_empty" }] } })).status, 503);
   assert.equal((await post5({ query: { fields: ["name"], sort: { field: "status", dir: 1 } } })).status, 503);
-  assert.equal((await post5({ query: { fields: ["name", "solicitor2"] } })).status, 200, "secondary solicitor comes from SQL, not tracking");
+  assert.equal((await post5({ query: { fields: ["name", "solicitor2"] } })).status, 503, "secondary assignment fallback also requires tracking availability");
   // Excel cap: oversize lists are refused (no partial file).
   const big = { asOf: "x", records: {}, index: Array.from({ length: XLSX_MAX_ROWS + 1 }, (_, i) => idx(10_000 + i, `ZZTEST Big ${i}`, 1)) };
   let built = false;

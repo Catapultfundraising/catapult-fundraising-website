@@ -1,4 +1,6 @@
 "use client";
+
+import { assignmentSnapshot, type Assignment, type AssignmentTracking } from "@/lib/portal-v2/effective-assignment";
 import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
 import { buildOverlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 
@@ -36,12 +38,14 @@ export function PortalV2Provider({ client, children }: { client: PortalClient; c
   }, [reload]);
   return <V2.Provider value={{ client, state, reload }}>{children}</V2.Provider>;
 }
-export function useCampaignAskSnapshot<T>(snapshot: T): T {
+export function useCampaignAskSnapshot<T>(snapshot: T, index?: ({ cptid: number } & Partial<Assignment>)[] | null, tracking?: AssignmentTracking): T {
   const { client, state } = useV2();
   return useMemo(() => {
     const updates = (state?.updates ?? []) as UpdateRow[];
-    return overlayCampaignAsks(snapshot, buildOverlay(updates), askEdits(updates), client !== "wcbhc" && client !== "baq");
-  }, [snapshot, state, client]);
+    const o = buildOverlay(updates);
+    const asks = overlayCampaignAsks(snapshot, o, askEdits(updates), client !== "wcbhc" && client !== "baq");
+    return tracking ? assignmentSnapshot(asks, index ?? null, tracking, o) : asks;
+  }, [snapshot, state, client, index, tracking]);
 }
 function useV2() { const c = useContext(V2); if (!c) throw new Error("PortalV2Provider missing"); return c; }
 async function post(client: PortalClient, body: unknown) {
