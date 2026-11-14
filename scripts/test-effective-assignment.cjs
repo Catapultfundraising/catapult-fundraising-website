@@ -126,6 +126,13 @@ const state={prospects:[],gifts:[],batches:[],updates};
  const sourcePool=assignmentSnapshot(asks,mergedIndex,{prospects:{}},m);
  assert.equal(sourcePool.pool[0].cptid,3);assert.equal(sourcePool.pool[0].ask,10,"source-only merge retains existing effective ask");
  assert.equal(sourcePool.pool[0].lifetime,30,"source-only pool merge uses folded financial values");
+ for (const pool of [sourceFirst.portfolio,[...sourceFirst.portfolio].reverse()]) {
+   const overlay=overlayCampaignAsks({pool,portfolio:pool,board:[]},m,askEdits([]),false);
+   const composed=assignmentSnapshot(overlay,mergedIndex,{prospects:{}},m);
+   assert.equal(composed.pool[0].ask,20);assert.equal(composed.pool[0].task,"Survivor");assert.equal(composed.pool[0].lifetime,30);
+   const zero=overlayCampaignAsks({pool,portfolio:pool,board:[]},m,askEdits([update(2,3,"ask","0")]),false);
+   assert.equal(assignmentSnapshot(zero,mergedIndex,{prospects:{}},m).pool[0].ask,0,"composition preserves manual zero ask");
+ }
  console.log("PASS status/activity-only intent and source-first/survivor-first merged snapshot financial regressions");
  console.log("PASS assignment consistency: no external reads or writes");
 })().catch(e=>{console.error(e);process.exitCode=1});
