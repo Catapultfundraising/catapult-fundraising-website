@@ -79,6 +79,8 @@ export interface JagDashboardData {
   reportDate: string;
   updatedAt: string;
   surveyRespondentCount: number;
+  /** Online CSNF survey only; never mixed with interview counts or signals. */
+  surveyResults?: import("@/lib/csnf-online-survey").SurveyResults;
   stats: JagStats;
   previousStats?: PreviousStats;
   completedInterviews: NameDateOrg[];

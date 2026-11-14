@@ -19,7 +19,7 @@ import Link from "next/link";
 
 const CONTACT_EMAIL = "feasibilitystudy@catapultfr.com";
 
-const FAQS: { q: string; a: string }[] = [
+const FAQS: { q: string; a: string; interviewOnly?: boolean }[] = [
   {
     q: "What is the College of Southern Nevada?",
     a: "The College of Southern Nevada (CSN) is Nevada\u2019s largest community college, operating three main campuses and several learning centers across the Las Vegas metropolitan area. CSN offers associate and bachelor\u2019s degrees, as well as certificate programs, that prepare our graduates to enter the workforce and/or transfer to another university.",
@@ -66,6 +66,7 @@ const FAQS: { q: string; a: string }[] = [
   },
   {
     q: "Will I be asked to make a gift during my interview?",
+    interviewOnly: true,
     a: "No, the interview is for informational purposes only, to gather feedback and perspectives from key stakeholders and community members for planning purposes.",
   },
 ];
@@ -126,8 +127,10 @@ function SectionHeading({ children }: { children: React.ReactNode }) {
 
 export default function CsnfCampaignPage({
   schedulingLink,
+  resourceOnly = false,
 }: {
-  schedulingLink: string;
+  schedulingLink?: string;
+  resourceOnly?: boolean;
 }) {
   return (
     <div className="bg-white font-sans text-[#1f2933]">
@@ -152,7 +155,7 @@ export default function CsnfCampaignPage({
 
       {/* Hero */}
       <section className="relative">
-        <div className="relative h-[300px] w-full sm:h-[420px]">
+        <div className={`relative ${resourceOnly ? "h-[380px]" : "h-[300px]"} w-full sm:h-[420px]`}>
           <Image
             src="/csnf/campus-main-entrance.jpg"
             alt="Architectural rendering of the main entrance of the CSN Northwest Campus"
@@ -180,7 +183,7 @@ export default function CsnfCampaignPage({
       </section>
 
       {/* Interview invitation */}
-      <section className="border-b border-[#d8e3ef] bg-[#CFE0F2]">
+      {!resourceOnly && <section className="border-b border-[#d8e3ef] bg-[#CFE0F2]">
         <div className="mx-auto max-w-5xl px-6 py-10">
           <h2 className="text-xl font-bold text-[#004990] sm:text-2xl">
             Thank you for agreeing to share your perspective
@@ -210,10 +213,10 @@ export default function CsnfCampaignPage({
             </p>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Case for support */}
-      <section className="mx-auto max-w-3xl px-6 py-14">
+      <section id="case-for-support" className="mx-auto max-w-3xl px-6 py-14">
         <div className="space-y-5 text-base leading-relaxed">
           <p>
             Southern Nevada is one of the nation&rsquo;s fastest-growing
@@ -478,7 +481,7 @@ export default function CsnfCampaignPage({
         <div className="mx-auto max-w-3xl px-6">
           <SectionHeading>Frequently asked questions</SectionHeading>
           <div className="mt-6 divide-y divide-[#d8e3ef] border-y border-[#d8e3ef]">
-            {FAQS.map((faq) => (
+            {FAQS.filter(faq => !resourceOnly || !faq.interviewOnly).map((faq) => (
               <details key={faq.q} className="group py-4">
                 <summary className="flex cursor-pointer list-none items-start justify-between gap-4 text-base font-semibold text-[#004990]">
                   <span>{faq.q}</span>
@@ -497,7 +500,7 @@ export default function CsnfCampaignPage({
       </section>
 
       {/* Closing CTA */}
-      <section className="bg-[#004990] py-14 text-white">
+      {!resourceOnly && <section className="bg-[#004990] py-14 text-white">
         <div className="mx-auto max-w-3xl px-6 text-center">
           <h2 className="text-2xl font-bold sm:text-3xl">
             We look forward to your interview
@@ -525,7 +528,7 @@ export default function CsnfCampaignPage({
             </p>
           </div>
         </div>
-      </section>
+      </section>}
 
       {/* Footer */}
       <footer className="border-t-4 border-[#FFD51D] bg-white py-8">

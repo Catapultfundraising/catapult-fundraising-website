@@ -26,7 +26,8 @@ export default async function CsnfDashboardPage() {
           ? `Live tracker of prospect outreach, completed interviews, and donor signals for the CSNF feasibility study. Updated ${data.reportDate}.`
           : "Live tracker of prospect outreach, completed interviews, and donor signals for the CSNF feasibility study. Figures appear here automatically once calling begins."
       }
-      pdfPath={started ? portal.pdfPath : undefined}
+      showSurveyResults
+      pdfPath={started || data.surveyResults ? portal.pdfPath : undefined}
     />
   );
 }

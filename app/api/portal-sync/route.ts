@@ -4,6 +4,9 @@ import { getJagDashboardData, saveJagDashboardData } from "@/lib/jag-data";
 import { getStudyPortal, STUDY_PORTALS } from "@/lib/study-portals";
 import { buildPortalDataFromVanillaSoft } from "@/lib/vs-sync";
 
+import { listSurveyResponses } from "@/lib/csnf-survey-store";
+import { aggregateSurvey, surveyWeeklyCutoff } from "@/lib/csnf-online-survey";
+
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
@@ -83,6 +86,13 @@ async function run(req: NextRequest, save: boolean) {
       persistContacts: save,
     });
 
+    if (portal.slug === "csnf") {
+      // All-or-nothing dashboard snapshot: on a survey storage failure, do not
+      // publish an apparent zero or carry a stale survey count into a new week.
+      const now = new Date();
+      const cutoff = save && isCronRequest(req) && !forced ? surveyWeeklyCutoff(now) : now;
+      data.surveyResults = aggregateSurvey(await listSurveyResponses(cutoff), cutoff);
+    }
     if (save) await saveJagDashboardData(data, portal.dataPath);
 
     return NextResponse.json({ ok: true, saved: save, project: portal.slug, meta, data });
