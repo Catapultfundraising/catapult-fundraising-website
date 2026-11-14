@@ -6,7 +6,7 @@ import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
-import { PortalV2Provider, useCampaignAskSnapshot, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
+import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
 } from "recharts";
@@ -723,10 +723,13 @@ export function BaqDataDashboard({ data }: { data: BaqSnapshot }) {
   return <CrmProvider><PortalV2Provider client="baq"><BaqDashboardBody data={data} /></PortalV2Provider></CrmProvider>;
 }
 function BaqDashboardBody({ data: snapshot }: { data: BaqSnapshot }) {
-  const { index, tracking } = useCrm();
+  const { index, tracking, loading } = useCrm();
   const data = useCampaignAskSnapshot(snapshot, index, tracking);
+  const campaign = useCampaignDataStatus();
   const [tab, setTab] = useUrlState<Tab | "Prospect Ratings">("tab", "Overview", [...TABS, "Prospect Ratings"]);
   const staff = useBoardReviewStaff("baq");
+  if (loading || campaign.loading) return <main className="min-h-screen bg-[rgb(var(--paper))] p-8" aria-busy="true">Loading donor records and effective assignments...</main>;
+  if (!index || !campaign.available) return <main className="min-h-screen bg-[rgb(var(--paper))] p-8" role="alert">Donor records and assignments are unavailable. Reload to try again.</main>;
   return (
 
     <main className="min-h-screen bg-[rgb(var(--paper))]">

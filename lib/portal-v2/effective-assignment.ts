@@ -70,16 +70,19 @@ export function assignmentSnapshot<T>(snapshot: T, index: readonly ({ cptid: num
     out[key] = rows.flatMap((row) => {
       const id = o ? finalId(o, row.cptid) : row.cptid;
       if (o?.deleted.has(id) || seen.has(id)) return [];
-      seen.add(id);
       // Prefer the actual survivor, regardless of source-array order. Merged giving must
       // come from the folded index, never whichever source happened to appear first.
       const selected = byId.get(id) ?? row;
       const merged = o ? mergedSources(o, id).length > 0 : false;
       const financial: Record<string, unknown> = {};
       const indexedRow = indexed(index)?.get(id) as Record<string, unknown> | undefined;
+      // Never format unknown merged totals as null/zero or relabel partial source totals.
+      // The dashboard gates while the index loads; a genuinely missing target stays excluded.
+      if (merged && !indexedRow) return [];
+      seen.add(id);
       if (merged) {
         for (const field of ["lifetime", "gifts", "largest", "last", "years"]) {
-          if (Object.prototype.hasOwnProperty.call(selected, field)) financial[field] = indexedRow?.[field] ?? null;
+          if (Object.prototype.hasOwnProperty.call(selected, field)) financial[field] = indexedRow![field] ?? (field === "last" ? "" : 0);
         }
         // The index has no merged first-gift date. Do not mislabel a source's date as final.
         if (Object.prototype.hasOwnProperty.call(selected, "first")) financial.first = "";

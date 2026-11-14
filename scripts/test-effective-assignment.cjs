@@ -136,6 +136,12 @@ const state={prospects:[],gifts:[],batches:[],updates};
    const zero=overlayCampaignAsks({pool,portfolio:pool,board:[]},m,askEdits([update(2,3,"ask","0")]),false);
    assert.equal(assignmentSnapshot(zero,mergedIndex,{prospects:{}},m).pool[0].ask,0,"composition preserves manual zero ask");
  }
+ const waiting=assignmentSnapshot({highWealth:sourceFirst.highWealth},null,{prospects:{}},m);
+ assert.deepEqual(waiting.highWealth,[],"no partial merged totals before folded index arrives");
+ const missingTarget=assignmentSnapshot({highWealth:sourceFirst.highWealth},[],{prospects:{}},m);
+ assert.deepEqual(missingTarget.highWealth,[],"missing survivor index never relabels source financial fields");
+ const ready=assignmentSnapshot({highWealth:sourceFirst.highWealth},mergedIndex,{prospects:{}},m);
+ for(const r of ready.highWealth) for(const f of ["lifetime","gifts","largest","years"]) assert.equal(typeof r[f],"number");
  console.log("PASS status/activity-only intent and source-first/survivor-first merged snapshot financial regressions");
  console.log("PASS assignment consistency: no external reads or writes");
 })().catch(e=>{console.error(e);process.exitCode=1});
