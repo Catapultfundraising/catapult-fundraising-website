@@ -18,6 +18,7 @@ async function get(path: string, opts: Parameters<typeof blobGet>[1]) {
 export const BAQ_DATA_PATH = "baq-data/snapshot.json";
 
 export interface Person {
+  solicitor?: string; solicitor2?: string; assignmentConflict?: boolean;
   cptid: number; name: string; lifetime: number; gifts: number; first: string; last: string;
   largest: number; years: number; ds: string; capacity: string; capMin: number; qs: string;
 }
@@ -29,13 +30,13 @@ export interface BaqSnapshot {
   retention: { fy: number; retained: number; prior: number; rate: number; new: number }[];
   pyramid: { band: string; donors: number; total: number }[];
   dsRating: [string, number][]; capacity: [string, number][];
-  pool: (Person & { rating: number; basis: string; ask: number; solicitor: string; donorType: string; status?: string; capText?: string; wealth?: string; history?: string; note?: string; committedAmt?: number })[];
+  pool: (Person & { rating: number; basis: string; ask: number; solicitor: string; solicitor2?: string; donorType: string; status?: string; capText?: string; wealth?: string; history?: string; note?: string; committedAmt?: number })[];
   unrated?: { name: string; type: string; note: string }[]; notSeated?: { name: string; reason: string }[];
   highWealth: Person[]; highWealthCount: number; midLevel: Person[]; midLevelCount: number;
   legacy: Person[]; legacyCount: number; lapsed: Person[]; lapsedCount: number; top: Person[];
   board: { cptid?: number; name: string; title: string; board: string; term: string; active: boolean; ask: number; get: number; lifetime: number; last: string; ds: string; capacity: string }[];
   committee: { cptid: number | null; name: string; title: string }[];
-  portfolio: { cptid: number; name: string; solicitor: string; ask: number; type: string; donorType: string; priority: string; task: string; lifetime: number; prevAsk: number; capacity: string; ds: string }[];
+  portfolio: { cptid: number; name: string; solicitor: string; solicitor2?: string; ask: number; type: string; donorType: string; priority: string; task: string; lifetime: number; prevAsk: number; capacity: string; ds: string }[];
   committed: BaqSnapshot["portfolio"];
   givebutter: {
     from: string; to: string; txCount: number; txTotal: number; txDonors: number; matched: number; pledgeCount: number; pledgeTotal: number;
@@ -63,10 +64,12 @@ export async function getBaqSnapshot(): Promise<BaqSnapshot | null> {
 export const BAQ_RECORDS_PATH = "baq-data/records.json";
 
 export interface IndexRow {
+  solicitor?: string; solicitor2?: string; assignmentConflict?: boolean;
   cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number;
   last: string; years: number; band: string; ds?: string; capacity?: string; capMin: number;
 }
 export interface DonorRecord {
+  assignment?: { solicitor: string; solicitor2: string; assignmentConflict?: boolean };
   cptid: number; name: string; kind?: string;
   contact?: Record<string, string>; flags?: string[]; ds?: Record<string, string>;
   softCredits?: Record<string, string>;
@@ -79,7 +82,7 @@ export interface DonorRecord {
   feasibility?: { tier?: string; date?: string; completed?: boolean; declined?: boolean; consider?: boolean; multiYear?: boolean; leadership?: boolean; introduce?: boolean; result?: string; company?: string; title?: string };
   years?: { year: number; amount: number }[];
   givebutter?: { type: string; date: string; amount: number; campaign: string; status: string }[];
-  portfolio?: { solicitor: string; secondary?: string; ask: number; prevAsk?: number; priority?: string; task?: string; due?: string; relationship?: string; naming?: string; donorType?: string };
+  portfolio?: { solicitor: string; solicitor2?: string; secondary?: string; ask: number; prevAsk?: number; priority?: string; task?: string; due?: string; relationship?: string; naming?: string; donorType?: string };
   summary: { lifetime: number; gifts: number; first?: string; last?: string; largest: number; years: number; band: string; ghoTotal?: number };
 }
 export interface BaqRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }

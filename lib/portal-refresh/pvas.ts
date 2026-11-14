@@ -182,7 +182,7 @@ export async function buildPvas() {
   // Campaign portfolio -> GC2P pool (seated by Campaign Ask, Primary Solicitor only).
   const portfolio = [...port].map(([c, r]) => {
     const ask = ASK_OVERRIDES[c] ?? money(r.Campaign_Ask);
-    return { cptid: c, name: name.get(c) ?? "", solicitor: s(r.Primary_Solicitor) || "Unassigned", ask, type: s(r.Record_Type),
+    return { cptid: c, name: name.get(c) ?? "", solicitor: s(r.Primary_Solicitor) || "Unassigned", solicitor2: s(r.Secondary_Solicitor), ask, type: s(r.Record_Type),
       donorType: s(r.Donor_Type) || (pd.has(c) ? "" : "Non-Donor"), priority: s(r["2026_Solicitation_Priority"]), task: s(r.Task),
       lifetime: round2(pd.get(c)?.total ?? money(r.Total_Gift_Amount)), prevAsk: money(r.Previous_Campaign_Ask), capacity: capOf(c), ds: person(c).ds };
   }).sort((a, b) => b.ask - a.ask || b.lifetime - a.lifetime);

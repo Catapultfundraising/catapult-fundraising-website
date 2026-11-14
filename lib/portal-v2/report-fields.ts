@@ -40,8 +40,9 @@ export const REPORT_FIELDS: ReportField[] = [
   { id: "campaignPledged", label: "Campaign pledges", group: "Campaign", kind: "usd", help: "Pledged to the campaign. Not paid giving. Blank when campaign data is unavailable." },
   { id: "campaignReceived", label: "Campaign gifts received", group: "Campaign", kind: "usd", help: "Campaign gifts entered on the dashboard. Not added to Lifetime giving." },
   { id: "status", label: "Prospect status", group: "Committee tracking", kind: "text" },
-  { id: "solicitor", label: "Solicitor", group: "Committee tracking", kind: "text" },
-  { id: "solicitor2", label: "Secondary solicitor", group: "Committee tracking", kind: "text" },
+  { id: "solicitor", label: "Primary solicitor", group: "Committee tracking", kind: "text" },
+  { id: "assignmentReview", label: "Assignment review", group: "Committee tracking", kind: "text", help: "Conflicting merged-source assignments are held blank for staff review, not guessed." },
+  { id: "solicitor2", label: "Secondary solicitor", group: "Committee tracking", kind: "text", help: "Dashboard edits win, then source portfolio; unassigned means both solicitor fields are empty." },
 ];
 export const FIELD_BY_ID = new Map(REPORT_FIELDS.map((f) => [f.id, f]));
 export const DEFAULT_FIELDS = ["cptid", "name", "kind", "city", "state", "phone", "email", "lifetime", "last"];
@@ -167,7 +168,7 @@ export function describeFilters(q: ReportQuery): string[] {
 
 export const CAMPAIGN_FIELDS = ["campaignPledged", "campaignReceived"];
 export const usesCampaign = (q: ReportQuery) => q.filters.some((f) => CAMPAIGN_FIELDS.includes(f.field)) || CAMPAIGN_FIELDS.includes(q.sort?.field ?? "");
-const TRACKING_FIELDS = ["status", "solicitor"];
+const TRACKING_FIELDS = ["status", "solicitor", "solicitor2", "assignmentReview"];
 export const usesTracking = (q: ReportQuery) => q.fields.some((f) => TRACKING_FIELDS.includes(f)) || q.filters.some((f) => TRACKING_FIELDS.includes(f.field)) || TRACKING_FIELDS.includes(q.sort?.field ?? "");
 export const XLSX_MAX_ROWS = 60_000;
 export const PDF_MAX_ROWS = 5_000;

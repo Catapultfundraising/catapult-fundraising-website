@@ -1,4 +1,6 @@
 "use client";
+
+import { assignmentSnapshot, type Assignment, type AssignmentTracking } from "@/lib/portal-v2/effective-assignment";
 import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
 import { buildOverlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 
@@ -12,7 +14,7 @@ import { DateInput, NameLink, isoToUs, parseUsDateClient, useSort, SortTh } from
 // Add Prospect, manual gift/pledge entry, bulk client-file upload with preview, audit log + undo.
 
 type V2State = PortalState & { goal: number; configured: boolean; error?: string };
-interface Ctx { client: PortalClient; state: V2State | null; reload: () => Promise<void> }
+interface Ctx { client: PortalClient; state: V2State | null; loading: boolean; reload: () => Promise<void> }
 const V2 = createContext<Ctx | null>(null);
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 const pct = (n: number) => `${(n * 100).toFixed(n < 0.1 ? 1 : 0)}%`;
@@ -25,23 +27,30 @@ const td = "px-3 py-2 text-sm";
 
 export function PortalV2Provider({ client, children }: { client: PortalClient; children: React.ReactNode }) {
   const [state, setState] = useState<V2State | null>(null);
+  const [loading, setLoading] = useState(true);
   const reload = useCallback(async () => {
-    const r = await fetch(PORTAL_V2[client].api, { cache: "no-store" });
-    setState(r.ok ? await r.json() : null);
+    try {
+      const r = await fetch(PORTAL_V2[client].api, { cache: "no-store" });
+      setState(r.ok ? await r.json() : null);
+    } catch { setState(null); }
+    finally { setLoading(false); }
   }, [client]);
   useEffect(() => {
     const refresh = () => { void reload(); };
     refresh(); window.addEventListener("campaign-ask-refresh", refresh);
     return () => window.removeEventListener("campaign-ask-refresh", refresh);
   }, [reload]);
-  return <V2.Provider value={{ client, state, reload }}>{children}</V2.Provider>;
+  return <V2.Provider value={{ client, state, loading, reload }}>{children}</V2.Provider>;
 }
-export function useCampaignAskSnapshot<T>(snapshot: T): T {
+export function useCampaignDataStatus() { const { state, loading } = useV2(); return { loading, available: !!state && state.configured !== false && !state.error }; }
+export function useCampaignAskSnapshot<T>(snapshot: T, index?: ({ cptid: number } & Partial<Assignment>)[] | null, tracking?: AssignmentTracking): T {
   const { client, state } = useV2();
   return useMemo(() => {
     const updates = (state?.updates ?? []) as UpdateRow[];
-    return overlayCampaignAsks(snapshot, buildOverlay(updates), askEdits(updates), client !== "wcbhc" && client !== "baq");
-  }, [snapshot, state, client]);
+    const o = buildOverlay(updates);
+    const asks = overlayCampaignAsks(snapshot, o, askEdits(updates), client !== "wcbhc" && client !== "baq");
+    return tracking ? assignmentSnapshot(asks, index ?? null, tracking, o) : asks;
+  }, [snapshot, state, client, index, tracking]);
 }
 function useV2() { const c = useContext(V2); if (!c) throw new Error("PortalV2Provider missing"); return c; }
 async function post(client: PortalClient, body: unknown) {

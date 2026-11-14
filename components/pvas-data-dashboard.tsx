@@ -1,10 +1,12 @@
 "use client";
+
+import { filterAssignments, isUnassigned, assignmentMembers, belongsToSolicitor } from "@/lib/portal-v2/effective-assignment";
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
-import { PortalV2Provider, useCampaignAskSnapshot, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
+import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
 } from "recharts";
@@ -166,6 +168,7 @@ function cellOut(c: AnyCol, r: Record<string, unknown>): string | number {
 
 const personCols: { key: keyof Person; label: string; fmt?: (v: never) => string; right?: boolean }[] = [
   { key: "name", label: "Name" },
+  { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
   { key: "lifetime", label: "Lifetime", fmt: (v: number) => usd(v), right: true },
   { key: "gifts", label: "# Gifts", right: true },
   { key: "largest", label: "Largest", fmt: (v: number) => usd(v), right: true },
@@ -460,7 +463,7 @@ function GiftChartTab({ d }: { d: PvasSnapshot }) {
                 <Table
                   csvName={`GC2P ${formatDollars(x.level)} Level`}
                   exportSub={`${formatDollars(goal)} goal`}
-                  rows={x.people.map((p) => ({ ...p, solicitor2: stOf(p.cptid)?.solicitor2 ?? "", status: stOf(p.cptid)?.status ?? "Unassigned", solicitor: stOf(p.cptid)?.solicitor || p.solicitor, pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
+                  rows={x.people.map((p) => ({ ...p, solicitor2: p.solicitor2 ?? "", status: stOf(p.cptid)?.status ?? "Unassigned", solicitor: p.solicitor, pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
                   cols={[
                     { key: "name", label: "Prospect" },
                     { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
@@ -524,6 +527,7 @@ function Prospects({ d }: { d: PvasSnapshot }) {
     { k: "Lapsed $1K+", rows: d.lapsed, n: d.lapsedCount, desc: "Lifetime $1K or more, no gift in the last 3 years. Reactivation pool." },
   ];
   const [sel, setSel] = useState(0);
+  const [assignmentFilter, setAssignmentFilter] = useState("all");
   const p = pools[sel];
   return (
     <div className="space-y-4">
@@ -537,7 +541,12 @@ function Prospects({ d }: { d: PvasSnapshot }) {
       </div>
       <Card>
         <H sub={`${p.desc}${p.n > p.rows.length ? ` Showing top ${p.rows.length} of ${num(p.n)}.` : ""}`}>{p.k} prospects</H>
-        <Table rows={p.rows as never} cols={personCols as never} csvName={`${p.k} Prospects`} />
+        <label className="mb-3 block text-xs">Assignment
+          <select aria-label="Assignment" value={assignmentFilter} onChange={(e) => setAssignmentFilter(e.target.value)} className="ml-2 rounded-md border border-[rgb(var(--line))] bg-white px-3 py-1.5">
+            <option value="all">All prospects</option><option value="assigned">Assigned (either solicitor)</option><option value="unassigned">Unassigned (both blank)</option><option value="review">Merged assignments to review</option>
+          </select>
+        </label>
+        <Table rows={filterAssignments(p.rows, assignmentFilter) as never} cols={personCols as never} csvName={`${p.k} Prospects`} />
       </Card>
     </div>
   );
@@ -619,8 +628,8 @@ function Health({ d }: { d: PvasSnapshot }) {
 
 function Portfolio({ d }: { d: PvasSnapshot }) {
   const withAsk = d.portfolio.filter((p) => p.ask > 0);
-  const bySol = Array.from(new Set(d.portfolio.map((p) => p.solicitor))).sort().map((s) => {
-    const ps = d.portfolio.filter((p) => p.solicitor === s);
+  const bySol = Array.from(new Set(d.portfolio.flatMap((p) => assignmentMembers(p)))).sort().map((s) => {
+    const ps = d.portfolio.filter((p) => belongsToSolicitor(p, s));
     return { solicitor: s, prospects: ps.length, asks: ps.filter((p) => p.ask > 0).length, ask: ps.reduce((a, p) => a + p.ask, 0) };
   }).sort((a, b) => b.ask - a.ask);
   const cols = [
@@ -641,15 +650,15 @@ function Portfolio({ d }: { d: PvasSnapshot }) {
         <Stat label="Committed (Stewardship)" value={num(d.committed.length)} note={short(d.committed.reduce((a, p) => a + p.ask, 0))} onClick={() => ids('Committed', "", d.committed)} />
       </div>
       <Card>
-        <H sub="Campaign portfolio by Primary Solicitor">Solicitor assignments</H>
-        <Table rowClick={(r: { solicitor: string }) => ids(`Solicitor: ${r.solicitor}`, "Prospects assigned to this solicitor", d.portfolio.filter((p) => p.solicitor === r.solicitor))} csvName="Portfolio by Solicitor" rows={bySol} cols={[
-          { key: "solicitor", label: "Primary Solicitor" }, { key: "prospects", label: "Prospects", right: true },
+        <H sub="Campaign portfolio by primary or secondary solicitor (a prospect may appear in both)">Solicitor assignments</H>
+        <Table rowClick={(r: { solicitor: string }) => ids(`Solicitor: ${r.solicitor}`, "Prospects assigned to this solicitor", d.portfolio.filter((p) => belongsToSolicitor(p, r.solicitor)))} csvName="Portfolio by Solicitor" rows={bySol} cols={[
+          { key: "solicitor", label: "Solicitor / Connection" }, { key: "prospects", label: "Prospects", right: true },
           { key: "asks", label: "With Ask", right: true }, { key: "ask", label: "Total Ask", fmt: (v) => usd(v as number), right: true },
         ]} />
       </Card>
       <Card>
         <H sub="Every prospect in the campaign portfolio, largest Campaign Ask first. Click a name to open the record.">Campaign portfolio</H>
-        <Table csvName="Campaign Portfolio" rows={d.portfolio.map((p) => ({ ...p, solicitor2: tracking.prospects[String(p.cptid)]?.solicitor2 ?? "" })) as never} cols={cols as never} />
+        <Table csvName="Campaign Portfolio" rows={d.portfolio.map((p) => ({ ...p, solicitor2: p.solicitor2 ?? "" })) as never} cols={cols as never} />
       </Card>
     </div>
   );
@@ -706,9 +715,13 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
   return <CrmProvider><PortalV2Provider client="pvas"><PvasDashboardBody data={data} /></PortalV2Provider></CrmProvider>;
 }
 function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
-  const data = useCampaignAskSnapshot(snapshot);
+  const { index, tracking, loading } = useCrm();
+  const data = useCampaignAskSnapshot(snapshot, index, tracking);
+  const campaign = useCampaignDataStatus();
   const [tab, setTab] = useUrlState<Tab | "Prospect Ratings">("tab", "Overview", [...TABS, "Prospect Ratings"]);
   const staff = useBoardReviewStaff("pvas");
+  if (loading || campaign.loading) return <main className="min-h-screen bg-[rgb(var(--paper))] p-8" aria-busy="true">Loading donor records and effective assignments...</main>;
+  if (!index || !campaign.available) return <main className="min-h-screen bg-[rgb(var(--paper))] p-8" role="alert">Donor records and assignments are unavailable. Reload to try again.</main>;
   return (
 
     <main className="min-h-screen bg-[rgb(var(--paper))]">
