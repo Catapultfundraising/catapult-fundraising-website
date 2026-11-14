@@ -70,10 +70,10 @@ const state={prospects:[],gifts:[],batches:[],updates};
   console.log(`PASS ${client}: source/manual/clears/secondary-only/merge-chain/conflict/missing-target; index/detail/header-contract/portfolio/filter/report/export; immutable isolated fixtures`);
  }
  // SQL-saved manual identity shadowed by a rebuilt note-only source placeholder.
- const manual={cptid:81,full_name:"ZZTEST Manual Identity",city:"Manual City",email:"manual@example.test"};
+ const manual={cptid:81,full_name:"ZZTEST Manual Identity",city:"Manual City",email:"manual@example.test",phone:"555-0199",address1:"99 Synthetic Street"};
  const collision={asOf:"fixture",index:[{...idx(81),name:"CPTID 81"},{...idx(82),name:"Named Source"}],records:{
   "81":{...record(81),name:"CPTID 81",notes:["Source note 175","Source note 176"],contact:{},gifts:[{amount:123}],summary:{lifetime:123}},
-  "82":{...record(82),name:"Named Source",contact:{email:"source@example.test"},notes:["Source facts"]}
+  "82":{...record(82),name:"Named Source",contact:{email:"",phone:"",street:"",city:""},notes:["Source facts"]}
  }};
  const manualState={prospects:[manual,{...manual,cptid:82,full_name:"Conflicting Manual Name"},{...manual,cptid:83,full_name:"Manual Only"}],gifts:[],updates:[],batches:[]};
  for(const client of ["jag","csnf","pvas","wcbhc","baq"]) {
@@ -81,7 +81,10 @@ const state={prospects:[],gifts:[],batches:[],updates};
   const fetchRecord=async(id)=>await (await route.GET(new NextRequest(`https://fixture.invalid/?id=${id}`))).json();
   const detail=await fetchRecord(81);assert.equal(detail.name,manual.full_name);assert.equal(detail.contact.email,manual.email);
   assert.deepEqual(detail.notes,collision.records["81"].notes);assert.equal(detail.gifts[0].amount,123);
-  const named=await fetchRecord(82);assert.equal(named.name,"Named Source");assert.equal(named.contact.email,"source@example.test");
+  const named=await fetchRecord(82);assert.equal(named.name,"Named Source");assert.equal(named.contact.email,"");
+  assert.equal(named.contact.phone,"");assert.equal(named.contact.street,"");assert.equal(named.contact.city,"","unverified numeric collision cannot leak unrelated manual contact");
+  const namedReport=buildReportRows(collision,manualState,{prospects:{}}).find(r=>r.cptid===82);
+  assert.equal(namedReport.email,"");assert.equal(namedReport.phone,"");assert.equal(namedReport.street,"");
   assert.equal((await fetchRecord(83)).name,"Manual Only");
   const ix=await (await route.GET(new NextRequest("https://fixture.invalid/"))).json();
   assert.equal(ix.index.find(r=>r.cptid===81).name,manual.full_name);assert.equal(ix.index.filter(r=>r.cptid===81).length,1);

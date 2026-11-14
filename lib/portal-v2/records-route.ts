@@ -56,6 +56,7 @@ export function enrichProspectRecord(base: Full, prospect?: Prospect): Full {
   if (!prospect) return base;
   const manual = prospectRecord(prospect);
   const placeholder = !String(base.name ?? "").trim() || String(base.name).trim().toLowerCase() === `cptid ${base.cptid}`;
+  if (!placeholder) return base; // A numeric CPTID collision is not verified identity.
   const contact = { ...(base.contact ?? {}) };
   for (const [key, value] of Object.entries(manual.contact ?? {})) if (!contact[key]?.trim() && value) contact[key] = value;
   return { ...base, ...(placeholder ? { name: manual.name, kind: manual.kind } : {}), contact };
