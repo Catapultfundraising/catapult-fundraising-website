@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 // campaign pages (/csnf and /csnfvip) are a client-facing page styled as CSN Foundation and
 // linked from the feasibility study interview invitation email, so Catapult
 // chrome would break the illusion that it belongs to the Foundation.
-const BARE_ROUTES = ["/csnf", "/csnfvip"];
+const BARE_ROUTES = ["/csnf", "/csnfvip", "/csnf-survey"];
 export function isBareRoute(pathname: string) {
   return BARE_ROUTES.some((route) => (pathname === route || pathname.startsWith(`${route}/`)) && !pathname.includes("/data-dashboard"));
 }

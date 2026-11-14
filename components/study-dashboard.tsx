@@ -23,6 +23,8 @@ export interface StudyDashboardProps {
   description: string;
   /** Link to a printable summary, when the portal has one. */
   pdfPath?: string;
+  /** CSNF online survey snapshot, independent of interview/PDF availability. */
+  showSurveyResults?: boolean;
 }
 
 function StatTile({ label, value, delta }: { label: string; value: string | number; delta?: string | null }) {
@@ -44,7 +46,7 @@ function SectionTitle({ children, subtitle }: { children: React.ReactNode; subti
   );
 }
 
-export function StudyDashboard({ data, eyebrow, title, description, pdfPath }: StudyDashboardProps) {
+export function StudyDashboard({ data, eyebrow, title, description, pdfPath, showSurveyResults }: StudyDashboardProps) {
   const quotes = pickRandomQuotes(data.quotes, 2);
   const { stats, previousStats } = data;
 
@@ -66,6 +68,19 @@ export function StudyDashboard({ data, eyebrow, title, description, pdfPath }: S
       <PageHero eyebrow={eyebrow} title={title} description={description} />
 
       <section className="mx-auto max-w-7xl px-6 py-10 lg:px-10 lg:py-14">
+        {showSurveyResults && (
+          <section aria-labelledby="online-survey-results" className="mb-8 rounded-2xl border border-[rgb(var(--line))] bg-white p-6">
+            <h2 id="online-survey-results" className="font-display text-2xl">Survey Results</h2>
+            {data.surveyResults ? <>
+              <p className="mt-2 text-sm">{data.surveyResults.responseCount} online survey responses · Through {new Date(data.surveyResults.asOf).toLocaleString("en-US", { timeZone: "America/Los_Angeles", dateStyle: "medium", timeStyle: "short" })} Pacific</p>
+              <p className="mt-2 text-xs text-[rgb(var(--ink))]/60">Reported separately from interviews. Counts use respondents answering each question; multiple selections may exceed that total. Written comments and participant details are not displayed.</p>
+              <div className="mt-6 space-y-6">{data.surveyResults.questions.map(q => <div key={q.id}>
+                <h3 className="font-semibold">{q.label}</h3><p className="mt-1 text-xs">{q.answered} answered</p>
+                <dl className="mt-2 space-y-1 text-sm">{q.counts.map(c => <div key={c.label} className="flex justify-between gap-4 border-b border-[rgb(var(--line))] py-2"><dt>{c.label}</dt><dd className="shrink-0 font-semibold">{c.count}{q.answered ? ` (${Math.round(c.count / q.answered * 100)}%)` : ""}</dd></div>)}</dl>
+              </div>)}</div>
+            </> : <p className="mt-3 text-sm">Survey results have not yet been published. The next successful study refresh will publish a separate survey snapshot.</p>}
+          </section>
+        )}
         {/* Updated-info strip + PDF download */}
         <div className="flex flex-wrap items-center justify-between gap-6 rounded-2xl border border-[rgb(var(--line))] bg-white px-6 py-5">
           <div className="flex flex-wrap items-center gap-x-8 gap-y-3">

@@ -213,7 +213,7 @@ export default function CsnfCampaignPage({
       </section>
 
       {/* Case for support */}
-      <section className="mx-auto max-w-3xl px-6 py-14">
+      <section id="case-for-support" className="mx-auto max-w-3xl px-6 py-14">
         <div className="space-y-5 text-base leading-relaxed">
           <p>
             Southern Nevada is one of the nation&rsquo;s fastest-growing

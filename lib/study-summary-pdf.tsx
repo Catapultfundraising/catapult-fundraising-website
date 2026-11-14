@@ -401,6 +401,18 @@ export async function buildSummaryPdf(slug: string) {
           </View>
         )}
 
+        {slug === "csnf" && <View>
+          <Text style={styles.sectionTitle}>Survey Results</Text>
+          {data.surveyResults ? <>
+            <Text style={styles.meta}>{data.surveyResults.responseCount} online survey responses · Through {new Date(data.surveyResults.asOf).toLocaleString("en-US", { timeZone: "America/Los_Angeles", dateStyle: "medium", timeStyle: "short" })} Pacific</Text>
+            <Text style={styles.signalDetail}>Separate from interviews. Denominators are answered responses per question. Multiple selections may exceed the respondent total. No written comments or participant details are included.</Text>
+            {data.surveyResults.questions.map(q => <View key={q.id} wrap={false}>
+              <Text style={styles.sectionTitle}>{q.label}</Text>
+              <Text style={styles.signalDetail}>{q.answered} answered</Text>
+              {q.counts.map(c => <Text key={c.label} style={styles.meta}>{c.label}: {c.count}{q.answered ? ` (${Math.round(c.count / q.answered * 100)}%)` : ""}</Text>)}
+            </View>)}
+          </> : <Text style={styles.meta}>Survey results have not yet been published.</Text>}
+        </View>}
         <Footer reportDate={data.reportDate} clientName={CLIENT_NAME} />
       </Page>
     </Document>
