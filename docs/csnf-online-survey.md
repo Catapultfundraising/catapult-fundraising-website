@@ -80,13 +80,15 @@ sort by timestamp then ID; consumers must deduplicate by immutable ID, not row
 number. Export failures are 503, never a falsely successful empty response.
 Stored digests are not returned. The optional `commentFor` property is metadata.
 
-**SharePoint delivery is a separate integration step**, not implemented by
-pretending this website has Graph credentials. The parent task owns the safe
-append/dedup Excel exporter and its scheduled execution/permissions. It must
-create a new private response workbook in the CSNF donor assessment study
-folder, never replace the source questionnaire or an interview workbook.
-Deployment approval, server-side export authentication and approved SharePoint
-write access must be completed before claiming end-to-end Excel delivery.
+**SharePoint delivery is a separate integration**, not implemented by
+pretending this website has Graph credentials. The parent task supplied the
+safe append/dedup Excel exporter and verified SharePoint write access by
+creating a new exact-source blank response workbook in the CSNF study's
+**Interview Question Responses** folder. No source questionnaire or interview
+workbook was replaced. Its scheduled exporter must remain activation-gated
+until approved launch. Deployment approval, server-side export authentication
+and an approved full-path check are still required before claiming active
+end-to-end response delivery.
 
 ## Separate weekly reporting
 
