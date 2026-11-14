@@ -42,7 +42,7 @@ export function PortalV2Provider({ client, children }: { client: PortalClient; c
   }, [reload]);
   return <V2.Provider value={{ client, state, loading, reload }}>{children}</V2.Provider>;
 }
-export function useCampaignDataStatus() { const { state, loading } = useV2(); return { loading, available: !!state }; }
+export function useCampaignDataStatus() { const { state, loading } = useV2(); return { loading, available: !!state && state.configured !== false && !state.error }; }
 export function useCampaignAskSnapshot<T>(snapshot: T, index?: ({ cptid: number } & Partial<Assignment>)[] | null, tracking?: AssignmentTracking): T {
   const { client, state } = useV2();
   return useMemo(() => {

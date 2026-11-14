@@ -22,7 +22,7 @@ const log=fs.createWriteStream(path.join(out,"server.log"));server.stdout.pipe(l
 const ready=new Promise((resolve,reject)=>{server.stdout.on("data",b=>{if(b.toString().includes("Ready"))resolve()});server.on("exit",code=>reject(new Error("Server exited "+code)));server.on("error",reject)});
 let browser;
 (async()=>{await ready;browser=await chromium.launch({headless:true});
-for(const client of ["jag","pvas"])for(const order of ["state-first","index-first"]){
+for(const client of ["jag","pvas"])for(const order of ["state-first","index-first","configured-false","state-error"]){
  const page=await browser.newPage({viewport:{width:1440,height:1000},extraHTTPHeaders:{"x-forwarded-proto":"https"}});
  const errors=[];page.on("pageerror",e=>errors.push(e.message));
  let releaseIndex,releaseState,indexRequested,stateRequested;
@@ -32,7 +32,7 @@ for(const client of ["jag","pvas"])for(const order of ["state-first","index-firs
  await page.route("**/api/**",async route=>{
   const url=route.request().url();let data={};
   if(url.includes("-data-records")){indexRequested();await indexGate;data={index};}
-  else if(url.includes("-data-v2")){stateRequested();await stateGate;data={gifts:[],prospects:[],batches:[],updates:[{id:1,cptid:4,field:"merged_into",new_value:"3"},{id:2,cptid:8,field:"merged_into",new_value:"999"}]};}
+  else if(url.includes("-data-v2")){stateRequested();await stateGate;data={configured:order!=="configured-false",...(["configured-false","state-error"].includes(order)?{error:"Synthetic gateway failure"}:{}),gifts:[],prospects:[],batches:[],updates:[{id:1,cptid:4,field:"merged_into",new_value:"3"},{id:2,cptid:8,field:"merged_into",new_value:"999"}]};}
   else if(url.includes("-data-tracking"))data={prospects:{},activity:[],pirs:{},removed:[]};
   return route.fulfill({status:200,contentType:"application/json",body:JSON.stringify(data)});
  });
@@ -42,6 +42,12 @@ for(const client of ["jag","pvas"])for(const order of ["state-first","index-firs
  const response=page.waitForResponse(r=>r.url().includes(first));(order==="state-first"?releaseState:releaseIndex)();await response;
  assert.equal(await page.getByRole("heading",{name:"High Wealth prospects",exact:true}).count(),0,"hold display while either authoritative source is pending");
  (order==="state-first"?releaseIndex:releaseState)();
+ if(["configured-false","state-error"].includes(order)){
+  await page.getByText("Donor records and assignments are unavailable. Reload to try again.",{exact:true}).waitFor();
+  assert.equal(await page.getByRole("heading",{name:"High Wealth prospects",exact:true}).count(),0);
+  assert.deepEqual(errors,[]);console.log(`PASS actual ${client} HTTP200 ${order}: fallback rejected, unavailable shown`);
+  await page.close();continue;
+ }
  await page.getByRole("heading",{name:"High Wealth prospects",exact:true}).waitFor();
  await page.getByRole("cell",{name:"ZZTEST Target",exact:true}).waitFor();
  assert.equal(await page.getByRole("cell",{name:"ZZTEST MergeSource",exact:true}).count(),0);
@@ -55,5 +61,5 @@ for(const client of ["jag","pvas"])for(const order of ["state-first","index-firs
  await page.screenshot({path:path.join(out,`${client}-${order}.png`),fullPage:true});
  console.log(`PASS actual ${client} rendering ${order}: loading gate, folded giving, missing target excluded, no render error`);await page.close();
 }
-fs.writeFileSync(path.join(out,"result.json"),JSON.stringify({passed:true,clients:["jag","pvas"],orders:["state-first","index-first"],externalApiRequests:0},null,2));console.log("ARTIFACTS "+out);
+fs.writeFileSync(path.join(out,"result.json"),JSON.stringify({passed:true,clients:["jag","pvas"],orders:["state-first","index-first","configured-false","state-error"],externalApiRequests:0},null,2));console.log("ARTIFACTS "+out);
 })().catch(e=>{console.error(e);process.exitCode=1}).finally(async()=>{if(browser)await browser.close();try{process.kill(-server.pid,"SIGTERM")}catch{}fs.unlinkSync(fixture);fs.rmdirSync(dir);log.end()});
