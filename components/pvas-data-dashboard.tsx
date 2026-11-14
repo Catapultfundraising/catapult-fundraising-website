@@ -652,7 +652,7 @@ function Portfolio({ d }: { d: PvasSnapshot }) {
       <Card>
         <H sub="Campaign portfolio by primary or secondary solicitor (a prospect may appear in both)">Solicitor assignments</H>
         <Table rowClick={(r: { solicitor: string }) => ids(`Solicitor: ${r.solicitor}`, "Prospects assigned to this solicitor", d.portfolio.filter((p) => belongsToSolicitor(p, r.solicitor)))} csvName="Portfolio by Solicitor" rows={bySol} cols={[
-          { key: "solicitor", label: "Primary Solicitor" }, { key: "prospects", label: "Prospects", right: true },
+          { key: "solicitor", label: "Solicitor / Connection" }, { key: "prospects", label: "Prospects", right: true },
           { key: "asks", label: "With Ask", right: true }, { key: "ask", label: "Total Ask", fmt: (v) => usd(v as number), right: true },
         ]} />
       </Card>

@@ -53,7 +53,13 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
       const prev = t.prospects[cptid];
       const solicitor2 = clean(b.solicitor2, 120);
       const prev2 = (await secondarySolicitors(client))[String(cptid)] ?? prev?.solicitor2 ?? "";
-      const st = { status, level, solicitor: clean(b.solicitor, 120) || undefined, solicitor2: solicitor2 || undefined, reason: clean(b.reason, 500) || undefined, updatedAt: now, by };
+      const primarySpecified = b.solicitor !== undefined;
+      const primary = primarySpecified ? clean(b.solicitor, 120) : prev?.solicitor;
+      const secondary = b.solicitor2 !== undefined ? solicitor2 : prev?.solicitor2;
+      const st = { status, level,
+        ...(primary !== undefined ? { solicitor: primary } : {}),
+        solicitorEdited: primarySpecified ? true : prev?.solicitorEdited ?? (prev?.updatedAt ? undefined : false),
+        ...(secondary !== undefined ? { solicitor2: secondary } : {}), reason: clean(b.reason, 500) || undefined, updatedAt: now, by };
       if (b.solicitor2 !== undefined && solicitor2 !== prev2) {
         try { await saveSecondarySolicitor(client, cptid, prev2, solicitor2, by); }
         catch (e) { return NextResponse.json({ error: `Could not save the secondary solicitor: ${(e as Error).message}` }, { status: 500 }); }
@@ -61,8 +67,8 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
       t.prospects[cptid] = st;
       const parts = [`Status: ${prev?.status ?? "none"} → ${status}`];
       if (level !== prev?.level) parts.push(`Gift level: ${level ? `$${level.toLocaleString("en-US")}` : "auto"}`);
-      if (st.solicitor !== prev?.solicitor) parts.push(`Solicitor: ${st.solicitor ?? "none"}`);
-      if ((st.solicitor2 ?? "") !== prev2) parts.push(`Secondary solicitor: ${st.solicitor2 ?? "none"}`);
+      if (primarySpecified && st.solicitor !== prev?.solicitor) parts.push(`Solicitor: ${st.solicitor ?? "none"}`);
+      if (b.solicitor2 !== undefined && (st.solicitor2 ?? "") !== prev2) parts.push(`Secondary solicitor: ${st.solicitor2 ?? "none"}`);
       if (st.reason) parts.push(`Reason: ${st.reason}`);
       t.activity.push({ id, cptid, date: now.slice(0, 10), kind: "Committee update", note: parts.join(" · "), by, at: now });
       audit = { action: "status", newValue: parts.join(" · ") };

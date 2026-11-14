@@ -4,7 +4,7 @@ const Module = require("node:module"), ts = require("typescript");
 const root = process.cwd(), original = Module._load;
 for (const ext of [".ts", ".tsx"]) require.extensions[ext] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f,"utf8"), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
 Module._load = function(name,parent,isMain) {
-  if (name === "@/lib/portal-v2/server") return {portalCampaignStateSafe: async()=>{throw new Error("Unexpected state read")}};
+  if (name === "@/lib/portal-v2/server") return {portalCampaignStateSafe: async()=>{throw new Error("Unexpected state read")},secondarySolicitors:async()=>({}),saveSecondarySolicitor:async()=>{throw new Error("Unexpected SQL secondary write")},logHistoryAudit:async()=>{},parseUsDate:x=>x};
   if (name.startsWith("@/")) name=path.join(root,name.slice(2));
   return original.call(this,name,parent,isMain);
 };
@@ -12,6 +12,8 @@ global.fetch = async()=>{throw new Error("Unexpected external request")};
 const {NextRequest} = require("next/server");
 const {buildOverlay} = require("../lib/portal-v2/record-overlay.ts");
 const {assignmentResolver,assignmentSnapshot,viewAssignment,isUnassigned,filterAssignments,assignmentMembers,belongsToSolicitor} = require("../lib/portal-v2/effective-assignment.ts");
+const {overlayCampaignAsks,askEdits} = require("../lib/portal-v2/effective-ask.ts");
+const {trackingRoute} = require("../lib/tracking-route.ts");
 const {recordsRoute} = require("../lib/portal-v2/records-route.ts");
 const {buildReportRows,reportRoute} = require("../lib/portal-v2/report-route.ts");
 const {runReport,sanitizeQuery} = require("../lib/portal-v2/report-fields.ts");
@@ -90,5 +92,40 @@ const state={prospects:[],gifts:[],batches:[],updates};
   assert.equal(survivor.name,manual.full_name);assert.equal(survivor.mergedFrom[0].name,"Manual Only");
   console.log(`PASS ${client}: manual placeholder identity/index/detail/report/merged source; source facts and named identities preserved`);
  }
+ // Status-only API updates do not imply primary edits. Activity never changes prospect intent.
+ let saved={prospects:{},activity:[],pirs:{},removed:[]};
+ const route=trackingRoute("pvas",async()=>true,async()=>JSON.parse(JSON.stringify(saved)),async t=>{saved=JSON.parse(JSON.stringify(t))});
+ const post=async b=>await route.POST(new NextRequest("https://fixture.invalid/",{method:"POST",body:JSON.stringify({cptid:1,by:"ZZTEST",...b})}));
+ assert.equal((await post({type:"status",status:"Active"})).status,200);
+ assert.equal(saved.prospects["1"].solicitorEdited,false);
+ assert.equal(assignmentResolver(records,saved,[],buildOverlay([]))(1).solicitor,"Source Primary");
+ assert.equal(viewAssignment({cptid:1,solicitor:"Source Primary"},null,saved).solicitor,"Source Primary");
+ saved.prospects["1"].solicitor2="Tracking Secondary";
+ assert.equal((await post({type:"status",status:"Hold"})).status,200);
+ assert.equal(saved.prospects["1"].solicitor2,"Tracking Secondary","omitted secondary preserves prior tracking-only value");
+ assert.ok(!saved.activity.at(-1).note.includes("Secondary solicitor:"),"omitted secondary never logs a clear");
+ const before=JSON.stringify(saved.prospects);
+ assert.equal((await post({type:"activity",kind:"Note",note:"Synthetic history only"})).status,200);assert.equal(JSON.stringify(saved.prospects),before);
+ assert.equal((await post({type:"status",status:"Hold",solicitor:""})).status,200);
+ assert.equal(saved.prospects["1"].solicitor,"");assert.equal(saved.prospects["1"].solicitorEdited,true);
+ assert.equal(assignmentResolver(records,saved,[],buildOverlay([]))(1).solicitor,"");
+ assert.equal((await post({type:"status",status:"Active"})).status,200);
+ assert.equal(assignmentResolver(records,saved,[],buildOverlay([]))(1).solicitor,"","later status-only preserves explicit clear");
+ // Source-first order must not choose source financial values or source portfolio metadata.
+ const m=buildOverlay([update(1,4,"merged_into","3")]);
+ const sourceFirst={highWealth:[{...idx(4),lifetime:10,gifts:1,largest:10,first:"1999-01-01"},{...idx(3),lifetime:20,gifts:2,largest:15,first:"2001-01-01"}],portfolio:[{...idx(4),ask:10,task:"Source"},{...idx(3),ask:20,task:"Survivor"}]};
+ const mergedIndex=[{...idx(3),lifetime:30,gifts:3,largest:15,last:"2026-01-01",years:4}];
+ for(const highWealth of [sourceFirst.highWealth,[...sourceFirst.highWealth].reverse()]) {
+   const v=assignmentSnapshot({...sourceFirst,highWealth},mergedIndex,{prospects:{}},m);
+   assert.equal(v.highWealth.length,1);assert.equal(v.highWealth[0].lifetime,30);assert.equal(v.highWealth[0].gifts,3);assert.equal(v.highWealth[0].first,"");
+   assert.equal(v.portfolio[0].ask,20);assert.equal(v.portfolio[0].task,"Survivor");
+ }
+ const sourceOnly=assignmentSnapshot({highWealth:[sourceFirst.highWealth[0]]},mergedIndex,{prospects:{}},m);
+ assert.equal(sourceOnly.highWealth[0].lifetime,30,"source-only view uses folded index, not source lifetime");
+ const asks=overlayCampaignAsks({pool:[{...idx(4),ask:10}],portfolio:[],board:[]},m,askEdits([]),false);
+ const sourcePool=assignmentSnapshot(asks,mergedIndex,{prospects:{}},m);
+ assert.equal(sourcePool.pool[0].cptid,3);assert.equal(sourcePool.pool[0].ask,10,"source-only merge retains existing effective ask");
+ assert.equal(sourcePool.pool[0].lifetime,30,"source-only pool merge uses folded financial values");
+ console.log("PASS status/activity-only intent and source-first/survivor-first merged snapshot financial regressions");
  console.log("PASS assignment consistency: no external reads or writes");
 })().catch(e=>{console.error(e);process.exitCode=1});

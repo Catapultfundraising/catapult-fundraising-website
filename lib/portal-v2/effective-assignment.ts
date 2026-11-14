@@ -2,7 +2,7 @@ import { finalId, mergedSources, type Overlay, type UpdateRow } from "./record-o
 
 export type Assignment = { solicitor: string; solicitor2: string; assignmentConflict?: boolean };
 export type AssignmentRecord = { portfolio?: { solicitor?: string; secondary?: string; solicitor2?: string } | null };
-export type AssignmentTracking = { prospects: Record<string, { solicitor?: string; solicitor2?: string; updatedAt?: string; by?: string }> };
+export type AssignmentTracking = { prospects: Record<string, { solicitor?: string; solicitor2?: string; solicitorEdited?: boolean; updatedAt?: string; by?: string }> };
 export const assignmentText = (v: unknown): string => {
   const s = String(v ?? "").trim();
   return /^unassigned$/i.test(s) ? "" : s;
@@ -19,7 +19,7 @@ export function assignmentResolver(records: Record<string, unknown>, tracking: A
     const t = tracking?.prospects[String(id)];
     const p = (records[String(id)] as AssignmentRecord | undefined)?.portfolio;
     if (key === "solicitor2" && secondary.has(id)) return { value: secondary.get(id)!, manual: true };
-    if (t && (Object.prototype.hasOwnProperty.call(t, key) || (key === "solicitor" && !!t.updatedAt))) {
+    if (t && (Object.prototype.hasOwnProperty.call(t, key) || (key === "solicitor" && !!t.updatedAt && t.solicitorEdited !== false))) {
       return { value: assignmentText(t[key]), manual: true };
     }
     return { value: assignmentText(key === "solicitor" ? p?.solicitor : p?.secondary ?? p?.solicitor2), manual: false };
@@ -53,7 +53,7 @@ export function viewAssignment(row: { cptid?: number | null; solicitor?: string;
   const base = indexed(index)?.get(row.cptid ?? 0) ?? row;
   const t = tracking.prospects[String(row.cptid)];
   return {
-    solicitor: assignmentText(t && (Object.prototype.hasOwnProperty.call(t, "solicitor") || t.updatedAt) ? t.solicitor : base.solicitor),
+    solicitor: assignmentText(t && (Object.prototype.hasOwnProperty.call(t, "solicitor") || (t.updatedAt && t.solicitorEdited !== false)) ? t.solicitor : base.solicitor),
     solicitor2: assignmentText(t && Object.prototype.hasOwnProperty.call(t, "solicitor2") ? t.solicitor2 : base.solicitor2),
     assignmentConflict: "assignmentConflict" in base ? !!base.assignmentConflict : undefined,
   };
@@ -64,14 +64,29 @@ export function assignmentSnapshot<T>(snapshot: T, index: readonly ({ cptid: num
   const out = { ...s };
   for (const key of ["pool", "portfolio", "highWealth", "midLevel", "legacy", "lapsed", "top"]) {
     if (!Array.isArray(s[key])) continue;
+    const rows = s[key] as { cptid: number; name?: string; [key: string]: unknown }[];
+    const byId = new Map(rows.map((r) => [r.cptid, r]));
     const seen = new Set<number>();
-    out[key] = (s[key] as { cptid: number; name?: string }[]).flatMap((row) => {
+    out[key] = rows.flatMap((row) => {
       const id = o ? finalId(o, row.cptid) : row.cptid;
       if (o?.deleted.has(id) || seen.has(id)) return [];
       seen.add(id);
-      const a = viewAssignment({ ...row, cptid: id }, index, tracking);
+      // Prefer the actual survivor, regardless of source-array order. Merged giving must
+      // come from the folded index, never whichever source happened to appear first.
+      const selected = byId.get(id) ?? row;
+      const merged = o ? mergedSources(o, id).length > 0 : false;
+      const financial: Record<string, unknown> = {};
+      const indexedRow = indexed(index)?.get(id) as Record<string, unknown> | undefined;
+      if (merged) {
+        for (const field of ["lifetime", "gifts", "largest", "last", "years"]) {
+          if (Object.prototype.hasOwnProperty.call(selected, field)) financial[field] = indexedRow?.[field] ?? null;
+        }
+        // The index has no merged first-gift date. Do not mislabel a source's date as final.
+        if (Object.prototype.hasOwnProperty.call(selected, "first")) financial.first = "";
+      }
+      const a = viewAssignment({ ...selected, cptid: id }, index, tracking);
       const survivor = indexed(index)?.get(id) as { name?: string } | undefined;
-      return [{ ...row, cptid: id, ...(survivor?.name ? { name: survivor.name } : {}), ...a, solicitor: a.solicitor || (isUnassigned(a) ? "Unassigned" : "") }];
+      return [{ ...selected, ...financial, cptid: id, ...(survivor?.name ? { name: survivor.name } : {}), ...a, solicitor: a.solicitor || (isUnassigned(a) ? "Unassigned" : "") }];
     });
   }
   return out as T;
