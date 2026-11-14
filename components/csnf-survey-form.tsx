@@ -34,7 +34,7 @@ export function CsnfSurveyForm({ accepting }: { accepting: boolean }) {
       setMessage(error instanceof Error ? error.message : "We could not confirm your response was saved. Please retry.");
     } finally { setBusy(false); }
   }} className="space-y-8">
-    {!accepting && <p role="status" className="rounded-md border border-[#d8e3ef] bg-white p-4">Preview only — responses are not being collected.</p>}
+    {!accepting && <p role="status" className="rounded-md border border-[#d8e3ef] bg-white p-4">Preview only: responses are not being collected.</p>}
     <p className="text-sm">Your responses will be used for the CSN Foundation study. Please do not include sensitive personal or financial information in written comments.</p>
     <div aria-hidden="true" className="hidden"><label>Website<input tabIndex={-1} autoComplete="off" value={website} onChange={e => setWebsite(e.target.value)} /></label></div>
     <fieldset disabled={busy || attempted || !accepting} className="space-y-8 disabled:opacity-80">

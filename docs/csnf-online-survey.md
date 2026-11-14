@@ -6,8 +6,10 @@ New unlisted `/csnf-survey`, styled with the existing CSN Foundation page's
 logo, blue `#004990`, yellow rule `#FFD51D`, white ground and sans-serif type.
 The narrative is: source introduction → concise case summary → full case/FAQ
 links → the questionnaire → durable receipt. This is a working survey, not a
-new marketing template. Existing `/csnf` and `/csnfvip` keep their approved
-interview invitation/scheduling copy; the only change there is a case anchor.
+new marketing template. `/csnf` is now a resource-only case/FAQ destination:
+the two invitation/scheduling blocks and the interview-only final FAQ are
+hidden, not rewritten. All substantive case and FAQ answers remain intact.
+`/csnfvip` retains its existing invitation/scheduling experience.
 
 Questions and options: **CSNF Donor Assessment Study Online Questions.docx**,
 SharePoint item `01AY5622EDLSZZ7556SZGY2BOB7NKAE7HM`, modified November 13,
@@ -21,8 +23,8 @@ a 2,000-character UI/server bound.
 Case summary and FAQ links derive from existing `/csnf` and the final
 September 15 client documents (case item `01AY5622DP2MMSS6YH2JDIO2KNKMSZBCQM`,
 FAQ item `01AY5622DP4N6Q6GUSPZB3ZS2RARGBN4G5`). The FAQ remains the approved
-original on `/csnf#faq`, including its interview-specific final question;
-no unapproved rewrite of other pages is included. The survey itself contains
+original on `/csnf#faq`, excluding only its interview-specific final question
+in resource-only mode. No substantive answers are rewritten. The survey contains
 no interview or scheduling invitation. No outreach or launch date is scheduled.
 
 ## Storage and privacy
@@ -30,7 +32,12 @@ no interview or scheduling invitation. No outreach or launch date is scheduled.
 Uses the already-installed `@vercel/blob` private store, not a new provider,
 SQL permission, subscription or Engage endpoint.
 
-* Existing server-only `BLOB_READ_WRITE_TOKEN` is required.
+* The project already has `BLOB_STORE_ID` for preview and production and
+  Vercel OIDC enabled (team issuer). Installed `@vercel/blob` 2.6.1 automatically
+  resolves `VERCEL_OIDC_TOKEN` + `BLOB_STORE_ID`; no new read/write token is
+  required. Read-only Vercel metadata verified the existing `Catapultprofiles`
+  store (`store_e7SitofNOvoFTa0p`) is **private**, **available**, region `iad1`.
+  `BLOB_READ_WRITE_TOKEN` is not present and is not a new setup prerequisite.
 * New `CSNF_SURVEY_ENABLED=true` explicitly enables production collection.
   Leave unset until Anthony approves release.
 * `VERCEL_ENV=preview` **always refuses public POST**, even if enabled and
@@ -79,6 +86,12 @@ Schema order is canonical. Full exports paginate the private Blob listing and
 sort by timestamp then ID; consumers must deduplicate by immutable ID, not row
 number. Export failures are 503, never a falsely successful empty response.
 Stored digests are not returned. The optional `commentFor` property is metadata.
+
+Read-only readiness check: `CRON_SECRET` exists as an encrypted key for both
+production and preview. On the immutable READY `b08c503` preview, unauthenticated
+export returned 401, authenticated preview-namespace export returned 200 with
+19 questions and zero responses, and empty preview POST returned 503 before
+storage access. This verified OIDC listing/auth without a receipt write.
 
 **SharePoint delivery is a separate integration**, not implemented by
 pretending this website has Graph credentials. The parent task supplied the

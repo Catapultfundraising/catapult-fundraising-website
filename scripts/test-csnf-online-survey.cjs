@@ -134,5 +134,18 @@ const snapshots = () => [...ledger.entries()];
   }
   assert.ok(fs.readFileSync("lib/csnf-survey.ts", "utf8").includes("getCsnfSurvey"), "unrelated interview lookup is preserved");
   assert.ok(fs.readFileSync("middleware.ts", "utf8").includes('matchPrefix: "/api/csnf-summary-pdf"'));
+  const React = require("react"), { renderToStaticMarkup } = require("react-dom/server");
+  const Campaign = require("../components/csnf-campaign-page.tsx").default;
+  const resourceHtml = renderToStaticMarkup(React.createElement(Campaign, { resourceOnly: true }));
+  const invitationHtml = renderToStaticMarkup(React.createElement(Campaign, { schedulingLink: "https://fixture.invalid/schedule" }));
+  assert.ok(!/interview|calendly|fixture.invalid\/schedule/i.test(resourceHtml), "/csnf resource mode contains no stale interview invitation or FAQ");
+  assert.equal((invitationHtml.match(/href="https:\/\/fixture.invalid\/schedule"/g) || []).length, 2, "VIP/default scheduling CTAs retained");
+  assert.ok(invitationHtml.includes("Will I be asked to make a gift during my interview?"));
+  assert.equal(resourceHtml.match(/<section id="case-for-support"[\s\S]*?(?=<section id="faq")/)[0], invitationHtml.match(/<section id="case-for-support"[\s\S]*?(?=<section id="faq")/)[0], "substantive case HTML identical in both modes");
+  const resourceFaqs = resourceHtml.match(/<details[\s\S]*?<\/details>/g);
+  const invitationFaqs = invitationHtml.match(/<details[\s\S]*?<\/details>/g);
+  assert.deepEqual(resourceFaqs, invitationFaqs.slice(0, -1), "all substantive FAQ answers unchanged; only interview-only question hidden");
+  assert.ok(fs.readFileSync("app/csnf/page.tsx", "utf8").includes("<CsnfCampaignPage resourceOnly />"));
+  assert.ok(fs.readFileSync("app/csnfvip/page.tsx", "utf8").includes("csnf-tier-1-interview"));
   console.log("PASS CSNF online survey: source schema, strict validation, preview guard, size/origin/type gates, private immutable persistence, retry/conflict/concurrency/ambiguous save, pagination/read failures/corruption, export auth, PII-free aggregates, Pacific DST cutoffs, separate sync counts and fail-closed snapshot, existing interview/PDF isolation.");
 })().catch(e => { console.error(e); process.exitCode = 1; });

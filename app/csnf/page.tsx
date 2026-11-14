@@ -1,22 +1,17 @@
 import type { Metadata } from "next";
 import CsnfCampaignPage from "@/components/csnf-campaign-page";
 
-// CSN Foundation Northwest Campus campaign page (general interview list).
-// Layout and copy live in components/csnf-campaign-page.tsx, shared with
-// /csnfvip. Only the Calendly scheduling link differs between the two.
-// Deliberately NOT indexed: noindex/nofollow below, disallowed in
-// app/robots.ts, absent from app/sitemap.ts and all navigation.
-
+// Resource-only case and FAQ destination linked from the separate online survey.
+// /csnfvip keeps its existing interview invitation and scheduling experience.
+// Unlisted: noindex/nofollow, robots disallow, absent from sitemap/navigation.
 export const metadata: Metadata = {
   title: { absolute: "CSN Northwest Campus Campaign | CSN Foundation" },
   description:
-    "Learn about the College of Southern Nevada Northwest Campus and the CSN Foundation's $10 million philanthropic campaign before your feasibility study interview.",
+    "Learn about the College of Southern Nevada Northwest Campus and the CSN Foundation's $10 million philanthropic campaign.",
   robots: { index: false, follow: false, nocache: true },
   alternates: { canonical: "https://www.catapultfr.com/csnf" },
 };
 
 export default function Page() {
-  return (
-    <CsnfCampaignPage schedulingLink="https://calendly.com/catapultfr/csnf-interview" />
-  );
+  return <CsnfCampaignPage resourceOnly />;
 }
