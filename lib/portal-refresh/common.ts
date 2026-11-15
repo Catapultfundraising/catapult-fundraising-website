@@ -301,8 +301,18 @@ export async function pirLinks(schema: "csnf" | "jag" | "pvas" | "wcbhc" | "baq"
   return out;
 }
 
-/** DonorSearch money columns are decimals in Azure; the portal shows Access text like "$5,696,151.00". */
-export const dsField = (col: string, v: unknown): string =>
-  (col === "Real_Estate_Est" || col === "SEC_Stock_Value") && v !== null && v !== undefined && v !== ""
-    ? "$" + Number(v).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    : s(v);
+/** Display only: Azure money decimals and native Access SEC currency text. Never change source values. */
+export function dsField(col: string, v: unknown): string {
+  const text = s(v);
+  if ((col !== "Real_Estate_Est" && col !== "SEC_Stock_Value") || !text) return text;
+  // SEC can already contain native dollar text. Validate its grouping/sign shape
+  // before preserving it; do not strip arbitrary characters or invent a number.
+  if (col === "SEC_Stock_Value" && typeof v === "string" &&
+      /^(?:(?:-?\$|\$-)(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?|\(\$(?:\d+|\d{1,3}(?:,\d{3})+)(?:\.\d{1,2})?\))$/.test(text)) return text;
+  if ((typeof v !== "number" && typeof v !== "string") ||
+      !/^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/.test(text)) return text;
+  const amount = Number(text);
+  return Number.isFinite(amount)
+    ? "$" + amount.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : text;
+}
