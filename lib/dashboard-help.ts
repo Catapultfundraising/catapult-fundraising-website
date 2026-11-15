@@ -258,7 +258,7 @@ const ALL_TOPICS: HelpTopic[] = [
     id: "getting-started", kind: "task", title: "Getting started",
     summary: "What the header dates mean and a few rules before you edit.",
     steps: [
-      "\u201cSource data as of\u201d is the date of the client data the dashboard was built from. \u201cSnapshot refreshed\u201d is when the dashboard last rebuilt it.",
+      "\u201cSource data as of\u201d is the date of the client data the dashboard was built from. \u201cDashboard refreshed\u201d is when the dashboard snapshot was built (Pacific time), not when you opened the page. An unavailable refresh time does not mean the source data was refreshed.",
       "Changes made on the dashboard (edits, gifts, uploads) show right away, even before the next refresh.",
       "CPTID is the dashboard's record number. It is not necessarily the ID in the client's own database (that is the Client ID).",
       "Before editing, check the name, address and CPTID to be sure you have the right person.",

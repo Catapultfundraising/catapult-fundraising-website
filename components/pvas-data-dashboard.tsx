@@ -1,5 +1,7 @@
 "use client";
 
+import { dashboardDateLabels } from "@/lib/dashboard-dates";
+
 import { filterAssignments, isUnassigned, assignmentMembers, belongsToSolicitor } from "@/lib/portal-v2/effective-assignment";
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 
@@ -717,6 +719,7 @@ export function PvasDataDashboard({ data }: { data: PvasSnapshot }) {
 function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
   const { index, tracking, loading } = useCrm();
   const data = useCampaignAskSnapshot(snapshot, index, tracking);
+  const dates = dashboardDateLabels(snapshot);
   const campaign = useCampaignDataStatus();
   const [tab, setTab] = useUrlState<Tab | "Prospect Ratings">("tab", "Overview", [...TABS, "Prospect Ratings"]);
   const staff = useBoardReviewStaff("pvas");
@@ -730,8 +733,8 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
           <div>
             <p className="text-xs uppercase tracking-[0.2em] text-[rgb(var(--brass-light))]">Prepared by Catapult Fundraising</p>
             <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
-            <p className="mt-1 text-sm text-white/70">Source data as of {data.asOf}</p>
-            <p className="text-xs text-white/60">Snapshot refreshed {data.builtAt}</p>
+            <p className="mt-1 text-sm text-white/70">{dates.refreshed}</p>
+            <p className="text-xs text-white/60">{dates.source}</p>
           </div>
           <DonorSearch dark />
         </div>
@@ -769,7 +772,7 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
         {tab === "Recent Givebutter Activity" && <Givebutter d={data} />}
         </SafeBoundary>
         <p className="mt-10 text-xs text-[rgb(var(--ink))]/50">
-          Built {data.builtAt}. Lifetime totals come from the giving history file and do not include Givebutter activity.
+          {dates.refreshed}. Lifetime totals come from the giving history file and do not include Givebutter activity.
         </p>
       </div>
     </main>

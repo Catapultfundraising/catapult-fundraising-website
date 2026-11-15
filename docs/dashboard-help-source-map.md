@@ -9,7 +9,7 @@ Use synthetic examples only. Do not put passwords, internal systems or donor nam
 | Topic | Verified against |
 |---|---|
 | Tab index (per client) | `components/{jag,csnf,pvas,wcbhc,baq}-data-dashboard.tsx`: `TABS` + `"Prospect Ratings"` and the `tab === …` panels |
-| Getting started | Dashboard header ("Source data as of" / "Snapshot refreshed"); `components/portal-v2.tsx` (Client ID field); `report-fields.ts` capacity help |
+| Getting started | Dashboard header ("Dashboard refreshed" / "Source data as of"; shared labels in `lib/dashboard-dates.ts`); `components/portal-v2.tsx` (Client ID field); `report-fields.ts` capacity help |
 | Donor Lookup / Open and edit a record | `Lookup` sub-text in each dashboard; `components/*-data-crm.tsx` (Escape closes the record in all five; Log a contact or visit); `components/record-tools.tsx` (`ContactSection`: Edit contact, old values kept, Monday refresh; `WealthSection`: Edited / From PIR / DonorSearch, Undo edit) |
 | Overview, Gift Pyramid, Gift Chart + GC2P, Prospects, Board/Committee, Portfolio/Campaign Prospects, Givebutter/Campaign Gifts, Calling, Feasibility, Alumni, Database Health | The section components in each dashboard (`H` titles/subtitles, `Stat` click handlers, "Click to list the prospects" titles) |
 | Reports, Build and download a report | `components/report-builder.tsx` (Choose fields, Add filter, MM/DD/YYYY, top-rows box, PDF/Excel); `lib/portal-v2/report-fields.ts` (field help, `PDF_MAX_ROWS`, `XLSX_MAX_ROWS`) |
