@@ -27,6 +27,18 @@ test("route: authentication, origin, production gate; no external transport duri
       assert.equal((await POST(req({ op: "simulate", input: { ...input, actor: "Changed" }, binding: preview.binding }))).status, 400);
       const result = await (await POST(req({ op: "simulate", input, binding: preview.binding }))).json();
       assert.equal(result.receipt.sqlCommitted, false); assert.equal(result.receipt.published, false);
+      if (client === "pvas") {
+        const sample = await (await POST(req({ op: "sampleXlsx" }))).json();
+        const info = await (await POST(req({ op: "fileInfo", bytes: sample.bytes, format: "xlsx" }))).json();
+        assert.ok(info.sheets.includes("Capital_Campaign_Portfolio"));
+        const parseSettings = { format: "xlsx", sheet: "Capital_Campaign_Portfolio", headerRow: 7 };
+        const inspected = await (await POST(req({ op: "inspect", bytes: sample.bytes, parseSettings }))).json();
+        assert.equal(inspected.headers.length, 47);
+        const excelInput = { ...input, bytes: sample.bytes, fileName: "synthetic.xlsx", parseSettings, mapping: { ...input.mapping, "Secondary Solicitor": "secondarySolicitor" } };
+        const excelPreview = await (await POST(req({ op: "preview", input: excelInput }))).json();
+        assert.equal(excelPreview.changes, 6);
+        assert.equal((await POST(req({ op: "simulate", input: { ...excelInput, parseSettings: { ...parseSettings, sheet: "Alternate_Portfolio" } }, binding: excelPreview.binding }))).status, 400);
+      }
     }
     assert.equal(outgoing, 0);
   } finally { globalThis.fetch = previousFetch; }

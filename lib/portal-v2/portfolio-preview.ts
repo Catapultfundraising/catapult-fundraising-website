@@ -1,19 +1,19 @@
 // Simulation adapter for the existing guarded source importer. No transport, SQL, Blob or durable writes.
 // Business targets here are NOT approved SQL columns or field-authority cutovers.
 import { createHash } from "node:crypto";
-import { parseCsv } from "./csv-parse";
 import { parseKeyOf } from "./source-keys";
 import { buildProfile, checkProfile, type ProfileContext } from "./source-mapping-profile";
+import { inspectSourceFile, type ParseSettings } from "./source-file-preview";
 
 export const PREVIEW_CLIENTS = ["pvas", "csnf", "jag", "wcbhc", "baq"] as const;
-export const TARGETS = ["clientId", "verifyCptid", "note", "askAmount", "portfolio"] as const;
+export const TARGETS = ["clientId", "verifyCptid", "note", "askAmount", "portfolio", "secondarySolicitor"] as const;
 export type Target = typeof TARGETS[number];
 export type Note = { id: string; text: string; sourceDate: string; source: string; actor: string };
-export type Person = { cptid: number; askAmount: string; portfolio: string; manual: string[]; notes: Note[] };
+export type Person = { cptid: number; askAmount: string; portfolio: string; secondarySolicitor: string; manual: string[]; notes: Note[] };
 export type Simulation = { client: string; version: number; people: Person[] };
 export type PreviewRequest = {
   client: string; fileName: string; bytes: string; sourceDate: string; actor: string;
-  mapping: Record<string, string>; state: Simulation;
+  mapping: Record<string, string>; state: Simulation; parseSettings?: ParseSettings;
 };
 const sha = (x: string | Buffer) => createHash("sha256").update(x).digest("hex");
 const canonical = (x: unknown): unknown => Array.isArray(x) ? x.map(canonical) : x && typeof x === "object" ? Object.fromEntries(Object.keys(x).sort().map(k => [k, canonical((x as Record<string, unknown>)[k])])) : x;
@@ -31,8 +31,8 @@ export function previewAvailable(env: Record<string, string | undefined> = proce
 export function fixture(client: string): Simulation {
   if (!(PREVIEW_CLIENTS as readonly string[]).includes(client)) fail("Choose a supported client");
   return { client, version: 0, people: [
-    { cptid: 900001, askAmount: "1000.00", portfolio: "Synthetic team A", manual: [], notes: [{ id: "historical", text: "Existing manual note — preserve verbatim.", sourceDate: "2026-01-01", source: "manual", actor: "Fictional staff" }] },
-    { cptid: 900002, askAmount: "2500.00", portfolio: "Manual solicitor", manual: ["askAmount", "portfolio"], notes: [] },
+    { cptid: 900001, askAmount: "1000.00", portfolio: "Synthetic team A", secondarySolicitor: "Synthetic secondary A", manual: [], notes: [{ id: "historical", text: "Existing manual note — preserve verbatim.", sourceDate: "2026-01-01", source: "manual", actor: "Fictional staff" }] },
+    { cptid: 900002, askAmount: "2500.00", portfolio: "Manual solicitor", secondarySolicitor: "Manual secondary", manual: ["askAmount", "portfolio", "secondarySolicitor"], notes: [] },
   ] };
 }
 // Fictional client-scoped crosswalk, deliberately includes unknown and ambiguous cases.
@@ -48,27 +48,16 @@ export const SAMPLE = [
   "900001,0001,,,,,A different note on the same date,,,,,,",
   "900002,0001,,,,,Contradictory IDs must be held,,,,,,",
 ].join("\r\n") + "\r\n";
-export function profileContext(client: string): ProfileContext {
+export function profileContext(client: string, parseSettings: ParseSettings = { format: "csv" }): ProfileContext {
   fixture(client);
-  return { client, table: "SIMULATION_portfolio_notes", registryRev: sha("portfolio-simulation/v1"), keyCol: "clientId", keyKind: "text",
+  return { client, table: "SIMULATION_portfolio_notes", registryRev: hash(["portfolio-simulation/v2", parseSettings]), keyCol: "clientId", keyKind: "text",
     dests: TARGETS.map(col => ({ col, ty: "nvarchar", st: "candidate", key: col === "clientId" ? col : "" })),
     preparedDigest: null, allocatorDigest: null, insertPolicyDigest: null };
 }
-export function inspect(bytes: string) {
-  if (typeof bytes !== "string" || bytes.length > 2_800_000 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(bytes)) fail("Choose a UTF-8 CSV of at most 2 MB");
-  const raw = Buffer.from(bytes, "base64");
-  if (!raw.length || raw.length > 2 * 1024 * 1024) fail("Choose a UTF-8 CSV of at most 2 MB");
-  let text: string;
-  try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(raw); } catch { return fail("CSV must be valid UTF-8; export it again"); }
-  const rows = parseCsv(text);
-  if (rows.length < 2 || rows.length > 501) fail("Choose 1 to 500 CSV data rows");
-  const headers = rows[0];
-  if (rows.slice(1).some(row => row.length !== headers.length)) fail("Every row must have the same number of columns as the header");
-  return { headers, rows: rows.slice(1), fileDigest: sha(raw), byteLength: raw.length };
-}
-export function mappingProfile(client: string, bytes: string, mapping: Record<string, string>, profile?: string) {
-  const { headers } = inspect(bytes);
-  return profile === undefined ? buildProfile(profileContext(client), headers, mapping) : checkProfile(profile, profileContext(client), headers);
+export const inspect = inspectSourceFile;
+export function mappingProfile(client: string, bytes: string, mapping: Record<string, string>, profile?: string, settings?: ParseSettings) {
+  const { headers, parseSettings } = inspect(bytes, settings);
+  return profile === undefined ? buildProfile(profileContext(client, parseSettings), headers, mapping) : checkProfile(profile, profileContext(client, parseSettings), headers);
 }
 export type ReviewRow = { line: number; clientId: string; cptid: number | null; fields: { target: string; before: string; after: string; outcome: string }[]; reason?: string };
 export function plan(input: PreviewRequest) {
@@ -77,15 +66,15 @@ export function plan(input: PreviewRequest) {
   if (typeof fileName !== "string" || !fileName.trim() || fileName.length > 200) fail("File name required");
   if (typeof actor !== "string" || !actor.trim() || actor.length > 100) fail("Enter staff attribution for this simulation");
   if (typeof sourceDate !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(sourceDate) || !Number.isFinite(Date.parse(sourceDate)) || new Date(sourceDate).toISOString().slice(0, 10) !== sourceDate) fail("Provide the verified source-as-of date (YYYY-MM-DD)");
-  const staged = inspect(bytes);
-  mappingProfile(client, bytes, mapping); // existing profile owner validates headers, business targets and unique mapping
+  const staged = inspect(bytes, input.parseSettings);
+  mappingProfile(client, bytes, mapping, undefined, input.parseSettings); // existing profile owner validates headers, business targets and unique mapping
   const state = input.state;
   if (!state || state.client !== client || !Number.isSafeInteger(state.version) || state.version < 0 || !Array.isArray(state.people) || state.people.length !== 2) fail("Reset this client's simulation");
   // Only fictional fixture identities may be carried into the in-memory simulation.
   const base = fixture(client);
   for (let i = 0; i < base.people.length; i++) {
     const p = state.people[i];
-    if (!p || p.cptid !== base.people[i].cptid || typeof p.askAmount !== "string" || typeof p.portfolio !== "string" || JSON.stringify(p.manual) !== JSON.stringify(base.people[i].manual) || !Array.isArray(p.notes) || p.notes.length > 2000 || p.notes.some(n => !n || ["id", "text", "sourceDate", "source", "actor"].some(k => typeof n[k as keyof Note] !== "string"))) fail("Invalid simulation state; reset");
+    if (!p || p.cptid !== base.people[i].cptid || typeof p.askAmount !== "string" || typeof p.portfolio !== "string" || typeof p.secondarySolicitor !== "string" || JSON.stringify(p.manual) !== JSON.stringify(base.people[i].manual) || !Array.isArray(p.notes) || p.notes.length > 2000 || p.notes.some(n => !n || ["id", "text", "sourceDate", "source", "actor"].some(k => typeof n[k as keyof Note] !== "string"))) fail("Invalid simulation state; reset");
     if (!base.people[i].notes.every(n => p.notes.some(x => JSON.stringify(x) === JSON.stringify(n)))) fail("Historical notes must remain intact");
   }
   const next: Simulation = structuredClone(state);
@@ -96,7 +85,7 @@ export function plan(input: PreviewRequest) {
   const scalarValues = new Map<string, Set<string>>();
   for (const row of staged.rows) {
     const values = Object.fromEntries(staged.headers.map((h, i) => [h, row[i]]));
-    for (const [h, t] of Object.entries(mapping)) if (["askAmount", "portfolio"].includes(t) && values[h]?.trim()) {
+    for (const [h, t] of Object.entries(mapping)) if (["askAmount", "portfolio", "secondarySolicitor"].includes(t) && values[h]?.trim()) {
       const key = `${values[idHeader]}|${t}`;
       const set = scalarValues.get(key) ?? new Set<string>(); set.add(values[h].trim()); scalarValues.set(key, set);
     }
@@ -104,9 +93,12 @@ export function plan(input: PreviewRequest) {
   staged.rows.forEach((row, i) => {
     const values = Object.fromEntries(staged.headers.map((h, j) => [h, row[j]]));
     const id = values[idHeader], matches = parseKeyOf("text", id) === null ? [] : CROSSWALK[id] ?? [];
-    const r: ReviewRow = { line: i + 2, clientId: id, cptid: matches.length === 1 ? matches[0] : null, fields: [] }; reviews.push(r);
+    const r: ReviewRow = { line: staged.lines[i], clientId: id, cptid: matches.length === 1 ? matches[0] : null, fields: [] }; reviews.push(r);
+    const slot = (header: string) => `${i}|${staged.headers.indexOf(header)}`;
+    if (staged.formulaSlots.has(slot(idHeader)) || staged.numericSlots.has(slot(idHeader)) || staged.otherSlots.has(slot(idHeader))) { r.cptid = null; r.reason = "Held: Excel client ID must be text, never a formula or numeric coercion"; return; }
     if (r.cptid === null) { r.reason = matches.length > 1 ? "Held: ambiguous client ID" : "Held: unknown or invalid client ID (exact text required)"; return; }
     const internalHeader = Object.keys(mapping).find(h => mapping[h] === "verifyCptid");
+    if ([internalHeader, ...(staged.headers.includes("CPTID") ? ["CPTID"] : [])].some(h => h !== undefined && (staged.formulaSlots.has(slot(h)) || staged.numericSlots.has(slot(h)) || staged.otherSlots.has(slot(h))))) { r.reason = "Held: formula, numeric or unsupported internal-ID verification cell; use exact text"; return; }
     const suppliedInternal = internalHeader === undefined ? "" : values[internalHeader];
     if (suppliedInternal && suppliedInternal !== String(r.cptid)) { r.reason = "Held: supplied internal CPTID contradicts the verified client-ID match"; return; }
     // Known portfolio header is a verification assertion even if the uploader leaves it unmapped.
@@ -116,8 +108,10 @@ export function plan(input: PreviewRequest) {
     for (const [header, target] of Object.entries(mapping)) {
       if (!target || target === "clientId" || target === "verifyCptid") continue;
       const value = values[header].trim();
-      const before = target === "note" ? `${person.notes.length} existing notes` : person[target as "askAmount" | "portfolio"];
+      const before = target === "note" ? `${person.notes.length} existing notes` : person[target as "askAmount" | "portfolio" | "secondarySolicitor"];
       const f = { target, before, after: value, outcome: "Blank — no change" }; r.fields.push(f);
+      if (staged.formulaSlots.has(slot(header)) || staged.otherSlots.has(slot(header))) { f.outcome = "Held: formula or unsupported cell — cached value not used"; continue; }
+      if (staged.numericSlots.has(slot(header))) { f.outcome = "Held: store this Excel value as exact text (numeric currency is not rounded)"; continue; }
       if (!value) continue;
       if (value.length > (target === "note" ? 4000 : 200) || invalidControls(value, target === "note")) { f.outcome = "Held: invalid or oversized value"; continue; }
       if (target === "note") {
@@ -135,15 +129,15 @@ export function plan(input: PreviewRequest) {
       }
       f.after = after;
       if (before === after) { f.outcome = "Unchanged"; continue; }
-      person[target as "askAmount" | "portfolio"] = after; f.outcome = "Would update"; changes++;
+      person[target as "askAmount" | "portfolio" | "secondarySolicitor"] = after; f.outcome = "Would update"; changes++;
     }
   });
   if (changes) next.version++;
-  const binding = hash({ v: 1, client, fileName, digest: staged.fileDigest, sourceDate, actor, mapping, state, reviews });
-  return { simulation: true as const, binding, fileDigest: staged.fileDigest, byteLength: staged.byteLength, sourceDate, changes, reviews, next };
+  const binding = hash({ v: 2, client, fileName, digest: staged.fileDigest, parseSettings: staged.parseSettings, sourceDate, actor, mapping, state, reviews });
+  return { simulation: true as const, binding, fileDigest: staged.fileDigest, byteLength: staged.byteLength, parseSettings: staged.parseSettings, sourceDate, changes, reviews, next };
 }
 export function simulate(input: PreviewRequest, binding: string) {
   const p = plan(input);
   if (p.binding !== binding) fail("Stale preview: file, mapping, source date, attribution or simulation state changed; preview again");
-  return { ...p, receipt: { simulation: true, sqlCommitted: false, published: false, sourceDate: input.sourceDate, simulatedAt: new Date().toISOString(), fileDigest: p.fileDigest, previewBinding: binding, changes: p.changes } };
+  return { ...p, receipt: { simulation: true, sqlCommitted: false, published: false, sourceDate: input.sourceDate, simulatedAt: new Date().toISOString(), fileDigest: p.fileDigest, parseSettings: p.parseSettings, previewBinding: binding, changes: p.changes } };
 }

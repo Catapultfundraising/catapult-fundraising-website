@@ -6,7 +6,7 @@ Authority: Anthony Teams1794764206627 / proposal1794764020883 (2026-11-15). Bran
 
 ## Try it
 
-On a feature preview, sign into existing employee `/research` access, then open `/research/source-import/portfolio-preview`. Download the synthetic CSV; supply a source-as-of date and staff attribution; upload; review the suggested business-field mapping; preview; simulate. Preview the file again to see note deduplication. Download mapping metadata, review/exceptions and the explicitly simulated receipt.
+On a feature preview, sign into existing employee `/research` access, then open `/research/source-import/portfolio-preview`. Download the synthetic CSV or XLSX; supply a source-as-of date and staff attribution; upload. For XLSX, explicitly select `Capital_Campaign_Portfolio` and header row `7`, then read the selected sheet. Review the suggested business-field mapping; preview; simulate. Preview the file again to see note deduplication. Download mapping metadata, review/exceptions and the explicitly simulated receipt.
 
 Local: `npm install`, then run with locally invented `RESEARCH_PASSWORD`, `RESEARCH_AUTH_SECRET` and `npm run dev`. Do not copy production credentials into the worker. Production page and API both refuse. Feature Vercel previews are allowed by `VERCEL_ENV=preview`; the simulation adapter has no external transport imports or calls.
 
@@ -16,6 +16,7 @@ Local: `npm install`, then run with locally invented `RESEARCH_PASSWORD`, `RESEA
 - Existing strict `csv-parse`, `source-keys` exact text key rules and `source-mapping-profile` metadata/hash/context checks. Profiles are simulation-context-specific and cannot authorize SQL fields or bypass current live registry checks.
 - The new planner is a pure business-field **simulation adapter**, not a replacement source loader or live apply path. No new SQL mapping, approval list, transport flag or field authority is enabled.
 - Original bytes are read via `arrayBuffer`, base64-transferred, SHA-256 hashed before fatal UTF-8 decoding; no text re-encoding masquerades as original-byte identity. Private durable staging is NOT implemented here. Files are computed on the preview server and discarded; synthetic rows/state stay in the browser tab.
+- XLSX uses the already-installed SheetJS owner with explicit sheet/header-row selection. The original XLSX byte digest, format, exact sheet and header row are all bound independently; a normalized CSV digest is never substituted. Profiles are parse-context-bound too.
 - Preview binds actual file bytes, filename, scope, mapping, source date, actor and entire current fictional state. Simulation recomputes the full plan. This integrity binding is **not a signed server approval**, and client-held state is not authoritative audit or concurrency proof.
 - Notes append with dated/source/actor attribution, distinct from scalar asks and portfolios. Identity/date/source/content fingerprint prevents repeated note appends, including renamed uploads; different same-day notes survive. Existing manual note remains verbatim.
 - Exact text Client_ID crosswalk; leading zeros preserved. Unknown, ambiguous, supplied-internal-ID contradictions and contradictory repeated scalar values held. CPTID is verification only, never identity fallback. Manual asks and portfolio values held. Blank means no change; explicit zero is not blank.
@@ -23,7 +24,11 @@ Local: `npm install`, then run with locally invented `RESEARCH_PASSWORD`, `RESEA
 
 ## Format boundaries
 
-CSV UTF-8 only, <=2 MB / 500 data rows, header row 1. XLSX sheet and header-row selection remain queued; the real portfolio has headers on row 7 and is not directly supported by this milestone. The sample borrows only approved real-template header names; all rows are invented. New Notes is the note target. Historical Notes, tasks, previous asks and cumulative FY totals are ignored by default; secondary solicitor is queued. Transaction gifts and nonadditive summary snapshots remain visibly distinct future modes.
+CSV UTF-8, header row 1, or XLSX with explicit worksheet/header row 1–100; <=2 MB / 500 data rows. XLS/XLSM are not supported. XLSX ZIPs have bounded actual expansion (8 MB per entry /24 MB total), exact local/central size/CRC agreement, entry limits, and refusal of descriptors, EOCD comments, ZIP64, encryption, macros, external links and embedded/ActiveX payloads. These restrictions deliberately reject some otherwise-valid workbooks. This is a preview bound, not a complete spreadsheet-security certification; the existing SheetJS dependency and all production parsing assumptions still require security review before live release.
+
+The synthetic XLSX has the real portfolio's 47 header names on row 7, an instructions sheet, an alternate sheet for binding tests, and invented rows only. Formula headers refuse; formula identity rows and mapped formula write cells hold, with cached results ignored. No formula is executed. Excel IDs must be text (numeric `1` formatted as `0001` is held, never inferred). ALL numeric Excel write cells and internal-ID verification cells are conservatively held; exact decimal text works. This is an **exact-Excel-value adapter gap**, not proof the actual Jeff workbook (commonly numeric CPTIDs/asks) is ready for direct import. SheetJS exposes numeric JS values after conversion; this milestone does not add a separate raw-XML decimal parser or claim that integers could not have rounded from more precise source lexemes. Dates are neither inferred from serials nor fabricated.
+
+New Notes is the append target. Historical Notes, tasks, previous asks and cumulative FY totals are ignored by default. Primary (`portfolio`) and secondary (`secondarySolicitor`) are independent targets with independent manual protection; neither is silently substituted for the other. Transaction gifts and nonadditive summary snapshots remain visibly distinct future modes.
 
 ## Design / content structure
 

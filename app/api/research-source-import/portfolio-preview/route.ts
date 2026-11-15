@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isResearchAuthed } from "@/lib/research-auth";
 import { fixture, inspect, mappingProfile, plan, previewAvailable, simulate, SAMPLE } from "@/lib/portal-v2/portfolio-preview";
+import { fileInfo, FilePreviewError } from "@/lib/portal-v2/source-file-preview";
+import { syntheticPortfolioWorkbook } from "@/lib/portal-v2/portfolio-preview-fixture";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 // Dedicated synthetic adapter: intentionally NO imports of server.ts, transport, SQL or Blob.
@@ -17,10 +19,12 @@ export async function POST(req: NextRequest) {
   try {
     const b = JSON.parse(text);
     if (b.op === "context") return reply({ state: fixture(b.client), sample: SAMPLE });
-    if (b.op === "inspect") return reply({ headers: inspect(b.bytes).headers });
-    if (b.op === "profile") return reply(mappingProfile(b.client, b.bytes, b.mapping, b.profile));
+    if (b.op === "sampleXlsx") return reply({ bytes: syntheticPortfolioWorkbook().toString("base64") });
+    if (b.op === "fileInfo") return reply(fileInfo(b.bytes, b.format));
+    if (b.op === "inspect") return reply({ headers: inspect(b.bytes, b.parseSettings).headers });
+    if (b.op === "profile") return reply(mappingProfile(b.client, b.bytes, b.mapping, b.profile, b.parseSettings));
     if (b.op === "preview") return reply(plan(b.input));
     if (b.op === "simulate") return reply(simulate(b.input, b.binding));
     return reply({ error: "Unknown simulation operation" }, 400);
-  } catch { return reply({ error: "Simulation refused: check CSV headers, exact client scope, required mapping, source date and staff attribution. If inputs changed, preview again or reset." }, 400); }
+  } catch (error) { return reply({ error: error instanceof FilePreviewError ? error.message : "Simulation refused: check file headers, worksheet/header row, exact client scope, required mapping, source date and staff attribution. If inputs changed, preview again or reset." }, 400); }
 }
