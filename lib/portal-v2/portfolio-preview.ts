@@ -4,6 +4,7 @@ import { createHash } from "node:crypto";
 import { parseKeyOf } from "./source-keys";
 import { buildProfile, checkProfile, type ProfileContext } from "./source-mapping-profile";
 import { inspectSourceFile, type ParseSettings } from "./source-file-preview";
+import { exactOoxmlNumber } from "./source-ooxml-values";
 
 export const PREVIEW_CLIENTS = ["pvas", "csnf", "jag", "wcbhc", "baq"] as const;
 export const TARGETS = ["clientId", "verifyCptid", "note", "askAmount", "portfolio", "secondarySolicitor"] as const;
@@ -38,6 +39,8 @@ export function fixture(client: string): Simulation {
 // Fictional client-scoped crosswalk, deliberately includes unknown and ambiguous cases.
 // Never use it for real matching, and never infer identity from a donor's name.
 const CROSSWALK: Record<string, number[]> = { "0001": [900001], "1": [], "0002": [900002], "0003": [900001, 900002] };
+// Separate declared INTEGER source format; it never aliases "1" to text ID "0001".
+const INTEGER_CROSSWALK: Record<string, number[]> = { "101": [900001], "102": [900002], "103": [900001, 900002] };
 // Real template header names only; every data value below is invented. Workbook row-7 layout is NOT supported.
 export const SAMPLE = [
   "CPTID,Client_ID,Primary Solicitor,Secondary Solicitor,Previous Campaign Ask,Campaign Ask,New Notes,Historical Notes,Task,Due Date,FY2024,FY2025,FY2026",
@@ -50,7 +53,7 @@ export const SAMPLE = [
 ].join("\r\n") + "\r\n";
 export function profileContext(client: string, parseSettings: ParseSettings = { format: "csv" }): ProfileContext {
   fixture(client);
-  return { client, table: "SIMULATION_portfolio_notes", registryRev: hash(["portfolio-simulation/v2", parseSettings]), keyCol: "clientId", keyKind: "text",
+  return { client, table: "SIMULATION_portfolio_notes", registryRev: hash(["portfolio-simulation/v3-exact-ooxml", parseSettings]), keyCol: "clientId", keyKind: "text",
     dests: TARGETS.map(col => ({ col, ty: "nvarchar", st: "candidate", key: col === "clientId" ? col : "" })),
     preparedDigest: null, allocatorDigest: null, insertPolicyDigest: null };
 }
@@ -59,7 +62,7 @@ export function mappingProfile(client: string, bytes: string, mapping: Record<st
   const { headers, parseSettings } = inspect(bytes, settings);
   return profile === undefined ? buildProfile(profileContext(client, parseSettings), headers, mapping) : checkProfile(profile, profileContext(client, parseSettings), headers);
 }
-export type ReviewRow = { line: number; clientId: string; cptid: number | null; fields: { target: string; before: string; after: string; outcome: string }[]; reason?: string };
+export type ReviewRow = { line: number; clientId: string; cptid: number | null; fields: { target: string; before: string; after: string; outcome: string; numericLexeme?: string }[]; reason?: string };
 export function plan(input: PreviewRequest) {
   const { client, bytes, mapping, sourceDate, actor, fileName } = input;
   fixture(client);
@@ -81,37 +84,67 @@ export function plan(input: PreviewRequest) {
   const reviews: ReviewRow[] = [];
   let changes = 0;
   const idHeader = Object.keys(mapping).find(h => mapping[h] === "clientId")!;
+  const slotOf = (i: number, header: string) => `${i}|${staged.headers.indexOf(header)}`;
+  const integerIds = staged.parseSettings.format === "xlsx" && staged.parseSettings.clientIdFormat === "integer";
+  function identity(i: number, values: Record<string, string>) {
+    const slot = slotOf(i, idHeader), raw = values[idHeader];
+    let key = raw;
+    if (staged.formulaSlots.has(slot) || staged.otherSlots.has(slot)) return { key, matches: [] as number[], reason: "Held: formula or unsupported client-ID cell" };
+    if (staged.numericSlots.has(slot)) {
+      if (!integerIds) return { key, matches: [] as number[], reason: "Held: numeric client ID requires a declared integer source format and its verified crosswalk; no leading-zero inference" };
+      const exact = exactOoxmlNumber(staged.numericLexemes.get(slot) ?? "", "clientId-integer");
+      if (!exact.ok) return { key, matches: [] as number[], reason: `Held: client ID ${exact.reason}` };
+      key = exact.value;
+    } else if (integerIds && !/^[1-9][0-9]{0,31}$/.test(raw)) return { key, matches: [] as number[], reason: "Held: client ID is not canonical text for the declared integer source format" };
+    return { key, matches: parseKeyOf("text", key) === null ? [] : (integerIds ? INTEGER_CROSSWALK : CROSSWALK)[key] ?? [], reason: undefined };
+  }
   // Conflicting repeated scalar values hold the scalar, while independent notes can append.
   const scalarValues = new Map<string, Set<string>>();
-  for (const row of staged.rows) {
+  for (const [i, row] of staged.rows.entries()) {
     const values = Object.fromEntries(staged.headers.map((h, i) => [h, row[i]]));
+    const person = identity(i, values);
     for (const [h, t] of Object.entries(mapping)) if (["askAmount", "portfolio", "secondarySolicitor"].includes(t) && values[h]?.trim()) {
-      const key = `${values[idHeader]}|${t}`;
-      const set = scalarValues.get(key) ?? new Set<string>(); set.add(values[h].trim()); scalarValues.set(key, set);
+      const key = `${person.key}|${t}`;
+      let value = values[h].trim();
+      if (t === "askAmount" && staged.numericSlots.has(slotOf(i, h))) { const exact = exactOoxmlNumber(staged.numericLexemes.get(slotOf(i, h)) ?? "", "askAmount"); if (!exact.ok) continue; value = exact.value; }
+      else if (t === "askAmount" && /^(0|[1-9]\d{0,9})(\.\d{1,2})?$/.test(value)) { const [whole, cents = ""] = value.split("."); value = `${whole}.${cents.padEnd(2, "0")}`; }
+      const set = scalarValues.get(key) ?? new Set<string>(); set.add(value); scalarValues.set(key, set);
     }
   }
   staged.rows.forEach((row, i) => {
     const values = Object.fromEntries(staged.headers.map((h, j) => [h, row[j]]));
-    const id = values[idHeader], matches = parseKeyOf("text", id) === null ? [] : CROSSWALK[id] ?? [];
+    const id = values[idHeader], resolved = identity(i, values), matches = resolved.matches;
     const r: ReviewRow = { line: staged.lines[i], clientId: id, cptid: matches.length === 1 ? matches[0] : null, fields: [] }; reviews.push(r);
     const slot = (header: string) => `${i}|${staged.headers.indexOf(header)}`;
-    if (staged.formulaSlots.has(slot(idHeader)) || staged.numericSlots.has(slot(idHeader)) || staged.otherSlots.has(slot(idHeader))) { r.cptid = null; r.reason = "Held: Excel client ID must be text, never a formula or numeric coercion"; return; }
+    if (resolved.reason) { r.cptid = null; r.reason = resolved.reason; return; }
     if (r.cptid === null) { r.reason = matches.length > 1 ? "Held: ambiguous client ID" : "Held: unknown or invalid client ID (exact text required)"; return; }
     const internalHeader = Object.keys(mapping).find(h => mapping[h] === "verifyCptid");
-    if ([internalHeader, ...(staged.headers.includes("CPTID") ? ["CPTID"] : [])].some(h => h !== undefined && (staged.formulaSlots.has(slot(h)) || staged.numericSlots.has(slot(h)) || staged.otherSlots.has(slot(h))))) { r.reason = "Held: formula, numeric or unsupported internal-ID verification cell; use exact text"; return; }
-    const suppliedInternal = internalHeader === undefined ? "" : values[internalHeader];
-    if (suppliedInternal && suppliedInternal !== String(r.cptid)) { r.reason = "Held: supplied internal CPTID contradicts the verified client-ID match"; return; }
-    // Known portfolio header is a verification assertion even if the uploader leaves it unmapped.
-    // It is never a fallback identity and never authorizes changing the resolved client ID.
-    if (Object.prototype.hasOwnProperty.call(values, "CPTID") && values.CPTID && values.CPTID !== String(r.cptid)) { r.reason = "Held: supplied CPTID contradicts the verified client-ID match"; return; }
+    // Known CPTID remains a verification assertion even when unmapped, never an identity fallback.
+    for (const header of new Set([internalHeader, ...(staged.headers.includes("CPTID") ? ["CPTID"] : [])])) {
+      if (header === undefined) continue;
+      if (staged.formulaSlots.has(slot(header)) || staged.otherSlots.has(slot(header))) { r.reason = "Held: formula or unsupported internal-ID verification cell"; return; }
+      let supplied = values[header];
+      if (staged.numericSlots.has(slot(header))) {
+        const exact = exactOoxmlNumber(staged.numericLexemes.get(slot(header)) ?? "", "cptid");
+        if (!exact.ok) { r.reason = `Held: internal CPTID ${exact.reason}`; return; }
+        supplied = exact.value;
+      }
+      if (supplied && supplied !== String(r.cptid)) { r.reason = "Held: supplied internal CPTID contradicts the verified client-ID match"; return; }
+    }
     const person = next.people.find(p => p.cptid === r.cptid)!;
     for (const [header, target] of Object.entries(mapping)) {
       if (!target || target === "clientId" || target === "verifyCptid") continue;
-      const value = values[header].trim();
+      let value = values[header].trim();
       const before = target === "note" ? `${person.notes.length} existing notes` : person[target as "askAmount" | "portfolio" | "secondarySolicitor"];
-      const f = { target, before, after: value, outcome: "Blank — no change" }; r.fields.push(f);
+      const f: ReviewRow["fields"][number] = { target, before, after: value, outcome: "Blank — no change" }; r.fields.push(f);
       if (staged.formulaSlots.has(slot(header)) || staged.otherSlots.has(slot(header))) { f.outcome = "Held: formula or unsupported cell — cached value not used"; continue; }
-      if (staged.numericSlots.has(slot(header))) { f.outcome = "Held: store this Excel value as exact text (numeric currency is not rounded)"; continue; }
+      if (staged.numericSlots.has(slot(header))) {
+        f.numericLexeme = staged.numericLexemes.get(slot(header)) ?? "";
+        if (target !== "askAmount") { f.outcome = "Held: numeric value is not a text note or solicitor"; continue; }
+        const exact = exactOoxmlNumber(f.numericLexeme, "askAmount");
+        if (!exact.ok) { f.outcome = `Held: ${exact.reason}`; continue; }
+        value = exact.value; f.after = value;
+      }
       if (!value) continue;
       if (value.length > (target === "note" ? 4000 : 200) || invalidControls(value, target === "note")) { f.outcome = "Held: invalid or oversized value"; continue; }
       if (target === "note") {
@@ -121,7 +154,7 @@ export function plan(input: PreviewRequest) {
         f.outcome = "Would append note"; changes++; continue;
       }
       if (person.manual.includes(target)) { f.outcome = "Held: protected manual edit"; continue; }
-      if ((scalarValues.get(`${r.clientId}|${target}`)?.size ?? 0) > 1) { f.outcome = "Held: conflicting values for this client ID"; continue; }
+      if ((scalarValues.get(`${resolved.key}|${target}`)?.size ?? 0) > 1) { f.outcome = "Held: conflicting values for this client ID"; continue; }
       let after = value;
       if (target === "askAmount") {
         if (!/^(0|[1-9]\d{0,9})(\.\d{1,2})?$/.test(value)) { f.outcome = "Held: ask must be a nonnegative amount with at most two decimals"; continue; }

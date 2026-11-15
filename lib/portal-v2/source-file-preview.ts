@@ -4,9 +4,11 @@ import { createHash } from "node:crypto";
 import { inflateRawSync } from "node:zlib";
 import * as XLSX from "xlsx";
 import { parseCsv } from "./csv-parse";
-export type ParseSettings = { format: "csv" } | { format: "xlsx"; sheet: string; headerRow: number };
+import { originalWorkbookSheets, originalWorksheetCells, validateOriginalXmlParts, OoxmlValueError } from "./source-ooxml-values";
+export type ParseSettings = { format: "csv" } | { format: "xlsx"; sheet: string; headerRow: number; clientIdFormat?: "text" | "integer" };
 export class FilePreviewError extends Error {}
-const fail = (message: string): never => { throw new FilePreviewError(message); };
+function fail(message: string): never { throw new FilePreviewError(message); }
+function ooxml<T>(read: () => T): T { try { return read(); } catch (error) { if (error instanceof OoxmlValueError) return fail(error.message); throw error; } }
 export function originalBytes(encoded: string) {
   if (typeof encoded !== "string" || encoded.length > 2_800_000 || !/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(encoded)) fail("Choose a file of at most 2 MB");
   const raw = Buffer.from(encoded, "base64");
@@ -16,6 +18,7 @@ export function originalBytes(encoded: string) {
 // Validate the ZIP directory AND actual bounded decompression before handing untrusted bytes to SheetJS.
 // Reject ZIP64/encryption/multidisk, duplicate paths, overlapping entries, macros and external links.
 function boundedXlsx(raw: Buffer) {
+  const entries = new Map<string, Buffer>();
   // No EOCD comments/trailing bytes: SheetJS searches backward for the last signature, so both parsers
   // must agree on exactly one final, fixed-position directory terminator.
   const end = raw.length - 22;
@@ -50,24 +53,25 @@ function boundedXlsx(raw: Buffer) {
     const packed = raw.subarray(data, finish);
     const unpacked = method === 0 ? packed : inflateRawSync(packed, { maxOutputLength: 8 * 1024 * 1024 });
     if (unpacked.length !== expanded) fail("XLSX ZIP size mismatch");
+    entries.set(name, unpacked);
     p += 46 + n + extra + comment;
   }
   if (p !== end || !names.has("[Content_Types].xml") || !names.has("xl/workbook.xml")) fail("Not an XLSX workbook");
+  ooxml(() => validateOriginalXmlParts(entries));
+  return entries;
 }
 export function fileInfo(encoded: string, format: "csv" | "xlsx") {
   const raw = originalBytes(encoded);
   if (format === "csv") return { format, sheets: [] as string[] };
   if (format !== "xlsx") fail("Only UTF-8 CSV and XLSX are supported");
-  boundedXlsx(raw);
-  const book = XLSX.read(raw, { type: "buffer", bookSheets: true });
-  if (!book.SheetNames.length || book.SheetNames.length > 50 || new Set(book.SheetNames).size !== book.SheetNames.length || book.SheetNames.some(n => ["__proto__", "constructor", "prototype"].includes(n.toLowerCase()))) fail("Choose a workbook with 1 to 50 distinct, nonreserved sheets");
-  return { format, sheets: book.SheetNames };
+  const entries = boundedXlsx(raw);
+  return { format, sheets: ooxml(() => originalWorkbookSheets(entries)).map(s => s.name) };
 }
 export function inspectSourceFile(encoded: string, settings: ParseSettings = { format: "csv" }) {
   const raw = originalBytes(encoded), fileDigest = createHash("sha256").update(raw).digest("hex");
   if (!settings || !["csv", "xlsx"].includes(settings.format)) fail("Choose the file format");
   let headers: string[], rows: string[][], lines: number[];
-  const formulaSlots = new Set<string>(), numericSlots = new Set<string>(), otherSlots = new Set<string>();
+  const formulaSlots = new Set<string>(), numericSlots = new Set<string>(), otherSlots = new Set<string>(), numericLexemes = new Map<string, string>();
   if (settings.format === "csv") {
     if (Object.keys(settings).some(k => k !== "format")) fail("CSV does not accept worksheet settings");
     let text: string;
@@ -78,31 +82,35 @@ export function inspectSourceFile(encoded: string, settings: ParseSettings = { f
     if (rows.some(row => row.length !== headers.length)) fail("Every row must have the same number of columns as the header");
   } else {
     const { sheet, headerRow } = settings;
-    if (Object.keys(settings).some(k => !["format", "sheet", "headerRow"].includes(k)) || typeof sheet !== "string" || !Number.isSafeInteger(headerRow) || headerRow < 1 || headerRow > 100 || !fileInfo(encoded, "xlsx").sheets.includes(sheet)) fail("Choose a worksheet and header row from 1 to 100");
+    if (Object.keys(settings).some(k => !["format", "sheet", "headerRow", "clientIdFormat"].includes(k)) || (settings.clientIdFormat !== undefined && !["text", "integer"].includes(settings.clientIdFormat)) || typeof sheet !== "string" || !Number.isSafeInteger(headerRow) || headerRow < 1 || headerRow > 100) fail("Choose a worksheet, ID format and header row from 1 to 100");
+    const entries = boundedXlsx(raw), sheets = ooxml(() => originalWorkbookSheets(entries)), selected = sheets.find(s => s.name === sheet);
+    if (!selected) fail("Choose a worksheet and header row from 1 to 100");
+    const originals = ooxml(() => originalWorksheetCells(entries, selected));
     const book = XLSX.read(raw, { type: "buffer", sheets: [sheet], sheetRows: headerRow + 501, cellFormula: true, cellNF: true, cellDates: false, bookVBA: false });
     const ws = book.Sheets[sheet];
     if (!ws?.["!ref"]) fail("Selected worksheet is empty");
     const range = XLSX.utils.decode_range(ws["!fullref"] || ws["!ref"]!);
     if (range.e.c >= 500 || range.e.r >= headerRow + 500 || range.e.r < headerRow) fail("Selected sheet needs headers plus 1 to 500 data rows and at most 500 columns");
     headers = Array.from({ length: range.e.c + 1 }, (_, c) => {
-      const cell = ws[XLSX.utils.encode_cell({ r: headerRow - 1, c })];
-      if (!cell || cell.f || cell.t !== "s" || typeof cell.v !== "string" || !cell.v.trim()) fail("Every selected header must be nonempty plain text, not a formula");
+      const address = XLSX.utils.encode_cell({ r: headerRow - 1, c }), cell = ws[address], original = originals.get(address);
+      if (!original || original.formula || !cell || cell.f || cell.t !== "s" || typeof cell.v !== "string" || !cell.v.trim()) fail("Every selected header must be nonempty plain text, not a formula");
       return cell.v as string;
     });
     rows = []; lines = [];
     for (let r = headerRow; r <= range.e.r; r++) {
       const index = rows.length;
       const values = headers.map((_, c) => {
-        const cell = ws[XLSX.utils.encode_cell({ r, c })], slot = `${index}|${c}`;
+        const address = XLSX.utils.encode_cell({ r, c }), cell = ws[address], original = originals.get(address), slot = `${index}|${c}`;
+        if (original?.formula || cell?.f) { formulaSlots.add(slot); return ""; } // raw formula flags win even when the library drops a cached value
+        if (original?.type === "n" && original.value !== null) { numericSlots.add(slot); numericLexemes.set(slot, original.value); return original.value; }
         if (!cell || cell.t === "z") return "";
-        if (cell.f) { formulaSlots.add(slot); return ""; } // cached formula results are never identity or writes
+        if (!original) { otherSlots.add(slot); return ""; }
         if (cell.t === "s" && typeof cell.v === "string") return cell.v;
-        if (cell.t === "n" && typeof cell.v === "number" && Number.isFinite(cell.v)) { numericSlots.add(slot); return String(cell.v); }
         otherSlots.add(slot); return "";
       });
-      if (values.some(Boolean) || headers.some((_, c) => formulaSlots.has(`${index}|${c}`) || otherSlots.has(`${index}|${c}`))) { rows.push(values); lines.push(r + 1); }
+      if (values.some(Boolean) || headers.some((_, c) => formulaSlots.has(`${index}|${c}`) || otherSlots.has(`${index}|${c}`) || numericSlots.has(`${index}|${c}`))) { rows.push(values); lines.push(r + 1); }
     }
     if (!rows.length) fail("Selected worksheet has no data rows after the header");
   }
-  return { headers, rows, lines, fileDigest, byteLength: raw.length, parseSettings: settings, formulaSlots, numericSlots, otherSlots };
+  return { headers, rows, lines, fileDigest, byteLength: raw.length, parseSettings: settings, formulaSlots, numericSlots, otherSlots, numericLexemes };
 }

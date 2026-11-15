@@ -5,14 +5,18 @@ import { SAMPLE } from "./portfolio-preview";
 export const PORTFOLIO_HEADERS = ["Primary Solicitor", "Secondary Solicitor", "CPTID", "Client_ID", "Relationship", "Profile Date", "Record Type", "Account Name", "First Name", "Middle Name", "Last Name", "Donor Type", "Title", "Formal Salutation", "DS Rating", "Wealth Capacity", "Address", "Address2", "City", "State", "Zip-Code", "Phone1", "Phone2", "Email1", "Email2", "Spouse First Name", "Spouse Middle Name", "Spouse Last Name", "First Gift Date", "First Gift Amount", "Last Gift Date", "Last Gift Amount", "Largest Gift Date", "Largest Gift Amount", "Total # of Gifts", "Total Gift Amount", "2024", "2025", "2026", "Previous Campaign Ask", "Campaign Ask", "Naming Opportunity", "2026 Solicitation Priority", "New Notes", "Historical Notes", "Task", "Due Date"];
 export function syntheticPortfolioWorkbook() {
   const csv = parseCsv(SAMPLE), headers = csv[0];
-  const rows = csv.slice(1).map(row => {
+  const rows: unknown[][] = csv.slice(1).map(row => {
     const data = Object.fromEntries(headers.map((h, i) => [h, row[i]]));
     return PORTFOLIO_HEADERS.map(h => data[h] || "");
   });
   rows[0][1] = "Synthetic secondary B"; rows[1][1] = "Attempted manual secondary replacement";
+  // Ordinary Excel numeric cells, not text reformatted by the user.
+  const internal = PORTFOLIO_HEADERS.indexOf("CPTID"), ask = PORTFOLIO_HEADERS.indexOf("Campaign Ask");
+  for (const row of rows) if (row[internal] === "900001" || row[internal] === "900002") row[internal] = row[internal] === "900001" ? 900001 : 900002;
+  rows[0][ask] = 1500.25; rows[1][ask] = 3000;
   const grid: unknown[][] = [...Array.from({ length: 6 }, (_, i) => [`Synthetic portfolio — title row ${i + 1}; no real donor data`]), PORTFOLIO_HEADERS, ...rows];
   const extra = (id: unknown, note: unknown, ask: unknown = "") => PORTFOLIO_HEADERS.map(h => h === "Client_ID" ? id : h === "New Notes" ? note : h === "Campaign Ask" ? ask : "");
-  grid.push(extra("0001", "Formula identity — never append"), extra("0001", ""), extra("0001", "", ""), extra(1, "Numeric ID — never coerce"), extra("0002", "", 1500.25));
+  grid.push(extra("0001", "Formula identity — never append"), extra("0001", ""), extra("0001", "", ""), extra(1, "Numeric ID — never coerce"), extra("0002", "", 1500.251));
   const sheet = XLSX.utils.aoa_to_sheet(grid);
   const cell = (r: number, h: string) => XLSX.utils.encode_cell({ r, c: PORTFOLIO_HEADERS.indexOf(h) });
   const firstExtra = 7 + rows.length;

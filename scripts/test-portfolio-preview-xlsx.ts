@@ -10,15 +10,16 @@ const mapping = { CPTID: "verifyCptid", Client_ID: "clientId", "Primary Solicito
 function request(client = "pvas"): PreviewRequest {
   return { client, state: fixture(client), fileName: "synthetic-row7.xlsx", bytes: syntheticPortfolioWorkbook().toString("base64"), parseSettings: settings, sourceDate: "2026-10-19", actor: "Fictional Excel reviewer", mapping };
 }
-for (const client of ["pvas", "csnf", "jag", "wcbhc", "baq"]) test(`${client}: row7 XLSX, independent secondary, formula/numeric holds and repeat-file dedup`, () => {
+for (const client of ["pvas", "csnf", "jag", "wcbhc", "baq"]) test(`${client}: row7 XLSX, exact numeric ask/CPTID, independent secondary, formula/precision holds and repeat-file dedup`, () => {
   const input = request(client), p = plan(input);
   assert.equal(p.changes, 6);
   assert.equal(p.reviews[0].line, 8); assert.equal(p.next.people[0].portfolio, "Synthetic team B");
   assert.equal(p.next.people[0].secondarySolicitor, "Synthetic secondary B");
   assert.equal(p.next.people[1].secondarySolicitor, "Manual secondary");
-  assert.ok(p.reviews.some(r => r.reason?.includes("client ID must be text")));
+  assert.equal(p.next.people[0].askAmount, "1500.25");
+  assert.ok(p.reviews.some(r => r.reason?.includes("declared integer source")));
   assert.ok(p.reviews.flatMap(r => r.fields).some(f => f.outcome.includes("cached value not used")));
-  assert.ok(p.reviews.flatMap(r => r.fields).some(f => f.outcome.includes("numeric currency")));
+  assert.ok(p.reviews.flatMap(r => r.fields).some(f => f.outcome.includes("two exact decimal places")));
   assert.equal(p.next.people.flatMap(p => p.notes).some(n => n.text.includes("Cached formula")), false);
   const s = simulate(input, p.binding);
   assert.deepEqual(s.receipt.parseSettings, settings);
@@ -43,16 +44,18 @@ function workbook(grid: unknown[][], mutate?: (sheet: XLSX.WorkSheet) => void) {
   const book = XLSX.utils.book_new(), sheet = XLSX.utils.aoa_to_sheet(grid); mutate?.(sheet);
   XLSX.utils.book_append_sheet(book, sheet, "Data"); return XLSX.write(book, { type: "buffer", bookType: "xlsx", compression: true }).toString("base64");
 }
-test("exact text IDs and decimal strings preserved; ALL numeric ask cells held without currency rounding", () => {
+test("exact text IDs/decimal strings preserved; ordinary numeric asks work without currency rounding", () => {
   const input = request(); input.parseSettings = { format: "xlsx", sheet: "Data", headerRow: 1 }; input.mapping = { ID: "clientId", Ask: "askAmount", Note: "note" };
   input.bytes = workbook([["ID", "Ask", "Note"], ["0001", "1500.25", "Smith-Jones: follow-up"]]);
   assert.equal(plan(input).next.people[0].askAmount, "1500.25");
   input.bytes = workbook([["ID", "Ask", "Note"], ["0001", 1500, "Integer currency"]]);
-  assert.equal(plan(input).next.people[0].askAmount, "1000.00"); // independent text note may append
+  assert.equal(plan(input).next.people[0].askAmount, "1500.00");
   input.bytes = workbook([["ID", "Ask", "Note"], [1, 1500, "Wrong identity"]], ws => { ws.A2.z = "0000"; });
   assert.equal(plan(input).changes, 0);
-  input.bytes = workbook([["ID", "Ask", "Note"], ["0001", 1500.25, ""]]);
+  input.bytes = workbook([["ID", "Ask", "Note"], ["0001", 1500.251, ""]]);
   assert.equal(plan(input).changes, 0);
+  input.bytes = workbook([["ID", "Ask", "Note"], ["0001", 1500.25, ""]]);
+  assert.equal(plan(input).next.people[0].askAmount, "1500.25");
 });
 test("formula headers refuse; formula identity/cached write cells never imported", () => {
   const input = request(); input.parseSettings = { format: "xlsx", sheet: "Data", headerRow: 1 }; input.mapping = { ID: "clientId", Note: "note" };
