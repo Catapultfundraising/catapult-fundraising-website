@@ -285,9 +285,14 @@ export const builtAt = () =>
 export async function loadedAsOf(schema: "csnf" | "jag" | "pvas" | "wcbhc" | "baq"): Promise<string> {
   try {
     const r = await rows(`SELECT MAX(loaded_at) AS d FROM ${schema}._load_log`);
-    return pdate(r[0]?.d) ?? isoToday();
+    const day = pdate(r[0]?.d);
+    if (!day || Number(day.slice(0, 4)) < 1) return "";
+    // pdate extracts the source calendar day but does not validate its calendar.
+    // Unknown/invalid source history must never become a claim that it loaded today.
+    const parsed = new Date(`${day}T00:00:00Z`);
+    return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === day ? day : "";
   } catch {
-    return isoToday(); // schema without a load log (pvas)
+    return "";
   }
 }
 
