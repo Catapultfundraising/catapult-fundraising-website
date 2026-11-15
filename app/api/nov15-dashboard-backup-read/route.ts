@@ -86,7 +86,12 @@ export async function GET(request: Request): Promise<Response> {
       digest.update(part.value);
       parts.push(part.value);
     }
-    if (size !== blob.blob.size) return fail(502, "SIZE_MISMATCH");
+    // SDK size is HTTP Content-Length (or 0 when absent), not necessarily
+    // decoded body size: Undici transparently decompresses encoded responses.
+    const contentLength = blob.headers.get("content-length");
+    const encoding = blob.headers.get("content-encoding");
+    if (contentLength !== null && !/^(?:0|[1-9]\d*)$/.test(contentLength)) return fail(502, "INVALID_BLOB");
+    if (contentLength !== null && (!encoding || encoding.trim().toLowerCase() === "identity") && size !== blob.blob.size) return fail(502, "SIZE_MISMATCH");
     if (Date.now() >= end) return fail(403, "INACTIVE_WINDOW");
     const count = Math.max(1, Math.ceil(size / CHUNK_BYTES));
     const chunk = Number(rawChunk);

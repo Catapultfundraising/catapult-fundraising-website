@@ -32,6 +32,7 @@ function fixture(options = {}) {
     if (options.missing) return null;
     return {
       statusCode: 200,
+      headers: new Headers(options.headers ?? { "content-length": String(options.size ?? bytes.length) }),
       blob: { pathname: options.path ?? p, size: options.size ?? bytes.length, etag: "synthetic-etag" },
       stream: new ReadableStream({
         start(c) { if (!options.hangStream) { c.enqueue(bytes); c.close(); } },
@@ -160,6 +161,33 @@ test("missing required and optional blobs have explicit distinct 404 codes", asy
     await error(f, 404, kind === "snapshot" || kind === "records" ? "REQUIRED_BLOB_MISSING" : "OPTIONAL_BLOB_MISSING", `client=baq&kind=${kind}&chunk=0`);
     assert.equal(f.calls.length, 1);
   }
+});
+
+test("SDK Content-Length is comparable only for identity encoding and a present canonical length", async () => {
+  const bytes = Buffer.from('{"synthetic":"decoded-original-JSON"}\n');
+  for (const headers of [
+    { "content-encoding": "gzip", "content-length": "12" },
+    { "content-encoding": "br", "content-length": "12" },
+    { "content-encoding": "deflate", "content-length": "12" },
+    {},
+  ]) {
+    const f = fixture({ bytes, size: headers["content-length"] ? 12 : 0, headers });
+    const r = await f.route.GET(f.request());
+    assert.equal(r.status, 200);
+    assert.deepEqual(Buffer.from(await r.arrayBuffer()), bytes);
+    assert.equal(r.headers.get("x-blob-bytes"), String(bytes.length));
+    assert.equal(r.headers.get("x-blob-sha256"), hash(bytes));
+    assert.equal(r.headers.get("x-content-sha256"), hash(bytes));
+    assert.equal(f.calls.length, 1);
+  }
+  await error(fixture({ bytes, size: 12, headers: { "content-encoding": "identity", "content-length": "12" } }), 502, "SIZE_MISMATCH");
+  await error(fixture({ bytes, size: 12, headers: { "content-length": "12" } }), 502, "SIZE_MISMATCH");
+  for (const contentLength of ["", "012", "+12", "12x", "1.2", "1e2", "-1"]) {
+    await error(fixture({ bytes, size: 12, headers: { "content-length": contentLength } }), 502, "INVALID_BLOB");
+  }
+  // Wire-length metadata never replaces the authoritative actual-stream cap.
+  await error(fixture({ bytes: new Uint8Array(64 * 1024 * 1024 + 1), size: 12,
+    headers: { "content-encoding": "gzip", "content-length": "12" } }), 413, "BLOB_TOO_LARGE");
 });
 
 test("denial/error, metadata and stream byte caps, timeout and abort expose no exceptions", async () => {
