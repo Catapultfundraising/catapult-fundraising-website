@@ -106,7 +106,7 @@ export function MonthlyGiftUpload({ client, refresh }: { client: string; refresh
     if (!receipt) return; const url = URL.createObjectURL(new Blob([JSON.stringify(receipt, null, 2)], { type: "application/json" })), a = document.createElement("a"); a.href = url; a.download = `${client}-campaign-cash-${receipt.requestId}.json`; a.click(); URL.revokeObjectURL(url);
   }
   return <section className="rounded-xl border border-[rgb(var(--line))] bg-white p-5 space-y-4" aria-label="Monthly campaign cash imports">
-    <div><h3 className="font-display text-lg text-[rgb(var(--navy))]">Import monthly campaign gifts</h3><p className="text-sm text-[rgb(var(--ink))]/70">Received USD cash transactions for the current campaign only. Up to1,000 rows /2MB. Not pledges, refunds, YTD/annual totals or full lifetime giving history. No donor creation or name-only matching.</p></div>
+    <div><h3 className="font-display text-lg text-[rgb(var(--navy))]">Import monthly gifts</h3><p className="text-sm text-[rgb(var(--ink))]/70">Received USD cash transactions for the current campaign only. Up to1,000 rows /2MB. Not pledges, refunds, YTD/annual totals or full lifetime giving history. No donor creation or name-only matching.</p></div>
     {login && <p role="alert">Use the existing <a className="underline" href={`/${client}/data-dashboard/login`}>employee dashboard sign-in</a>.</p>}
     <fieldset disabled={locked} className="space-y-3 disabled:opacity-60">
       <input aria-label="Monthly gift file" type="file" accept=".csv,.xlsx" onChange={e => void choose(e.target.files?.[0])} />

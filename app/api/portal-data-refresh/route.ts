@@ -26,11 +26,11 @@ export const dynamic = "force-dynamic";
 export const preferredRegion = "iad1";
 
 // ---------------------------------------------------------------------------
-// Weekly Azure SQL -> data-portal refresh (replaces Viktor's Access-file scripts).
+// Manual-only Azure SQL -> data-portal refresh (replaces Viktor's Access-file scripts).
 //
-//   GET|POST /api/portal-data-refresh?client=all|csnf|jag|pvas|wcbhc|baq[&dry=1]
+//   POST /api/portal-data-refresh?client=all|csnf|jag|pvas|wcbhc|baq[&dry=1]
 //
-// Auth: Authorization: Bearer $CRON_SECRET (Vercel cron sends this on GET).
+// Auth: Authorization: Bearer $CRON_SECRET. Scheduled GET is disabled; manual POST remains available.
 // Reads Azure SQL (env AZURE_SQL_SERVER/DB/USER/PASSWORD, read-only login
 // portal_reader) through the project's Secure Compute static IP and rewrites
 // {client}-data/snapshot.json, records.json and pirs.json. tracking.json is
@@ -98,5 +98,14 @@ async function run(req: NextRequest) {
   return NextResponse.json({ ok: !failed, dry, results }, { status: failed ? 500 : 200 });
 }
 
-export const GET = run;
+// Defense in depth: stale/external Vercel cron GETs cannot write any client.
+// Only explicit dry-run diagnostics may use the builder from GET.
+export async function GET(req: NextRequest) {
+  const secret = process.env.CRON_SECRET;
+  if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (req.nextUrl.searchParams.get("dry") === "1") return run(req);
+  return NextResponse.json({ error: "Scheduled Access refresh is disabled. Use an explicitly authorized manual POST." }, { status: 410, headers: { "Cache-Control": "no-store" } });
+}
 export const POST = run;

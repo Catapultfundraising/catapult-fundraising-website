@@ -49,7 +49,9 @@ function verifyReceipt(r: Receipt) {
     (r.status === "submitted" ? r.submittedAt !== r.updatedAt || r.revision !== SUBMITTED_REVISION : r.submittedAt !== null) ||
     r.createdAt > r.updatedAt) throw new Error("Invalid survey receipt");
   // Reuse all field/option constraints without storing or exporting a capability.
-  validateSurvey({ ...receiptPayload(r), writeToken: "0".repeat(64) });
+  // Existing immutable receipts remain readable under their original completion policy.
+  // New writes below always use the current final-submission requirement.
+  validateSurvey({ ...receiptPayload(r), writeToken: "0".repeat(64) }, { requireCompleteSubmission: false });
 }
 function validTimestamp(value: string) {
   return typeof value === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&

@@ -38,7 +38,8 @@ const schema = require("../lib/csnf-online-survey.ts"), store = require("../lib/
 const { SurveyAutosave, SurveyInputRejectedError, sendSurveyWrite } = require("../lib/csnf-survey-autosave.ts");
 const route = require("../app/api/csnf-survey/route.ts"), exportRoute = require("../app/api/csnf-survey/export/route.ts"), sync = require("../app/api/portal-sync/route.ts");
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
-const payload = (n = 1, revision = 1, answers = {}) => ({ id: uuid(n), writeToken: "a".repeat(64), revision, status: revision === schema.SUBMITTED_REVISION ? "submitted" : "draft", surveyVersion: schema.SURVEY_VERSION, firstName: "Zoë", lastName: "O’Neill-李", telephone: "+44 (0)20 1234 5678 ext. 7", answers });
+const completeAnswers = Object.fromEntries(schema.SURVEY_QUESTIONS.filter(q => q.type !== "text").map(q => [q.id, q.type === "multi" ? [q.options[0]] : q.options[0]]));
+const payload = (n = 1, revision = 1, answers = {}) => ({ id: uuid(n), writeToken: "a".repeat(64), revision, status: revision === schema.SUBMITTED_REVISION ? "submitted" : "draft", surveyVersion: schema.SURVEY_VERSION, firstName: "Zoë", lastName: "O’Neill-李", telephone: "+44 (0)20 1234 5678 ext. 7", answers: revision === schema.SUBMITTED_REVISION ? { ...completeAnswers, ...answers } : answers });
 const request = (body, extra = {}) => new NextRequest("https://fixture.invalid/api/csnf-survey", { method: "POST", headers: { origin: "https://fixture.invalid", "content-type": "application/json", ...extra }, body: typeof body === "string" ? body : JSON.stringify(body) });
 const ack = body => ({ id: body.id, revision: body.revision, status: body.status, updatedAt: "2026-11-13T21:00:00.000Z" });
 const form = (answers = {}, firstName = "Zoë", lastName = "O’Neill-李") => ({ firstName, lastName, telephone: "", answers, website: "" });
@@ -63,6 +64,11 @@ function clock(iso) { global.Date = class extends RealDate { constructor(...args
   assert.equal((await route.POST(request({ ...payload(), lastName: "" }))).status, 400); assert.equal(ledger.size, 0);
   failWrite = true; assert.equal((await route.POST(request(payload()))).status, 503); assert.equal(ledger.size, 0); failWrite = false;
   failRead = true; assert.equal((await route.POST(request(payload()))).status, 503); assert.equal(ledger.size, 0); failRead = false;
+  // Enforce the completion policy at both API and store write boundaries.
+  const beforeIncomplete = [...ledger.entries()];
+  assert.equal((await route.POST(request({ ...payload(88, schema.SUBMITTED_REVISION), answers: {} }))).status, 400);
+  await assert.rejects(store.saveSurvey({ ...payload(88, schema.SUBMITTED_REVISION), answers: {} }), schema.SurveyValidationError);
+  assert.deepEqual([...ledger.entries()], beforeIncomplete, "invalid final must not create owner or receipt blobs");
   let result = await route.POST(request(payload())); assert.equal(result.status, 200); assert.equal((await result.json()).status, "draft");
   const firstBytes = [...ledger.entries()];
   assert.equal((await route.POST(request(payload()))).status, 200); assert.deepEqual([...ledger.entries()], firstBytes);
@@ -118,6 +124,14 @@ function clock(iso) { global.Date = class extends RealDate { constructor(...args
   const exported = await result.json(); assert.equal(exported.schemaVersion, 2); assert.equal(exported.identityFields.length, 3);
   assert.ok(exported.responses.every(r => !("digest" in r) && !("writeToken" in r) && !("tokenHash" in r)));
   failList = true; assert.equal((await exportRoute.GET(exp("Bearer fixture-cron"))).status, 503); failList = false;
+  // A genuine pre-policy immutable final receipt must remain readable/exportable.
+  const historical = schema.validateSurvey({ ...payload(777, schema.SUBMITTED_REVISION), answers: {} }, { requireCompleteSubmission: false });
+  const { writeToken: _unused, ...historicalPayload } = historical;
+  const historicalRecord = { ...historicalPayload, createdAt: "2026-11-13T20:00:00.000Z", updatedAt: "2026-11-13T20:00:00.000Z", submittedAt: "2026-11-13T20:00:00.000Z" };
+  ledger.set(`csnf-survey/v2/production/sessions/${uuid(777)}/submitted.json`, JSON.stringify({ ...historicalRecord, digest: require("node:crypto").createHash("sha256").update(JSON.stringify(historicalRecord)).digest("hex") }));
+  assert.equal((await store.listSurveyResponses()).find(r => r.id === uuid(777)).status, "submitted");
+  assert.equal((await exportRoute.GET(exp("Bearer fixture-cron"))).status, 200);
+
   clock("2026-11-16T18:00:00.000Z");
   const cronReq = () => new NextRequest("https://fixture.invalid/api/portal-sync?project=csnf", { headers: { authorization: "Bearer fixture-cron" } });
   result = await sync.POST(cronReq()); assert.equal(result.status, 200);

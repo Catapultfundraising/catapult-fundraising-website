@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState, type FocusEvent } from "react";
-import { SURVEY_QUESTIONS } from "@/lib/csnf-online-survey";
+import { SURVEY_QUESTIONS, missingRequiredSurveyQuestions } from "@/lib/csnf-online-survey";
 import { SurveyAutosave, sendSurveyWrite, type SurveyFormData, type SaveView } from "@/lib/csnf-survey-autosave";
 
 export function CsnfSurveyForm({ accepting }: { accepting: boolean }) {
   const [data, setData] = useState<SurveyFormData>({ firstName: "", lastName: "", telephone: "", answers: {}, website: "" });
+  const [submissionAttempted, setSubmissionAttempted] = useState(false);
+  const missingQuestions = missingRequiredSurveyQuestions(data.answers);
   const [view, setView] = useState<SaveView>({ phase: "idle", finalizing: false });
   const saver = useRef<SurveyAutosave | null>(null);
   const latest = useRef(data);
@@ -55,6 +57,12 @@ export function CsnfSurveyForm({ accepting }: { accepting: boolean }) {
   return <form onSubmit={e => {
     e.preventDefault();
     if (!accepting || !namesPresent || view.phase === "saving" && view.finalizing) return;
+    setSubmissionAttempted(true);
+    const missing = missingRequiredSurveyQuestions(latest.current.answers);
+    if (missing.length) {
+      document.querySelector<HTMLInputElement>(`input[name="${missing[0]}"]`)?.focus();
+      return;
+    }
     saver.current?.update(latest.current);
     void saver.current?.flush(true);
   }} className="space-y-8">
@@ -72,10 +80,10 @@ export function CsnfSurveyForm({ accepting }: { accepting: boolean }) {
         <div className="mt-3 h-6">{view.phase === "error" && <button data-survey-retry type="button" disabled={!namesPresent || !accepting} onClick={() => { void saver.current?.flush(view.finalizing); }} className="font-semibold text-[#004990] underline disabled:opacity-60">Retry saving</button>}</div>
       </div>
     </section>
-    <p className="text-sm">Please do not include sensitive personal or financial information in written comments. Survey questions are optional.</p>
+    <p className="text-sm">Please do not include sensitive personal or financial information in written comments.</p>
     <div aria-hidden="true" className="hidden"><label>Website<input tabIndex={-1} autoComplete="off" value={data.website} onChange={e => setData(d => ({ ...d, website: e.target.value }))} /></label></div>
     <fieldset disabled={disabled} className="space-y-8 disabled:opacity-80">
-      {SURVEY_QUESTIONS.filter(q => !q.commentFor).map(q => <fieldset aria-labelledby={`question-${q.id}`} key={q.id} className="rounded-md border border-[#d8e3ef] bg-white p-5 sm:p-7">
+      {SURVEY_QUESTIONS.filter(q => !q.commentFor).map(q => <fieldset aria-labelledby={`question-${q.id}`} aria-required={q.type !== "text" || undefined} aria-invalid={submissionAttempted && missingQuestions.includes(q.id) || undefined} key={q.id} className="rounded-md border border-[#d8e3ef] bg-white p-5 sm:p-7">
         <h3 id={`question-${q.id}`} className="mb-5 whitespace-pre-line text-base font-semibold text-[#004990]">{q.label}</h3>
         {q.type === "text" ? <><label htmlFor={`survey-${q.id}`} className="sr-only">{q.label}</label><textarea id={`survey-${q.id}`} maxLength={2000} rows={4} value={data.answers[q.id] as string ?? ""} onChange={e => setData(d => ({ ...d, answers: { ...d.answers, [q.id]: e.target.value } }))} onBlur={flushOnBlur} className={fieldClass} /><p className="mt-1 text-xs">Up to 2,000 characters.</p></> :
           <div className="space-y-3">{q.options?.map(option => <label key={option} className="flex cursor-pointer items-start gap-3 py-1">
@@ -86,6 +94,7 @@ export function CsnfSurveyForm({ accepting }: { accepting: boolean }) {
       </fieldset>)}
     </fieldset>
     <p className="text-sm font-semibold text-[#004990]">{status}</p>
+    {submissionAttempted && missingQuestions.length > 0 && <p role="alert" className="text-sm font-semibold text-[#004990]">Please answer questions 1–9 before submitting. Missing: {missingQuestions.map(id => id.replace("q", "")).join(", ")}. Comments and question 10 are optional. Your in-progress answers can still save automatically.</p>}
     <button type="submit" disabled={!accepting || !namesPresent || view.finalizing && view.phase === "saving"} className="rounded-md bg-[#004990] px-7 py-4 font-semibold text-white disabled:opacity-60">{view.finalizing ? view.phase === "error" ? "Retry submission" : "Submitting…" : "Submit survey"}</button>
   </form>;
 }
