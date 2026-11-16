@@ -4,7 +4,7 @@ import { CsnfSurveyForm } from "@/components/csnf-survey-form";
 
 export const dynamic = "force-dynamic";
 export const metadata: Metadata = {
-  title: { absolute: "CSNF Survey | CSN Foundation" },
+  title: { absolute: "Online Survey | CSN Foundation" },
   description: "Share your perspective on the CSN Foundation Northwest Campus campaign.",
   robots: { index: false, follow: false, nocache: true },
 };
@@ -14,7 +14,7 @@ export default function Page() {
   return <div className="min-h-screen bg-white font-sans text-[#1f2933]">
     <header className="border-b-4 border-[#FFD51D]"><div className="mx-auto max-w-3xl px-6 py-6"><Image src="/csnf/csnf-logo.png" alt="College of Southern Nevada Foundation" width={553} height={283} className="h-16 w-auto sm:h-20" priority /></div></header>
     <div>
-      <section className="bg-[#004990] text-white"><div className="mx-auto max-w-3xl px-6 py-12 sm:py-16"><p className="text-sm font-bold uppercase tracking-widest text-[#FFD51D]">Northwest Campus Campaign</p><h1 className="mt-3 text-3xl font-bold sm:text-5xl">CSNF Survey</h1><p className="mt-5 text-lg">Thank you for sharing your perspective on the proposed CSN Northwest Campus. Your responses will help assess community support and philanthropic potential for the project. Please select the response that best reflects your views.</p></div></section>
+      <section className="bg-[#004990] text-white"><div className="mx-auto max-w-3xl px-6 py-12 sm:py-16"><p className="text-sm font-bold uppercase tracking-widest text-[#FFD51D]">Northwest Campus Campaign</p><h1 className="mt-3 text-3xl font-bold sm:text-5xl">Online Survey</h1><p className="mt-5 text-lg">Thank you for sharing your perspective on the proposed CSN Northwest Campus. Your responses will help assess community support and philanthropic potential for the project. Please select the response that best reflects your views.</p></div></section>
       <section aria-labelledby="case-summary" className="mx-auto max-w-3xl px-6 py-10">
         <h2 id="case-summary" className="text-2xl font-bold text-[#004990]">Bringing higher education closer to home</h2>
         <p className="mt-4 leading-relaxed">The proposed CSN Northwest Campus will bring affordable college education, workforce training, and student support services closer to the Northwest community. The first building will provide general education courses and serve as the new home of CSN’s Southern Desert Regional Police Academy.</p>

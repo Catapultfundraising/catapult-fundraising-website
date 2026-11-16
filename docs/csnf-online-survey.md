@@ -16,7 +16,7 @@ During preview review Anthony explicitly authorized **required first/last
 name, optional telephone, and identified autosave including unfinished
 surveys**. Those fields are additions approved by Anthony, not attributed to
 the original questionnaire. The disclosure is visible before the identity
-fields. Survey questions remain optional, including on final submission.
+fields. Final submission requires Q1–Q9 (at least one selection for Q4). Comments and Q10 remain optional. Identified draft autosave still accepts incomplete answers; existing immutable receipts remain readable. Question definitions, schema/version and export contract are unchanged.
 Names are trimmed/nonblank, max120 characters each; telephone optional/max80
 without a country-specific format rule. Controls are rejected in identity
 strings. Written answers max2000 characters each.

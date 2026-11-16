@@ -42,6 +42,11 @@ export const SURVEY_QUESTIONS: SurveyQuestion[] = [
   { id: "q10", label: "10. Is there anything else you would like to share that we have not asked?\nComments:", type: "text" },
 ];
 export type SurveyAnswers = Record<string, string | string[]>;
+// Keep the published question definitions/version stable for existing exports.
+// Completion is a final-write policy, not a draft/autosave requirement.
+export function missingRequiredSurveyQuestions(answers: SurveyAnswers): string[] {
+  return SURVEY_QUESTIONS.filter(q => q.type !== "text" && !(answers[q.id]?.length > 0)).map(q => q.id);
+}
 export interface SurveyIdentity { firstName: string; lastName: string; telephone: string }
 export interface SurveyWrite extends SurveyIdentity {
   id: string;
@@ -69,7 +74,7 @@ export interface SurveyResults {
 export class SurveyValidationError extends Error {}
 export class SurveyConflictError extends Error {}
 
-export function validateSurvey(input: unknown): SurveyWrite {
+export function validateSurvey(input: unknown, { requireCompleteSubmission = true }: { requireCompleteSubmission?: boolean } = {}): SurveyWrite {
   const fail = (): never => { throw new SurveyValidationError("Please check your responses and try again."); };
   if (!input || typeof input !== "object" || Array.isArray(input)) return fail();
   const body = input as Record<string, unknown>;
@@ -103,6 +108,9 @@ export function validateSurvey(input: unknown): SurveyWrite {
       answers[q.id] = trimmed;
     }
     if (q.required && answers[q.id].length === 0) return fail();
+  }
+  if (requireCompleteSubmission && body.status === "submitted" && missingRequiredSurveyQuestions(answers).length) {
+    throw new SurveyValidationError("Please answer questions 1–9 before submitting. Comments and question 10 are optional.");
   }
   return { id: body.id, writeToken: body.writeToken, revision: Number(body.revision), status: body.status, surveyVersion: SURVEY_VERSION, ...identity, answers };
 }
