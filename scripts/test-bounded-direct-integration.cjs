@@ -4,16 +4,17 @@ const fs = require("node:fs"), path = require("node:path"), os = require("node:o
 const assert = require("node:assert/strict"), crypto = require("node:crypto"), Module = require("node:module"), ts = require("typescript");
 const original = Module._load, root = process.cwd();
 for (const ext of [".ts", ".tsx"]) require.extensions[ext] = (m, filename) => m._compile(ts.transpileModule(fs.readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText, filename);
+let renderedXlsx, renderedPdf;
 let enabled = false, sql = { updates: [], prospects: [] }, source, transport;
-const server = { engageCall: async () => ({ status: 200, body: sql }), secondarySolicitors: async () => ({}), saveSecondarySolicitor: async () => {}, logHistoryAudit: async () => {}, parseUsDate: s => s };
+const server = { portalCampaignStateSafe:async()=>sql, portalStateSafe:async()=>sql, engageCall: async () => ({ status: 200, body: sql }), secondarySolicitors: async () => ({}), saveSecondarySolicitor: async () => {}, logHistoryAudit: async () => {}, parseUsDate: s => s };
 Module._load = function(name, parent, main) {
   if (name === "server-only") return {};
-  if (name === "@react-pdf/renderer") return {};
+  if (name === "@react-pdf/renderer") return {Document:"Document",Page:"Page",View:"View",Text:"Text",renderToBuffer:async tree=>{renderedPdf=tree;return Buffer.from("mock PDF renderer");}};
   if (name.startsWith("@/")) name = path.join(root, name.slice(2));
   const file = name.startsWith(".") ? path.resolve(path.dirname(parent.filename), name) : name;
   // Generic-export test exercises route authorization/hold only, not PDF/XLSX rendering.
-  if (/\/lib\/(jag|csnf|pvas|wcbhc|baq)-brand-pdf$/.test(file)) return { preparedOn: () => "Fictional test", registerBrandFonts: () => {} };
-  if (/\/lib\/(jag|csnf|pvas|wcbhc|baq)-brand-xlsx$/.test(file)) return { buildBrandedXlsx: async () => Buffer.from("mock renderer: lane-OFF legacy route") };
+  if (/\/lib\/(jag|csnf|pvas|wcbhc|baq)-brand-pdf$/.test(file)) return { preparedOn: () => "Fictional test", registerBrandFonts: () => {}, bs:new Proxy({}, {get:()=>({})}) };
+  if (/\/lib\/(jag|csnf|pvas|wcbhc|baq)-brand-xlsx$/.test(file)) return { buildBrandedXlsx: async payload => {renderedXlsx=payload;return Buffer.from("mock renderer; current data tested before rendering");} };
   if (file === path.join(root, "lib/portal-v2/direct-registration.server")) return { directLaneEnabled: () => enabled, APPROVED_WEBSITE_DIRECT_REGISTRATIONS: [], DIRECT_WEBSITE_INTEGRATION_ACCEPTED: false };
   if (file === path.join(root, "lib/portal-v2/server")) return server;
   return original.call(this, name, parent, main);
@@ -76,7 +77,7 @@ function fixtureDeps() {
 }
 function request(body, headers = {}) { return new NextRequest("http://localhost:3100/api/pvas-data-direct-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", cookie: `catapult_research_auth=${COOKIE}`, ...headers }, body: JSON.stringify(body) }); }
 let checks = 0;
-async function check(name, run) { await run(); console.log(`ok ${++checks} - ${name}`); }
+async function check(name, run) { if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
 (async () => {
   console.log("# MOCK backend wire / NO SQL / NO network / original website code");
   await check("whole-file preview + commit + status use exact32hex, original bytes and signed ordered observations", async () => {
@@ -188,12 +189,76 @@ async function check(name, run) { await run(); console.log(`ok ${++checks} - ${n
     assert.throws(() => reads.validateDirectState({ ...state, values: [{ ...value, value: "10000000000.00" }] }, "pvas"));
   });
   for (const client of strict.DIRECT_CLIENTS) {
-    await check(`${client}: actual custom-grid export held503 while direct enabled, legacy laneOFF preserved`, async () => {
-      const route = require(`../app/api/${client}-data-export/route.tsx`);
-      const post = () => route.POST(new NextRequest(`http://localhost/api/${client}-data-export`, { method: "POST", headers: { cookie: `catapult_research_auth=${COOKIE}` },
-        body: JSON.stringify({ format: "xlsx", title: "Fictional", cols: [{ label: "Name" }], sections: [{ rows: [["Fictional"]] }] }) }));
-      enabled = true; assert.equal((await post()).status, 503);
-      enabled = false; assert.equal((await post()).status, 200);
+    await check(`${client}: export compatibility — all registered current tables, index/record/report, filters/order/financial/OFF`, async () => {
+      const dir=fs.mkdtempSync(path.join(os.tmpdir(),`export-${client}-`));process.env[`${client.toUpperCase()}_LOCAL_DIR`]=dir;
+      const idx=(cptid,name)=>({cptid,name,lifetime:321,gifts:1,largest:321,first:"2020-01-01",last:"2026-01-01",years:1,band:"",capMin:1000000,ds:"A",capacity:"$1M"});
+      const p={...idx(900001,"Fictional A"),rating:500000,ask:500000,solicitor:"Access staff",solicitor2:"",donorType:"Individual",active:true,get:123};
+      const q={...p,...idx(900002,"Fictional B"),ask:250000};
+      const raw={asOf:"2026-10-19",index:[p,q],records:Object.fromEntries([p,q].map(p=>[p.cptid,{...p,contact:{city:"Test"},gifts:[{date:"2026-01-01",amount:321}],summary:{...p},portfolio:{ask:p.ask,solicitor:"Access staff",secondary:"Access secondary"}}]))};
+      fs.writeFileSync(path.join(dir,"records.json"),JSON.stringify(raw));
+      let manual=doc();const save=()=>fs.writeFileSync(path.join(dir,"tracking.json"),JSON.stringify(manual));save();
+      const financial={byCampaign:[{campaign:"General",gifts:1,total:321}],pledges:[{...p,amount:700,remaining:500}],transactions:[{...p,date:"2026-01-01",amount:321}]};
+      const snapshot={client,asOf:raw.asOf,pool:[p,q],portfolio:[p,q],top:[p,q],board:[p,q],committed:[{...p,ask:123}],highWealth:[p,q],midLevel:[p],legacy:[p],lapsed:[p],
+        highWealthCount:2,midLevelCount:1,legacyCount:1,lapsedCount:1,unrated:[{name:"Pipeline",type:"Trust",note:"Not a source note"}],notSeated:[{name:"Unseated",reason:"Review"}],
+        fys:[{fy:2026,total:321,gifts:1,donors:1}],retention:[{fy:2026,rate:50,new:1}],stages:[{stage:"Individual",gifts:1,total:321}],givebutter:financial,
+        donorType:[["Individual",2]],flags:{Friend:2},orgTypes:[["Trust",1]],health:{},batches:[{batch:"A",people:[p]}],
+        feasibility:{byTier:[{tier:"A",prospects:1,completed:1,consider:1}],people:[{...p,tier:"A",consider:true,multiYear:false,leadership:false,introduce:true}]},
+        alumni:{bySchool:[["Test School",1]],topZips:[["00001",1]]}};
+      fs.writeFileSync(path.join(dir,"snapshot.json"),JSON.stringify(snapshot));
+      enabled=true;sql={updates:[],prospects:[],gifts:[],batches:[]};
+      const v=(field,value)=>({cptid:900001,field,value,template:"fictional",authority_rev:hex("a"),request_id:ID,source_date:"2026-10-19",committed_at:"2026-10-19T12:00:00.000Z"});
+      const note={cptid:900001,event_key:hex("b"),body:"New source note — never manual activity",note_date:"2026-10-19",template:"fictional",request_id:ID,source_date:"2026-10-19",committed_at:"2026-10-19T12:00:00.000Z",declared_actor:"Declared test actor",file_name:"fictional.csv",file_digest:hex("c"),authority_rev:hex("a")};
+      source={protocol:"direct-file-v1",status:"known",scope:"whole-client",complete:true,client,revision:hex("d"),observedAt:"2026-10-19T12:00:00.000Z",values:[v("ask","0.00"),v("primarySolicitor","Source staff")],notes:[note],note:"Source only"};
+      transport=async()=>Response.json(source);process.env.ENGAGE_SOURCE_IMPORT_URL="https://fictional.invalid/api/source-import";process.env.PORTAL_WRITE_SECRET=secret;
+      const route=require(`../app/api/${client}-data-export/route.tsx`);
+      const post=(intent,format="xlsx",extra={})=>route.POST(new NextRequest(`http://localhost/api/${client}-data-export`,{method:"POST",headers:{cookie:`catapult_research_auth=${COOKIE}`},body:JSON.stringify({format,title:"Fictional report",cols:[{label:"FORGED"}],sections:[{rows:[["FORGED"]]}],intent,...extra})}));
+      const askTable=["jag","csnf"].includes(client)?"GiftChartTab.2":"Portfolio.1";
+      const parameters={goal:9000000};
+      assert.equal((await post({kind:"table",table:askTable,parameters})).status,200);
+      assert.equal(JSON.stringify(renderedXlsx).includes("FORGED"),false);
+      if(!["jag","csnf"].includes(client)){
+        assert.equal(renderedXlsx.sections[0].rows[0][3],0);
+        assert.equal(renderedXlsx.sections[0].rows[0][1],"Source staff");
+        const filtered={kind:"table",table:askTable,search:"Fictional",sort:{key:"name",dir:-1}};
+        assert.equal((await post(filtered)).status,200);assert.deepEqual(renderedXlsx.sections[0].rows.map(r=>r[0]),["Fictional B","Fictional A"]);
+        const before=JSON.stringify(renderedXlsx.cols);assert.equal((await post({...filtered,search:"Fictional A"})).status,200);assert.equal(renderedXlsx.sections[0].rows.length,1);assert.equal(JSON.stringify(renderedXlsx.cols),before);
+        assert.equal((await post({...filtered,sort:{key:"madeUp",dir:1}})).status,400);
+      }
+      assert.equal((await post({kind:"table",table:"Pyramid.0",search:"Fictional",sort:{key:"name",dir:-1}})).status,200);
+      assert.deepEqual(renderedXlsx.sections[0].rows.map(r=>r[0]),["Fictional B","Fictional A"]);
+      assert.equal((await post({kind:"table",table:"Prospects.0",parameters:{pool:0,assignment:"unassigned"}})).status,200);assert.equal(renderedXlsx.sections[0].rows.length,0);
+      assert.equal((await post({kind:"table",table:"Prospects.0",parameters:{pool:0,assignment:"assigned"}})).status,200);assert.equal(renderedXlsx.sections[0].rows.length,2);
+      assert.equal((await post({kind:"index",ids:[900002,900001]})).status,200);
+      assert.deepEqual(renderedXlsx.sections[0].rows.map(r=>r[0]),[900002,900001]);assert.equal(JSON.stringify(renderedXlsx).includes("Source staff"),true);
+      assert.equal((await post({kind:"record",id:900001})).status,200);
+      const recordXlsx=structuredClone(renderedXlsx);assert.ok(recordXlsx.sections.find(s=>s.heading==="Profile").rows.some(r=>r[0]==="Campaign ask"&&r[1]==="$0"));
+      assert.ok(recordXlsx.sections.some(s=>s.heading?.startsWith("Imported source notes")&&JSON.stringify(s).includes("Declared test actor")));
+      assert.equal(recordXlsx.sections.some(s=>s.heading?.startsWith("Campaign tracking")&&JSON.stringify(s).includes(note.body)),false);
+      assert.equal((await post({kind:"record",id:900001},"pdf")).status,200);assert.ok(JSON.stringify(renderedPdf).includes(note.body));assert.ok(JSON.stringify(renderedPdf).includes("$0"));
+      const query={fields:["name","solicitor","campaignReceived"],filters:[],sort:{field:"name",dir:1}};
+      assert.equal((await post({kind:"report",query})).status,200);assert.deepEqual(renderedXlsx.cols.map(c=>c.label),["Name","Primary solicitor","Campaign gifts received"]);assert.ok(renderedXlsx.sections[0].rows.some(r=>r[1]==="Source staff"));
+      assert.equal((await post({kind:"report",query:{...query,fields:["name","notAField"]}})).status,400);
+      // Exercise all migrated finite table selectors, not a new fault matrix. Financial models use unchanged source bytes.
+      const modelFile=fs.readFileSync(path.join(root,`lib/portal-v2/${client}-export-model.ts`),"utf8"),tables=[...modelFile.matchAll(/case "([^"]+)":/g)].map(m=>m[1]);
+      const seating=require(`../lib/${client}-gc2p.ts`).seatGc2p(9000000,snapshot.pool,manual,[]);
+      for(const table of tables){
+        const par=table.startsWith("GiftChartTab.")?{goal:9000000,...(table==="GiftChartTab.1"?{level:seating.seated[0].level}:{})}:table==="Prospects.0"?{pool:0,assignment:"all"}:{};
+        const response=await post({kind:"table",table,parameters:par});assert.equal(response.status,200,`${client}/${table}: ${response.status===200?"":await response.text()}`);
+        assert.equal(renderedXlsx.sections[0].rows.every(r=>r.length===renderedXlsx.cols.length),true);
+        if(table==="Overview.0")assert.ok(renderedXlsx.sections[0].rows.some(r=>r.includes(321)));
+        if(table==="Givebutter.1")assert.ok(renderedXlsx.sections[0].rows.some(r=>r.includes(700)));
+        if(table==="Givebutter.2")assert.ok(renderedXlsx.sections[0].rows.some(r=>r.includes(321)));
+      }
+      manual=doc({900001:{status:"Active",solicitor:"",solicitor2:"",solicitorEdited:true,updatedAt:"2026-10-19",by:"Manual staff"}});save();
+      sql.updates=[{id:1,cptid:900001,field:"ask",new_value:"",old_value:"500000"}];
+      assert.equal((await post({kind:"record",id:900001})).status,200);const profile=renderedXlsx.sections.find(s=>s.heading==="Profile").rows;
+      assert.equal(profile.some(r=>r[0]==="Campaign ask"),false);assert.ok(profile.some(r=>r[0]==="Primary solicitor"&&r[1]==="Unassigned"));
+      assert.equal((await post({kind:"index",ids:[123]})).status,400);
+      assert.equal((await post({kind:"table",table:"Unknown.0"})).status,400);
+      assert.equal((await post(undefined)).status,400);
+      const good=source;source={configured:false};assert.equal((await post({kind:"record",id:900001})).status,503);source=good;
+      enabled=false;assert.equal((await post(undefined)).status,200);assert.equal(renderedXlsx.cols[0].label,"FORGED");
+      assert.deepEqual(manual.activity,[]);enabled=false;transport=null;delete process.env[`${client.toUpperCase()}_LOCAL_DIR`];fs.rmSync(dir,{recursive:true,force:true});
     });
     await check(`${client}: actual records loader/routes and server report retain source0, late manual clear, unknown refusal`, async () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), `bounded-${client}-`));

@@ -1,3 +1,4 @@
+import {reconstructDashboardExport,ExportIntentError} from "@/lib/portal-v2/dashboard-export.server";
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, View, Text } from "@react-pdf/renderer";
 import { isJagDataAuthed } from "@/lib/jag-data-auth";
@@ -24,8 +25,14 @@ function fmt(v: string | number | null, kind?: string) {
 export async function POST(req: NextRequest) {
   const { directLaneEnabled } = await import("@/lib/portal-v2/direct-registration.server");
   if (!(await isJagDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-  if (directLaneEnabled("jag")) return NextResponse.json({ error: "Custom browser-grid export is held: use a server-owned current report. Positional caller rows cannot establish complete current source/manual values." }, { status: 503 });
-  const b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[] };
+
+  let b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[]; intent?: unknown };
+  if (directLaneEnabled("jag")) {
+    try {
+      if (!b || !["pdf","xlsx"].includes(b.format)) return NextResponse.json({error:"Choose PDF or Excel."},{status:400});
+      b={...b,...await reconstructDashboardExport("jag",b.intent,b)};
+    } catch(e) { return NextResponse.json({error:e instanceof ExportIntentError?e.message:"Current complete dashboard records/manual/source export unavailable. Reload and try again."},{status:e instanceof ExportIntentError?400:503}); }
+  }
   const title = String(b.title || "JAG Report").slice(0, 120);
   const subtitle = `${b.subtitle ? b.subtitle + " · " : ""}${CLIENT} · Prepared ${preparedOn()}`;
   const total = b.sections.reduce((s, x) => s + x.rows.length, 0);

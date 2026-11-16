@@ -1,4 +1,6 @@
 "use client";
+import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayload} from "@/lib/portal-v2/pvas-export-model";
+import type {ExportIntent} from "@/lib/portal-v2/dashboard-export-types";
 
 import { viewAssignment } from "@/lib/portal-v2/effective-assignment";
 import { useCurrentCrmRead, currentAssignmentIndex } from "@/components/use-current-crm-read";
@@ -21,11 +23,12 @@ export const usd = (n: number, d = 0) =>
 // ---------- branded downloads ----------
 export type ExportKind = "text" | "usd" | "num" | "pct";
 export interface ExportPayload {
+  intent?: ExportIntent;
   title: string; subtitle?: string; cols: { label: string; kind?: ExportKind }[];
   sections: { heading?: string; rows: (string | number | null)[][] }[]; notes?: string[];
 }
 async function saveResponse(res: Response, fallback: string) {
-  if (!res.ok) { alert("Download failed. Please try again."); return; }
+  if (!res.ok) { alert((await res.json().catch(()=>null))?.error || "Download failed. Please try again."); return; }
   const cd = res.headers.get("content-disposition") || "";
   const name = /filename="([^"]+)"/.exec(cd)?.[1] || fallback;
   const a = document.createElement("a");
@@ -140,12 +143,7 @@ export const indexCols: { key: keyof IndexRow; label: string; kind?: ExportKind 
   { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
   { key: "ds", label: "DS Rating" }, { key: "capacity", label: "Capacity" },
 ];
-export function indexPayload(title: string, sub: string, rows: IndexRow[]): ExportPayload {
-  return {
-    title, subtitle: sub, cols: [{ label: "CPTID" }, ...indexCols.map((c) => ({ label: c.label, kind: c.kind }))],
-    sections: [{ rows: rows.map((r) => [r.cptid, ...indexCols.map((c) => (r[c.key] ?? "") as string | number)]) }],
-  };
-}
+export function indexPayload(title:string,sub:string,rows:IndexRow[]):ExportPayload { return {...currentIndexPayload(title,sub,rows),intent:{kind:"index",ids:rows.map(r=>r.cptid)}}; }
 
 export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: number }) {
   const { open } = useCrm();
@@ -251,33 +249,7 @@ function Sec({ title, children }: { title: string; children: React.ReactNode }) 
   );
 }
 
-export function recordPayload(r: DonorRecord, t?: PvasTracking): ExportPayload {
-  const st = t?.prospects[String(r.cptid)];
-  const acts = (t?.activity ?? []).filter((a) => a.cptid === r.cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
-  const c = r.contact ?? {};
-  const assignment = viewAssignment({ cptid: r.cptid, ...r.assignment }, null, t ?? { prospects: {} });
-  const prof: (string | number | null)[][] = [
-    ["Primary solicitor", assignment.solicitor || "Unassigned", "", "", "", ""],
-    ["Secondary solicitor", assignment.solicitor2 || "Unassigned", "", "", "", ""],
-    ["CPTID", String(r.cptid), "", "", "", ""], ["Type", r.kind ?? "", "", "", "", ""],
-    ["Address", [c.street, c.city, c.state, c.zip].filter(Boolean).join(", "), "", "", "", ""],
-    ["Phone", [c.phone, c.mobile].filter(Boolean).join(" / "), "", "", "", ""], ["Email", [c.email, c.workEmail].filter(Boolean).join(" / "), "", "", "", ""],
-    ["Lifetime giving", usd(r.summary.lifetime), "", "", "", ""], ["Gifts", String(r.summary.gifts), "", "", "", ""],
-    ["Largest gift", usd(r.summary.largest), "", "", "", ""], ["First / last gift", `${r.summary.first ?? ""} / ${r.summary.last ?? ""}`, "", "", "", ""],
-    ["DS rating / capacity", `${r.ds?.["DS Rating"] ?? ""} / ${r.ds?.["Wealth-Based Capacity"] ?? ""}`, "", "", "", ""],
-    ["Affiliations", (r.flags ?? []).join(", "), "", "", "", ""],
-  ];
-  return {
-    title: `Donor Record, ${r.name}`, subtitle: `CPTID ${r.cptid}`,
-    cols: [{ label: "Year" }, { label: "Amount", kind: "usd" }, { label: "" }, { label: "" }, { label: "" }, { label: "" }],
-    sections: [
-      { heading: "Profile", rows: prof.filter((x) => x[1]) },
-      ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}${st.solicitor2 ? `, secondary solicitor ${st.solicitor2}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
-      { heading: `Giving by calendar year (${r.gifts?.length ?? 0})`, rows: (r.gifts ?? []).map((g) => [g.date ?? "", g.amount, "", "", "", ""]) },
-    ],
-    notes: [...(r.calls ?? []).map((x) => `Call ${x.date}: ${x.result}${x.reason ? ` (${x.reason})` : ""}. ${x.comments ?? ""}`), ...(r.notes ?? []).map((n) => `Note: ${n}`)],
-  };
-}
+export function recordPayload(r:DonorRecord,t?:PvasTracking):ExportPayload { return {...currentRecordPayload(r,t),intent:{kind:"record",id:r.cptid}}; }
 
 function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
   const { tracking, index } = useCrm();

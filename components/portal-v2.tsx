@@ -1,4 +1,5 @@
 "use client";
+import {currentDashboardSnapshot} from "@/lib/portal-v2/current-dashboard-snapshot";
 
 import { assignmentSnapshot, type Assignment, type AssignmentTracking } from "@/lib/portal-v2/effective-assignment";
 import { DirectDashboardUpload } from "@/components/direct-dashboard-upload";
@@ -50,12 +51,9 @@ export function useCampaignAskSnapshot<T extends object>(snapshot: T, index?: ({
   const { client, state } = useV2();
   return useMemo(() => {
     const updates = (state?.updates ?? []) as UpdateRow[];
-    const o = buildOverlay(updates);
     if (state?.directSourceRevision && (index as unknown as { directSourceRevision?: string })?.directSourceRevision !== state.directSourceRevision)
       return { ...snapshot, directReadUnavailable: true };
-    const view = directSnapshot(snapshot, state?.directView, client !== "wcbhc" && client !== "baq");
-    const asks = overlayCampaignAsks(view, o, askEdits(updates), client !== "wcbhc" && client !== "baq");
-    return tracking ? assignmentSnapshot(asks, index ?? null, tracking, o) : asks;
+    return currentDashboardSnapshot(client,snapshot,index??null,tracking,updates,state?.directView);
   }, [snapshot, state, client, index, tracking]);
 }
 function useV2() { const c = useContext(V2); if (!c) throw new Error("PortalV2Provider missing"); return c; }

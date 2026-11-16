@@ -1,4 +1,5 @@
 "use client";
+import {buildDashboardExportModel,type TableSource} from "@/lib/portal-v2/dashboard-export-types";
 
 import { dashboardDateLabels } from "@/lib/dashboard-dates";
 
@@ -64,17 +65,20 @@ function H({ children, sub }: { children: React.ReactNode; sub?: string }) {
 }
 
 function Table<T extends Record<string, unknown>>({
-  rows, cols, csvName, exportSub, rowClick,
+  exportSource, csvName, exportSub, rowClick,
 }: {
-  rows: T[];
+  exportSource: TableSource;
   /** Aggregate rows (year, type, level, solicitor...): click opens the list of people behind the row. */
   rowClick?: (r: T) => void;
-  cols: { key: keyof T; label: string; fmt?: (v: T[keyof T], r: T) => string; right?: boolean }[];
+
   /** Report title for the branded PDF/Excel download. */
   csvName?: string;
   exportSub?: string;
 }) {
-  const { open } = useCrm();
+  const { open, index, tracking } = useCrm();
+  const model = buildDashboardExportModel("wcbhc", {...exportSource,index:index??[],tracking});
+  const rows=model.rows as T[];
+  const cols=model.cols as {key:keyof T;label:string;fmt?:(v:T[keyof T],r:T)=>string;right?:boolean}[];
   const nav = useRecordNav();
   const [q, setQ] = useState("");
   const [sort, setSort] = useState<{ k: keyof T; dir: 1 | -1 } | null>(null);
@@ -106,6 +110,7 @@ function Table<T extends Record<string, unknown>>({
         {csvName && (
           <DownloadButtons
             get={() => ({
+              intent:{kind:"table",table:exportSource.table,parameters:exportSource.parameters,search:q,sort:sort?{key:String(sort.k),dir:sort.dir}:null},
               title: csvName.replace(/\.csv$/i, "").replace(/^WCBHC /, ""),
               subtitle: [exportSub, q ? `Filtered: "${q}"` : ""].filter(Boolean).join(" · ") || undefined,
               cols: cols.map((c) => ({ label: c.label, kind: kindOf(c, shown[0]) })),
@@ -168,19 +173,6 @@ function cellOut(c: AnyCol, r: Record<string, unknown>): string | number {
   return c.fmt ? (c.fmt as (v: unknown, r: unknown) => string)(v, r) : String(v ?? "");
 }
 
-const personCols: { key: keyof Person; label: string; fmt?: (v: never) => string; right?: boolean }[] = [
-  { key: "name", label: "Name" },
-  { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
-  { key: "lifetime", label: "Lifetime", fmt: (v: number) => usd(v), right: true },
-  { key: "gifts", label: "# Gifts", right: true },
-  { key: "largest", label: "Largest", fmt: (v: number) => usd(v), right: true },
-  { key: "years", label: "Yrs Giving", right: true },
-  { key: "first", label: "First Gift" },
-  { key: "last", label: "Last Gift" },
-  { key: "ds", label: "DS Rating" },
-  { key: "capacity", label: "Capacity" },
-];
-
 function Overview({ d }: { d: WcbhcSnapshot }) {
   const nav = useRecordNav();
   const go = useDrill();
@@ -241,33 +233,20 @@ function Overview({ d }: { d: WcbhcSnapshot }) {
       </div>
       <Card>
         <H>Recent years</H>
-        <Table
+        <Table exportSource={{table:"Overview.0",snapshot:d,parameters:{}}}
           csvName="Giving by Year"
           rowClick={(r: { fy: unknown }) => yr(r.fy)}
-          rows={[...recent].reverse().map((f) => {
-            const r = d.retention.find((x) => x.fy === f.fy);
-            return { ...f, retention: r ? r.rate : 0, newDonors: r ? r.new : 0 };
-          })}
-          cols={[
-            { key: "fy", label: "Year" },
-            { key: "total", label: "Dollars", fmt: (v) => usd(v as number), right: true },
-            { key: "donors", label: "Donors", right: true },
-            { key: "newDonors", label: "New donors", right: true },
-            { key: "retention", label: "Retention", fmt: (v) => `${v}%`, right: true },
-          ]}
+          
+          
         />
       </Card>
       <Card>
         <H sub="Lifetime giving by donor type">Giving by donor type</H>
-        <Table
+        <Table exportSource={{table:"Overview.1",snapshot:d,parameters:{}}}
           csvName="Giving by Donor Type"
           rowClick={(r: { stage: unknown }) => nav?.drillQuery(String(r.stage), "Donors with gifts of this type", "stage", String(r.stage))}
-          rows={d.stages}
-          cols={[
-            { key: "stage", label: "Donor Type" },
-            { key: "gifts", label: "Gifts", right: true, fmt: (v) => num(v as number) },
-            { key: "total", label: "Dollars", right: true, fmt: (v) => usd(v as number) },
-          ]}
+          
+          
         />
       </Card>
     </div>
@@ -354,7 +333,7 @@ function Pyramid({ d }: { d: WcbhcSnapshot }) {
       </div>
       <Card>
         <H sub="Top 250 donors by lifetime giving">Top donors</H>
-        <Table rows={d.top as never} cols={personCols as never} csvName="Top 250 Donors" />
+        <Table exportSource={{table:"Pyramid.0",snapshot:d,parameters:{}}}   csvName="Top 250 Donors" />
       </Card>
     </div>
   );
@@ -415,20 +394,11 @@ function GiftChartTab({ d }: { d: WcbhcSnapshot }) {
       </Card>
       <Card>
         <H sub={goal === 12_000_000 ? "Approved $12M campaign gift chart" : "Suggested gift chart"}>Gift chart</H>
-        <Table
-          rows={chart.rows.map((r) => ({
-            lvl: r.level, gifts: r.gifts ?? "Many", level: r.level === null ? `Under ${formatDollars(r.under ?? 0)}` : formatDollars(r.level),
-            value: r.value, cumulative: r.cumulative, prospects: r.prospects ?? "", share: Math.round(r.shareOfGoal * 1000) / 10,
-          }))}
+        <Table exportSource={{table:"GiftChartTab.0",snapshot:d,parameters:{goal}}}
+          
           csvName={`Gift Chart ${formatDollars(goal)}`}
           rowClick={(r: { lvl: number | null }) => seatList(r.lvl)}
-          cols={[
-            { key: "gifts", label: "Gifts" }, { key: "level", label: "Gift Level" },
-            { key: "value", label: "Value", fmt: (v) => usd(v as number), right: true },
-            { key: "cumulative", label: "Cumulative", fmt: (v) => usd(v as number), right: true },
-            { key: "prospects", label: "Prospects Needed", right: true },
-            { key: "share", label: "% of Goal", fmt: (v) => `${v}%`, right: true },
-          ]}
+          
         />
       </Card>
       <Card>
@@ -461,21 +431,11 @@ function GiftChartTab({ d }: { d: WcbhcSnapshot }) {
                 {formatDollars(x.level)} level · {x.row.gifts} gift{x.row.gifts === 1 ? "" : "s"} · {x.people.length} prospect{x.people.length === 1 ? "" : "s"} ({x.need} needed at 3:1)
               </p>
               {x.people.length > 0 && (
-                <Table
+                <Table exportSource={{table:"GiftChartTab.1",snapshot:d,parameters:{goal,level:x.level}}}
                   csvName={`GC2P ${formatDollars(x.level)} Level`}
                   exportSub={`${formatDollars(goal)} goal`}
-                  rows={x.people.map((p) => ({ ...p, solicitor2: p.solicitor2 ?? "", solicitor: p.solicitor, status: stOf(p.cptid)?.status ?? p.status ?? "", pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" })) as never}
-                  cols={[
-                    { key: "name", label: "Prospect" },
-                    { key: "solicitor", label: "Committee Solicitor / Connection" }, { key: "solicitor2", label: "Secondary Solicitor" },
-                    { key: "status", label: "Status" },
-                    { key: "pir", label: "PIR" },
-                    { key: "donorType", label: "Type" },
-                    { key: "wealth", label: "Wealth Rating" },
-                    { key: "capText", label: "Capacity / Grant Range" },
-                    { key: "history", label: "Giving History" },
-                    { key: "note", label: "Notes" },
-                  ] as never}
+                  
+                  
                 />
               )}
             </div>
@@ -483,18 +443,11 @@ function GiftChartTab({ d }: { d: WcbhcSnapshot }) {
           {below.length > 0 && (
             <div>
               <p className="mb-1 font-display text-lg text-[rgb(var(--navy))]">Below {formatDollars(belowLevel)} · {below.length} prospect{below.length === 1 ? "" : "s"} · {usd(below.reduce((a, p) => a + (campaignAskAmount(p)), 0))}</p>
-              <Table
+              <Table exportSource={{table:"GiftChartTab.2",snapshot:d,parameters:{goal}}}
                 csvName={`GC2P Below ${formatDollars(belowLevel)}`}
                 exportSub={`${formatDollars(goal)} goal`}
-                rows={below.map((p) => ({ ...p, amount: campaignAskAmount(p) })) as never}
-                cols={[
-                  { key: "name", label: "Prospect" },
-                  { key: "amount", label: "Ask / Rating", fmt: (v: unknown) => usd(v as number), right: true },
-                  { key: "ds", label: "DS" },
-                  { key: "lifetime", label: "Lifetime", fmt: (v: unknown) => usd(v as number), right: true },
-                  { key: "largest", label: "Largest Gift", fmt: (v: unknown) => usd(v as number), right: true },
-                  { key: "last", label: "Last Gift" },
-                ] as never}
+                
+                
               />
             </div>
           )}
@@ -547,7 +500,7 @@ function Prospects({ d }: { d: WcbhcSnapshot }) {
             <option value="all">All prospects</option><option value="assigned">Assigned (either solicitor)</option><option value="unassigned">Unassigned (both blank)</option><option value="review">Merged assignments to review</option>
           </select>
         </label>
-        <Table rows={filterAssignments(p.rows, assignmentFilter) as never} cols={personCols as never} csvName={`${p.k} Prospects`} />
+        <Table exportSource={{table:"Prospects.0",snapshot:d,parameters:{pool:sel,assignment:assignmentFilter}}}   csvName={`${p.k} Prospects`} />
       </Card>
     </div>
   );
@@ -571,20 +524,10 @@ function Board({ d }: { d: WcbhcSnapshot }) {
       </div>
       <Card>
         <H sub="Campaign committee giving and pledges (committee giving sheet, September 10, 2026)">Committee giving</H>
-        <Table
-          rows={d.board.map((b) => (stew.has(b.cptid ?? -1) ? { ...b, get: stew.get(b.cptid ?? -1)! } : b))}
+        <Table exportSource={{table:"Board.0",snapshot:d,parameters:{}}}
+          
           csvName="Committee Giving"
-          cols={[
-            { key: "name", label: "Name" },
-            { key: "title", label: "Status" },
-            { key: "term", label: "Date" },
-            { key: "ask", label: "Pledge", fmt: (v) => usd(v as number), right: true },
-            { key: "get", label: "Gift", fmt: (v) => usd(v as number), right: true },
-            { key: "lifetime", label: "Lifetime", fmt: (v) => usd(v as number), right: true },
-            { key: "last", label: "Last Gift" },
-            { key: "ds", label: "DS" },
-            { key: "capacity", label: "Capacity" },
-          ]}
+          
         />
       </Card>
     </div>
@@ -611,15 +554,15 @@ function Health({ d }: { d: WcbhcSnapshot }) {
       <div className="grid gap-6 md:grid-cols-3">
         <Card>
           <H>Donor type</H>
-          <Table rowClick={(r: { type: unknown }) => nav?.drillQuery(String(r.type), "Donor Types", "attr", String(r.type))} csvName="Donor Types" rows={d.donorType.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Donor Type" }, { key: "count", label: "Records", right: true }]} />
+          <Table exportSource={{table:"Health.0",snapshot:d,parameters:{}}} rowClick={(r: { type: unknown }) => nav?.drillQuery(String(r.type), "Donor Types", "attr", String(r.type))} csvName="Donor Types"   />
         </Card>
         <Card>
           <H>Affiliation flags</H>
-          <Table rowClick={(r: { flag: unknown }) => nav?.drillQuery(String(r.flag), "Affiliation Flags", "attr", String(r.flag))} csvName="Affiliation Flags" rows={Object.entries(d.flags).map(([k, n]) => ({ flag: k, count: n }))} cols={[{ key: "flag", label: "Flag" }, { key: "count", label: "Records", right: true }]} />
+          <Table exportSource={{table:"Health.1",snapshot:d,parameters:{}}} rowClick={(r: { flag: unknown }) => nav?.drillQuery(String(r.flag), "Affiliation Flags", "attr", String(r.flag))} csvName="Affiliation Flags"   />
         </Card>
         <Card>
           <H>Organization types</H>
-          <Table rowClick={(r: { type: unknown }) => nav?.drillQuery(String(r.type), "Organization Types", "attr", String(r.type))} csvName="Organization Types" rows={d.orgTypes.map(([k, n]) => ({ type: k, count: n }))} cols={[{ key: "type", label: "Type" }, { key: "count", label: "Orgs", right: true }]} />
+          <Table exportSource={{table:"Health.2",snapshot:d,parameters:{}}} rowClick={(r: { type: unknown }) => nav?.drillQuery(String(r.type), "Organization Types", "attr", String(r.type))} csvName="Organization Types"   />
         </Card>
       </div>
     </div>
@@ -632,13 +575,6 @@ function Portfolio({ d }: { d: WcbhcSnapshot }) {
     const ps = d.portfolio.filter((p) => belongsToSolicitor(p, s));
     return { solicitor: s, prospects: ps.length, asks: ps.filter((p) => p.ask > 0).length, ask: ps.reduce((a, p) => a + p.ask, 0) };
   }).sort((a, b) => b.ask - a.ask);
-  const cols = [
-    { key: "name", label: "Prospect" }, { key: "solicitor", label: "Committee Solicitor / Connection" }, { key: "solicitor2", label: "Secondary Solicitor" },
-    { key: "ask", label: "Gift Level", fmt: (v: unknown, r: { askConflict?: boolean; askBlank?: boolean; askEdited?: boolean }) => r.askConflict ? "Review merged asks" : r.askBlank ? "" : (v || r.askEdited ? usd(v as number) : ""), right: true },
-    { key: "priority", label: "Status" }, { key: "type", label: "Type" },
-    { key: "lifetime", label: "Lifetime", fmt: (v: unknown) => usd(v as number), right: true },
-    { key: "ds", label: "Wealth Rating" }, { key: "capacity", label: "Capacity / Grant Range" }, { key: "task", label: "Notes" },
-  ];
   const ids = useIds();
   const { tracking } = useCrm();
   return (
@@ -651,25 +587,22 @@ function Portfolio({ d }: { d: WcbhcSnapshot }) {
       </div>
       <Card>
         <H sub="Seated prospects by primary or secondary solicitor or connection (a prospect may appear in both)">Solicitor assignments</H>
-        <Table rowClick={(r: { solicitor: string }) => ids(`Solicitor: ${r.solicitor}`, "Prospects assigned to this solicitor", d.portfolio.filter((p) => belongsToSolicitor(p, r.solicitor)))} csvName="Prospects by Solicitor" rows={bySol} cols={[
-          { key: "solicitor", label: "Solicitor / Connection" }, { key: "prospects", label: "Prospects", right: true },
-          { key: "asks", label: "Seated", right: true }, { key: "ask", label: "Total of Gift Levels", fmt: (v) => usd(v as number), right: true },
-        ]} />
+        <Table exportSource={{table:"Portfolio.0",snapshot:d,parameters:{}}} rowClick={(r: { solicitor: string }) => ids(`Solicitor: ${r.solicitor}`, "Prospects assigned to this solicitor", d.portfolio.filter((p) => belongsToSolicitor(p, r.solicitor)))} csvName="Prospects by Solicitor"   />
       </Card>
       <Card>
         <H sub="Every prospect seated on the $12M gift chart, largest gift level first. Click a name to open the record.">Campaign prospects</H>
-        <Table csvName="Campaign Prospects" rows={d.portfolio.map((p) => ({ ...p, solicitor2: p.solicitor2 ?? "" })) as never} cols={cols as never} />
+        <Table exportSource={{table:"Portfolio.1",snapshot:d,parameters:{}}} csvName="Campaign Prospects"   />
       </Card>
       {!!d.unrated?.length && (
         <Card>
           <H sub="Identified but not yet rated: no capacity data or giving history to seat on yet">Pipeline, not yet seated</H>
-          <Table csvName="Pipeline Not Yet Seated" rows={d.unrated as never} cols={[{ key: "name", label: "Prospect" }, { key: "type", label: "Type" }, { key: "note", label: "Notes" }] as never} />
+          <Table exportSource={{table:"Portfolio.2",snapshot:d,parameters:{}}} csvName="Pipeline Not Yet Seated"   />
         </Card>
       )}
       {!!d.notSeated?.length && (
         <Card>
           <H sub="Named on the committee list but not seated, with the reason">Not seated</H>
-          <Table csvName="Not Seated" rows={d.notSeated as never} cols={[{ key: "name", label: "Prospect" }, { key: "reason", label: "Reason" }] as never} />
+          <Table exportSource={{table:"Portfolio.3",snapshot:d,parameters:{}}} csvName="Not Seated"   />
         </Card>
       )}
     </div>
@@ -695,27 +628,15 @@ function Givebutter({ d }: { d: WcbhcSnapshot }) {
       </div>
       <Card>
         <H sub="Campaign gifts by payment type">Gifts by type</H>
-        <Table rowClick={(r: { campaign: string }) => ids(r.campaign, "Donors with gifts in this group", (g.transactions as { cptid?: number | null; campaign?: string }[]).filter((t) => (t.campaign || "General") === r.campaign))} csvName="Campaign Gifts by Type" rows={g.byCampaign} cols={[
-          { key: "campaign", label: "Type" }, { key: "gifts", label: "Gifts", right: true },
-          { key: "total", label: "Dollars", fmt: (v) => usd(v as number), right: true },
-        ]} />
+        <Table exportSource={{table:"Givebutter.0",snapshot:d,parameters:{}}} rowClick={(r: { campaign: string }) => ids(r.campaign, "Donors with gifts in this group", (g.transactions as { cptid?: number | null; campaign?: string }[]).filter((t) => (t.campaign || "General") === r.campaign))} csvName="Campaign Gifts by Type"   />
       </Card>
       <Card>
         <H sub="Committee pledges and verbal commitments, largest first">Pledges</H>
-        <Table csvName="Campaign Pledges" rows={g.pledges as never} cols={[
-          { key: "name", label: "Name" }, { key: "pledged", label: "Pledged On" },
-          { key: "amount", label: "Amount", fmt: (v: unknown) => usd(v as number), right: true },
-          { key: "remaining", label: "Remaining", fmt: (v: unknown) => usd(v as number), right: true },
-                    { key: "campaign", label: "Campaign" }, { key: "status", label: "Status" },
-        ] as never} />
+        <Table exportSource={{table:"Givebutter.1",snapshot:d,parameters:{}}} csvName="Campaign Pledges"   />
       </Card>
       <Card>
         <H sub="Every campaign gift, newest first">Gifts</H>
-        <Table csvName="Campaign Gifts" rows={g.transactions as never} cols={[
-          { key: "date", label: "Date" }, { key: "name", label: "Name" },
-          { key: "amount", label: "Amount", fmt: (v: unknown) => usd(v as number, 2), right: true },
-          { key: "dedication", label: "Type" }, { key: "fund", label: "Description" }, { key: "status", label: "Status" },
-        ] as never} />
+        <Table exportSource={{table:"Givebutter.2",snapshot:d,parameters:{}}} csvName="Campaign Gifts"   />
       </Card>
     </div>
   );

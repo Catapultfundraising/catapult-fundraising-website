@@ -22,5 +22,5 @@ export async function verifyCurrentDirectView(client: PortalClient): Promise<Rec
   for (const cptid of expected) if (!records.records[String(cptid)] || !indexed.has(cptid)) throw new DirectReadUnavailable();
   return { sourceCommitted: true, viewVerified: true, verificationScope: "current-server-read-only", revision: observed.state.revision,
     observedAt: new Date().toISOString(), durablePublicationReceipt: false,
-    note: "Current server source/manual records and snapshot reads verified. Reload this dashboard to inspect the rendered view. Custom browser-grid exports remain held. This is not a durable publication receipt or full release acceptance." };
+    note: "Current server source/manual records and snapshot reads verified. Reload this dashboard to inspect the rendered view. Current browser-grid exports are reconstructed server-side from typed selections. This is not a durable publication receipt or full release acceptance." };
 }
