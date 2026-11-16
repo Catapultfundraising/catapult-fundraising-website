@@ -23,13 +23,21 @@ export async function readBoundedStream(stream: ReadableStream<Uint8Array> | nul
     return Buffer.concat(chunks);
   } finally { clearTimeout(timer); reader.releaseLock(); }
 }
+/** Existing transport readiness only: no request, URL fallback, secret/config creation or new feature gate. */
+export function directSourceConfigured(env = process.env): boolean {
+  const url = env.ENGAGE_SOURCE_IMPORT_URL?.trim(), secret = env.PORTAL_WRITE_SECRET;
+  if (!url || !secret || secret.length < 24) return false;
+  try {
+    const target = new URL(url);
+    return target.protocol === "https:" && target.pathname === "/api/source-import" &&
+      !target.search && !target.hash && !target.username && !target.password;
+  } catch { return false; }
+}
 export async function directSourceCall(client: PortalClient, op: string, body: Record<string, unknown> = {}, fetchImpl = fetch, env = process.env): Promise<{ status: number; body: Record<string, unknown> }> {
   const committing = op === "directFileCommit";
   if (!SOURCE_OPS.includes(op) || Object.prototype.hasOwnProperty.call(body, "op") || Object.prototype.hasOwnProperty.call(body, "client")) throw new DirectTransportError("invalid-source-envelope", false);
-  const url = env.ENGAGE_SOURCE_IMPORT_URL?.trim(), secret = env.PORTAL_WRITE_SECRET;
-  if (!url || !secret || secret.length < 24) throw new DirectTransportError("source-unconfigured", false);
-  let target: URL; try { target = new URL(url); } catch { throw new DirectTransportError("source-unconfigured", false); }
-  if (target.protocol !== "https:" || target.pathname !== "/api/source-import" || target.search || target.hash || target.username || target.password) throw new DirectTransportError("source-unconfigured", false);
+  if (!directSourceConfigured(env)) throw new DirectTransportError("source-unconfigured", false);
+  const url = env.ENGAGE_SOURCE_IMPORT_URL!.trim(), secret = env.PORTAL_WRITE_SECRET!;
   const envelope = op === "directFilePreview" || op === "directFileCommit" ? { op, ...body } : { op, client, ...body };
   try {
     const response = await fetchImpl(url, { method: "POST", redirect: "error", cache: "no-store", signal: AbortSignal.timeout(125_000),
