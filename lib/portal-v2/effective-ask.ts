@@ -14,23 +14,24 @@ export function askEdits(updates: UpdateRow[]): Map<number, AskEdit> {
 }
 
 /** Survivor's explicit edit wins, then its nonzero base. Only unambiguous merged-source asks fill an absent base. */
-export function effectiveAsk(cptid: number, o: Overlay, edits: Map<number, AskEdit>, base: (id: number) => number | null | undefined): AskValue {
+export function effectiveAsk(cptid: number, o: Overlay, edits: Map<number, AskEdit>, base: (id: number) => number | null | undefined, directPresent: (id: number) => boolean = () => false, baseManual: (id: number) => boolean = () => false): AskValue & { directAskPresent?: boolean } {
   const target = finalId(o, cptid), own = edits.get(target);
   if (own) return { ask: own.value, askEdited: true, askBlank: own.value === null };
   const current = base(target);
-  if (current != null && current > 0) return { ask: current };
+  if (baseManual(target)) return { ask: current ?? null, askEdited: true, askBlank: current == null };
+  if (current != null && (current > 0 || directPresent(target))) return { ask: current, ...(directPresent(target) ? { directAskPresent: true } : {}) };
   const candidates = mergedSources(o, target).map((id) => {
     const edit = edits.get(id);
-    return edit ? { ask: edit.value, askEdited: true, askBlank: edit.value === null, askFromCptid: id } : { ask: base(id), askFromCptid: id };
-  }).filter((x) => x.askEdited || (x.ask != null && x.ask > 0));
+    return edit ? { ask: edit.value, askEdited: true, askBlank: edit.value === null, askFromCptid: id } : { ask: base(id), askFromCptid: id, ...(directPresent(id) ? { directAskPresent: true } : {}), ...(baseManual(id) ? { askEdited: true, askBlank: base(id) == null } : {}) };
+  }).filter((x) => x.askEdited || ("directAskPresent" in x && x.directAskPresent) || (x.ask != null && x.ask > 0));
   const values = new Set(candidates.map((x) => x.ask));
   if (values.size > 1) return { ask: current, askConflict: true };
   return candidates[0] ?? { ask: current };
 }
 
 /** The legacy fallback to rating remains only when there is no explicit saved ask. */
-export function campaignAskAmount(p: AskValue & { rating?: number }, fallback = p.rating ?? 0): number {
-  return (p.askEdited || p.askConflict) ? p.ask ?? 0 : p.ask || fallback;
+export function campaignAskAmount(p: AskValue & { rating?: number; directAskPresent?: boolean }, fallback = p.rating ?? 0): number {
+  return (p.askEdited || p.askConflict || p.directAskPresent) ? p.ask ?? 0 : p.ask || fallback;
 }
 
 type Row = AskValue & { cptid?: number | null; name?: string; active?: boolean; [key: string]: unknown };
@@ -42,7 +43,7 @@ export function overlayCampaignAsks<T>(snapshot: T, o: Overlay, edits: Map<numbe
   const byId = new Map<number, Row>();
   // Portfolio owns campaign ask. A pool rating is NOT a campaign ask.
   for (const row of [...s.pool, ...(boardCampaignAsk ? s.board.filter((r) => r.active) : []), ...(s.portfolio ?? [])]) {
-    if (row.cptid && row.ask != null) byId.set(row.cptid, row);
+    if (row.cptid && (row.ask != null || row.directAskPresent === true || row.directManualAskPresent === true)) byId.set(row.cptid, row);
   }
   const apply = (rows: Row[], unique: boolean): Row[] => {
     const seen = new Set<number>();
@@ -52,7 +53,7 @@ export function overlayCampaignAsks<T>(snapshot: T, o: Overlay, edits: Map<numbe
       if (o.deleted.has(id) || (unique && seen.has(id))) return [];
       seen.add(id);
       const survivor = rows.find((r) => r.cptid === id) ?? row;
-      const value = effectiveAsk(id, o, edits, (c) => byId.get(c)?.ask);
+      const value = effectiveAsk(id, o, edits, (c) => byId.get(c)?.ask, (c) => byId.get(c)?.directAskPresent === true, (c) => byId.get(c)?.directManualAskPresent === true);
       if (value.ask === undefined && !value.askEdited && !value.askConflict && id === row.cptid) return [row];
       return [{ ...survivor, cptid: id, ...value, ask: value.ask ?? 0 }];
     });
@@ -60,7 +61,7 @@ export function overlayCampaignAsks<T>(snapshot: T, o: Overlay, edits: Map<numbe
   return { ...s, pool: apply(s.pool, true), ...(s.portfolio ? { portfolio: apply(s.portfolio, true) } : {}),
     ...(boardCampaignAsk ? { board: s.board.map((r) => {
       if (!r.active || !r.cptid) return r;
-      const ask = effectiveAsk(r.cptid, o, edits, (c) => byId.get(c)?.ask);
+      const ask = effectiveAsk(r.cptid, o, edits, (c) => byId.get(c)?.ask, (c) => byId.get(c)?.directAskPresent === true, (c) => byId.get(c)?.directManualAskPresent === true);
       return { ...r, ...ask, ask: ask.ask ?? 0 };
     }) } : {}) };
 }

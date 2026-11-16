@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { PROSPECT_STATUSES, ACTIVITY_KINDS, type ProspectStatus, type PvasTracking as Tracking } from "@/lib/pvas-tracking-types";
 import { logHistoryAudit, parseUsDate, secondarySolicitors, saveSecondarySolicitor } from "@/lib/portal-v2/server";
 import type { PortalClient } from "@/lib/portal-v2/clients";
+import { currentTracking, directTrackingView } from "@/lib/portal-v2/direct-source-state.server";
 
 // Shared committee-tracking API for all five data dashboards (tracking shapes are identical per client).
 // POST { type: "status", cptid, status, level?, solicitor?, reason?, by }
@@ -22,14 +23,14 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
   }
   async function GET(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    return NextResponse.json(await withSecondary(await get()), { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(await directTrackingView(client, await withSecondary(await currentTracking(client, get))), { headers: { "Cache-Control": "no-store" } });
   }
   async function POST(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     const b = await req.json().catch(() => null);
     // QA cleanup: removes only entries written by a "ZZTEST" author (test data), never real staff entries.
     if (b?.type === "purgeTest") {
-      const t = await get();
+      const t = await currentTracking(client, get);
       const isTest = (x?: string) => /^ZZTEST/i.test(x ?? "");
       t.activity = t.activity.filter((a) => !isTest(a.by));
       t.removed = (t.removed ?? []).filter((a) => !isTest(a.by) && !isTest(a.removedBy));
@@ -41,7 +42,7 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
     const by = clean(b?.by, 80);
     if (!b || !Number.isInteger(cptid) || cptid <= 0) return NextResponse.json({ error: "bad cptid" }, { status: 400 });
     if (!by) return NextResponse.json({ error: "Please enter your name" }, { status: 400 });
-    const t = await get();
+    const t = await currentTracking(client, get);
     const now = new Date().toISOString();
     const id = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
     const dateOf = (v: unknown): string | null | "bad" => { const s = clean(v, 20); if (!s) return null; return parseUsDate(s) ?? "bad"; };
@@ -104,7 +105,8 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
     }
     await save(t);
     if (audit) await logHistoryAudit(client, { cptid, by, ...audit });
-    return NextResponse.json(await withSecondary(t));
+    return NextResponse.json(await directTrackingView(client, await withSecondary(t)));
   }
-  return { GET, POST };
+  const guarded = (run: (req: NextRequest) => Promise<NextResponse>) => async (req: NextRequest) => { try { return await run(req); } catch { return NextResponse.json({ error: "Current tracking/source view unavailable; no success asserted" }, { status: 503 }); } };
+  return { GET: guarded(GET), POST: guarded(POST) };
 }

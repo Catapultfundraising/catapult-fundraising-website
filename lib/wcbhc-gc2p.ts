@@ -66,7 +66,7 @@ export function seatGc2p(goal: number, pool: PoolPerson[], t?: WcbhcTracking | n
   const levels = chart.rows.filter((r) => r.level !== null && r.gifts !== null && (r.level as number) >= GC2P_MIN_LEVEL);
   // Committee-pinned level wins; otherwise the curated seat, rounded down to a chart level.
   const seatOf = (p: PoolPerson) => {
-    const edited = (p as { askEdited?: boolean; askConflict?: boolean }).askEdited || (p as { askConflict?: boolean }).askConflict;
+    const edited = (p as { askEdited?: boolean; askConflict?: boolean }).askEdited || (p as { askConflict?: boolean }).askConflict || (p as { directAskPresent?: boolean }).directAskPresent;
     const v = st[p.cptid]?.level || (edited ? campaignAskAmount(p) : p.rating || p.ask);
     return allLevels.find((l) => v >= l) ?? null;
   };

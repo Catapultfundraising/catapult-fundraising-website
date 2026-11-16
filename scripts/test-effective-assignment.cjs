@@ -4,6 +4,7 @@ const Module = require("node:module"), ts = require("typescript");
 const root = process.cwd(), original = Module._load;
 for (const ext of [".ts", ".tsx"]) require.extensions[ext] = (m, f) => m._compile(ts.transpileModule(fs.readFileSync(f,"utf8"), {compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2020,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
 Module._load = function(name,parent,isMain) {
+  if (name === "server-only") return {}; // Node synthetic harness; production bundler retains server-only guard.
   if (name === "@/lib/portal-v2/server") return {portalCampaignStateSafe: async()=>{throw new Error("Unexpected state read")},secondarySolicitors:async()=>({}),saveSecondarySolicitor:async()=>{throw new Error("Unexpected SQL secondary write")},logHistoryAudit:async()=>{},parseUsDate:x=>x};
   if (name.startsWith("@/")) name=path.join(root,name.slice(2));
   return original.call(this,name,parent,isMain);

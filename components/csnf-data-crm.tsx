@@ -1,6 +1,11 @@
 "use client";
+import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayload} from "@/lib/portal-v2/csnf-export-model";
+import type {ExportIntent} from "@/lib/portal-v2/dashboard-export-types";
 
 import { viewAssignment } from "@/lib/portal-v2/effective-assignment";
+import { useCurrentCrmRead, currentAssignmentIndex } from "@/components/use-current-crm-read";
+import { DirectSourceNotes } from "@/components/direct-source-notes";
+import { manualAssignmentPatch } from "@/lib/portal-v2/manual-assignment-patch";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, useRef } from "react";
 import { RecordNav, SafeBoundary, cmpValues, DateInput, HistoryList, parseUsDateClient, todayUs, normName, type RecordNavCtx } from "@/components/dashboard-shared";
@@ -18,11 +23,12 @@ export const usd = (n: number, d = 0) =>
 // ---------- branded downloads ----------
 export type ExportKind = "text" | "usd" | "num" | "pct";
 export interface ExportPayload {
+  intent?: ExportIntent;
   title: string; subtitle?: string; cols: { label: string; kind?: ExportKind }[];
   sections: { heading?: string; rows: (string | number | null)[][] }[]; notes?: string[];
 }
 async function saveResponse(res: Response, fallback: string) {
-  if (!res.ok) { alert("Download failed. Please try again."); return; }
+  if (!res.ok) { alert((await res.json().catch(()=>null))?.error || "Download failed. Please try again."); return; }
   const cd = res.headers.get("content-disposition") || "";
   const name = /filename="([^"]+)"/.exec(cd)?.[1] || fallback;
   const a = document.createElement("a");
@@ -66,17 +72,9 @@ export function CrmProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [recId, setRecId] = useUrlId("rec");
   const [drillState, setDrill] = useState<{ title: string; sub: string; rows: IndexRow[] } | null>(null);
-  const [tracking, setTracking] = useState<CsnfTracking>(EMPTY_TRACKING);
-  useEffect(() => {
-    fetch("/api/csnf-data-tracking", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((t) => t && setTracking(t));
-    fetch("/api/csnf-data-records").then((r) => (r.ok ? r.json() : null)).then((d) => setIndex(d?.index ?? null)).finally(() => setLoading(false));
-  }, []);
-  useEffect(() => {
-    const f = () => { fetch("/api/csnf-data-records", { cache: "no-store" }).then((r) => (r.ok ? r.json() : null)).then((d) => d?.index && setIndex(d.index)).catch(() => {}); };
-    window.addEventListener("crm-index-refresh", f);
-    return () => window.removeEventListener("crm-index-refresh", f);
-  }, []);
-  const ctx = useMemo<Ctx>(() => ({ index: index?.map((r) => ({ ...r, ...viewAssignment(r, index, tracking) })) ?? null, loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking, setRecId]);
+  const [tracking, setTrackingState] = useState<CsnfTracking>(EMPTY_TRACKING);
+  const setTracking = useCurrentCrmRead("csnf", setIndex, setTrackingState, setLoading);
+  const ctx = useMemo<Ctx>(() => ({ index: currentAssignmentIndex(index, tracking), loading, open: setRecId, drill: (title, sub, rows) => setDrill({ title, sub, rows }), tracking, setTracking }), [index, loading, tracking, setRecId, setTracking]);
   const [pick, setPick] = useState<{ name: string; rows: IndexRow[] } | null>(null);
   const openName = useCallback((name: string, cptid?: number | null) => {
     if (cptid && cptid > 0) { setRecId(cptid); return; }
@@ -145,12 +143,7 @@ export const indexCols: { key: keyof IndexRow; label: string; kind?: ExportKind 
   { key: "solicitor", label: "Primary Solicitor" }, { key: "solicitor2", label: "Secondary Solicitor" },
   { key: "ds", label: "DS Rating" }, { key: "capacity", label: "Capacity" },
 ];
-export function indexPayload(title: string, sub: string, rows: IndexRow[]): ExportPayload {
-  return {
-    title, subtitle: sub, cols: [{ label: "CPTID" }, ...indexCols.map((c) => ({ label: c.label, kind: c.kind }))],
-    sections: [{ rows: rows.map((r) => [r.cptid, ...indexCols.map((c) => (r[c.key] ?? "") as string | number)]) }],
-  };
-}
+export function indexPayload(title:string,sub:string,rows:IndexRow[]):ExportPayload { return {...currentIndexPayload(title,sub,rows),intent:{kind:"index",ids:rows.map(r=>r.cptid)}}; }
 
 export function PeopleTable({ rows, max = 500 }: { rows: IndexRow[]; max?: number }) {
   const { open } = useCrm();
@@ -256,33 +249,7 @@ function Sec({ title, children }: { title: string; children: React.ReactNode }) 
   );
 }
 
-export function recordPayload(r: DonorRecord, t?: CsnfTracking): ExportPayload {
-  const st = t?.prospects[String(r.cptid)];
-  const acts = (t?.activity ?? []).filter((a) => a.cptid === r.cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
-  const c = r.contact ?? {};
-  const assignment = viewAssignment({ cptid: r.cptid, ...r.assignment }, null, t ?? { prospects: {} });
-  const prof: (string | number | null)[][] = [
-    ["Primary solicitor", assignment.solicitor || "Unassigned", "", "", "", ""],
-    ["Secondary solicitor", assignment.solicitor2 || "Unassigned", "", "", "", ""],
-    ["CPTID", String(r.cptid), "", "", "", ""], ["Type", r.kind ?? "", "", "", "", ""],
-    ["Address", [c.street, c.city, c.state, c.zip].filter(Boolean).join(", "), "", "", "", ""],
-    ["Phone", [c.phone, c.mobile].filter(Boolean).join(" / "), "", "", "", ""], ["Email", [c.email, c.workEmail].filter(Boolean).join(" / "), "", "", "", ""],
-    ["Lifetime giving", usd(r.summary.lifetime), "", "", "", ""], ["Gifts", String(r.summary.gifts), "", "", "", ""],
-    ["Largest gift", usd(r.summary.largest), "", "", "", ""], ["First / last gift", `${r.summary.first ?? ""} / ${r.summary.last ?? ""}`, "", "", "", ""],
-    ["DS rating / capacity", `${r.ds?.["DS Rating"] ?? ""} / ${r.ds?.["Wealth-Based Capacity"] ?? ""}`, "", "", "", ""],
-    ["Affiliations", (r.flags ?? []).join(", "), "", "", "", ""],
-  ];
-  return {
-    title: `Donor Record, ${r.name}`, subtitle: `CPTID ${r.cptid}`,
-    cols: [{ label: "Date" }, { label: "Amount", kind: "usd" }, { label: "Stage" }, { label: "Type" }, { label: "Campaign" }, { label: "Allocation" }],
-    sections: [
-      { heading: "Profile", rows: prof.filter((x) => x[1]) },
-      ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}${st.solicitor2 ? `, secondary solicitor ${st.solicitor2}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
-      { heading: `Gift history (${r.gifts?.length ?? 0})`, rows: (r.gifts ?? []).map((g) => [g.date ?? "", g.amount, g.stage ?? "", g.type ?? "", g.campaign ?? "", g.allocation ?? ""]) },
-    ],
-    notes: [...(r.calls ?? []).map((x) => `Call ${x.date}: ${x.result}${x.reason ? ` (${x.reason})` : ""}. ${x.comments ?? ""}`), ...(r.notes ?? []).map((n) => `Interest: ${n}`)],
-  };
-}
+export function recordPayload(r:DonorRecord,t?:CsnfTracking):ExportPayload { return {...currentRecordPayload(r,t),intent:{kind:"record",id:r.cptid}}; }
 
 function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
   const { tracking, index } = useCrm();
@@ -336,6 +303,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
           </div>
         ))}
       </div>
+      <DirectSourceNotes record={r} />
       <div className="grid gap-4 md:grid-cols-2">
         <OutcomeSection client="csnf" r={r as never} onSaved={reload} />
         <ContactSection client="csnf" r={r as never} onSaved={reload} />
@@ -385,6 +353,7 @@ function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { so
   const a = viewAssignment({ cptid, ...assignment }, index, tracking);
   const [solicitor, setSolicitor] = useState(a.solicitor);
   const [solicitor2, setSolicitor2] = useState(a.solicitor2);
+  const [primaryEdited, setPrimaryEdited] = useState(false), [secondaryEdited, setSecondaryEdited] = useState(false);
   const [reason, setReason] = useState(cur?.reason ?? "");
   const [kind, setKind] = useState<string>("Visit");
   const [date, setDate] = useState(todayUs());
@@ -420,16 +389,16 @@ function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { so
               <input value={level} onChange={(e) => setLevel(e.target.value.replace(/[^\d]/g, ""))} placeholder="Auto from capacity" className={inputCls} />
             </label>
             <label className="col-span-2 text-xs">Primary solicitor / connection
-              <input value={solicitor} onChange={(e) => setSolicitor(e.target.value)} className={inputCls} />
+              <input value={solicitor} onChange={(e) => { setSolicitor(e.target.value); setPrimaryEdited(true); }} className={inputCls} />
             </label>
             <label className="col-span-2 text-xs">Secondary solicitor
-              <input value={solicitor2} onChange={(e) => setSolicitor2(e.target.value)} className={inputCls} />
+              <input value={solicitor2} onChange={(e) => { setSolicitor2(e.target.value); setSecondaryEdited(true); }} className={inputCls} />
             </label>
             <label className="col-span-2 text-xs">{status === "Disqualified" ? "Reason (e.g. said no)" : "Reason / note"}
               <input value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} />
             </label>
           </div>
-          <button disabled={!!busy} onClick={() => post({ type: "status", status, level, solicitor, solicitor2, reason }, "status")} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
+          <button disabled={!!busy} onClick={async () => { if (await post({ type: "status", status, level, ...manualAssignmentPatch(solicitor, solicitor2, primaryEdited, secondaryEdited), reason }, "status")) { setPrimaryEdited(false); setSecondaryEdited(false); } }} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
           <p className="text-[11px] text-[rgb(var(--ink))]/55">Disqualified and Committed prospects drop off the GC2P. A gift level places the prospect at that level on the GC2P, even if they were not in the screened pool.</p>
         </div>
         <div className="space-y-2 rounded-lg bg-white p-3">

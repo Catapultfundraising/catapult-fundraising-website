@@ -12,6 +12,7 @@ function fixture(c) {
 const original = Module._load;
 for (const ext of ['.ts', '.tsx']) require.extensions[ext] = (m, filename) => m._compile(ts.transpileModule(fs.readFileSync(filename, 'utf8'), {compilerOptions:{module:ts.ModuleKind.CommonJS, target:ts.ScriptTarget.ES2020, jsx:ts.JsxEmit.ReactJSX, esModuleInterop:true}}).outputText, filename);
 Module._load = function(name, parent, isMain) {
+  if (name === "server-only") return {}; // Node synthetic harness; production bundler retains server-only guard.
  if (name.endsWith('-data-auth')) { const c = name.split('/').pop().split('-')[0]; return new Proxy({}, {get:()=>async()=>authClient === c}); }
  if (name.endsWith('-data-store')) { const c = name.split('/').pop().split('-')[0]; return new Proxy({}, {get:(_, key)=>async()=>String(key).includes('Records') ? bases[c] : ({givebutter:{transactions:[], pledges:[]}})}); }
  if (name === '@/lib/research-profiles-store') return {listProfiles:async()=>[], getProfile:async()=>null};

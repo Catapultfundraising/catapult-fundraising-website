@@ -1,4 +1,5 @@
 {
+  "git": { "deploymentEnabled": { "feat/jag-direct-dashboard-release-nov15": false } },
   "crons": [
     { "path": "/api/portal-sync?project=csnf", "schedule": "0 15 * * *" },
     { "path": "/api/portal-data-refresh?client=jag", "schedule": "0 13 * * 1" },

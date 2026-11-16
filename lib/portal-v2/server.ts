@@ -1,4 +1,6 @@
 import { askEdits, effectiveAsk } from "./effective-ask";
+import { observeDirect, directClientView } from "./direct-source-state.server";
+import { directLaneEnabled } from "./direct-registration.server";
 import { OUTCOME_FIELD, validateOutcome } from "./outcome";
 import { get as blobGet } from "@vercel/blob";
 import { NextRequest, NextResponse } from "next/server";
@@ -43,12 +45,30 @@ function engageUrl() {
     || (ref === "fix/dashboard-10-fixes" ? ENGAGE_V2_PREVIEW : process.env.ENGAGE_PORTAL_URL);
 }
 
-/** Raw gateway call that keeps Engage's HTTP status (400/404/409) for callers that surface it. Throws only when unreachable/unconfigured. */
+/** SQL bigint manual-update row IDs may arrive as canonical decimal strings.
+ * Normalize only this declared numeric field, once at the shared state boundary.
+ * Never coerce constituent/client/prospect/gift IDs or round an unsafe integer. */
+function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(state.updates)) return state;
+  const updates = state.updates.map((row: unknown) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) throw new Error("Invalid manual update row ID");
+    const update = row as Record<string, unknown>, raw = update.id;
+    const id = typeof raw === "number" ? raw : typeof raw === "string" && /^(?:0|-?[1-9][0-9]*)$/.test(raw) ? Number(raw) : NaN;
+    if (!Number.isSafeInteger(id) || (typeof raw === "string" && String(id) !== raw)) throw new Error("Invalid manual update row ID");
+    return { ...update, id };
+  });
+  return { ...state, updates };
+}
+
+/** Raw gateway call keeps HTTP status; invalid successful state row IDs also fail closed. */
 export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<{ status: number; body: Record<string, unknown> }> {
   const url = engageUrl(), secret = process.env.PORTAL_WRITE_SECRET;
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
   const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
-  return { status: r.status, body: (await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown> };
+  let result = (await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown>;
+  if (op === "state" && r.status >= 200 && r.status < 300 && result && typeof result === "object" &&
+      !Array.isArray(result) && !result.error && result.configured !== false) result = normalizeManualUpdateRowIds(result);
+  return { status: r.status, body: result };
 }
 
 export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
@@ -363,8 +383,10 @@ export function portalV2Route(client: PortalClient) {
         const { campaignDownload } = await import("@/lib/portal-v2/campaign-export");
         return await campaignDownload(client, goal, state.gifts, format as "pdf" | "xlsx");
       }
-      return NextResponse.json({ ...state, goal: cfg.goal, configured: true });
+      const direct = await observeDirect(client);
+      return NextResponse.json({ ...state, goal: cfg.goal, configured: true, ...(direct ? { directView: directClientView(direct), directSourceRevision: direct.state.revision } : {}) });
     } catch (e) {
+      if (directLaneEnabled(client)) return bad("Complete current source/manual state unavailable. Retain the last good view.", 503);
       // Never export an incomplete campaign total when SQL or rendering is unavailable.
       if (req.nextUrl.searchParams.get("report") === "campaign") {
         console.error("Campaign export failed", client, e);
@@ -464,17 +486,19 @@ export function portalV2Route(client: PortalClient) {
         const overlay = buildOverlay(state.updates as unknown as UpdateRow[]);
         const target = finalId(overlay, cptid);
         const edits = askEdits(state.updates as unknown as UpdateRow[]);
-        const data = await RECORDS[client]() as unknown as { records?: Record<string, { portfolio?: { ask?: number }; board?: { active?: boolean; ask?: number }[] }> } | null;
+        const data = await RECORDS[client]() as unknown as { records?: Record<string, { portfolio?: { ask?: number; directAskPresent?: boolean; directManualAskPresent?: boolean }; board?: { active?: boolean; ask?: number }[] }> } | null;
+        if (directLaneEnabled(client) && !data) return bad("Current source/manual ask unavailable", 503);
         const resolved = effectiveAsk(target, overlay, edits, (id) => {
           const record = data?.records?.[String(id)];
+          if (record?.portfolio?.directAskPresent || record?.portfolio?.directManualAskPresent) return record.portfolio.ask;
           return record?.portfolio?.ask ?? (client !== "wcbhc" && client !== "baq" ? record?.board?.find((row) => row.active && row.ask)?.ask : undefined);
-        });
+        }, (id) => data?.records?.[String(id)]?.portfolio?.directAskPresent === true, (id) => data?.records?.[String(id)]?.portfolio?.directManualAskPresent === true);
         const last = edits.get(resolved.askFromCptid ?? target);
-        if (b.op === "getAsk") return NextResponse.json({ edited: !!resolved.askEdited, ask: resolved.ask ?? null, oldAsk: last?.oldValue ?? null, by: last?.by ?? "", at: last?.at ?? "", askConflict: !!resolved.askConflict });
+        if (b.op === "getAsk") return NextResponse.json({ edited: !!resolved.askEdited, ask: resolved.ask ?? null, oldAsk: last?.oldValue ?? null, by: last?.by ?? "", at: last?.at ?? "", askConflict: !!resolved.askConflict, ...(resolved.directAskPresent ? { directAskPresent: true } : {}) });
         if (target !== cptid || overlay.deleted.has(cptid)) return bad("This record was merged or deleted. Reopen the surviving record.", 409);
         const amount = Number(String(b.amount ?? "").replace(/[$,\s]/g, ""));
         if (!(amount >= 0) || !Number.isFinite(amount)) return bad("Enter a dollar amount");
-        const current = resolved.ask !== undefined ? resolved.ask ?? 0 : Number(b.current) || 0;
+        const current = resolved.ask !== undefined ? resolved.ask ?? 0 : directLaneEnabled(client) ? 0 : Number(b.current) || 0;
         if (edits.has(target) && amount === current) return NextResponse.json({ edited: !!resolved.askEdited, ask: current, oldAsk: last?.oldValue ?? null, unchanged: true });
         await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Ask amount edit (CPTID ${cptid})`, by, newRows: [], gifts: [],
           updates: [{ cptid, field: "ask", oldValue: String(current), newValue: String(amount) }], summary: { askEdit: true, cptid, from: current, to: amount } });

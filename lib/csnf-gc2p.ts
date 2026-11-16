@@ -47,7 +47,7 @@ export function seatGc2p(goal: number, pool: PoolPerson[], t?: CsnfTracking | nu
     const need = (r.gifts as number) * GC2P_RATIO;
     const pinned = all.filter((p) => pinOf(p) === level);
     const auto = all
-      .filter((p) => !used.has(p.cptid) && ((p as { askEdited?: boolean; askConflict?: boolean }).askEdited || (p as { askConflict?: boolean }).askConflict ? campaignAskAmount(p) : p.rating) >= level)
+      .filter((p) => !used.has(p.cptid) && ((p as { askEdited?: boolean; askConflict?: boolean }).askEdited || (p as { askConflict?: boolean }).askConflict || (p as { directAskPresent?: boolean }).directAskPresent ? campaignAskAmount(p) : p.rating) >= level)
       .sort((a, b) => rank(a) - rank(b) || b.lifetime - a.lifetime || b.rating - a.rating)
       .slice(0, Math.max(0, need - pinned.length));
     auto.forEach((p) => used.add(p.cptid));

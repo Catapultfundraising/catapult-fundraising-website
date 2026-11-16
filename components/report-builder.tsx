@@ -8,7 +8,7 @@ import {
 } from "@/lib/portal-v2/report-fields";
 
 type ExportKind = "text" | "usd" | "num" | "pct";
-export interface ReportExportPayload { title: string; subtitle?: string; cols: { label: string; kind?: ExportKind }[]; sections: { heading?: string; rows: (string | number | null)[][] }[]; notes?: string[] }
+export interface ReportExportPayload { intent?: import('@/lib/portal-v2/dashboard-export-types').ExportIntent; title: string; subtitle?: string; cols: { label: string; kind?: ExportKind }[]; sections: { heading?: string; rows: (string | number | null)[][] }[]; notes?: string[] }
 interface SavedList { id: string; name: string; query: ReportQuery; savedAt: string }
 
 const usd = (n: number) => (n || 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -192,6 +192,7 @@ export function ReportBuilder({ client, clientLabel, api, listsApi: listsApiProp
       if (all.total > PDF_MAX_ROWS) { alert(`PDF is limited to ${PDF_MAX_ROWS.toLocaleString()} rows; this list has ${all.total.toLocaleString()}. Add a filter or download Excel.`); return; }
       const cols = query.fields.map((f) => FIELD_BY_ID.get(f)!).filter(Boolean);
       await downloadExport({
+        intent:{kind:'report',query},
         title, subtitle: `${all.total.toLocaleString()} records${all.asOf ? ` · Data as of ${all.asOf}` : ""}`,
         cols: cols.map((c) => ({ label: c.label, kind: c.kind === "usd" ? "usd" : c.kind === "num" && c.id !== "cptid" ? "num" : "text" })),
         sections: [{ rows: all.rows.map((r) => cols.map((c) => (c.id === "cptid" ? String(r.cptid ?? "") : (r[c.id] ?? "")))) }],

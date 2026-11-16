@@ -1,4 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
+import { directData } from "./portal-v2/direct-source-state.server";
 
 // Local QA only: CSNF_LOCAL_DIR points at a folder holding snapshot.json and
 // records.json so the portal can run without the blob store.
@@ -75,7 +76,7 @@ export interface DonorRecord {
 export interface CsnfRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
 let cache: { at: number; data: CsnfRecords } | null = null;
-export async function getCsnfRecords(): Promise<CsnfRecords | null> {
+async function getCsnfRawRecords(): Promise<CsnfRecords | null> {
   if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   try {
     const r = await get(CSNF_RECORDS_PATH, { access: "private", useCache: false });
@@ -86,4 +87,9 @@ export async function getCsnfRecords(): Promise<CsnfRecords | null> {
   } catch {
     return null;
   }
+}
+export async function getCsnfRecords(): Promise<CsnfRecords | null> {
+  const raw = await getCsnfRawRecords();
+  if (!raw) return null;
+  try { return await directData("csnf", raw, "records"); } catch { return null; }
 }

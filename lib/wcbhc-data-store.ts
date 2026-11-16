@@ -1,4 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
+import { directData } from "./portal-v2/direct-source-state.server";
 
 // Local QA only: WCBHC_LOCAL_DIR points at a folder holding snapshot.json and
 // records.json so the portal can run without the blob store.
@@ -88,7 +89,7 @@ export interface DonorRecord {
 export interface WcbhcRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
 let cache: { at: number; data: WcbhcRecords } | null = null;
-export async function getWcbhcRecords(): Promise<WcbhcRecords | null> {
+async function getWcbhcRawRecords(): Promise<WcbhcRecords | null> {
   if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   try {
     const r = await get(WCBHC_RECORDS_PATH, { access: "private", useCache: false });
@@ -99,4 +100,9 @@ export async function getWcbhcRecords(): Promise<WcbhcRecords | null> {
   } catch {
     return null;
   }
+}
+export async function getWcbhcRecords(): Promise<WcbhcRecords | null> {
+  const raw = await getWcbhcRawRecords();
+  if (!raw) return null;
+  try { return await directData("wcbhc", raw, "records"); } catch { return null; }
 }

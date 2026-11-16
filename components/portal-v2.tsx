@@ -1,6 +1,9 @@
 "use client";
+import {currentDashboardSnapshot} from "@/lib/portal-v2/current-dashboard-snapshot";
 
 import { assignmentSnapshot, type Assignment, type AssignmentTracking } from "@/lib/portal-v2/effective-assignment";
+import { DirectDashboardUpload } from "@/components/direct-dashboard-upload";
+import { directSnapshot, type DirectClientView } from "@/lib/portal-v2/direct-snapshot";
 import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
 import { buildOverlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 
@@ -13,7 +16,7 @@ import { DateInput, NameLink, isoToUs, parseUsDateClient, useSort, SortTh } from
 // Portal v2 shared UI: campaign progress bar, Campaign Donors (gift-chart levels),
 // Add Prospect, manual gift/pledge entry, bulk client-file upload with preview, audit log + undo.
 
-type V2State = PortalState & { goal: number; configured: boolean; error?: string };
+type V2State = PortalState & { goal: number; configured: boolean; error?: string; directView?: DirectClientView; directSourceRevision?: string };
 interface Ctx { client: PortalClient; state: V2State | null; loading: boolean; reload: () => Promise<void> }
 const V2 = createContext<Ctx | null>(null);
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -31,8 +34,9 @@ export function PortalV2Provider({ client, children }: { client: PortalClient; c
   const reload = useCallback(async () => {
     try {
       const r = await fetch(PORTAL_V2[client].api, { cache: "no-store" });
-      setState(r.ok ? await r.json() : null);
-    } catch { setState(null); }
+      if (!r.ok) throw new Error("Current state unavailable");
+      setState(await r.json());
+    } catch { setState(previous => previous ? { ...previous, configured: false, error: "Current state unavailable; retained last good data, not current success" } : null); }
     finally { setLoading(false); }
   }, [client]);
   useEffect(() => {
@@ -43,13 +47,13 @@ export function PortalV2Provider({ client, children }: { client: PortalClient; c
   return <V2.Provider value={{ client, state, loading, reload }}>{children}</V2.Provider>;
 }
 export function useCampaignDataStatus() { const { state, loading } = useV2(); return { loading, available: !!state && state.configured !== false && !state.error }; }
-export function useCampaignAskSnapshot<T>(snapshot: T, index?: ({ cptid: number } & Partial<Assignment>)[] | null, tracking?: AssignmentTracking): T {
+export function useCampaignAskSnapshot<T extends object>(snapshot: T, index?: ({ cptid: number } & Partial<Assignment>)[] | null, tracking?: AssignmentTracking): T & { directReadUnavailable?: boolean } {
   const { client, state } = useV2();
   return useMemo(() => {
     const updates = (state?.updates ?? []) as UpdateRow[];
-    const o = buildOverlay(updates);
-    const asks = overlayCampaignAsks(snapshot, o, askEdits(updates), client !== "wcbhc" && client !== "baq");
-    return tracking ? assignmentSnapshot(asks, index ?? null, tracking, o) : asks;
+    if (state?.directSourceRevision && (index as unknown as { directSourceRevision?: string })?.directSourceRevision !== state.directSourceRevision)
+      return { ...snapshot, directReadUnavailable: true };
+    return currentDashboardSnapshot(client,snapshot,index??null,tracking,updates,state?.directView);
   }, [snapshot, state, client, index, tracking]);
 }
 function useV2() { const c = useContext(V2); if (!c) throw new Error("PortalV2Provider missing"); return c; }
@@ -471,6 +475,7 @@ export function AddAndUpload() {
   return (
     <div className="space-y-6">
       <AddProspect />
+      <DirectDashboardUpload key={`direct:${client}`} client={client} />
       <UploadClientFile />
       <div className={card}><DuplicatesPanel client={client} /></div>
       <AuditLog />

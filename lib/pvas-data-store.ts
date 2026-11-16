@@ -1,4 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
+import { directData } from "./portal-v2/direct-source-state.server";
 
 // Local QA only: PVAS_LOCAL_DIR points at a folder holding snapshot.json and
 // records.json so the portal can run without the blob store.
@@ -87,7 +88,7 @@ export interface DonorRecord {
 export interface PvasRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
 let cache: { at: number; data: PvasRecords } | null = null;
-export async function getPvasRecords(): Promise<PvasRecords | null> {
+async function getPvasRawRecords(): Promise<PvasRecords | null> {
   if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   try {
     const r = await get(PVAS_RECORDS_PATH, { access: "private", useCache: false });
@@ -98,4 +99,9 @@ export async function getPvasRecords(): Promise<PvasRecords | null> {
   } catch {
     return null;
   }
+}
+export async function getPvasRecords(): Promise<PvasRecords | null> {
+  const raw = await getPvasRawRecords();
+  if (!raw) return null;
+  try { return await directData("pvas", raw, "records"); } catch { return null; }
 }

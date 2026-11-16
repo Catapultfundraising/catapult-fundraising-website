@@ -1,4 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
+import { directData } from "./portal-v2/direct-source-state.server";
 
 // Local QA only: JAG_LOCAL_DIR points at a folder holding snapshot.json and
 // records.json so the portal can run without the blob store.
@@ -75,7 +76,7 @@ export interface DonorRecord {
 export interface JagRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
 let cache: { at: number; data: JagRecords } | null = null;
-export async function getJagRecords(): Promise<JagRecords | null> {
+async function getJagRawRecords(): Promise<JagRecords | null> {
   if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   try {
     const r = await get(JAG_RECORDS_PATH, { access: "private", useCache: false });
@@ -86,4 +87,9 @@ export async function getJagRecords(): Promise<JagRecords | null> {
   } catch {
     return null;
   }
+}
+export async function getJagRecords(): Promise<JagRecords | null> {
+  const raw = await getJagRawRecords();
+  if (!raw) return null;
+  try { return await directData("jag", raw, "records"); } catch { return null; }
 }
