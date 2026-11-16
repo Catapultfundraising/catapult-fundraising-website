@@ -7,12 +7,15 @@ export interface WebsiteDirectRegistration {
   /** Only exact reviewed source aliases; never infer staff identities from donor data. */
   solicitorAliases: Readonly<Record<string, string>>;
 }
-/** JAG pilot only. Backend remains sole authority:
- * staff-notes-asks-v1; ask/note cutovers 2026-11-15;
- * registration revision 0e2d874c397faf153ac243c506b05b2d0f2a60c74a9fd8ff8640cf3a1e252069;
- * exact constituents client_id + cptid identity owner. No inferred staff aliases. */
+/** All five employee dashboards use the same reviewed notes/ask template.
+ * Backend remains sole authority for per-client identity, revision and cutovers.
+ * No inferred staff aliases; matching transport/backend availability is required. */
 export const APPROVED_WEBSITE_DIRECT_REGISTRATIONS: readonly WebsiteDirectRegistration[] = Object.freeze([
   Object.freeze({ client: "jag", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
+  Object.freeze({ client: "csnf", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
+  Object.freeze({ client: "pvas", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
+  Object.freeze({ client: "wcbhc", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
+  Object.freeze({ client: "baq", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
 ]);
 /** Acceptance of this code path, NOT deployment/configuration or import approval.
  * Missing/malformed existing source transport configuration leaves every client OFF. */

@@ -237,6 +237,42 @@ async function check(name, run) { if(process.env.DIRECT_STATE_IDS_ONLY==="1" && 
     reply={...raw,configured:false,updates:[{...raw.updates[0],id:"not-a-row-id"}]};assert.equal((await actual.engageCall("jag","state")).body,reply);
     assert.ok(calls>0);assert.deepEqual(raw,before);transport=null;delete process.env.ENGAGE_PORTAL_URL_OVERRIDE;delete process.env.PORTAL_WRITE_SECRET;
   });
+  await check("source gateway employee auth: all-five actual registrations/config, existing shared wiring and blank PVAS identity hold", async () => {
+    const filename=path.join(root,"lib/portal-v2/direct-registration.server.ts"),actualModule=new Module(filename,module);
+    actualModule.filename=filename;actualModule.paths=Module._nodeModulePaths(path.dirname(filename));
+    require.extensions[".ts"](actualModule,filename);const actual=actualModule.exports;
+    const clients=["jag","csnf","pvas","wcbhc","baq"], savedUrl=process.env.ENGAGE_SOURCE_IMPORT_URL,savedSecret=process.env.PORTAL_WRITE_SECRET;
+    try {
+      assert.deepEqual(actual.APPROVED_WEBSITE_DIRECT_REGISTRATIONS.map(r=>r.client),clients);
+      for(const r of actual.APPROVED_WEBSITE_DIRECT_REGISTRATIONS){assert.equal(r.template,"staff-notes-asks-v1");assert.deepEqual(r.solicitorAliases,{});assert.ok(Object.isFrozen(r));}
+      for(const url of [undefined,"http://fictional.invalid/api/source-import","https://fictional.invalid/api/portal-v2"]){
+        if(url===undefined)delete process.env.ENGAGE_SOURCE_IMPORT_URL;else process.env.ENGAGE_SOURCE_IMPORT_URL=url;
+        process.env.PORTAL_WRITE_SECRET=secret;for(const c of clients)assert.equal(actual.directLaneEnabled(c),false);
+      }
+      process.env.ENGAGE_SOURCE_IMPORT_URL="https://fictional.invalid/api/source-import";delete process.env.PORTAL_WRITE_SECRET;
+      for(const c of clients)assert.equal(actual.directLaneEnabled(c),false);
+      process.env.PORTAL_WRITE_SECRET=secret;
+      for(const c of clients){
+        assert.equal(actual.directLaneEnabled(c),true);
+        const read=f=>fs.readFileSync(path.join(root,f),"utf8");
+        assert.ok(read(`lib/${c}-data-store.ts`).includes(`directData("${c}", raw, "records")`));
+        assert.ok(read(`app/api/${c}-data-direct-import/route.ts`).includes(`directFileGateway("${c}")`));
+        assert.ok(read(`app/api/${c}-data-tracking/route.ts`).includes(`trackingRoute("${c}",`));
+        assert.ok(read(`app/api/${c}-data-reports/route.tsx`).includes(`directData("${c}", raw, "snapshot")`));
+        assert.ok(read(`app/api/${c}-data-export/route.tsx`).includes(`directLaneEnabled("${c}")`));
+        assert.ok(read(`components/${c}-data-dashboard.tsx`).includes(`<PortalV2Provider client="${c}">`));
+        assert.ok(read(`components/${c}-data-dashboard.tsx`).includes('<AddAndUpload />'));
+      }
+      assert.ok(fs.readFileSync(path.join(root,"components/portal-v2.tsx"),"utf8").includes('<DirectDashboardUpload key={`direct:${client}`} client={client} />'));
+      const f=fixtureDeps(),r=await gateway.directFileGateway("pvas",f.deps)(request({op:"preview",file:file("Client_ID,CPTID,Campaign Ask,New Notes\\n,900001,100.00,New fictional note\\n")}));
+      assert.equal(r.status,400);const held=await r.json();
+      assert.equal(held.code,"invalid-or-unavailable"); // Existing parser rejects blank identity before resolution; UI displays a safe hold.
+      assert.equal(f.calls.filter(c=>c.op==="directFileResolve"||c.op==="directFileCommit").length,0);
+    } finally {
+      if(savedUrl===undefined)delete process.env.ENGAGE_SOURCE_IMPORT_URL;else process.env.ENGAGE_SOURCE_IMPORT_URL=savedUrl;
+      if(savedSecret===undefined)delete process.env.PORTAL_WRITE_SECRET;else process.env.PORTAL_WRITE_SECRET=savedSecret;
+    }
+  });
   for (const client of strict.DIRECT_CLIENTS) {
     await check(`${client}: source gateway employee auth — matching dashboard, research/automation, isolation and CSRF`, async () => {
       const clients=["jag","csnf","pvas","wcbhc","baq"],cookies={};
