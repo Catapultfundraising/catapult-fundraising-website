@@ -67,7 +67,8 @@ export function fileInfo(encoded: string, format: "csv" | "xlsx") {
   const entries = boundedXlsx(raw);
   return { format, sheets: ooxml(() => originalWorkbookSheets(entries)).map(s => s.name) };
 }
-export function inspectSourceFile(encoded: string, settings: ParseSettings = { format: "csv" }) {
+export function inspectSourceFile(encoded: string, settings: ParseSettings = { format: "csv" }, maxRows: 500 | 1000 = 500) {
+  if (maxRows !== 500 && maxRows !== 1000) fail("Unsupported row limit");
   const raw = originalBytes(encoded), fileDigest = createHash("sha256").update(raw).digest("hex");
   if (!settings || !["csv", "xlsx"].includes(settings.format)) fail("Choose the file format");
   let headers: string[], rows: string[][], lines: number[];
@@ -77,7 +78,7 @@ export function inspectSourceFile(encoded: string, settings: ParseSettings = { f
     let text: string;
     try { text = new TextDecoder("utf-8", { fatal: true, ignoreBOM: true }).decode(raw); } catch { return fail("CSV must be valid UTF-8; export it again"); }
     const parsed = parseCsv(text);
-    if (parsed.length < 2 || parsed.length > 501) fail("Choose 1 to 500 CSV data rows");
+    if (parsed.length < 2 || parsed.length > maxRows + 1) fail(`Choose 1 to ${maxRows} CSV data rows`);
     headers = parsed[0]; rows = parsed.slice(1); lines = rows.map((_, i) => i + 2);
     if (rows.some(row => row.length !== headers.length)) fail("Every row must have the same number of columns as the header");
   } else {
@@ -86,11 +87,11 @@ export function inspectSourceFile(encoded: string, settings: ParseSettings = { f
     const entries = boundedXlsx(raw), sheets = ooxml(() => originalWorkbookSheets(entries)), selected = sheets.find(s => s.name === sheet);
     if (!selected) fail("Choose a worksheet and header row from 1 to 100");
     const originals = ooxml(() => originalWorksheetCells(entries, selected));
-    const book = XLSX.read(raw, { type: "buffer", sheets: [sheet], sheetRows: headerRow + 501, cellFormula: true, cellNF: true, cellDates: false, bookVBA: false });
+    const book = XLSX.read(raw, { type: "buffer", sheets: [sheet], sheetRows: headerRow + maxRows + 1, cellFormula: true, cellNF: true, cellDates: false, bookVBA: false });
     const ws = book.Sheets[sheet];
     if (!ws?.["!ref"]) fail("Selected worksheet is empty");
     const range = XLSX.utils.decode_range(ws["!fullref"] || ws["!ref"]!);
-    if (range.e.c >= 500 || range.e.r >= headerRow + 500 || range.e.r < headerRow) fail("Selected sheet needs headers plus 1 to 500 data rows and at most 500 columns");
+    if (range.e.c >= 500 || range.e.r >= headerRow + maxRows || range.e.r < headerRow) fail(`Selected sheet needs headers plus 1 to ${maxRows} data rows and at most 500 columns`);
     headers = Array.from({ length: range.e.c + 1 }, (_, c) => {
       const address = XLSX.utils.encode_cell({ r: headerRow - 1, c }), cell = ws[address], original = originals.get(address);
       if (!original || original.formula || !cell || cell.f || cell.t !== "s" || typeof cell.v !== "string" || !cell.v.trim()) fail("Every selected header must be nonempty plain text, not a formula");

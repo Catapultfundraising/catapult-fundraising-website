@@ -1,3 +1,4 @@
+import { readBoundedStream } from "./direct-source-transport.server";
 import { askEdits, effectiveAsk } from "./effective-ask";
 import { observeDirect, directClientView } from "./direct-source-state.server";
 import { directLaneEnabled } from "./direct-registration.server";
@@ -64,8 +65,9 @@ function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<str
 export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<{ status: number; body: Record<string, unknown> }> {
   const url = engageUrl(), secret = process.env.PORTAL_WRITE_SECRET;
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
-  const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
-  let result = (await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown>;
+  const monthly = ["monthlyPreview", "monthlyCommit", "monthlyStatus"].includes(op);
+  const r = await fetch(url, { method: "POST", cache: "no-store", ...(monthly ? { redirect: "error" as const, signal: AbortSignal.timeout(120_000) } : {}), headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
+  let result = (monthly ? JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await readBoundedStream(r.body, 2_000_000, 10_000))) : await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown>;
   if (op === "state" && r.status >= 200 && r.status < 300 && result && typeof result === "object" &&
       !Array.isArray(result) && !result.error && result.configured !== false) result = normalizeManualUpdateRowIds(result);
   return { status: r.status, body: result };
@@ -77,7 +79,7 @@ export async function engage<T>(client: PortalClient, op: string, body: Record<s
   return j as T;
 }
 
-async function readIds(client: PortalClient): Promise<Known[] | null> {
+export async function readIds(client: PortalClient): Promise<Known[] | null> {
   try {
     const dir = process.env[`${client.toUpperCase()}_LOCAL_DIR`];
     let text: string;

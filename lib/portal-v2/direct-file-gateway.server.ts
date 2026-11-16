@@ -219,9 +219,10 @@ function publicReceipt(raw: Record<string, unknown>, client: PortalClient, origi
 const DASHBOARD_AUTH: Record<PortalClient, (req: NextRequest) => Promise<boolean>> = {
   jag: isJagDataAuthed, csnf: isCsnfDataAuthed, pvas: isPvasDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed,
 };
+export const dashboardDataAuthed = (client: PortalClient, req: NextRequest) => DASHBOARD_AUTH[client](req);
 export function directFileGateway(client: PortalClient, deps: GatewayDeps = defaults) {
   return async (req: NextRequest) => {
-    if (!(await DASHBOARD_AUTH[client](req))) return NextResponse.json({ error: "Dashboard sign-in required", dashboardLogin: `/${client}/data-dashboard/login`, code: "dashboard-auth-required" }, { status: 401 });
+    if (!(await dashboardDataAuthed(client, req))) return NextResponse.json({ error: "Dashboard sign-in required", dashboardLogin: `/${client}/data-dashboard/login`, code: "dashboard-auth-required" }, { status: 401 });
     if (req.headers.get("origin") !== req.nextUrl.origin || req.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ code: "same-origin-required" }, { status: 403 });
     if (!req.headers.get("content-type")?.startsWith("application/json") || Number(req.headers.get("content-length") ?? 0) > 2_900_000) return NextResponse.json({ code: "invalid-request-envelope" }, { status: 413 });
     let commitAttempt: string | null = null;

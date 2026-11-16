@@ -111,7 +111,7 @@ export function originalWorksheetCells(entries: ReadonlyMap<string, Buffer>, she
   return cells;
 }
 
-export type ExactNumberKind = "cptid" | "askAmount" | "clientId-integer";
+export type ExactNumberKind = "giftAmount" | "cptid" | "askAmount" | "clientId-integer";
 export type ExactNumber = { ok: true; value: string } | { ok: false; reason: string };
 /** Bounded decimal/scientific expansion by string position only. No Number/parseFloat of source values. */
 export function exactOoxmlNumber(lexeme: string, kind: ExactNumberKind): ExactNumber {
@@ -127,13 +127,13 @@ export function exactOoxmlNumber(lexeme: string, kind: ExactNumberKind): ExactNu
   if (Math.abs(exponent) > 100) return held("scientific exponent exceeds the bounded exact policy");
   let coefficient = ((m[1] || "0") + fraction).replace(/^0+/, "") || "0", scale = fraction.length - exponent;
   while (scale > 0 && coefficient.endsWith("0") && coefficient !== "0") { coefficient = coefficient.slice(0, -1); scale--; }
-  if (coefficient === "0") return kind === "askAmount" ? { ok: true, value: "0.00" } : held("identity must be a positive whole number");
-  if (scale > (kind === "askAmount" ? 2 : 0)) return held(kind === "askAmount" ? "ask has more than two exact decimal places; not rounded" : "identity is not an exact whole number");
-  const maxInteger = kind === "clientId-integer" ? 32 : 10;
+  if (coefficient === "0") return (kind === "askAmount" || kind === "giftAmount") ? { ok: true, value: "0.00" } : held("identity must be a positive whole number");
+  if (scale > ((kind === "askAmount" || kind === "giftAmount") ? 2 : 0)) return held((kind === "askAmount" || kind === "giftAmount") ? "ask has more than two exact decimal places; not rounded" : "identity is not an exact whole number");
+  const maxInteger = kind === "clientId-integer" ? 32 : kind === "giftAmount" ? 12 : 10;
   if (coefficient.length - scale > maxInteger) return held("numeric precision exceeds the supported field bound");
   if (scale < 0) { coefficient += "0".repeat(-scale); scale = 0; }
   const padded = coefficient.padStart(scale + 1, "0"), split = padded.length - scale;
   const whole = padded.slice(0, split), decimals = padded.slice(split);
   if (kind === "cptid" && (whole.length > 10 || (whole.length === 10 && whole > "2147483647"))) return held("CPTID exceeds the positive SQL integer range");
-  return { ok: true, value: kind === "askAmount" ? `${whole}.${decimals.padEnd(2, "0")}` : whole };
+  return { ok: true, value: (kind === "askAmount" || kind === "giftAmount") ? `${whole}.${decimals.padEnd(2, "0")}` : whole };
 }
