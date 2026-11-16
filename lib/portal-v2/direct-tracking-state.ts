@@ -4,6 +4,7 @@
  * No network callback, SQL, write, cache or effective/source-state recursion here.
  */
 import "server-only";
+import { DIRECT_FILE_MAX_IDS, DIRECT_STATE_MAX_NOTES } from "./directFileProtocol";
 import { createHash } from "node:crypto";
 
 export const DIRECT_CLIENTS = ["jag", "csnf", "pvas", "wcbhc", "baq"] as const;
@@ -72,11 +73,11 @@ export async function readStrictTracking(client: DirectClient, read: (path: stri
  * Include removed history conservatively; never call an audit receipt the current history.
  */
 export function projectTrackingManual(state: StrictTracking, cptids: number[]): Record<string, ManualState> | null {
-  if (state.kind === "unavailable" || !Array.isArray(cptids) || !cptids.length || cptids.length > 100 ||
+  if (state.kind === "unavailable" || !Array.isArray(cptids) || !cptids.length || cptids.length > DIRECT_FILE_MAX_IDS ||
       cptids.some(c => !id(c)) || new Set(cptids).size !== cptids.length) return null;
   const allNotes = [...state.document.activity, ...(state.document.removed ?? [])];
   const requested = new Set(cptids);
-  if (allNotes.filter(n => requested.has(n.cptid as number)).length > 100) return null;
+  if (allNotes.filter(n => requested.has(n.cptid as number)).length > DIRECT_STATE_MAX_NOTES) return null;
   return Object.fromEntries(cptids.map(c => {
     const p = state.document.prospects[String(c)] ?? {};
     const primary = own(p, "solicitor") || (!!p.updatedAt && p.solicitorEdited !== false);

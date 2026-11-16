@@ -4,10 +4,40 @@ export const DIRECT_FILE_PROTOCOL="direct-file-v1" as const;
 export const DIRECT_MANUAL_DOMAIN="catapult/direct-manual/v1\n";
 export const DIRECT_FILE_MAX_BYTES=2_000_000;
 export const DIRECT_FILE_MAX_ROWS=500;
-export const DIRECT_FILE_MAX_CELLS=50;
-export const DIRECT_STATE_MAX_IDS=100;
-export const DIRECT_STATE_MAX_NOTES=100;
+export const DIRECT_FILE_MAX_CELLS=2000;
+export const DIRECT_STATE_MAX_IDS=5000;
+export const DIRECT_STATE_MAX_NOTES=5000;
 export const DIRECT_MANUAL_TTL_SECONDS=120;
+export const DIRECT_FILE_MAX_IDS=500;
+export const DIRECT_STATE_MAX_BYTES=1_800_000;
+export const DIRECT_MANUAL_MAX_BYTES=1_500_000;
+export const DIRECT_SOLICITOR_DOMAIN="catapult/direct-solicitor-aliases/v1\n";
+export interface DirectSolicitorInventory {revision:string;names:string[]}
+export interface DirectSolicitorAliases {
+  status:"known"|"unavailable";revision:string|null;
+  entries:{alias:string;canonical:string|null;candidates:string[]}[];
+}
+export interface DirectSolicitorPayload extends DirectSolicitorInventory {
+  v:1;client:string;operationHash:string;issuedAt:number;expiresAt:number;
+}
+export interface SignedDirectSolicitorContext {payload:DirectSolicitorPayload;signature:string}
+export const normalizeDirectSolicitor=(name:string)=>name.trim().replace(/\s+/g," ").toLowerCase();
+/** Complete SERVER-owned inventory only; caller validates provenance/shape/quotas. */
+export function compileDirectSolicitors(names:readonly string[]):DirectSolicitorAliases {
+  const grouped=new Map<string,Set<string>>();
+  for(const name of names){
+    const canonical=name.trim().replace(/\s+/g," ");if(!canonical)continue;
+    const alias=normalizeDirectSolicitor(canonical),set=grouped.get(alias)??new Set<string>();
+    set.add(canonical);grouped.set(alias,set);
+  }
+  const entries=Array.from(grouped).sort(([a],[z])=>a<z?-1:a>z?1:0).map(([alias,set])=>{
+    const candidates=Array.from(set).sort();return {alias,canonical:candidates.length===1?candidates[0]:null,candidates};
+  });
+  return {status:"known",revision:directFileHash(entries),entries};
+}
+export function signDirectSolicitorContext(payload:DirectSolicitorPayload,secret:string):SignedDirectSolicitorContext {
+  return {payload,signature:createHmac("sha256",secret).update(DIRECT_SOLICITOR_DOMAIN+directFileHash(payload)).digest("hex")};
+}
 export type DirectFileField="ask"|"primarySolicitor"|"secondarySolicitor";
 export interface DirectFileContext {
   v:1;format:"csv"|"xlsx";sheet:string|null;headerRow:number;delimiter:","|"\t"|";"|null;
@@ -24,14 +54,17 @@ export interface DirectManualObservation {
 export interface DirectManualPayload {
   v:1;phase:"preview"|"commit";requestId:string;client:string;template:string;registrationRevision:string;
   batchHash:string;fileContextHash:string;issuedAt:number;expiresAt:number;observations:DirectManualObservation[];
+  /** Optional FINAL key for backwards ask/note replay. Complete fresh server inventory only. */
+  solicitorAliases?:DirectSolicitorInventory;
 }
 export interface SignedDirectManualContext {payload:DirectManualPayload;signature:string}
 export interface DirectResolveId {clientId:string;verifyCptid:number|null}
 export interface DirectResolveRequest {
-  op:"directFileResolve";client:string;template:string;sourceDate:string;ids:DirectResolveId[];
+  op:"directFileResolve";client:string;template:string;sourceDate:string;ids:DirectResolveId[];solicitorContext?:SignedDirectSolicitorContext;
 }
 export interface DirectResolveResult {
   protocol:typeof DIRECT_FILE_PROTOCOL;status:"known";client:string;template:string;registrationRevision:string;
+  solicitorAliases?:DirectSolicitorAliases;
   matches:{clientId:string;verifyCptid:number|null;cptid:number|null;reason:null|"unknown-id"|"ambiguous-id"|"id-collision"|"cptid-conflict"|"missing-master"}[];
 }
 export interface DirectFileCell {
@@ -80,11 +113,11 @@ export interface DirectFileStateResponse {
   revision:string;observedAt:string;values:DirectFileStateValue[];notes:DirectFileStateNote[];note:string;
 }
 /** Read-only metadata, never configuration supplied by the browser. Empty registry is UNAVAILABLE. */
-export interface DirectFileCapabilitiesRequest {op:"directFileCapabilities";client:string}
+export interface DirectFileCapabilitiesRequest {op:"directFileCapabilities";client:string;solicitorContext?:SignedDirectSolicitorContext}
 export interface DirectFileCapabilities {
   protocol:typeof DIRECT_FILE_PROTOCOL;client:string;status:"known"|"unavailable";reason:string|null;applyEnabled:boolean;
   templates:{template:string;revision:string;fields:(DirectFileField|"note")[];cutovers:Partial<Record<DirectFileField|"note",string>>}[];
-  solicitorAliases:{status:"unavailable";entries:never[]};
+  solicitorAliases:DirectSolicitorAliases;
 }
 export interface DirectFileErrorResponse {error:string;code:string;requestId?:string;statusOp?:"directFileStatus"}
 export const DIRECT_MANUAL_KEYS=["v","phase","requestId","client","template","registrationRevision","batchHash","fileContextHash","issuedAt","expiresAt","observations"] as const;
