@@ -45,12 +45,30 @@ function engageUrl() {
     || (ref === "fix/dashboard-10-fixes" ? ENGAGE_V2_PREVIEW : process.env.ENGAGE_PORTAL_URL);
 }
 
-/** Raw gateway call that keeps Engage's HTTP status (400/404/409) for callers that surface it. Throws only when unreachable/unconfigured. */
+/** SQL bigint manual-update row IDs may arrive as canonical decimal strings.
+ * Normalize only this declared numeric field, once at the shared state boundary.
+ * Never coerce constituent/client/prospect/gift IDs or round an unsafe integer. */
+function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<string, unknown> {
+  if (!Array.isArray(state.updates)) return state;
+  const updates = state.updates.map((row: unknown) => {
+    if (!row || typeof row !== "object" || Array.isArray(row)) throw new Error("Invalid manual update row ID");
+    const update = row as Record<string, unknown>, raw = update.id;
+    const id = typeof raw === "number" ? raw : typeof raw === "string" && /^(?:0|-?[1-9][0-9]*)$/.test(raw) ? Number(raw) : NaN;
+    if (!Number.isSafeInteger(id) || (typeof raw === "string" && String(id) !== raw)) throw new Error("Invalid manual update row ID");
+    return { ...update, id };
+  });
+  return { ...state, updates };
+}
+
+/** Raw gateway call keeps HTTP status; invalid successful state row IDs also fail closed. */
 export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<{ status: number; body: Record<string, unknown> }> {
   const url = engageUrl(), secret = process.env.PORTAL_WRITE_SECRET;
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
   const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
-  return { status: r.status, body: (await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown> };
+  let result = (await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown>;
+  if (op === "state" && r.status >= 200 && r.status < 300 && result && typeof result === "object" &&
+      !Array.isArray(result) && !result.error && result.configured !== false) result = normalizeManualUpdateRowIds(result);
+  return { status: r.status, body: result };
 }
 
 export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {

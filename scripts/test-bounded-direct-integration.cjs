@@ -77,7 +77,7 @@ function fixtureDeps() {
 }
 function request(body, headers = {}) { return new NextRequest("http://localhost:3100/api/pvas-data-direct-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", cookie: `catapult_research_auth=${COOKIE}`, ...headers }, body: JSON.stringify(body) }); }
 let checks = 0;
-async function check(name, run) { if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
+async function check(name, run) { if(process.env.DIRECT_STATE_IDS_ONLY==="1" && !name.includes("SQL manual state row-id boundary"))return; if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
 (async () => {
   console.log("# MOCK backend wire / NO SQL / NO network / original website code");
   await check("whole-file preview + commit + status use exact32hex, original bytes and signed ordered observations", async () => {
@@ -187,6 +187,55 @@ async function check(name, run) { if(process.env.DIRECT_AUTH_ONLY==="1" && !name
     assert.equal(reads.validateDirectState(state, "pvas").values[0].value, "9999999999.99");
     await assert.rejects(() => gateway.buildGatewayBatch("pvas", make("10000000000.00"), f.deps));
     assert.throws(() => reads.validateDirectState({ ...state, values: [{ ...value, value: "10000000000.00" }] }, "pvas"));
+  });
+  await check("SQL manual state row-id boundary: actual137 driver strings, strict reads/order, exact integers and untouched other IDs/ops/errors", async () => {
+    // Execute the REAL established state owner, not the normal suite's server stub.
+    const filename=path.join(root,"lib/portal-v2/server.ts"),actualModule=new Module(filename,module);
+    actualModule.filename=filename;actualModule.paths=Module._nodeModulePaths(path.dirname(filename));
+    require.extensions[".ts"](actualModule,filename);const actual=actualModule.exports;
+    process.env.ENGAGE_PORTAL_URL_OVERRIDE="https://fictional.invalid/api/portal-v2";process.env.PORTAL_WRITE_SECRET=secret;
+    const raw={updates:Array.from({length:137},(_,i)=>({id:String(137-i),cptid:900001,client_id:"0001",field:"ask",old_value:null,new_value:`${137-i}.00`,created_at:"2026-11-15T00:00:00Z",extra:"untouched"})),
+      prospects:Array.from({length:161},(_,i)=>({id:String(i+1000),cptid:800001+i,client_id:`000${i}`,full_name:`Fictional ${i}`})),
+      gifts:[{id:"9007199254740993",cptid:900003,client_id:"00042",kind:"gift",amount:1}],batches:[],giftOverrides:[]};
+    const before=structuredClone(raw);let reply=raw,status=200,calls=0;
+    transport=async(url,options)=>{calls++;assert.equal(url,"https://fictional.invalid/api/portal-v2");assert.equal(JSON.parse(options.body).client,"jag");return {status,json:async()=>reply}};
+    const state={protocol:"direct-file-v1",status:"known",scope:"whole-client",complete:true,client:"jag",revision:hex("d"),observedAt:"2026-11-15T00:00:00.000Z",notes:[],
+      values:[{cptid:900001,field:"ask",value:"200.00",template:"fictional",authority_rev:hex("a"),request_id:ID,source_date:"2026-11-15",committed_at:"2026-11-15T00:00:00.000Z"}],note:"Source only"};
+    const dependencies={enabled:()=>true,state:async()=>state,tracking:()=>track("jag",doc()),sql:async()=>(await actual.engageCall("jag","state")).body};
+    const result=await actual.engageCall("jag","state");
+    assert.equal(result.body.updates.length,137);assert.equal(result.body.prospects.length,161);
+    assert.ok(result.body.updates.every(u=>typeof u.id==="number"&&Number.isSafeInteger(u.id)));
+    assert.deepEqual(result.body.updates.map(u=>u.id),raw.updates.map(u=>Number(u.id)));
+    assert.notEqual(result.body,raw);assert.notEqual(result.body.updates,raw.updates);
+    result.body.updates.forEach((u,i)=>{assert.notEqual(u,raw.updates[i]);const {id,...rest}=u;const {id:oldId,...oldRest}=raw.updates[i];assert.deepEqual(rest,oldRest)});
+    assert.deepEqual(raw,before);assert.equal(result.body.updates[0].client_id,"0001");assert.equal(result.body.updates[0].cptid,900001);
+    assert.equal(result.body.prospects[0].id,"1000");assert.equal(result.body.gifts[0].id,"9007199254740993");assert.equal(result.body.gifts[0].client_id,"00042");
+    const observed=await reads.observeDirect("jag",dependencies);
+    assert.equal(reads.currentDirectValues(observed).get(900001).get("ask").value,"137.00");
+    assert.equal(reads.currentDirectValues(observed).get(900001).get("ask").source,false);
+    assert.equal(askEdits(observed.sql.updates).get(900001).value,137);
+    const view=reads.composeDirectData({index:[{cptid:900001}],records:{900001:{cptid:900001,portfolio:{ask:50}}}},"records",observed);
+    assert.equal(view.records[900001].portfolio.ask,137);
+    assert.equal((await actual.portalStateSafe("jag")).updates[0].id,137);
+    assert.equal((await actual.portalCampaignStateSafe("jag")).updates[0].id,137);
+    for(const value of [0,1,-1,Number.MAX_SAFE_INTEGER,Number.MIN_SAFE_INTEGER,"0","1","-1",String(Number.MAX_SAFE_INTEGER),String(Number.MIN_SAFE_INTEGER)]){
+      reply={...raw,updates:[{...raw.updates[0],id:value}]};const normal=(await actual.engageCall("jag","state")).body.updates[0].id;assert.equal(normal,Number(value));assert.ok(Number.isSafeInteger(normal));
+    }
+    for(const value of [""," "," 1","1 ","+1","01","-0","1.0","1e2","1.5","9007199254740992","9007199254740993","-9007199254740992","Infinity","NaN","1x",null,{},[],true,Number.MAX_SAFE_INTEGER+1,1.5,NaN]){
+      reply={...raw,updates:[{...raw.updates[0],id:value}]};
+      await assert.rejects(()=>actual.engageCall("jag","state"),e=>e.message==="Invalid manual update row ID");
+      await assert.rejects(()=>reads.observeDirect("jag",dependencies));
+    }
+    reply={...raw,updates:[{...raw.updates[0],cptid:"900001"}]};
+    assert.equal((await actual.engageCall("jag","state")).body.updates[0].cptid,"900001");
+    await assert.rejects(()=>reads.observeDirect("jag",dependencies));
+    // Failed/misconfigured states and non-state operations stay byte/content-compatible.
+    reply={...raw,updates:[{...raw.updates[0],id:"not-a-row-id"}]};
+    assert.equal((await actual.engageCall("jag","other-existing-op")).body,reply);
+    status=503;assert.equal((await actual.engageCall("jag","state")).body,reply);
+    status=200;reply={...reply,error:"Fictional state unavailable"};assert.equal((await actual.engageCall("jag","state")).body,reply);
+    reply={...raw,configured:false,updates:[{...raw.updates[0],id:"not-a-row-id"}]};assert.equal((await actual.engageCall("jag","state")).body,reply);
+    assert.ok(calls>0);assert.deepEqual(raw,before);transport=null;delete process.env.ENGAGE_PORTAL_URL_OVERRIDE;delete process.env.PORTAL_WRITE_SECRET;
   });
   for (const client of strict.DIRECT_CLIENTS) {
     await check(`${client}: source gateway employee auth — matching dashboard, research/automation, isolation and CSRF`, async () => {
