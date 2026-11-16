@@ -34,6 +34,59 @@ export interface DirectResolveResult {
   protocol:typeof DIRECT_FILE_PROTOCOL;status:"known";client:string;template:string;registrationRevision:string;
   matches:{clientId:string;verifyCptid:number|null;cptid:number|null;reason:null|"unknown-id"|"ambiguous-id"|"id-collision"|"cptid-conflict"|"missing-master"}[];
 }
+export interface DirectFileCell {
+  ordinal:number;clientId:string;cptid:number;field:DirectFileField|"note";value:string;
+  eventId:string|null;noteDate:string|null;noteResolution:"new-event"|"hold"|null;
+}
+export interface DirectFileBatch {
+  requestId:string;client:string;template:string;fileDigest:string;mappingDigest:string;
+  fileName:string;sourceDate:string;actor:string;cells:DirectFileCell[];
+  parse:{format:"csv"|"xlsx";sheet:string|null;headerRow:number;delimiter:","|"\t"|";"|null};
+  mapping:{source:string;target:DirectFileField|"note"|"clientId"|"noteDate"|"eventId"}[];
+  fileContextHash:string;
+}
+export interface DirectFileDecision {
+  ordinal:number;cptid:number;field:DirectFileField|"note";before:string|null;after:string;
+  action:"set"|"advance"|"append"|"unchanged"|"held";reason:string|null;eventKey:string|null;
+}
+export interface DirectFileApproval {previewHash:string;expiresAt:number;proof:string}
+export interface DirectFilePlan extends DirectFileApproval {payloadHash:string;decisions:DirectFileDecision[]}
+export interface DirectFilePreviewRequest {
+  op:"directFilePreview";batch:DirectFileBatch;fileContext:DirectFileContext;manualContext:SignedDirectManualContext;
+}
+export interface DirectFileCommitRequest {
+  op:"directFileCommit";batch:DirectFileBatch;fileContext:DirectFileContext;manualContext:SignedDirectManualContext;approval:DirectFileApproval;
+}
+export interface DirectFilePreviewResponse {protocol:typeof DIRECT_FILE_PROTOCOL;status:"previewed";plan:DirectFilePlan}
+export interface DirectFileReceipt {
+  protocol:typeof DIRECT_FILE_PROTOCOL;requestId:string;client:string;status:"committed";saved:number;held:number;unchanged:number;
+  payloadHash:string;previewHash:string;effect:"source-state-only";effectiveChanges:"not-asserted";publication:"not-requested";replay?:boolean;
+}
+export interface DirectFileStatusRequest {op:"directFileStatus";client:string;requestId:string}
+export type DirectFileStatusResponse=DirectFileReceipt|{
+  protocol:typeof DIRECT_FILE_PROTOCOL;requestId:string;client:string;status:"not-found";note:string;
+};
+export interface DirectFileStateValue {
+  cptid:number;field:DirectFileField;value:string;template:string;authority_rev:string;request_id:string;
+  source_date:string;committed_at:string;
+}
+export interface DirectFileStateNote {
+  cptid:number;event_key:string;body:string;note_date:string;template:string;request_id:string;source_date:string;
+  committed_at:string;declared_actor:string;file_name:string;file_digest:string;authority_rev:string;
+}
+export interface DirectFileStateRequest {op:"directFileState";client:string}
+export interface DirectFileStateResponse {
+  protocol:typeof DIRECT_FILE_PROTOCOL;status:"known";scope:"whole-client";complete:true;client:string;
+  revision:string;observedAt:string;values:DirectFileStateValue[];notes:DirectFileStateNote[];note:string;
+}
+/** Read-only metadata, never configuration supplied by the browser. Empty registry is UNAVAILABLE. */
+export interface DirectFileCapabilitiesRequest {op:"directFileCapabilities";client:string}
+export interface DirectFileCapabilities {
+  protocol:typeof DIRECT_FILE_PROTOCOL;client:string;status:"known"|"unavailable";reason:string|null;applyEnabled:boolean;
+  templates:{template:string;revision:string;fields:(DirectFileField|"note")[];cutovers:Partial<Record<DirectFileField|"note",string>>}[];
+  solicitorAliases:{status:"unavailable";entries:never[]};
+}
+export interface DirectFileErrorResponse {error:string;code:string;requestId?:string;statusOp?:"directFileStatus"}
 export const DIRECT_MANUAL_KEYS=["v","phase","requestId","client","template","registrationRevision","batchHash","fileContextHash","issuedAt","expiresAt","observations"] as const;
 export class DirectContextError extends Error {
   constructor(public code:string,public status=400){super(code);}

@@ -1,4 +1,5 @@
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
+import { directData, currentTracking, directTrackingView, requireCurrentSql, sourceNoteReport, sourceAssignmentReport } from "@/lib/portal-v2/direct-source-state.server";
 import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
 import { buildOverlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 import { portalStateSafe } from "@/lib/portal-v2/server";
@@ -49,18 +50,21 @@ function TopBar({ right1, right2 }: { right1: string; right2: string }) {
   );
 }
 
-export async function GET(req: NextRequest) {
+async function currentGET(req: NextRequest) {
   if (!(await isBaqDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
   const sp = req.nextUrl.searchParams;
   const report = sp.get("report") === "gc2p" ? "gc2p" : "gc";
   const format = sp.get("format") ?? "pdf";
   const goal = Number(sp.get("goal"));
   if (!Number.isFinite(goal) || goal < MIN_GOAL || goal > MAX_GOAL) return NextResponse.json({ error: "bad goal" }, { status: 400 });
-  const base = await getBaqSnapshot();
-  const updates = ((await portalStateSafe("baq"))?.updates ?? []) as UpdateRow[];
+  const raw = await getBaqSnapshot();
+  const base = raw ? await directData("baq", raw, "snapshot") : null;
+  const state = await portalStateSafe("baq"); requireCurrentSql("baq", state);
+  const updates = (state?.updates ?? []) as UpdateRow[];
   const snap = base ? overlayCampaignAsks(base, buildOverlay(updates), askEdits(updates), false) : null;
   if (!snap) return NextResponse.json({ error: "no data" }, { status: 503 });
-  const tracking = report === "gc2p" ? await getBaqTracking() : null;
+  const tracking = report === "gc2p" ? await directTrackingView("baq", await currentTracking("baq", getBaqTracking)) : null;
+  if (base && tracking && (base as unknown as { directSourceRevision?: string }).directSourceRevision !== (tracking as unknown as { directSourceRevision?: string }).directSourceRevision) throw new Error("Source changed during report");
   const recs = report === "gc2p" && tracking && Object.keys(tracking.prospects).length ? await getBaqRecords() : null;
   const { chart, seated, notShown, removed, below, belowLevel } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recs?.index, tracking, snap.pool));
   const stOf = (id: number) => tracking?.prospects[String(id)];
@@ -223,12 +227,12 @@ export async function GET(req: NextRequest) {
     const a = lastAct(p.cptid);
     const basis = p.basis === "Committee" ? "Placed at this level by the committee." : "";
     const reason = stOf(p.cptid)?.reason;
-    return [a ? `${a.date} ${a.kind}: ${a.note}` : reason || basis || p.note || "", tracking?.pirs[String(p.cptid)] ? "PIR on file." : ""].filter(Boolean).join(" ");
+    return [a ? `${a.date} ${a.kind}: ${a.note}` : reason || basis || p.note || "", tracking?.pirs[String(p.cptid)] ? "PIR on file." : "", sourceNoteReport(tracking, p.cptid)].filter(Boolean).join("\n");
   };
   const askTxt = (p: (typeof seated)[number]["people"][number]) => stOf(p.cptid)?.status || p.status || "-";
   const idTxt = (id: number) => (id >= 900_000 ? "" : `CPTID ${id}`);
   const solOf = new Map(snap.pool.map((p) => [p.cptid, p.solicitor]));
-  const solTxt = (id: number) => { const a = stOf(id)?.solicitor || solOf.get(id) || "Unassigned"; const b = stOf(id)?.solicitor2; return b ? `${a}${a ? " / " : ""}2nd: ${b}` : a; };
+  const solTxt = (id: number) => { const a = sourceAssignmentReport(tracking, id, "primarySolicitor", solOf.get(id) ?? "Unassigned"); const b = sourceAssignmentReport(tracking, id, "secondarySolicitor", stOf(id)?.solicitor2 ?? ""); return b ? `${a}${a ? " / " : ""}2nd: ${b}` : a; };
   const insights = [
     `${covered.length} of ${seated.length} levels have a full ${GC2P_RATIO}-to-1 prospect pool${covered.length ? ` (${covered.map((x) => formatCompactDollars(x.level)).join(", ")})` : ""}.`,
     short2.length ? `${short2.reduce((a, x) => a + x.need - x.people.length, 0)} more prospects are needed: ${short2.map((x) => `${formatCompactDollars(x.level)} short ${x.need - x.people.length}`).join("; ")}.` : "Every level shown is fully covered.",
@@ -428,3 +432,4 @@ export async function GET(req: NextRequest) {
   const buf = await renderToBuffer(doc);
   return new NextResponse(new Uint8Array(buf), { headers: { "Content-Type": "application/pdf", "Content-Disposition": `attachment; filename="${file}.pdf"` } });
 }
+export async function GET(req: NextRequest) { try { return await currentGET(req); } catch { return NextResponse.json({ error: "Complete current report/manual/source view unavailable" }, { status: 503 }); } }

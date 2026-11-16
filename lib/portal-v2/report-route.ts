@@ -1,4 +1,6 @@
 import { assignmentResolver } from "./effective-assignment";
+import { directLaneEnabled } from "./direct-registration.server";
+import { currentTracking, requireCurrentSql } from "./direct-source-state.server";
 import { NextRequest, NextResponse } from "next/server";
 import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, type UpdateRow } from "@/lib/portal-v2/record-overlay";
@@ -88,11 +90,12 @@ export function reportRoute(client: PortalClient, auth: (r: NextRequest) => Prom
     if (errs.length) return NextResponse.json({ error: errs.join("; ") }, { status: 400 });
     const data = await load();
     if (!data) return NextResponse.json({ error: "records not loaded" }, { status: 503 });
-    const [state, tracking] = await Promise.all([getState(client), getTracking().catch(() => null)]);
+    const [state, tracking] = await Promise.all([getState(client), currentTracking(client, getTracking).catch(() => null)]);
+    requireCurrentSql(client, state);
     // Fail closed: without SQL state, merges/deletes/staff edits can't be applied, so deleted or merged records would reappear.
     if (!state) return NextResponse.json({ error: "Dashboard edits (merges, deletes, contact and wealth edits) and campaign figures are unavailable right now, so reports are paused. Please try again shortly." }, { status: 503 });
     // Committee tracking unavailable: never show or export assignment fields as falsely blank.
-    if (!tracking && usesTracking(query)) return NextResponse.json({ error: "Committee tracking (status, solicitor) is unavailable right now. Remove those fields and filters or try again shortly." }, { status: 503 });
+    if (!tracking && (directLaneEnabled(client) || usesTracking(query))) return NextResponse.json({ error: "Current committee tracking is unavailable; this report cannot assert a complete current view." }, { status: 503 });
     const rows = runReport(buildReportRows(data, state, tracking), query);
     const keep = ["cptid", ...query.fields.filter((f) => f !== "cptid")];
     if (body?.format === "xlsx") {
@@ -116,5 +119,5 @@ export function reportRoute(client: PortalClient, auth: (r: NextRequest) => Prom
     return NextResponse.json({ asOf: data.asOf, total: rows.length, fields: query.fields, rows: out, campaignAvailable: !!state },
       { headers: { "Cache-Control": "no-store" } });
   }
-  return { POST };
+  return { POST: async (req: NextRequest) => { try { return await POST(req); } catch { return NextResponse.json({ error: "Current complete report/manual/source view unavailable" }, { status: 503 }); } } };
 }

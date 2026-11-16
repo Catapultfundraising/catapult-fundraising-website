@@ -22,7 +22,9 @@ function fmt(v: string | number | null, kind?: string) {
 // Branded PDF/Excel for any table on the JAG data portal.
 // Body: { format: "pdf"|"xlsx", title, subtitle?, cols: ExportCol[], sections: ExportSection[], notes?: string[] }
 export async function POST(req: NextRequest) {
+  const { directLaneEnabled } = await import("@/lib/portal-v2/direct-registration.server");
   if (!(await isJagDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (directLaneEnabled("jag")) return NextResponse.json({ error: "Custom browser-grid export is held: use a server-owned current report. Positional caller rows cannot establish complete current source/manual values." }, { status: 503 });
   const b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[] };
   const title = String(b.title || "JAG Report").slice(0, 120);
   const subtitle = `${b.subtitle ? b.subtitle + " · " : ""}${CLIENT} · Prepared ${preparedOn()}`;

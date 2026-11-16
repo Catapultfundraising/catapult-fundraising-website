@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-type AskState = { edited: boolean; ask: number | null; oldAsk: number | null; by?: string; at?: string; askConflict?: boolean };
+type AskState = { edited: boolean; ask: number | null; oldAsk: number | null; by?: string; at?: string; askConflict?: boolean; directAskPresent?: boolean };
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
 
 /** Editable campaign ask on a prospect record. Edits are saved to Azure SQL (engage.portal_updates via Portal v2)
@@ -19,10 +19,10 @@ export function AskAmountPanel({ client, cptid, base, onSaved }: { client: strin
   useEffect(() => {
     let active = true;
     setSt(null); setEditing(false); setErr("");
-    post({ op: "getAsk" }).then((next) => { if (active) setSt(next); }).catch(() => { if (active) setSt({ edited: false, ask: null, oldAsk: null }); });
+    post({ op: "getAsk" }).then((next) => { if (active) setSt(next); }).catch(() => { if (active) setErr("Current ask unavailable. No fallback or save is allowed until it can be read."); });
     return () => { active = false; };
   }, [client, cptid]); // eslint-disable-line react-hooks/exhaustive-deps
-  const current = st?.edited ? st.ask ?? 0 : base;
+  const current = st?.edited || st?.directAskPresent ? st.ask ?? 0 : base;
   async function save() {
     setBusy(true); setErr("");
     try { setSt(await post({ op: "setAsk", amount: val, current })); setEditing(false); onSaved?.(); window.dispatchEvent(new Event("campaign-ask-refresh")); } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
@@ -40,7 +40,7 @@ export function AskAmountPanel({ client, cptid, base, onSaved }: { client: strin
           </div>
         ) : (
           <div className="mt-1 flex items-center gap-3">
-            <p className="font-display text-xl text-[rgb(var(--navy))]">{st === null ? "..." : (st?.edited && st.ask !== null) || current ? usd(current) : "Not set"}</p>
+            <p className="font-display text-xl text-[rgb(var(--navy))]">{st === null ? "..." : ((st?.edited || st?.directAskPresent) && st.ask !== null) || current ? usd(current) : "Not set"}</p>
             {st !== null && <button onClick={() => { setVal(current ? String(current) : ""); setEditing(true); }} className="rounded-md border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium text-[rgb(var(--navy))]">Edit</button>}
           </div>
         )}

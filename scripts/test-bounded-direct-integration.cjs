@@ -1,0 +1,283 @@
+// OFFLINE ONLY: real website gateway/parser/read consumers, mocked backend wire/Blob.
+// Never SQL-engine, hosted acceptance, durable publication or production registration proof.
+const fs = require("node:fs"), path = require("node:path"), os = require("node:os");
+const assert = require("node:assert/strict"), crypto = require("node:crypto"), Module = require("node:module"), ts = require("typescript");
+const original = Module._load, root = process.cwd();
+for (const ext of [".ts", ".tsx"]) require.extensions[ext] = (m, filename) => m._compile(ts.transpileModule(fs.readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText, filename);
+let enabled = false, sql = { updates: [], prospects: [] }, source, transport;
+const server = { engageCall: async () => ({ status: 200, body: sql }), secondarySolicitors: async () => ({}), saveSecondarySolicitor: async () => {}, logHistoryAudit: async () => {}, parseUsDate: s => s };
+Module._load = function(name, parent, main) {
+  if (name === "server-only") return {};
+  if (name.startsWith("@/")) name = path.join(root, name.slice(2));
+  const file = name.startsWith(".") ? path.resolve(path.dirname(parent.filename), name) : name;
+  if (file === path.join(root, "lib/portal-v2/direct-registration.server")) return { directLaneEnabled: () => enabled, APPROVED_WEBSITE_DIRECT_REGISTRATIONS: [], DIRECT_WEBSITE_INTEGRATION_ACCEPTED: false };
+  if (file === path.join(root, "lib/portal-v2/server")) return server;
+  return original.call(this, name, parent, main);
+};
+global.fetch = async (...args) => { if (transport) return transport(...args); throw new Error("NETWORK FORBIDDEN"); };
+Object.assign(process.env, { RESEARCH_PASSWORD: "fictional-local-password", RESEARCH_AUTH_SECRET: "fictional-local-auth-secret" });
+const COOKIE = crypto.createHash("sha256").update("fictional-local-password:fictional-local-auth-secret").digest("hex");
+const { NextRequest } = require("next/server");
+const wire = require("../lib/portal-v2/directFileProtocol.ts");
+const gateway = require("../lib/portal-v2/direct-file-gateway.server.ts");
+const reads = require("../lib/portal-v2/direct-source-state.server.ts");
+const strict = require("../lib/portal-v2/direct-tracking-state.ts");
+const { directSnapshot } = require("../lib/portal-v2/direct-snapshot.ts");
+const { campaignAskAmount, effectiveAsk, askEdits, overlayCampaignAsks } = require("../lib/portal-v2/effective-ask.ts");
+const { buildOverlay } = require("../lib/portal-v2/record-overlay.ts");
+const { assignmentResolver } = require("../lib/portal-v2/effective-assignment.ts");
+const { manualAssignmentPatch } = require("../lib/portal-v2/manual-assignment-patch.ts");
+const { confirmedDirectReceipt } = require("../lib/portal-v2/direct-public-response.ts");
+const { directSourceCall, readBoundedStream } = require("../lib/portal-v2/direct-source-transport.server.ts");
+const { workbookParts, zipParts } = require("./fixtures/source-ooxml-test-fixture.ts");
+const hex = c => c.repeat(64), ID = "a".repeat(32), secret = "fictional-source-bearer-long-enough-for-local-test";
+const encode = s => Buffer.from(s).toString("base64"), doc = (prospects = {}, activity = [], removed = []) => ({ prospects, activity, removed, pirs: {} });
+const track = async (client, d = doc()) => strict.readStrictTracking(client, async () => ({ kind: "bytes", bytes: Buffer.from(JSON.stringify(d)) }));
+function file(csv = "Client_ID,CPTID,Campaign Ask,New Notes\n0001,900001,1500.25,New fictional visit\n") {
+  return { requestId: ID, template: "fictional-portfolio", fileName: "fictional.csv", bytes: encode(csv), sourceDate: "2026-10-19", actor: "Fictional reviewer",
+    parseSettings: { format: "csv" }, mapping: { Client_ID: "clientId", "Campaign Ask": "ask", "New Notes": "note", "@source-date": "noteDate" }, verifyCptidColumn: "CPTID", noteResolutions: { "1": "new-event" } };
+}
+function fixtureDeps() {
+  const calls = [], receipts = new Map(); let manual = doc(), replyMutation, now = 1_793_000_000;
+  const caps = { protocol: "direct-file-v1", client: "pvas", status: "known", reason: null, applyEnabled: true,
+    templates: [{ template: "fictional-portfolio", revision: hex("a"), fields: ["ask", "primarySolicitor", "secondarySolicitor", "note"], cutovers: { ask: "2026-01-01", note: "2026-01-01" } }], solicitorAliases: { status: "unavailable", entries: [] } };
+  const deps = { secret: () => secret, now: () => now, enabled: () => true, aliases: () => null, tracking: c => track(c, manual),
+    call: async (client, op, body = {}) => {
+      calls.push({ client, op, body });
+      if (replyMutation) { const mutated = replyMutation(client, op, body); if (mutated) return mutated; }
+      if (op === "directFileCapabilities") return { status: 200, body: { ...caps, client } };
+      if (op === "directFileResolve") return { status: 200, body: { protocol: "direct-file-v1", status: "known", client, template: body.template, registrationRevision: hex("a"),
+        matches: body.ids.map(x => { const cptid = /^00\d{2}$/.test(x.clientId) && Number(x.clientId) >= 1 && Number(x.clientId) <= 50 ? 900000 + Number(x.clientId) : null; return { ...x, cptid, reason: cptid !== null ? (x.verifyCptid !== null && x.verifyCptid !== cptid ? "cptid-conflict" : null) : "unknown-id" }; }) } };
+      if (op === "directFileStatus") return { status: 200, body: receipts.get(body.requestId) ?? { protocol: "direct-file-v1", status: "not-found", client, requestId: body.requestId, note: "May be in flight; do not resend." } };
+      assert.ok(["directFilePreview", "directFileCommit"].includes(op));
+      assert.deepEqual(Object.keys(body).sort(), (op === "directFileCommit" ? ["approval", "batch", "fileContext", "manualContext"] : ["batch", "fileContext", "manualContext"]).sort());
+      const b = body.batch, m = body.manualContext;
+      assert.match(b.requestId, /^[a-f0-9]{32}$/); // actual backend boundary, NOT a permissive UUID mock.
+      assert.equal(b.mappingDigest, wire.directFileHash({ parse: b.parse, mapping: b.mapping }));
+      assert.equal(b.fileContextHash, wire.directFileHash(body.fileContext));
+      assert.equal(m.payload.batchHash, wire.directFileHash(b));
+      assert.equal(m.signature, crypto.createHmac("sha256", secret).update(wire.DIRECT_MANUAL_DOMAIN + JSON.stringify(m.payload)).digest("hex"));
+      assert.deepEqual(Object.keys(m.payload), [...wire.DIRECT_MANUAL_KEYS]);
+      assert.equal(m.payload.phase, op === "directFileCommit" ? "commit" : "preview");
+      assert.equal(m.payload.observations[0].notesCoverage, "tracking-only");
+      assert.equal(m.payload.observations[0].historicalRevision, null);
+      const payloadHash = wire.directFileHash(b), previewHash = wire.directFileHash([b, m.payload.observations]);
+      if (op === "directFilePreview") return { status: 200, body: { protocol: "direct-file-v1", status: "previewed", plan: { payloadHash, previewHash, proof: hex("b"), expiresAt: now * 1000 + 60000,
+        decisions: b.cells.map(c => ({ ordinal: c.ordinal, cptid: c.cptid, field: c.field, before: null, after: c.value, action: c.field === "note" && c.noteResolution !== "new-event" ? "held" : c.value ? (c.field === "note" ? "append" : "set") : "unchanged", reason: c.field === "note" && c.noteResolution !== "new-event" ? "historical-coverage-incomplete" : null, eventKey: c.field === "note" ? hex("c") : null })) } } };
+      if (body.approval.previewHash !== previewHash) return { status: 409, body: { code: "preview-changed" } };
+      const receipt = { protocol: "direct-file-v1", requestId: b.requestId, client, status: "committed", saved: b.cells.length, held: 0, unchanged: 0, payloadHash, previewHash, effect: "source-state-only", effectiveChanges: "not-asserted", publication: "not-requested", replay: false };
+      receipts.set(b.requestId, receipt); return { status: 200, body: receipt };
+    } };
+  return { deps, calls, receipts, setManual: d => { manual = d; }, mutate: fn => { replyMutation = fn; }, advance: () => now++ };
+}
+function request(body, headers = {}) { return new NextRequest("http://localhost:3100/api/pvas-data-direct-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", cookie: `catapult_research_auth=${COOKIE}`, ...headers }, body: JSON.stringify(body) }); }
+let checks = 0;
+async function check(name, run) { await run(); console.log(`ok ${++checks} - ${name}`); }
+(async () => {
+  console.log("# MOCK backend wire / NO SQL / NO network / original website code");
+  await check("whole-file preview + commit + status use exact32hex, original bytes and signed ordered observations", async () => {
+    const f = fixtureDeps(), route = gateway.directFileGateway("pvas", f.deps), input = file();
+    const p = await route(request({ op: "preview", file: input })); assert.equal(p.status, 200); const preview = await p.json();
+    assert.equal(f.calls.at(-1).body.fileContext.reviewCells, 2);
+    assert.equal(f.calls.at(-1).body.batch.fileDigest, crypto.createHash("sha256").update(Buffer.from(input.bytes, "base64")).digest("hex"));
+    const r = await route(request({ op: "commit", file: input, approval: { previewHash: preview.plan.previewHash, expiresAt: preview.plan.expiresAt, proof: preview.plan.proof } }));
+    assert.equal(r.status, 200); const receipt = await r.json(); confirmedDirectReceipt(receipt, { client: "pvas", requestId: ID, payloadHash: preview.plan.payloadHash, previewHash: preview.plan.previewHash, cells: 2 });
+    assert.equal((await (await route(request({ op: "status", requestId: ID }))).json()).publication, "not-requested");
+    assert.equal(f.calls.filter(c => c.op === "directFileCommit").length, 1);
+  });
+  await check("auth cookie cannot substitute research; cross-origin/extra envelope/UUID36 reject before backend", async () => {
+    const f = fixtureDeps(), route = gateway.directFileGateway("pvas", f.deps);
+    assert.equal((await route(request({ op: "capabilities" }, { cookie: "catapult_pvas_data_auth=fictional" }))).status, 401);
+    assert.equal((await route(request({ op: "capabilities" }, { origin: "https://foreign.invalid" }))).status, 403);
+    assert.equal((await route(request({ op: "capabilities", client: "jag" }))).status, 400);
+    assert.equal((await route(request({ op: "preview", file: { ...file(), requestId: crypto.randomUUID() } }))).status, 400);
+    assert.equal((await route(request({ op: "status", requestId: "A".repeat(32) }))).status, 400);
+    assert.equal(f.calls.length, 0);
+  });
+  await check("50 mapped cells including blanks accepted;51 rejected before resolve/preview/commit, never split", async () => {
+    const make = n => { const f = file("Client_ID,Campaign Ask\n" + Array.from({ length: n }, (_, i) => `${String(i + 1).padStart(4, "0")},\n`).join("")); return { ...f, mapping: { Client_ID: "clientId", "Campaign Ask": "ask" }, verifyCptidColumn: null, noteResolutions: {} }; };
+    let f = fixtureDeps(); assert.equal((await gateway.buildGatewayBatch("pvas", make(50), f.deps)).batch.cells.length, 50);
+    f = fixtureDeps(); await assert.rejects(() => gateway.buildGatewayBatch("pvas", make(51), f.deps), e => e.code === "whole-file-cell-limit");
+    assert.equal(f.calls.filter(c => c.op !== "directFileCapabilities").length, 0);
+  });
+  await check("backend lexical identity order joins exact client ID, never source position", async () => {
+    const f = fixtureDeps();
+    f.mutate((client, op, body) => op === "directFileResolve" ? { status: 200, body: { protocol: "direct-file-v1", status: "known", client, template: body.template, registrationRevision: hex("a"),
+      matches: [...body.ids].sort((a, b) => a.clientId.localeCompare(b.clientId)).map(x => ({ ...x, cptid: 900000 + Number(x.clientId), reason: null })) } } : null);
+    const input = { ...file("Client_ID,CPTID,Campaign Ask\n0002,900002,2.00\n0001,900001,1.00\n"),
+      mapping: { Client_ID: "clientId", "Campaign Ask": "ask" }, noteResolutions: {} };
+    const built = await gateway.buildGatewayBatch("pvas", input, f.deps);
+    assert.deepEqual(built.batch.cells.map(c => [c.clientId, c.cptid, c.value]), [["0002", 900002, "2.00"], ["0001", 900001, "1.00"]]);
+  });
+  await check("identity conflict/unknown, formulas, numeric text writes, precision and unapproved aliases produce complete whole-file exceptions", async () => {
+    const f = fixtureDeps();
+    const bad = file("Client_ID,CPTID,Campaign Ask,New Notes\n0001,900002,1500.251,Normal note\nunknown,900003,-1,Other note\n");
+    await assert.rejects(() => gateway.buildGatewayBatch("pvas", bad, f.deps), e => e.code === "whole-file-held" && e.exceptions.length >= 4 && e.exceptions.some(x => x.reason === "cptid-conflict"));
+    assert.equal(f.calls.some(c => /Preview|Commit/.test(c.op)), false);
+    const x = { ...file(), fileName: "numeric.xlsx", bytes: zipParts(workbookParts()).toString("base64"), parseSettings: { format: "xlsx", sheet: "Data", headerRow: 1 } };
+    const b = await gateway.buildGatewayBatch("pvas", x, f.deps); assert.equal(b.batch.cells[0].value, "1500.25");
+    const alias = file("Client_ID,Primary Solicitor\n0001,Unknown Staff\n"); alias.mapping = { Client_ID: "clientId", "Primary Solicitor": "primarySolicitor" }; alias.verifyCptidColumn = null; alias.noteResolutions = {};
+    await assert.rejects(() => gateway.buildGatewayBatch("pvas", alias, f.deps), e => e.exceptions?.some(x => x.reason === "unknown-or-unreviewed-solicitor-alias"));
+  });
+  await check("virtual source date explicit, reserved literal header refused, historical notes never append", async () => {
+    const f = fixtureDeps(), a = await gateway.buildGatewayBatch("pvas", file(), f.deps);
+    assert.equal(a.batch.cells[1].noteDate, a.batch.sourceDate);
+    const noDate = file(); delete noDate.mapping["@source-date"];
+    await assert.rejects(() => gateway.buildGatewayBatch("pvas", noDate, f.deps), /note-date/);
+    const historical = file("Client_ID,Historical Notes\n0001,Old historical event\n"); historical.mapping = { Client_ID: "clientId", "Historical Notes": "note", "@source-date": "noteDate" }; historical.verifyCptidColumn = null;
+    await assert.rejects(() => gateway.buildGatewayBatch("pvas", historical, f.deps), /note-date-or-new/);
+    await assert.rejects(() => gateway.buildGatewayBatch("pvas", file("Client_ID,@source-date\n0001,x\n"), f.deps), /reserved-source-date/);
+  });
+  await check("reparse/bind filename/bytes/sheet/declaration/mapping/date/resolution; late manual change invalidates old approval", async () => {
+    const f = fixtureDeps(), base = await gateway.buildGatewayBatch("pvas", file(), f.deps);
+    for (const changed of [{ ...file(), fileName: "different.csv" }, { ...file(), sourceDate: "2026-10-20" }, { ...file(), noteResolutions: {} }, file("Client_ID,CPTID,Campaign Ask,New Notes\n0001,900001,1500.26,New fictional visit\n")]) assert.notEqual(wire.directFileHash((await gateway.buildGatewayBatch("pvas", changed, f.deps)).batch), wire.directFileHash(base.batch));
+    const route = gateway.directFileGateway("pvas", f.deps), p = await (await route(request({ op: "preview", file: file() }))).json();
+    f.setManual(doc({ 900001: { solicitor: "", updatedAt: "2026-10-19", solicitorEdited: true } })); f.advance();
+    const r = await route(request({ op: "commit", file: file(), approval: { previewHash: p.plan.previewHash, expiresAt: p.plan.expiresAt, proof: p.plan.proof } }));
+    assert.equal(r.status, 503); assert.equal((await r.json()).requestId, ID); assert.equal(f.receipts.size, 0);
+  });
+  await check("malformed/foreign/hash/count/private replies never become committed in gateway OR independent UI boundary", async () => {
+    for (const mutation of [() => ({}), r => ({ ...r, configured: false }), r => ({ ...r, requestId: "b".repeat(32) }), r => ({ ...r, client: "jag" }), r => ({ ...r, payloadHash: hex("f") }), r => ({ ...r, saved: 49 }), r => ({ ...r, __directPrivateV1: "NEVER PUBLIC" })]) {
+      const f = fixtureDeps(), route = gateway.directFileGateway("pvas", f.deps), p = await (await route(request({ op: "preview", file: file() }))).json();
+      const mock = { protocol: "direct-file-v1", requestId: ID, client: "pvas", status: "committed", saved: 2, held: 0, unchanged: 0, payloadHash: p.plan.payloadHash, previewHash: p.plan.previewHash, effect: "source-state-only", effectiveChanges: "not-asserted", publication: "not-requested" };
+      const bad = mutation(mock);
+      f.mutate((_, op) => op === "directFileCommit" ? { status: 200, body: bad } : null);
+      const r = await route(request({ op: "commit", file: file(), approval: { previewHash: p.plan.previewHash, expiresAt: p.plan.expiresAt, proof: p.plan.proof } }));
+      assert.equal(r.status, 503); const j = await r.json(); assert.equal(j.code, "unconfirmed"); assert.equal(j.requestId, ID); assert.equal(j.statusOp, "directFileStatus");
+      assert.throws(() => confirmedDirectReceipt(bad, { client: "pvas", requestId: ID, payloadHash: p.plan.payloadHash, previewHash: p.plan.previewHash, cells: 2 }));
+    }
+  });
+  await check("source transport exact endpoint/envelope, no redirects/retry, timeout and response cap", async () => {
+    const env = { ENGAGE_SOURCE_IMPORT_URL: "https://fictional.invalid/api/source-import", PORTAL_WRITE_SECRET: secret }, sent = [];
+    const fetcher = async (url, options) => { sent.push({ url, options, body: JSON.parse(options.body) }); return Response.json({ protocol: "direct-file-v1" }); };
+    await directSourceCall("pvas", "directFilePreview", { batch: { client: "pvas" }, fileContext: {}, manualContext: {} }, fetcher, env);
+    assert.deepEqual(Object.keys(sent[0].body).sort(), ["op", "batch", "fileContext", "manualContext"].sort());
+    assert.equal(sent[0].body.client, undefined); assert.equal(sent[0].url, env.ENGAGE_SOURCE_IMPORT_URL);
+    assert.equal(sent[0].options.redirect, "error"); assert.equal(sent[0].options.cache, "no-store"); assert.ok(sent[0].options.signal);
+    await directSourceCall("pvas", "directFileStatus", { requestId: ID }, fetcher, env); assert.equal(sent[1].body.client, "pvas");
+    let calls = 0;
+    await assert.rejects(() => directSourceCall("pvas", "directFileCommit", {}, async () => { calls++; throw Error("lost reply"); }, env), e => e.unconfirmed === true); assert.equal(calls, 1);
+    await assert.rejects(() => directSourceCall("pvas", "directFileState", {}, fetcher, { ...env, ENGAGE_SOURCE_IMPORT_URL: "https://fictional.invalid/api/portal-v2" }), /unconfigured/);
+    let cancelled = false;
+    const big = new ReadableStream({ pull(c) { c.enqueue(new Uint8Array(1_000_001)); }, cancel() { cancelled = true; } });
+    await assert.rejects(() => readBoundedStream(big, 1000000, 100), /too-large/); assert.equal(cancelled, true);
+    const hung = new ReadableStream({ pull() { return new Promise(() => {}); }, cancel() { cancelled = true; } });
+    await assert.rejects(() => readBoundedStream(hung, 1000, 5)); // bounded synthetic deadline, not a polling loop.
+  });
+  for (const client of strict.DIRECT_CLIENTS) {
+    await check(`${client}: actual records loader/routes and server report retain source0, late manual clear, unknown refusal`, async () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), `bounded-${client}-`));
+      process.env[`${client.toUpperCase()}_LOCAL_DIR`] = dir;
+      const idx = { cptid: 900001, name: "Fictional donor", lifetime: 100, gifts: 1, largest: 100, last: "2026-01-01", years: 1, band: "", capMin: 0 };
+      const raw = { asOf: "2026-10-19", index: [idx], records: { 900001: { ...idx, contact: {}, gifts: [], summary: { ...idx }, portfolio: { ask: 500, solicitor: "Access staff", secondary: "Access secondary" } } } };
+      fs.writeFileSync(path.join(dir, "records.json"), JSON.stringify(raw));
+      let manual = doc();
+      const save = () => fs.writeFileSync(path.join(dir, "tracking.json"), JSON.stringify(manual));
+      save(); enabled = true; sql = { updates: [], prospects: [], gifts: [], batches: [] };
+      const v = (field, value) => ({ cptid: 900001, field, value, template: "fictional", authority_rev: hex("a"), request_id: ID, source_date: "2026-10-19", committed_at: "2026-10-19T12:00:00.000Z" });
+      source = { protocol: "direct-file-v1", status: "known", scope: "whole-client", complete: true, client, revision: hex("d"), observedAt: "2026-10-19T12:00:00.000Z", values: [v("ask", "0.00"), v("primarySolicitor", "Source staff"), v("secondarySolicitor", "Source secondary")], notes: [], note: "Source only" };
+      transport = async () => Response.json(source);
+      process.env.ENGAGE_SOURCE_IMPORT_URL = "https://fictional.invalid/api/source-import"; process.env.PORTAL_WRITE_SECRET = secret;
+      const names = { pvas: "Pvas", jag: "Jag", csnf: "Csnf", wcbhc: "Wcbhc", baq: "Baq" };
+      const load = require(`../lib/${client}-data-store.ts`)[`get${names[client]}Records`];
+      const { recordsRoute } = require("../lib/portal-v2/records-route.ts");
+      const { reportRoute } = require("../lib/portal-v2/report-route.ts");
+      const route = recordsRoute(client, async () => true, load, async () => manual, async () => sql);
+      const get = suffix => route.GET(new NextRequest(`http://localhost/api/${client}-data-records${suffix}`));
+      let r = await get("?id=900001"); assert.equal(r.status, 200); let record = await r.json();
+      assert.equal(record.portfolio.ask, 0); assert.equal(record.assignment.solicitor, "Source staff"); assert.equal(record.assignment.solicitor2, "Source secondary");
+      const index = await (await get("")).json(); assert.equal(index.index[0].solicitor, "Source staff");
+      let xlsxRows;
+      const report = reportRoute(client, async () => true, load, async () => manual,
+        { clientName: "Fictional", filePrefix: "QA", build: async body => { xlsxRows = body.sections.flatMap(s => s.rows); return Buffer.from("synthetic workbook builder receipt"); } }, async () => sql);
+      const post = format => report.POST(new NextRequest("http://localhost/report", { method: "POST", body: JSON.stringify({ query: { fields: ["name", "solicitor", "solicitor2"], filters: [] }, format }) }));
+      r = await post(); assert.equal(r.status, 200); assert.equal((await r.json()).rows[0].solicitor, "Source staff");
+      assert.equal((await post("xlsx")).status, 200); assert.ok(xlsxRows[0].includes("Source staff"));
+      sql = { ...sql, updates: [{ id: 1, cptid: 900001, field: "ask", new_value: null, old_value: "0.00" }, { id: 2, cptid: 900001, field: "solicitor2", new_value: "", old_value: null }] };
+      manual = doc({ 900001: { solicitor: "", solicitorEdited: true, updatedAt: "2026-10-19" } }); save();
+      record = await (await get("?id=900001")).json();
+      assert.equal(record.campaignAsk.askBlank, true); assert.equal(record.assignment.solicitor, ""); assert.equal(record.assignment.solicitor2, "");
+      const cleared = (await (await post()).json()).rows[0]; assert.equal(cleared.solicitor, ""); assert.equal(cleared.solicitor2, "");
+      const good = source; source = { configured: false };
+      assert.equal((await get("?id=900001")).status, 503); assert.equal((await post()).status, 503);
+      source = good;
+      // Failure of the second strict manual read also refuses a report without assignment columns.
+      const fails = reportRoute(client, async () => true, load, async () => { throw Error("unknown"); }, undefined, async () => sql);
+      // Enabled mode reads the authoritative strict owner, not this legacy callback; corrupt it there.
+      fs.writeFileSync(path.join(dir, "tracking.json"), "{");
+      assert.equal((await fails.POST(new NextRequest("http://localhost/report", { method: "POST", body: JSON.stringify({ query: { fields: ["name"] } }) }))).status, 503);
+      enabled = false; transport = null; delete process.env[`${client.toUpperCase()}_LOCAL_DIR`]; fs.rmSync(dir, { recursive: true, force: true });
+    });
+    await check(`${client}: complete source layer only,31k Access baseline, source0/manual0+clear/withdrawal/unknown`, async () => {
+      const base = { records: { 900001: { cptid: 900001, portfolio: { ask: 500, solicitor: "Access staff", secondary: "Access secondary" } } }, index: Array.from({ length: 31000 }, (_, i) => ({ cptid: i + 1, name: "Fictional" })) };
+      const values = [{ cptid: 900001, field: "ask", value: "0.00", template: "fictional-portfolio", authority_rev: hex("a"), request_id: ID, source_date: "2026-10-19", committed_at: "2026-10-19T12:00:00.000Z" }, { cptid: 900001, field: "primarySolicitor", value: "Source staff", template: "fictional-portfolio", authority_rev: hex("a"), request_id: ID, source_date: "2026-10-19", committed_at: "2026-10-19T12:00:00.000Z" }];
+      const state = { protocol: "direct-file-v1", status: "known", scope: "whole-client", complete: true, client, revision: hex("d"), observedAt: "2026-10-19T12:00:00.000Z", values, notes: [], note: "Source only" };
+      let d = doc(), manualSql = { updates: [], prospects: [] };
+      const deps = { enabled: () => true, state: async () => state, sql: async () => manualSql, tracking: c => track(c, d) };
+      const result = await reads.directData(client, base, "records", deps);
+      assert.equal(result.records[900001].portfolio.ask, 0); assert.equal(result.records[900001].portfolio.directAskPresent, true);
+      assert.equal(result.index.length, 31000); assert.equal(base.records[900001].portfolio.ask, 500);
+      const o = buildOverlay([]), resolved = effectiveAsk(900001, o, new Map(), id => result.records[id].portfolio.ask, id => result.records[id].portfolio.directAskPresent);
+      assert.equal(campaignAskAmount({ ...resolved, rating: 10000 }), 0);
+      manualSql = { updates: [{ id: 1, cptid: 900001, field: "ask", new_value: null, old_value: "0.00" }], prospects: [] };
+      d = doc({ 900001: { solicitor: "", updatedAt: "2026-10-19", solicitorEdited: true } });
+      const cleared = await reads.directData(client, base, "records", deps);
+      assert.equal(cleared.records[900001].portfolio.ask, null); assert.equal(cleared.records[900001].portfolio.solicitor, "");
+      const manual = effectiveAsk(900001, buildOverlay(manualSql.updates), askEdits(manualSql.updates), () => 500);
+      assert.equal(campaignAskAmount({ ...manual, rating: 10000 }), 0);
+      state.values = []; const withdrawn = await reads.directData(client, base, "records", deps); assert.equal(withdrawn.records[900001].portfolio.ask, 500);
+      await assert.rejects(() => reads.directData(client, base, "records", { ...deps, state: async () => ({ configured: false }) }));
+      await assert.rejects(() => reads.directData(client, base, "records", { ...deps, tracking: async () => ({ kind: "unavailable", reason: "read-failed" }) }));
+      await assert.rejects(() => reads.directData(client, base, "records", { ...deps, sql: async () => ({ updates: null, prospects: [] }) }));
+    });
+    await check(`${client}: server/browser financial canary: committed/gift/pledge/Stewardship/Givebutter/unknown arrays byte-identical`, async () => {
+      const amount = 765432, person = { cptid: 900001, ask: amount, rating: 900000, active: true, solicitor: "Access" };
+      const base = { pool: [{ ...person }], portfolio: [{ ...person }], board: [{ ...person }, { ...person, active: false }],
+        committed: [{ ...person }], gifts: [{ ...person, amount: 42 }], pledges: [{ ...person }], stewardship: [{ ...person }], givebutter: [{ ...person }], unrelated: [{ ...person }] };
+      const frozen = JSON.stringify(base), boardCampaign = !["wcbhc", "baq"].includes(client);
+      for (const ask of ["0.00", "500.00"]) {
+        const view = { revision: hex("d"), values: [{ cptid: 900001, field: "ask", value: ask, source: true }] };
+        const browser = directSnapshot(base, view, boardCampaign);
+        assert.equal(browser.pool[0].ask, Number(ask)); assert.equal(browser.portfolio[0].ask, Number(ask));
+        for (const key of ["committed", "gifts", "pledges", "stewardship", "givebutter", "unrelated"]) assert.equal(JSON.stringify(browser[key]), JSON.stringify(base[key]), key);
+        assert.equal(browser.board[0].ask, boardCampaign ? Number(ask) : amount); assert.equal(browser.board[1].ask, amount);
+        const state = { client, revision: hex("d"), values: view.values.map(x => ({ ...x, value: ask })), notes: [] };
+        const observed = { state, tracking: { kind: "present", revision: hex("a"), document: doc() }, sql: { updates: [], prospects: [] } };
+        assert.deepEqual(reads.composeDirectData(base, "snapshot", observed), { ...browser, directSourceRevision: hex("d") });
+      }
+      assert.equal(JSON.stringify(base), frozen);
+    });
+    await check(`${client}: raw tracking prospects/activity remain unchanged; GET->unrelated status save never promotes source`, async () => {
+      const raw = doc({ 900001: { status: "Active", solicitorEdited: false, updatedAt: "" } }, [{ cptid: 900001, date: "2026-10-19", note: "Manual history" }]);
+      const t = await track(client, raw), state = { protocol: "direct-file-v1", status: "known", scope: "whole-client", complete: true, client, revision: hex("d"), observedAt: "2026-10-19T12:00:00.000Z",
+        values: [{ cptid: 900001, field: "primarySolicitor", value: "Source staff", template: "fictional", authority_rev: hex("a"), request_id: ID, source_date: "2026-10-19", committed_at: "2026-10-19T12:00:00.000Z" }], notes: [], note: "Source only" };
+      const view = await reads.directTrackingView(client, raw, { enabled: () => true, state: async () => state, tracking: async () => t, sql: async () => ({ updates: [], prospects: [] }) });
+      assert.deepEqual(view.prospects, raw.prospects); assert.deepEqual(view.activity, raw.activity);
+      assert.equal(Object.hasOwn(view.prospects[900001], "solicitor"), false);
+      const payload = { type: "status", status: "Active", ...manualAssignmentPatch("Source staff", "Source secondary", false, false) };
+      assert.equal(Object.hasOwn(payload, "solicitor"), false); assert.equal(Object.hasOwn(payload, "solicitor2"), false);
+      assert.deepEqual(manualAssignmentPatch("", "", true, true), { solicitor: "", solicitor2: "" });
+    });
+  }
+  await check("actual trackingRoute GET->unrelated save preserves no-source manual objects and explicit clear", async () => {
+    const client = "pvas", dir = fs.mkdtempSync(path.join(os.tmpdir(), "bounded-tracking-")); process.env.PVAS_LOCAL_DIR = dir;
+    enabled = true; sql = { updates: [], prospects: [] };
+    const value = { cptid: 900001, field: "primarySolicitor", value: "Source staff", template: "fictional", authority_rev: hex("a"), request_id: ID, source_date: "2026-10-19", committed_at: "2026-10-19T12:00:00.000Z" };
+    source = { protocol: "direct-file-v1", status: "known", scope: "whole-client", complete: true, client, revision: hex("d"), observedAt: "2026-10-19T12:00:00.000Z", values: [value], notes: [], note: "Source only" };
+    transport = async () => Response.json(source);
+    process.env.ENGAGE_SOURCE_IMPORT_URL = "https://fictional.invalid/api/source-import"; process.env.PORTAL_WRITE_SECRET = secret;
+    let stored = doc(); const save = async t => { stored = structuredClone(t); fs.writeFileSync(path.join(dir, "tracking.json"), JSON.stringify(t)); };
+    await save(stored);
+    const { trackingRoute } = require("../lib/tracking-route.ts"), route = trackingRoute(client, async () => true, async () => structuredClone(stored), save);
+    const get = await route.GET(new NextRequest("http://localhost/api/pvas-data-tracking")); const view = await get.json();
+    assert.deepEqual(view.prospects, {}); assert.ok(view.directAssignments);
+    const update = async patch => route.POST(new NextRequest("http://localhost/api/pvas-data-tracking", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ type: "status", cptid: 900001, status: "Active", by: "Fictional staff", ...patch }) }));
+    assert.equal((await update(manualAssignmentPatch("Source staff", "", false, false))).status, 200);
+    assert.equal(Object.hasOwn(stored.prospects[900001], "solicitor"), false); assert.equal(stored.prospects[900001].solicitorEdited, false);
+    assert.equal(JSON.stringify(stored).includes("Source staff"), false); assert.equal(JSON.stringify(stored).includes("directAssignments"), false);
+    assert.equal((await update(manualAssignmentPatch("", "", true, true))).status, 200);
+    assert.equal(stored.prospects[900001].solicitor, ""); assert.equal(stored.prospects[900001].solicitorEdited, true);
+    enabled = false; transport = null; delete process.env.PVAS_LOCAL_DIR; fs.rmSync(dir, { recursive: true, force: true });
+  });
+  console.log(`1..${checks}`);
+})().catch(e => { console.error(e); process.exitCode = 1; });

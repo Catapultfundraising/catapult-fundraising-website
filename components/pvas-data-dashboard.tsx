@@ -724,7 +724,7 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
   const [tab, setTab] = useUrlState<Tab | "Prospect Ratings">("tab", "Overview", [...TABS, "Prospect Ratings"]);
   const staff = useBoardReviewStaff("pvas");
   if (loading || campaign.loading) return <main className="min-h-screen bg-[rgb(var(--paper))] p-8" aria-busy="true">Loading donor records and effective assignments...</main>;
-  if (!index || !campaign.available) return <main className="min-h-screen bg-[rgb(var(--paper))] p-8" role="alert">Donor records and assignments are unavailable. Reload to try again.</main>;
+  if (!index || !campaign.available || data.directReadUnavailable) return <main className="min-h-screen bg-[rgb(var(--paper))] p-8" role="alert">Donor records and assignments are unavailable or changed during the read. Reload to try again.</main>;
   return (
 
     <main className="min-h-screen bg-[rgb(var(--paper))]">

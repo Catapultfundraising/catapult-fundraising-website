@@ -1,4 +1,5 @@
 import { assignmentResolver, type AssignmentTracking } from "./effective-assignment";
+import { currentTracking, requireCurrentSql } from "./direct-source-state.server";
 import { askEdits, effectiveAsk } from "./effective-ask";
 import { NextRequest, NextResponse } from "next/server";
 import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
@@ -98,10 +99,11 @@ function overlayRecord(base: Full, o: Overlay, edits: ReturnType<typeof askEdits
   }
   const baseAsk = (id: number) => {
     const source = lookup(id);
-    const portfolio = source?.portfolio as { ask?: number } | undefined;
+    const portfolio = source?.portfolio as { ask?: number; directAskPresent?: boolean; directManualAskPresent?: boolean } | undefined;
+    if (portfolio?.directAskPresent || portfolio?.directManualAskPresent) return portfolio.ask;
     return portfolio?.ask ?? (boardCampaignAsk ? (source?.board as { active?: boolean; ask?: number }[] | undefined)?.find((b) => b.active && b.ask)?.ask : undefined);
   };
-  const ask = effectiveAsk(r.cptid, o, edits, baseAsk);
+  const ask = effectiveAsk(r.cptid, o, edits, baseAsk, (id) => (lookup(id)?.portfolio as { directAskPresent?: boolean } | undefined)?.directAskPresent === true, (id) => (lookup(id)?.portfolio as { directManualAskPresent?: boolean } | undefined)?.directManualAskPresent === true);
   // Preserve the survivor's metadata; otherwise inherit only a single unambiguous source portfolio.
   // A merge chain can contain multiple portfolios. Never choose whichever happens to be first.
   if (!r.portfolio && !ask.askConflict) {
@@ -166,7 +168,8 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
     if (!data) return NextResponse.json({ error: "records not loaded" }, { status: 503 });
     const drill = req.nextUrl.searchParams.get("drill");
     if (drill) return NextResponse.json({ cptids: drillIds(client, data.records as Record<string, Rec>, drill, req.nextUrl.searchParams.get("v") ?? "") });
-    const [state, tracking] = await Promise.all([getState(client), getTracking()]);
+    const [state, tracking] = await Promise.all([getState(client), currentTracking(client, getTracking)]);
+    requireCurrentSql(client, state);
     const prospects = (state?.prospects ?? []) as Prospect[];
     const o = buildOverlay((state?.updates ?? []) as unknown as UpdateRow[]);
     // Committee/campaign-only donors can have a valid campaign CPTID but no master
@@ -193,7 +196,7 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
       return NextResponse.json(out, { headers: { "Cache-Control": "no-store" } });
     }
     const index = overlaidIndex(data.index, prospects, campaign, o).map((r) => ({ ...r, ...assignment(r.cptid) }));
-    return NextResponse.json({ asOf: data.asOf, index }, { headers: { "Cache-Control": "private, max-age=20" } });
+    return NextResponse.json({ asOf: data.asOf, index, directSourceRevision: (data as unknown as { directSourceRevision?: string }).directSourceRevision }, { headers: { "Cache-Control": "no-store" } });
   }
-  return { GET };
+  return { GET: async (req: NextRequest) => { try { return await GET(req); } catch { return NextResponse.json({ error: "Current complete records/manual/source view unavailable" }, { status: 503 }); } } };
 }

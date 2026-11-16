@@ -1,4 +1,5 @@
 import { get as blobGet } from "@vercel/blob";
+import { directData } from "./portal-v2/direct-source-state.server";
 
 // Local QA only: BAQ_LOCAL_DIR points at a folder holding snapshot.json and
 // records.json so the portal can run without the blob store.
@@ -88,7 +89,7 @@ export interface DonorRecord {
 export interface BaqRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
 let cache: { at: number; data: BaqRecords } | null = null;
-export async function getBaqRecords(): Promise<BaqRecords | null> {
+async function getBaqRawRecords(): Promise<BaqRecords | null> {
   if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   try {
     const r = await get(BAQ_RECORDS_PATH, { access: "private", useCache: false });
@@ -99,4 +100,9 @@ export async function getBaqRecords(): Promise<BaqRecords | null> {
   } catch {
     return null;
   }
+}
+export async function getBaqRecords(): Promise<BaqRecords | null> {
+  const raw = await getBaqRawRecords();
+  if (!raw) return null;
+  try { return await directData("baq", raw, "records"); } catch { return null; }
 }

@@ -22,7 +22,9 @@ function fmt(v: string | number | null, kind?: string) {
 // Branded PDF/Excel for any table on the WCBHC data portal.
 // Body: { format: "pdf"|"xlsx", title, subtitle?, cols: ExportCol[], sections: ExportSection[], notes?: string[] }
 export async function POST(req: NextRequest) {
+  const { directLaneEnabled } = await import("@/lib/portal-v2/direct-registration.server");
   if (!(await isWcbhcDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  if (directLaneEnabled("wcbhc")) return NextResponse.json({ error: "Custom browser-grid export held: use a server-owned current report; caller rows are not authoritative." }, { status: 503 });
   const b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[] };
   const title = String(b.title || "WCBHC Report").slice(0, 120);
   const subtitle = `${b.subtitle ? b.subtitle + " · " : ""}${CLIENT} · Prepared ${preparedOn()}`;
