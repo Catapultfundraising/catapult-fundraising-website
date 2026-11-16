@@ -77,9 +77,95 @@ function fixtureDeps() {
 }
 function request(body, headers = {}) { return new NextRequest("http://localhost:3100/api/pvas-data-direct-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", cookie: `catapult_research_auth=${COOKIE}`, ...headers }, body: JSON.stringify(body) }); }
 let checks = 0;
-async function check(name, run) { if(process.env.DIRECT_STATE_IDS_ONLY==="1" && !name.includes("SQL manual state row-id boundary"))return; if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
+async function check(name, run) { if(process.env.MONTHLY_ONLY && (!name.includes("monthly campaign") || (process.env.MONTHLY_ONLY==="parser" && !name.includes("monthly campaign parser"))))return; if(process.env.DIRECT_STATE_IDS_ONLY==="1" && !name.includes("SQL manual state row-id boundary"))return; if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
 (async () => {
   console.log("# MOCK backend wire / NO SQL / NO network / original website code");
+  await check("monthly campaign parser: exact cash, original bytes, stable IDs, dates, unsupported rows and unchanged notes quotas", async () => {
+    const monthly=require("../lib/portal-v2/monthly-file.server.ts"),pub=require("../lib/portal-v2/monthly-wire.ts"),parser=require("../lib/portal-v2/source-file-preview.ts");
+    const make=(csv="Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n0001,T-01,1500.25,2026-11-10,gift,received,USD\n")=>({bytes:encode(csv),fileName:"cash.csv",requestId:ID,source:"Fictional CRM",sourceDate:"2026-11-15",period:"2026-11",actor:"Fictional staff",campaignOnly:true,receivedUsdCash:true,parseSettings:{format:"csv"},dateSystem:"iso",mapping:{Client_ID:"clientId",Transaction_ID:"transactionId",Amount:"amount",Date:"date",Type:"kind",Status:"status",Currency:"currency"}});
+    const ids=[{clientId:"0001",cptid:900001,name:"Fictional donor"}],a=monthly.buildMonthlyRequest("jag",monthly.parseMonthlyFile(make()),ids);
+    assert.equal(a.request.rows[0].amount,"1500.25");assert.equal(a.request.rows[0].clientId,"0001");assert.equal(a.request.campaignOnly,true);assert.equal(a.request.rows[0].status,"received");
+    assert.equal(a.request.fileDigest,crypto.createHash("sha256").update(Buffer.from(make().bytes,"base64")).digest("hex"));
+    assert.equal(a.payloadHash,crypto.createHash("sha256").update(pub.monthlyCanonical(a.request)).digest("hex"));
+    for(const value of ["1.001","1,50","-1","0","1e3","9999999999999.00"])assert.throws(()=>monthly.monthlyMoney(value,false));
+    assert.equal(monthly.monthlyMoney("$1,500.25",false),"1500.25");assert.equal(monthly.monthlyMoney("999999999999.99",true),"999999999999.99");
+    for(const value of ["NaN","-0","1.001","1e999"])assert.throws(()=>monthly.monthlyMoney(value,true));
+    for(const changed of [{...make(),fileName:"renamed.csv"},{...make(),sourceDate:"2026-11-14"},{...make(),source:"Different CRM"}])assert.notEqual(monthly.buildMonthlyRequest("jag",changed,ids).payloadHash,a.payloadHash);
+    for(const csv of [
+      "Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n0001,T-01,100.00,2026-11-10,pledge,received,USD\n",
+      "Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n0001,T-01,100.00,2026-11-10,gift,pending,USD\n",
+      "Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n0001,T-01,100.00,2026-11-10,gift,received,CAD\n",
+      "Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n0001,T-01,100.00,2026-10-10,gift,received,USD\n",
+      "Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n0001,,100.00,2026-11-10,gift,received,USD\n",
+      "Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n1,T-01,100.00,2026-11-10,gift,received,USD\n",
+      "Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n,T-01,100.00,2026-11-10,gift,received,USD\n"
+    ])assert.throws(()=>monthly.buildMonthlyRequest("jag",make(csv),ids),e=>e.exceptions.length===1);
+    assert.throws(()=>monthly.buildMonthlyRequest("jag",make(),[...ids,{clientId:"0001",cptid:900002,name:"Ambiguous"}]),e=>e.exceptions[0].reason.includes("ambiguous"));
+    assert.throws(()=>monthly.parseMonthlyFile({...make(),receivedUsdCash:false}));
+    assert.throws(()=>monthly.buildMonthlyRequest("jag",make("Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency,cptid\n0001,T-01,100.00,2026-11-10,gift,received,USD,900002\n"),ids),/Map supplied CPTID/);
+    assert.throws(()=>monthly.buildMonthlyRequest("jag",{...make(),mapping:{...make().mapping,Type:""}},ids),/Map the kind/);
+    const twice=make(Buffer.from(make().bytes,"base64").toString().trimEnd()+"\n0001,T-01,1500.25,2026-11-10,gift,received,USD\n");
+    assert.throws(()=>monthly.buildMonthlyRequest("jag",twice,ids),e=>e.exceptions[0].reason.includes("Duplicate"));
+    const many=make("Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n"+Array.from({length:1000},(_,i)=>`0001,T-${i},1.01,2026-11-10,gift,received,USD`).join("\n"));
+    assert.equal(monthly.buildMonthlyRequest("jag",many,ids).request.rows.length,1000);
+    assert.throws(()=>parser.inspectSourceFile(many.bytes),/500/);
+    assert.throws(()=>monthly.buildMonthlyRequest("jag",{...many,bytes:encode(Buffer.from(many.bytes,"base64").toString()+"\n0001,overflow,1.01,2026-11-10,gift,received,USD")},ids),/1000/);
+    assert.equal(monthly.monthlyTransactionDate("46336",true,"excel1900"),"2026-11-10");
+    for(const v of ["60","46336.5"])assert.throws(()=>monthly.monthlyTransactionDate(v,true,"excel1900"));
+    assert.throws(()=>monthly.monthlyTransactionDate("46336",true,"iso"));assert.throws(()=>monthly.monthlyTransactionDate("2026-02-30",false,"iso"));
+    const fix=require("./fixtures/source-ooxml-test-fixture.ts"),parts=fix.workbookParts();
+    const header=`<row r="7">${["Client_ID","Transaction_ID","Amount","Date"].map((v,i)=>fix.textCell(String.fromCharCode(65+i)+"7",v)).join("")}</row>`;
+    const xml=(formula=false)=>`<worksheet xmlns="${fix.NS}"><sheetData>${header}<row r="8">${fix.textCell("A8","0001")}${fix.textCell("B8","T-01")}${fix.numberCell("C8","1500.25",formula?"1+1":undefined)}${fix.numberCell("D8","46336")}</row></sheetData></worksheet>`;
+    const xf={...make(),fileName:"cash.xlsx",parseSettings:{format:"xlsx",sheet:"Data",headerRow:7},dateSystem:"excel1900",mapping:{Client_ID:"clientId",Transaction_ID:"transactionId",Amount:"amount",Date:"date"},bytes:fix.zipParts({...parts,"xl/worksheets/sheet1.xml":xml()}).toString("base64")};
+    const xb=monthly.buildMonthlyRequest("jag",xf,ids);assert.equal(xb.request.rows[0].amount,"1500.25");assert.equal(xb.request.rows[0].date,"2026-11-10");assert.equal(xb.request.rows[0].row,8);
+    assert.throws(()=>monthly.buildMonthlyRequest("jag",{...xf,bytes:fix.zipParts({...parts,"xl/worksheets/sheet1.xml":xml(true)}).toString("base64")},ids),e=>e.exceptions[0].reason.includes("Formula"));
+  });
+  await check("monthly campaign gateway: all-five existing employee auth, exact wire, preview/commit/status, holds and uncertain replies", async () => {
+    const {monthlyGiftGateway}=require("../lib/portal-v2/monthly-gateway.server.ts"),pub=require("../lib/portal-v2/monthly-wire.ts"),mf=require("../lib/portal-v2/monthly-file.server.ts");
+    const ids=[{clientId:"0001",cptid:900001,name:"Fictional donor"}];
+    const file={bytes:encode("Client_ID,Transaction_ID,Amount,Date\n0001,T-01,1500.25,2026-11-10\n0001,T-02,1500.25,2026-11-10\n"),fileName:"cash.csv",requestId:ID,source:"Fictional CRM",sourceDate:"2026-11-15",period:"2026-11",actor:"Fictional staff",campaignOnly:true,receivedUsdCash:true,parseSettings:{format:"csv"},dateSystem:"iso",mapping:{Client_ID:"clientId",Transaction_ID:"transactionId",Amount:"amount",Date:"date"}};
+    const clients=["jag","csnf","pvas","wcbhc","baq"],cookies={};
+    for(const c of clients){process.env[`${c.toUpperCase()}_DATA_PASSWORD`]=`fictional-${c}`;const a=require(`../lib/${c}-data-auth.ts`);cookies[c]=`${a[`${c.toUpperCase()}_DATA_COOKIE`]}=${await a[`${c}DataCookieValue`]()}`;}
+    for(const client of clients){
+      const calls=[],receipts=new Map();let malformed=null;
+      const deps={identities:async c=>{assert.equal(c,client);return ids},call:async(c,op,b)=>{
+        calls.push({c,op,b});assert.equal(c,client);if(malformed)return{status:200,body:malformed};
+        if(op==="monthlyStatus")return{status:200,body:receipts.get(b.requestId)||{v:1,status:"not-found",requestId:b.requestId,client}};
+        const r=b.request;assert.equal(r.client,client);assert.equal(r.campaignOnly,true);assert.equal(r.basis,"received-cash");assert.equal(r.rows[0].kind,"gift");assert.equal(r.rows[0].currency,"USD");
+        const payloadHash=crypto.createHash("sha256").update(pub.monthlyCanonical(r)).digest("hex");
+        if(receipts.has(r.requestId))return{status:200,body:{...receipts.get(r.requestId),replayed:true}};
+        if(op==="monthlyPreview")return{status:200,body:{v:1,status:"preview",requestId:r.requestId,payloadHash,planHash:hex("c"),expiresAt:Date.now()+300000,proof:hex("b"),counts:{new:2,unchanged:0,held:0},totals:{new:"3000.50",unchanged:"0.00",held:"0.00"},rows:r.rows.map(x=>({row:x.row,action:"new",reason:null}))}};
+        assert.equal(op,"monthlyCommit");assert.equal(b.approval.confirm,true);
+        const result={v:1,status:"committed",requestId:r.requestId,client,payloadHash,batchId:42,counts:{new:2,unchanged:0,held:0},totals:{new:"3000.50",unchanged:"0.00",held:"0.00"},scope:"campaign-gifts-only",replayed:false};receipts.set(r.requestId,result);return{status:200,body:result};
+      }};
+      const route=monthlyGiftGateway(client,deps),post=(body,headers={})=>route(new NextRequest(`http://localhost/api/${client}-data-monthly-import`,{method:"POST",headers:{"content-type":"application/json",origin:"http://localhost",cookie:cookies[client],...headers},body:JSON.stringify(body)}));
+      for(const other of clients.filter(c=>c!==client))assert.equal((await post({op:"preview",file},{cookie:cookies[other]})).status,401);
+      assert.equal((await post({op:"preview",file},{cookie:""})).status,401);assert.equal((await post({op:"preview",file},{origin:"https://foreign.invalid"})).status,403);
+      assert.equal((await post({op:"preview",client:"foreign",file})).status,400);assert.equal(calls.length,0);
+      const p=await(await post({op:"preview",file})).json();assert.equal(p.plan.counts.new,2);assert.equal(p.review.currency,"USD");
+      const hash=mf.buildMonthlyRequest(client,file,ids).payloadHash;pub.confirmedMonthlyPlan(p.plan,ID,hash,mf.buildMonthlyRequest(client,file,ids).request.rows);
+      const reply=await post({op:"commit",file,approval:{planHash:p.plan.planHash,expiresAt:p.plan.expiresAt,proof:p.plan.proof,confirm:true}});assert.equal(reply.status,200);
+      pub.confirmedMonthlyReceipt(await reply.json(),client,ID,hash,2);
+      assert.equal((await(await post({op:"status",requestId:ID})).json()).status,"committed");
+      assert.equal((await(await post({op:"preview",file})).json()).receipt.replayed,true);
+      malformed={};const bad=await post({op:"commit",file,approval:{planHash:hex("c"),expiresAt:p.plan.expiresAt,proof:hex("b"),confirm:true}});assert.equal(bad.status,503);assert.equal((await bad.json()).requestId,ID);
+      assert.equal((await post({op:"status",requestId:ID})).status,400);
+      const before=calls.length;assert.equal((await post({op:"preview",file:{...file,receivedUsdCash:false}})).status,422);assert.equal(calls.length,before);
+    }
+    for(const c of clients)delete process.env[`${c.toUpperCase()}_DATA_PASSWORD`];
+    const base={v:1,status:"committed",requestId:ID,client:"jag",payloadHash:hex("a"),batchId:null,counts:{new:0,unchanged:0,held:0},totals:{new:"0.00",unchanged:"0.00",held:"0.00"},scope:"campaign-gifts-only",replayed:true};
+    assert.throws(()=>pub.confirmedMonthlyReceipt(base,"jag",ID));
+    assert.throws(()=>pub.confirmedMonthlyReceipt({...base,counts:{new:1001,unchanged:0,held:0}},"jag",ID));
+    // Exercise actual shared legacy transport owner for monthly envelopes, bounded replies and timeout/no-redirect options.
+    const serverFile=path.join(root,"lib/portal-v2/server.ts"),realModule=new Module(serverFile,module);realModule.filename=serverFile;realModule.paths=Module._nodeModulePaths(path.dirname(serverFile));require.extensions[".ts"](realModule,serverFile);
+    process.env.ENGAGE_PORTAL_URL_OVERRIDE="https://fictional.invalid/api/portal-v2";process.env.PORTAL_WRITE_SECRET=secret;
+    transport=async(url,options)=>{assert.equal(url,"https://fictional.invalid/api/portal-v2");assert.equal(options.redirect,"error");assert.equal(options.cache,"no-store");assert.ok(options.signal instanceof AbortSignal);const body=JSON.parse(options.body);assert.equal(body.op,"monthlyStatus");assert.equal(body.client,"jag");assert.equal(body.requestId,ID);return Response.json({v:1,status:"not-found",requestId:ID,client:"jag"})};
+    assert.equal((await realModule.exports.engageCall("jag","monthlyStatus",{requestId:ID})).body.status,"not-found");
+    transport=async()=>new Response("not-json");await assert.rejects(()=>realModule.exports.engageCall("jag","monthlyStatus",{requestId:ID}));
+    transport=null;delete process.env.ENGAGE_PORTAL_URL_OVERRIDE;delete process.env.PORTAL_WRITE_SECRET;
+    const ui=fs.readFileSync(path.join(root,"components/monthly-gift-upload.tsx"),"utf8");
+    assert.ok(ui.includes("Not found yet does not prove"));assert.ok(ui.includes('setUpload(null); setHeaders([]); setMapping({})'));assert.ok(ui.includes('setPending(p); setBusy(true)'));
+  });
   await check("whole-file preview + commit + status use exact32hex, original bytes and signed ordered observations", async () => {
     const f = fixtureDeps(), route = gateway.directFileGateway("pvas", f.deps), input = file();
     const p = await route(request({ op: "preview", file: input })); assert.equal(p.status, 200); const preview = await p.json();

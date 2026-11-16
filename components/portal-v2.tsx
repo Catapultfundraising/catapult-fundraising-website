@@ -1,4 +1,5 @@
 "use client";
+import { MonthlyGiftUpload } from "@/components/monthly-gift-upload";
 import {currentDashboardSnapshot} from "@/lib/portal-v2/current-dashboard-snapshot";
 
 import { assignmentSnapshot, type Assignment, type AssignmentTracking } from "@/lib/portal-v2/effective-assignment";
@@ -469,14 +470,15 @@ function EditPortalProspect({ p, onDone }: { p: PortalState["prospects"][number]
 }
 
 export function AddAndUpload() {
-  const { state, client } = useV2();
+  const { state, client, reload } = useV2();
   const [editing, setEditing] = useState<number | null>(null);
   const pso = useSort([...(state?.prospects ?? [])].reverse().map((p) => ({ ...p, addr: [p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ") })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   return (
     <div className="space-y-6">
       <AddProspect />
       <DirectDashboardUpload key={`direct:${client}`} client={client} />
-      <UploadClientFile />
+      <MonthlyGiftUpload key={`monthly:${client}`} client={client} refresh={reload} />
+      <details><summary className="cursor-pointer text-sm font-medium">Legacy contact / gift upload (tuple dedupe only: not the monthly transaction importer)</summary><UploadClientFile /></details>
       <div className={card}><DuplicatesPanel client={client} /></div>
       <AuditLog />
       {state && state.prospects.length > 0 && (
