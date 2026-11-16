@@ -46,7 +46,7 @@ export function PortalV2Provider({ client, children }: { client: PortalClient; c
   return <V2.Provider value={{ client, state, loading, reload }}>{children}</V2.Provider>;
 }
 export function useCampaignDataStatus() { const { state, loading } = useV2(); return { loading, available: !!state && state.configured !== false && !state.error }; }
-export function useCampaignAskSnapshot<T>(snapshot: T, index?: ({ cptid: number } & Partial<Assignment>)[] | null, tracking?: AssignmentTracking): T & { directReadUnavailable?: boolean } {
+export function useCampaignAskSnapshot<T extends object>(snapshot: T, index?: ({ cptid: number } & Partial<Assignment>)[] | null, tracking?: AssignmentTracking): T & { directReadUnavailable?: boolean } {
   const { client, state } = useV2();
   return useMemo(() => {
     const updates = (state?.updates ?? []) as UpdateRow[];

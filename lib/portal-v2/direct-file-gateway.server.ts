@@ -204,6 +204,7 @@ function publicReceipt(raw: Record<string, unknown>, client: PortalClient, origi
   if (!exact(raw, required) || raw.protocol !== "direct-file-v1" || raw.status !== "committed" || raw.client !== client || raw.requestId !== original ||
       raw.effect !== "source-state-only" || raw.effectiveChanges !== "not-asserted" || raw.publication !== "not-requested" ||
       !hex(raw.payloadHash) || !hex(raw.previewHash) || !["saved", "held", "unchanged"].every(k => Number.isSafeInteger(raw[k]) && Number(raw[k]) >= 0 && Number(raw[k]) <= 50) ||
+      Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) < 1 || Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) > 50 ||
       (raw.replay !== undefined && typeof raw.replay !== "boolean") ||
       (expected && (raw.payloadHash !== expected.payloadHash || raw.previewHash !== expected.previewHash || Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) !== expected.cells)))
     throw new GatewayError("invalid-source-receipt", 503);

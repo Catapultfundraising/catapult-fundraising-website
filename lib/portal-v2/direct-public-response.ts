@@ -8,7 +8,7 @@ export function confirmedDirectReceipt(raw: unknown, expected: Expected): Direct
       raw.requestId !== expected.requestId || !/^[a-f0-9]{32}$/.test(expected.requestId) ||
       raw.effect !== "source-state-only" || raw.effectiveChanges !== "not-asserted" || raw.publication !== "not-requested" ||
       !hex(raw.payloadHash) || !hex(raw.previewHash) || !["saved", "held", "unchanged"].every(k => Number.isSafeInteger(raw[k]) && Number(raw[k]) >= 0 && Number(raw[k]) <= 50) ||
-      Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) > 50 ||
+      Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) < 1 || Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) > 50 ||
       (expected.payloadHash !== undefined && raw.payloadHash !== expected.payloadHash) ||
       (expected.previewHash !== undefined && raw.previewHash !== expected.previewHash) ||
       (expected.cells !== undefined && Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) !== expected.cells))

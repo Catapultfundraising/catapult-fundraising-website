@@ -8,8 +8,12 @@ let enabled = false, sql = { updates: [], prospects: [] }, source, transport;
 const server = { engageCall: async () => ({ status: 200, body: sql }), secondarySolicitors: async () => ({}), saveSecondarySolicitor: async () => {}, logHistoryAudit: async () => {}, parseUsDate: s => s };
 Module._load = function(name, parent, main) {
   if (name === "server-only") return {};
+  if (name === "@react-pdf/renderer") return {};
   if (name.startsWith("@/")) name = path.join(root, name.slice(2));
   const file = name.startsWith(".") ? path.resolve(path.dirname(parent.filename), name) : name;
+  // Generic-export test exercises route authorization/hold only, not PDF/XLSX rendering.
+  if (/\/lib\/(jag|csnf|pvas|wcbhc|baq)-brand-pdf$/.test(file)) return { preparedOn: () => "Fictional test", registerBrandFonts: () => {} };
+  if (/\/lib\/(jag|csnf|pvas|wcbhc|baq)-brand-xlsx$/.test(file)) return { buildBrandedXlsx: async () => Buffer.from("mock renderer: lane-OFF legacy route") };
   if (file === path.join(root, "lib/portal-v2/direct-registration.server")) return { directLaneEnabled: () => enabled, APPROVED_WEBSITE_DIRECT_REGISTRATIONS: [], DIRECT_WEBSITE_INTEGRATION_ACCEPTED: false };
   if (file === path.join(root, "lib/portal-v2/server")) return server;
   return original.call(this, name, parent, main);
@@ -164,7 +168,33 @@ async function check(name, run) { await run(); console.log(`ok ${++checks} - ${n
     const hung = new ReadableStream({ pull() { return new Promise(() => {}); }, cancel() { cancelled = true; } });
     await assert.rejects(() => readBoundedStream(hung, 1000, 5)); // bounded synthetic deadline, not a polling loop.
   });
+  await check("receipt status totals must be1..50 even without local expected count", async () => {
+    for (const counts of [{ saved: 0, held: 0, unchanged: 0 }, { saved: 50, held: 1, unchanged: 0 }]) {
+      const f = fixtureDeps(), raw = { protocol: "direct-file-v1", requestId: ID, client: "pvas", status: "committed", ...counts,
+        payloadHash: hex("a"), previewHash: hex("b"), effect: "source-state-only", effectiveChanges: "not-asserted", publication: "not-requested" };
+      f.mutate((_, op) => op === "directFileStatus" ? { status: 200, body: raw } : null);
+      assert.equal((await gateway.directFileGateway("pvas", f.deps)(request({ op: "status", requestId: ID }))).status, 503);
+      assert.throws(() => confirmedDirectReceipt(raw, { client: "pvas", requestId: ID }));
+    }
+  });
+  await check("upload/read ten-integer-digit currency policy agrees at boundary, refusing broader backend range", async () => {
+    const make = value => ({ ...file(`Client_ID,CPTID,Campaign Ask\n0001,900001,${value}\n`), mapping: { Client_ID: "clientId", "Campaign Ask": "ask" }, noteResolutions: {} });
+    const f = fixtureDeps(), built = await gateway.buildGatewayBatch("pvas", make("9999999999.99"), f.deps);
+    assert.equal(built.batch.cells[0].value, "9999999999.99");
+    const value = { cptid: 900001, field: "ask", value: built.batch.cells[0].value, template: "fictional", authority_rev: hex("a"), request_id: ID, source_date: "2026-10-19", committed_at: "2026-10-19T12:00:00.000Z" };
+    const state = { protocol: "direct-file-v1", status: "known", scope: "whole-client", complete: true, client: "pvas", revision: hex("d"), observedAt: "2026-10-19T12:00:00.000Z", values: [value], notes: [], note: "Source only" };
+    assert.equal(reads.validateDirectState(state, "pvas").values[0].value, "9999999999.99");
+    await assert.rejects(() => gateway.buildGatewayBatch("pvas", make("10000000000.00"), f.deps));
+    assert.throws(() => reads.validateDirectState({ ...state, values: [{ ...value, value: "10000000000.00" }] }, "pvas"));
+  });
   for (const client of strict.DIRECT_CLIENTS) {
+    await check(`${client}: actual custom-grid export held503 while direct enabled, legacy laneOFF preserved`, async () => {
+      const route = require(`../app/api/${client}-data-export/route.tsx`);
+      const post = () => route.POST(new NextRequest(`http://localhost/api/${client}-data-export`, { method: "POST", headers: { cookie: `catapult_research_auth=${COOKIE}` },
+        body: JSON.stringify({ format: "xlsx", title: "Fictional", cols: [{ label: "Name" }], sections: [{ rows: [["Fictional"]] }] }) }));
+      enabled = true; assert.equal((await post()).status, 503);
+      enabled = false; assert.equal((await post()).status, 200);
+    });
     await check(`${client}: actual records loader/routes and server report retain source0, late manual clear, unknown refusal`, async () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), `bounded-${client}-`));
       process.env[`${client.toUpperCase()}_LOCAL_DIR`] = dir;
