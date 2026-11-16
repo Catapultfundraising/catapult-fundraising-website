@@ -12,7 +12,7 @@ type Upload = { fileName: string; bytes: string };
 type Pending = { requestId: string; uncertain: boolean; receipt?: DirectFileReceipt };
 /** Lives inside the existing all-five Add + Upload tab; never uses legacy multipart applyBatch. */
 export function DirectDashboardUpload({ client }: { client: string }) {
-  const [caps, setCaps] = useState<DirectFileCapabilities | null>(null), [research, setResearch] = useState(false);
+  const [caps, setCaps] = useState<DirectFileCapabilities | null>(null), [authRequired, setAuthRequired] = useState(false);
   const [upload, setUpload] = useState<Upload | null>(null), [sheets, setSheets] = useState<string[]>([]), [sheet, setSheet] = useState("");
   const [format, setFormat] = useState<"csv" | "xlsx">("csv"), [headerRow, setHeaderRow] = useState(1), [integerId, setIntegerId] = useState(false);
   const [headers, setHeaders] = useState<string[]>([]), [mapping, setMapping] = useState<Record<string, string>>({}), [verify, setVerify] = useState<string | null>(null);
@@ -28,12 +28,12 @@ export function DirectDashboardUpload({ client }: { client: string }) {
   async function call(body: unknown) {
     const r = await fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json();
-      if (r.status === 401 && j.code === "research-auth-required") setResearch(true);
+      if (r.status === 401) setAuthRequired(true);
     if (!r.ok) { const e = new Error(j.error || j.code || "Unavailable") as Error & { exceptions?: typeof exceptions }; e.exceptions = j.exceptions; throw e; }
     return j;
   }
   useEffect(() => {
-    generation.current++; request.current = null; setPlan(null); setUpload(null); setHeaders([]); setMapping({}); setPending(null); setCaps(null); setResearch(false); setVerified(false);
+    generation.current++; request.current = null; setPlan(null); setUpload(null); setHeaders([]); setMapping({}); setPending(null); setCaps(null); setAuthRequired(false); setVerified(false);
     let active = true;
     const saved = localStorage.getItem(`direct-import-pending:${client}`);
     if (saved && /^[a-f0-9]{32}$/.test(saved)) { request.current = saved; setPending({ requestId: saved, uncertain: true }); }
@@ -118,9 +118,9 @@ export function DirectDashboardUpload({ client }: { client: string }) {
   return <section className="rounded-lg border border-[rgb(var(--line))] bg-white p-5" aria-label="Direct notes and portfolio import">
     <h3 className="font-display text-lg text-[rgb(var(--navy))]">Direct notes + portfolio import</h3>
     <p className="mt-1 text-sm text-[rgb(var(--ink))]/65">One complete file, one preview and one approval. At most 50 mapped write cells including blanks, 500 rows and 2,000,000 bytes. Further audit-storage and safety limits can hold the entire file before writes. Exact client IDs only; no name matching, donor creation or gifts.</p>
-    {research && <p role="alert" className="mt-3 text-sm">This source-import action requires the existing research login in addition to dashboard access. <a className="underline" href={`/research/login?next=${encodeURIComponent(`/${client}/data-dashboard?tab=Add%20%2B%20Upload`)}`}>Open research login, then return to this dashboard</a>.</p>}
-    {caps && (caps.status !== "known" || !caps.applyEnabled || !caps.templates.length) && <p role="status" className="mt-3 bg-[rgb(var(--paper))] p-3 text-sm">OFF — no approved active template is available. You may inspect a file after research login, but cannot preview or commit an import. No production field ownership has been activated.</p>}
-    <fieldset disabled={locked || research} className="mt-4 space-y-3">
+    {authRequired && <p role="alert" className="mt-3 text-sm">Your dashboard sign-in has expired or is unavailable. <a className="underline" href={`/${client}/data-dashboard/login`}>Sign in to this dashboard</a>, then return to Add + Upload. No separate research sign-in is required.</p>}
+    {caps && (caps.status !== "known" || !caps.applyEnabled || !caps.templates.length) && <p role="status" className="mt-3 bg-[rgb(var(--paper))] p-3 text-sm">OFF — no approved active template is available. You may inspect a file while signed in to this dashboard, but cannot preview or commit an import. No production field ownership has been activated.</p>}
+    <fieldset disabled={locked || authRequired} className="mt-4 space-y-3">
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-xs">Source template<select className={input} value={template} onChange={e => { invalidate(); setTemplate(e.target.value); }}><option value="">No approved template</option>{caps?.templates.map(t => <option key={t.template}>{t.template}</option>)}</select></label>
         <label className="text-xs">Source date<input className={input} type="date" value={sourceDate} onChange={e => { invalidate(); setSourceDate(e.target.value); }} /></label>

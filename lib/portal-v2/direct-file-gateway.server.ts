@@ -1,6 +1,10 @@
 import "server-only";
 import type { PortalClient } from "./clients";
-import { isResearchAuthed } from "../research-auth";
+import { isJagDataAuthed } from "../jag-data-auth";
+import { isCsnfDataAuthed } from "../csnf-data-auth";
+import { isPvasDataAuthed } from "../pvas-data-auth";
+import { isWcbhcDataAuthed } from "../wcbhc-data-auth";
+import { isBaqDataAuthed } from "../baq-data-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { buildProfile } from "./source-mapping-profile";
 import { parseKeyOf } from "./source-keys";
@@ -210,9 +214,14 @@ function publicReceipt(raw: Record<string, unknown>, client: PortalClient, origi
     throw new GatewayError("invalid-source-receipt", 503);
   return raw;
 }
+/** Same fixed-client authorization owner as established dashboard/manual-write APIs.
+ * Existing research and automation access stays valid; another dashboard cookie never grants this client. */
+const DASHBOARD_AUTH: Record<PortalClient, (req: NextRequest) => Promise<boolean>> = {
+  jag: isJagDataAuthed, csnf: isCsnfDataAuthed, pvas: isPvasDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed,
+};
 export function directFileGateway(client: PortalClient, deps: GatewayDeps = defaults) {
   return async (req: NextRequest) => {
-    if (!(await isResearchAuthed(req))) return NextResponse.json({ error: "Research login required", researchLogin: "/research/login", code: "research-auth-required" }, { status: 401 });
+    if (!(await DASHBOARD_AUTH[client](req))) return NextResponse.json({ error: "Dashboard sign-in required", dashboardLogin: `/${client}/data-dashboard/login`, code: "dashboard-auth-required" }, { status: 401 });
     if (req.headers.get("origin") !== req.nextUrl.origin || req.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ code: "same-origin-required" }, { status: 403 });
     if (!req.headers.get("content-type")?.startsWith("application/json") || Number(req.headers.get("content-length") ?? 0) > 2_900_000) return NextResponse.json({ code: "invalid-request-envelope" }, { status: 413 });
     let commitAttempt: string | null = null;

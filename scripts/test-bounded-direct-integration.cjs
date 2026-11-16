@@ -77,7 +77,7 @@ function fixtureDeps() {
 }
 function request(body, headers = {}) { return new NextRequest("http://localhost:3100/api/pvas-data-direct-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", cookie: `catapult_research_auth=${COOKIE}`, ...headers }, body: JSON.stringify(body) }); }
 let checks = 0;
-async function check(name, run) { if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
+async function check(name, run) { if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
 (async () => {
   console.log("# MOCK backend wire / NO SQL / NO network / original website code");
   await check("whole-file preview + commit + status use exact32hex, original bytes and signed ordered observations", async () => {
@@ -189,6 +189,50 @@ async function check(name, run) { if(process.env.DIRECT_EXPORT_ONLY==="1" && !na
     assert.throws(() => reads.validateDirectState({ ...state, values: [{ ...value, value: "10000000000.00" }] }, "pvas"));
   });
   for (const client of strict.DIRECT_CLIENTS) {
+    await check(`${client}: source gateway employee auth — matching dashboard, research/automation, isolation and CSRF`, async () => {
+      const clients=["jag","csnf","pvas","wcbhc","baq"],cookies={};
+      for(const c of clients){
+        process.env[`${c.toUpperCase()}_DATA_PASSWORD`]=`fictional-${c}-employee-password`;
+        process.env[`${c.toUpperCase()}_DATA_AUTH_SECRET`]=`fictional-${c}-auth-secret`;
+        const auth=require(`../lib/${c}-data-auth.ts`);
+        cookies[c]=`${auth[`${c.toUpperCase()}_DATA_COOKIE`]}=${await auth[`${c}DataCookieValue`]()}`
+      }
+      process.env.CRON_SECRET="fictional-existing-dashboard-automation-key";
+      const f=fixtureDeps(),route=gateway.directFileGateway(client,f.deps);
+      const post=(headers={},body={op:"capabilities"})=>route(new NextRequest(`http://localhost/api/${client}-data-direct-import`,{method:"POST",
+        headers:{"content-type":"application/json",origin:"http://localhost",...headers},body:JSON.stringify(body)}));
+      const denied=async(headers,status,code)=>{
+        const before=f.calls.length,res=await post(headers);assert.equal(res.status,status);assert.equal(f.calls.length,before);
+        const j=await res.json();if(code)assert.equal(j.code,code);
+        if(status===401)assert.equal(j.dashboardLogin,`/${client}/data-dashboard/login`);
+      };
+      assert.equal((await post({cookie:cookies[client]})).status,200);
+      assert.equal(f.calls.at(-1).client,client);
+      await denied({},401,"dashboard-auth-required");
+      await denied({cookie:`catapult_${client}_data_auth=invalid`},401,"dashboard-auth-required");
+      for(const other of clients.filter(c=>c!==client))await denied({cookie:cookies[other]},401,"dashboard-auth-required");
+      await denied({cookie:"catapult_jag_auth=fictional-study; catapult_jag_admin_auth=fictional-admin; catapult_board_review=fictional-board"},401,"dashboard-auth-required");
+      assert.equal((await post({cookie:`catapult_research_auth=${COOKIE}`})).status,200);
+      assert.equal((await post({"x-research-key":"fictional-local-password"})).status,200);
+      assert.equal((await post({authorization:"Bearer fictional-existing-dashboard-automation-key"})).status,200);
+      await denied({"x-research-key":"wrong"},401,"dashboard-auth-required");
+      await denied({authorization:"Bearer wrong"},401,"dashboard-auth-required");
+      await denied({cookie:cookies[client],origin:"https://cross-site.invalid"},403,"same-origin-required");
+      await denied({cookie:cookies[client],origin:""},403,"same-origin-required");
+      await denied({cookie:cookies[client],"sec-fetch-site":"cross-site"},403,"same-origin-required");
+      await denied({cookie:cookies[client],"content-type":"text/plain"},413,"invalid-request-envelope");
+      await denied({cookie:cookies[client],"content-length":"2900001"},413,"invalid-request-envelope");
+      const before=f.calls.length;
+      assert.equal((await post({cookie:cookies[client]},{op:"capabilities",client:clients.find(c=>c!==client)})).status,400);
+      assert.equal(f.calls.length,before);
+      assert.ok(f.calls.every(c=>c.client===client));
+      const ui=fs.readFileSync(path.join(root,"components/direct-dashboard-upload.tsx"),"utf8");
+      assert.equal(ui.includes("requires the existing research login in addition"),false);
+      assert.ok(ui.includes("/${client}/data-dashboard/login"));
+      assert.ok(ui.includes("Declared staff name"));assert.ok(ui.includes("!actor"));
+      for(const c of clients){delete process.env[`${c.toUpperCase()}_DATA_PASSWORD`];delete process.env[`${c.toUpperCase()}_DATA_AUTH_SECRET`];}
+      delete process.env.CRON_SECRET;
+    });
     await check(`${client}: export compatibility — all registered current tables, index/record/report, filters/order/financial/OFF`, async () => {
       const dir=fs.mkdtempSync(path.join(os.tmpdir(),`export-${client}-`));process.env[`${client.toUpperCase()}_LOCAL_DIR`]=dir;
       const idx=(cptid,name)=>({cptid,name,lifetime:321,gifts:1,largest:321,first:"2020-01-01",last:"2026-01-01",years:1,band:"",capMin:1000000,ds:"A",capacity:"$1M"});
