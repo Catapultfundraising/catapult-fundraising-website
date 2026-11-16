@@ -39,6 +39,7 @@
     "react": "^19",
     "react-dom": "^19",
     "recharts": "^2.15.1",
+    "saxes": "5.0.1",
     "tailwind-merge": "^3.0.2",
     "unpdf": "^1.7.0",
     "xlsx": "^0.18.5"
