@@ -43,16 +43,26 @@ function file(csv = "Client_ID,CPTID,Campaign Ask,New Notes\n0001,900001,1500.25
     parseSettings: { format: "csv" }, mapping: { Client_ID: "clientId", "Campaign Ask": "ask", "New Notes": "note", "@source-date": "noteDate" }, verifyCptidColumn: "CPTID", noteResolutions: { "1": "new-event" } };
 }
 function fixtureDeps() {
-  const calls = [], receipts = new Map(); let manual = doc(), replyMutation, now = 1_793_000_000;
+  const calls = [], receipts = new Map(); let manual = doc(), inventory = null, replyMutation, now = 1_793_000_000;
   const caps = { protocol: "direct-file-v1", client: "pvas", status: "known", reason: null, applyEnabled: true,
-    templates: [{ template: "fictional-portfolio", revision: hex("a"), fields: ["ask", "primarySolicitor", "secondarySolicitor", "note"], cutovers: { ask: "2026-01-01", note: "2026-01-01" } }], solicitorAliases: { status: "unavailable", entries: [] } };
-  const deps = { secret: () => secret, now: () => now, enabled: () => true, aliases: () => null, tracking: c => track(c, manual),
+    templates: [{ template: "fictional-portfolio", revision: hex("a"), fields: ["ask", "primarySolicitor", "secondarySolicitor", "note"], cutovers: { ask: "2026-01-01", note: "2026-01-01" } }], solicitorAliases: { status: "unavailable", revision: null, entries: [] } };
+  const deps = { secret: () => secret, now: () => now, enabled: () => true, inventory: async () => inventory, tracking: c => track(c, manual),
     call: async (client, op, body = {}) => {
       calls.push({ client, op, body });
       if (replyMutation) { const mutated = replyMutation(client, op, body); if (mutated) return mutated; }
-      if (op === "directFileCapabilities") return { status: 200, body: { ...caps, client } };
-      if (op === "directFileResolve") return { status: 200, body: { protocol: "direct-file-v1", status: "known", client, template: body.template, registrationRevision: hex("a"),
-        matches: body.ids.map(x => { const cptid = /^00\d{2}$/.test(x.clientId) && Number(x.clientId) >= 1 && Number(x.clientId) <= 50 ? 900000 + Number(x.clientId) : null; return { ...x, cptid, reason: cptid !== null ? (x.verifyCptid !== null && x.verifyCptid !== cptid ? "cptid-conflict" : null) : "unknown-id" }; }) } };
+      if (op === "directFileCapabilities" || op === "directFileResolve") {
+        if (inventory) {
+          const context=body.solicitorContext,base={op,client,...body};delete base.solicitorContext;
+          assert.equal(context.payload.operationHash,wire.directFileHash(base));
+          assert.equal(context.payload.client,client);assert.equal(context.payload.revision,inventory.revision);
+          assert.equal(context.payload.expiresAt-context.payload.issuedAt,120);
+          assert.equal(context.signature,crypto.createHmac("sha256",secret).update(wire.DIRECT_SOLICITOR_DOMAIN+wire.directFileHash(context.payload)).digest("hex"));
+        } else assert.equal(body.solicitorContext,undefined);
+      }
+      const aliases=inventory?wire.compileDirectSolicitors(inventory.names):caps.solicitorAliases;
+      if (op === "directFileCapabilities") return { status: 200, body: { ...caps, client, solicitorAliases:aliases } };
+      if (op === "directFileResolve") return { status: 200, body: { protocol: "direct-file-v1", status: "known", client, template: body.template, registrationRevision: hex("a"), solicitorAliases:aliases,
+        matches: body.ids.map(x => { const cptid = /^0\d{3}$/.test(x.clientId) && Number(x.clientId) >= 1 && Number(x.clientId) <= 500 ? 900000 + Number(x.clientId) : null; return { ...x, cptid, reason: cptid !== null ? (x.verifyCptid !== null && x.verifyCptid !== cptid ? "cptid-conflict" : null) : "unknown-id" }; }) } };
       if (op === "directFileStatus") return { status: 200, body: receipts.get(body.requestId) ?? { protocol: "direct-file-v1", status: "not-found", client, requestId: body.requestId, note: "May be in flight; do not resend." } };
       assert.ok(["directFilePreview", "directFileCommit"].includes(op));
       assert.deepEqual(Object.keys(body).sort(), (op === "directFileCommit" ? ["approval", "batch", "fileContext", "manualContext"] : ["batch", "fileContext", "manualContext"]).sort());
@@ -62,22 +72,28 @@ function fixtureDeps() {
       assert.equal(b.fileContextHash, wire.directFileHash(body.fileContext));
       assert.equal(m.payload.batchHash, wire.directFileHash(b));
       assert.equal(m.signature, crypto.createHmac("sha256", secret).update(wire.DIRECT_MANUAL_DOMAIN + JSON.stringify(m.payload)).digest("hex"));
-      assert.deepEqual(Object.keys(m.payload), [...wire.DIRECT_MANUAL_KEYS]);
+      assert.deepEqual(Object.keys(m.payload), [...wire.DIRECT_MANUAL_KEYS,...(inventory?["solicitorAliases"]:[])]);
+      if(inventory)assert.deepEqual(m.payload.solicitorAliases,inventory);
       assert.equal(m.payload.phase, op === "directFileCommit" ? "commit" : "preview");
       assert.equal(m.payload.observations[0].notesCoverage, "tracking-only");
       assert.equal(m.payload.observations[0].historicalRevision, null);
-      const payloadHash = wire.directFileHash(b), previewHash = wire.directFileHash([b, m.payload.observations]);
+      const payloadHash = wire.directFileHash(b), previewHash = wire.directFileHash([b, m.payload.observations, m.payload.solicitorAliases??null]);
       if (op === "directFilePreview") return { status: 200, body: { protocol: "direct-file-v1", status: "previewed", plan: { payloadHash, previewHash, proof: hex("b"), expiresAt: now * 1000 + 60000,
-        decisions: b.cells.map(c => ({ ordinal: c.ordinal, cptid: c.cptid, field: c.field, before: null, after: c.value, action: c.field === "note" && c.noteResolution !== "new-event" ? "held" : c.value ? (c.field === "note" ? "append" : "set") : "unchanged", reason: c.field === "note" && c.noteResolution !== "new-event" ? "historical-coverage-incomplete" : null, eventKey: c.field === "note" ? hex("c") : null })) } } };
+        decisions: b.cells.map(c => {
+          if(["primarySolicitor","secondarySolicitor"].includes(c.field)&&c.value) {
+            const entry=aliases.entries.find(e=>e.alias===wire.normalizeDirectSolicitor(c.value)),reason=aliases.status!=="known"?"solicitor-aliases-unavailable":!entry?"unknown-solicitor":!entry.canonical?"ambiguous-solicitor":null;
+            return {ordinal:c.ordinal,cptid:c.cptid,field:c.field,before:null,after:reason?c.value:entry.canonical,action:reason?"held":"set",reason,eventKey:null};
+          }
+          return ({ ordinal: c.ordinal, cptid: c.cptid, field: c.field, before: null, after: c.value, action: c.field === "note" && c.noteResolution !== "new-event" ? "held" : c.value ? (c.field === "note" ? "append" : "set") : "unchanged", reason: c.field === "note" && c.noteResolution !== "new-event" ? "historical-coverage-incomplete" : null, eventKey: c.field === "note" ? hex("c") : null }); }) } } };
       if (body.approval.previewHash !== previewHash) return { status: 409, body: { code: "preview-changed" } };
       const receipt = { protocol: "direct-file-v1", requestId: b.requestId, client, status: "committed", saved: b.cells.length, held: 0, unchanged: 0, payloadHash, previewHash, effect: "source-state-only", effectiveChanges: "not-asserted", publication: "not-requested", replay: false };
       receipts.set(b.requestId, receipt); return { status: 200, body: receipt };
     } };
-  return { deps, calls, receipts, setManual: d => { manual = d; }, mutate: fn => { replyMutation = fn; }, advance: () => now++ };
+  return { deps, calls, receipts, setManual: d => { manual = d; }, setInventory: names => {inventory=names===null?null:{revision:wire.compileDirectSolicitors(names).revision,names};}, mutate: fn => { replyMutation = fn; }, advance: () => now++ };
 }
 function request(body, headers = {}) { return new NextRequest("http://localhost:3100/api/pvas-data-direct-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", cookie: `catapult_research_auth=${COOKIE}`, ...headers }, body: JSON.stringify(body) }); }
 let checks = 0;
-async function check(name, run) { if(process.env.MONTHLY_ONLY && (!name.includes("monthly campaign") || (process.env.MONTHLY_ONLY==="parser" && !name.includes("monthly campaign parser"))))return; if(process.env.DIRECT_STATE_IDS_ONLY==="1" && !name.includes("SQL manual state row-id boundary"))return; if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
+async function check(name, run) { if(process.env.DIRECT_SOLICITORS_CAPACITY_ONLY==="1"&&!/solicitor capacity|whole-file preview|receipt status totals|backend lexical identity|source gateway employee auth|complete source layer only|raw tracking prospects/.test(name))return; if(process.env.MONTHLY_ONLY && (!name.includes("monthly campaign") || (process.env.MONTHLY_ONLY==="parser" && !name.includes("monthly campaign parser"))))return; if(process.env.DIRECT_STATE_IDS_ONLY==="1" && !name.includes("SQL manual state row-id boundary"))return; if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
 (async () => {
   console.log("# MOCK backend wire / NO SQL / NO network / original website code");
   await check("monthly campaign parser: exact cash, original bytes, stable IDs, dates, unsupported rows and unchanged notes quotas", async () => {
@@ -166,6 +182,64 @@ async function check(name, run) { if(process.env.MONTHLY_ONLY && (!name.includes
     const ui=fs.readFileSync(path.join(root,"components/monthly-gift-upload.tsx"),"utf8");
     assert.ok(ui.includes("Not found yet does not prove"));assert.ok(ui.includes('setUpload(null); setHeaders([]); setMapping({})'));assert.ok(ui.includes('setPending(p); setBusy(true)'));
   });
+  await check("solicitor capacity: complete inventory observations, ambiguity, unavailable and exact all-five ownership", async () => {
+    const {observeSolicitorInventory}=require("../lib/portal-v2/direct-solicitor-inventory.server.ts");
+    const nativeEmpty={highWealth:[],midLevel:[],legacy:[],lapsed:[],top:[],portfolio:[],committed:[]};
+    for(const client of strict.DIRECT_CLIENTS) {
+      let snap={...nativeEmpty,client:"Fictional client label",pool:[{solicitor:"Jane Smith"}],portfolio:[{solicitor2:"Alex Lee"}]},tr=await track(client,doc({"900001":{solicitor:"Pat Green",solicitor2:"Jane Smith"}}));
+      let state={updates:[{id:1,cptid:900001,field:"solicitor",new_value:"Old spelling"},{id:2,cptid:900001,field:"solicitor",new_value:"Current Staff"},{id:3,cptid:900002,field:"solicitor2",new_value:"Voided",voided:true}],prospects:[]};
+      const deps={snapshot:async c=>{assert.equal(c,client);return snap},tracking:async()=>tr,sql:async()=>state};
+      const observed=await observeSolicitorInventory(client,deps);assert.deepEqual(observed.names,["Alex Lee","Current Staff","Jane Smith","Pat Green"]);
+      assert.equal(observed.revision,wire.compileDirectSolicitors(observed.names).revision);
+      snap=null;assert.equal(await observeSolicitorInventory(client,deps),null);
+      snap={...nativeEmpty,client:"Fictional label",pool:[]};tr=await track(client);state={updates:[],prospects:[]};
+      assert.deepEqual((await observeSolicitorInventory(client,deps)).names,[]);
+      state={configured:false,updates:[],prospects:[]};assert.equal(await observeSolicitorInventory(client,deps),null);
+      state={updates:[],prospects:[]};tr={kind:"unavailable"};assert.equal(await observeSolicitorInventory(client,deps),null);
+      tr=await track(client);snap={...nativeEmpty,client:"Fictional",pool:[{solicitor:5}]};assert.equal(await observeSolicitorInventory(client,deps),null);
+    }
+    const ambiguous=wire.compileDirectSolicitors(["Jane Smith"," jane  smith "]);assert.equal(ambiguous.entries[0].canonical,null);
+    const ui=fs.readFileSync("components/direct-dashboard-upload.tsx","utf8");for(const key of ["solicitor:","primarysolicitor:","secondarysolicitor:","solicitor2:"])assert.ok(ui.includes(key));
+    const conf=JSON.parse(fs.readFileSync("vercel.json","utf8"));assert.equal(conf.git.deploymentEnabled["feat/direct-solicitors-capacity-nov15"],false);assert.ok(conf.crons.length>0);
+  });
+  await check("solicitor capacity: signed exact operations, raw upload preserved, canonical after and precise holds", async () => {
+    const input={...file("Client_ID,Primary Solicitor,Secondary Solicitor\n0001,  jane  smith ,Unknown Staff\n"),mapping:{Client_ID:"clientId","Primary Solicitor":"primarySolicitor","Secondary Solicitor":"secondarySolicitor"},verifyCptidColumn:null,noteResolutions:{}};
+    for(const client of strict.DIRECT_CLIENTS){
+      const f=fixtureDeps();f.setInventory(["Jane Smith","Alex Lee"]);
+      const route=gateway.directFileGateway(client,f.deps),r=await route(request({op:"preview",file:input}));
+      assert.equal(r.status,200,await r.clone().text());const p=await r.json();assert.equal(p.plan.decisions[0].after,"Jane Smith");assert.equal(p.plan.decisions[1].after,"Unknown Staff");assert.equal(p.plan.decisions[1].reason,"unknown-solicitor");
+      assert.equal(f.calls.at(-1).body.batch.cells[0].value,"  jane  smith ");
+      f.setInventory(["Jane Smith","Additional Staff"]);
+      const changed=await route(request({op:"commit",file:input,approval:{previewHash:p.plan.previewHash,expiresAt:p.plan.expiresAt,proof:p.plan.proof}}));
+      assert.equal(changed.status,503);assert.equal((await changed.json()).code,"unconfirmed");
+      f.setInventory(["Jane Smith","Alex Lee"]);
+      const committed=await route(request({op:"commit",file:input,approval:{previewHash:p.plan.previewHash,expiresAt:p.plan.expiresAt,proof:p.plan.proof}}));
+      assert.equal(committed.status,200);assert.equal(f.calls.at(-1).body.manualContext.payload.phase,"commit");
+
+      const last=f.calls.at(-1);assert.equal(Object.keys(last.body.manualContext.payload).at(-1),"solicitorAliases");
+      const caps=await gateway.gatewayCapabilities(client,f.deps);assert.equal(caps.solicitorAliases.entries[0].canonical,"Alex Lee");
+      f.setInventory(["Jane Smith","jane smith"]);let q=await(await route(request({op:"preview",file:input}))).json();assert.equal(q.plan.decisions[0].reason,"ambiguous-solicitor");assert.equal(q.plan.decisions[0].after,"  jane  smith ");
+      f.setInventory(null);q=await(await route(request({op:"preview",file:input}))).json();assert.equal(q.plan.decisions[0].reason,"solicitor-aliases-unavailable");
+      f.setInventory(["Jane Smith"]);f.mutate((c,op,body)=>op==="directFilePreview"?{status:200,body:{protocol:"direct-file-v1",status:"previewed",plan:{payloadHash:wire.directFileHash(body.batch),previewHash:hex("b"),proof:hex("c"),expiresAt:123,decisions:body.batch.cells.map(cell=>({ordinal:cell.ordinal,cptid:cell.cptid,field:cell.field,before:null,after:"Different person",action:"set",reason:null,eventKey:null}))}}}:null);
+      assert.equal((await route(request({op:"preview",file:input}))).status,503);
+    }
+  });
+  await check("solicitor capacity: complete 5000-source-ID view and 5000-note projection byte/count safeguards", async () => {
+    const makeValue=i=>({cptid:900000+i,field:"primarySolicitor",value:"Jane Smith",template:"fictional",authority_rev:hex("a"),request_id:ID,source_date:"2026-11-15",committed_at:"2026-11-15T00:00:00Z"});
+    const state={protocol:"direct-file-v1",status:"known",scope:"whole-client",complete:true,client:"jag",revision:hex("a"),observedAt:"2026-11-15T00:00:00Z",values:Array.from({length:5000},(_,i)=>makeValue(i+1)),notes:[],note:"Complete source layer"};
+    assert.equal(reads.validateDirectState(state,"jag").values.length,5000);
+    assert.throws(()=>reads.validateDirectState({...state,values:[...state.values,makeValue(5001)]},"jag"));
+    assert.throws(()=>reads.validateDirectState({...state,values:state.values.map(v=>({...v,value:"X".repeat(300)}))},"jag"));
+    const notes=Array.from({length:5000},()=>({cptid:900001,date:"2026-11-15",note:"New event"})),tr=await track("jag",doc({},notes));
+    assert.equal(strict.projectTrackingManual(tr,[900001])["900001"].notes.length,5000);
+    assert.equal(strict.projectTrackingManual(await track("jag",doc({},[...notes,notes[0]])),[900001]),null);
+    const f=fixtureDeps();f.setManual(doc({},Array.from({length:400},()=>({...notes[0],note:"X".repeat(4000)}))));
+    const r=await gateway.directFileGateway("pvas",f.deps)(request({op:"preview",file:file()}));assert.equal(r.status,413);assert.equal((await r.json()).code,"manual-context-byte-limit");
+    assert.equal(f.calls.some(c=>c.op==="directFilePreview"),false);
+    const receipt={protocol:"direct-file-v1",requestId:ID,client:"pvas",status:"committed",saved:2000,held:0,unchanged:0,payloadHash:hex("a"),previewHash:hex("b"),effect:"source-state-only",effectiveChanges:"not-asserted",publication:"not-requested"};
+    confirmedDirectReceipt(receipt,{client:"pvas",requestId:ID});f.receipts.set(ID,receipt);
+    assert.equal((await gateway.directFileGateway("pvas",f.deps)(request({op:"status",requestId:ID}))).status,200);
+  });
   await check("whole-file preview + commit + status use exact32hex, original bytes and signed ordered observations", async () => {
     const f = fixtureDeps(), route = gateway.directFileGateway("pvas", f.deps), input = file();
     const p = await route(request({ op: "preview", file: input })); assert.equal(p.status, 200); const preview = await p.json();
@@ -185,15 +259,22 @@ async function check(name, run) { if(process.env.MONTHLY_ONLY && (!name.includes
     assert.equal((await route(request({ op: "status", requestId: "A".repeat(32) }))).status, 400);
     assert.equal(f.calls.length, 0);
   });
-  await check("50 mapped cells including blanks accepted;51 rejected before resolve/preview/commit, never split", async () => {
-    const make = n => { const f = file("Client_ID,Campaign Ask\n" + Array.from({ length: n }, (_, i) => `${String(i + 1).padStart(4, "0")},\n`).join("")); return { ...f, mapping: { Client_ID: "clientId", "Campaign Ask": "ask" }, verifyCptidColumn: null, noteResolutions: {} }; };
-    let f = fixtureDeps(); assert.equal((await gateway.buildGatewayBatch("pvas", make(50), f.deps)).batch.cells.length, 50);
-    f = fixtureDeps(); await assert.rejects(() => gateway.buildGatewayBatch("pvas", make(51), f.deps), e => e.code === "whole-file-cell-limit");
-    assert.equal(f.calls.filter(c => c.op !== "directFileCapabilities").length, 0);
+  await check("solicitor capacity: 500 rows x4 fields including blanks=2000, 501 rows refuse before mutation", async () => {
+    const make=n=>({...file("Client_ID,Campaign Ask,Primary Solicitor,Secondary Solicitor,New Notes\n"+Array.from({length:n},(_,i)=>`${String(i+1).padStart(4,"0")},,,,\n`).join("")),
+      mapping:{Client_ID:"clientId","Campaign Ask":"ask","Primary Solicitor":"primarySolicitor","Secondary Solicitor":"secondarySolicitor","New Notes":"note","@source-date":"noteDate"},verifyCptidColumn:null,noteResolutions:{}});
+    const f=fixtureDeps(),built=await gateway.buildGatewayBatch("pvas",make(500),f.deps);
+    assert.equal(wire.DIRECT_FILE_MAX_CELLS,2000);assert.equal(built.batch.cells.length,2000);assert.equal(built.fileContext.reviewCells,2000);
+    const route=gateway.directFileGateway("pvas",f.deps),preview=await route(request({op:"preview",file:make(500)}));
+    assert.equal(preview.status,200);const p=await preview.json();require("../lib/portal-v2/direct-public-response.ts").confirmedDirectPreview(p);
+    assert.equal(f.calls.at(-1).body.manualContext.payload.observations.length,500);
+    await assert.rejects(()=>gateway.buildGatewayBatch("pvas",make(501),f.deps),/500/);
+    assert.equal(f.calls.filter(c=>c.op==="directFileCommit").length,0);
+    const pub=require("../lib/portal-v2/direct-public-response.ts"),valid=JSON.parse(JSON.stringify(p));
+    valid.plan.decisions[0].ordinal=501;assert.throws(()=>pub.confirmedDirectPreview(valid));
   });
   await check("backend lexical identity order joins exact client ID, never source position", async () => {
     const f = fixtureDeps();
-    f.mutate((client, op, body) => op === "directFileResolve" ? { status: 200, body: { protocol: "direct-file-v1", status: "known", client, template: body.template, registrationRevision: hex("a"),
+    f.mutate((client, op, body) => op === "directFileResolve" ? { status: 200, body: { protocol: "direct-file-v1", status: "known", client, template: body.template, registrationRevision: hex("a"), solicitorAliases:{status:"unavailable",revision:null,entries:[]},
       matches: [...body.ids].sort((a, b) => a.clientId.localeCompare(b.clientId)).map(x => ({ ...x, cptid: 900000 + Number(x.clientId), reason: null })) } } : null);
     const input = { ...file("Client_ID,CPTID,Campaign Ask\n0002,900002,2.00\n0001,900001,1.00\n"),
       mapping: { Client_ID: "clientId", "Campaign Ask": "ask" }, noteResolutions: {} };
@@ -208,7 +289,7 @@ async function check(name, run) { if(process.env.MONTHLY_ONLY && (!name.includes
     const x = { ...file(), fileName: "numeric.xlsx", bytes: zipParts(workbookParts()).toString("base64"), parseSettings: { format: "xlsx", sheet: "Data", headerRow: 1 } };
     const b = await gateway.buildGatewayBatch("pvas", x, f.deps); assert.equal(b.batch.cells[0].value, "1500.25");
     const alias = file("Client_ID,Primary Solicitor\n0001,Unknown Staff\n"); alias.mapping = { Client_ID: "clientId", "Primary Solicitor": "primarySolicitor" }; alias.verifyCptidColumn = null; alias.noteResolutions = {};
-    await assert.rejects(() => gateway.buildGatewayBatch("pvas", alias, f.deps), e => e.exceptions?.some(x => x.reason === "unknown-or-unreviewed-solicitor-alias"));
+    assert.equal((await gateway.buildGatewayBatch("pvas", alias, f.deps)).batch.cells[0].value,"Unknown Staff"); // Backend holds unknown aliases; original upload stays raw.
   });
   await check("virtual source date explicit, reserved literal header refused, historical notes never append", async () => {
     const f = fixtureDeps(), a = await gateway.buildGatewayBatch("pvas", file(), f.deps);
@@ -255,8 +336,8 @@ async function check(name, run) { if(process.env.MONTHLY_ONLY && (!name.includes
     const hung = new ReadableStream({ pull() { return new Promise(() => {}); }, cancel() { cancelled = true; } });
     await assert.rejects(() => readBoundedStream(hung, 1000, 5)); // bounded synthetic deadline, not a polling loop.
   });
-  await check("receipt status totals must be1..50 even without local expected count", async () => {
-    for (const counts of [{ saved: 0, held: 0, unchanged: 0 }, { saved: 50, held: 1, unchanged: 0 }]) {
+  await check("receipt status totals must be1..2000 even without local expected count", async () => {
+    for (const counts of [{ saved: 0, held: 0, unchanged: 0 }, { saved: 2000, held: 1, unchanged: 0 }]) {
       const f = fixtureDeps(), raw = { protocol: "direct-file-v1", requestId: ID, client: "pvas", status: "committed", ...counts,
         payloadHash: hex("a"), previewHash: hex("b"), effect: "source-state-only", effectiveChanges: "not-asserted", publication: "not-requested" };
       f.mutate((_, op) => op === "directFileStatus" ? { status: 200, body: raw } : null);
@@ -527,6 +608,12 @@ async function check(name, run) { if(process.env.MONTHLY_ONLY && (!name.includes
       const result = await reads.directData(client, base, "records", deps);
       assert.equal(result.records[900001].portfolio.ask, 0); assert.equal(result.records[900001].portfolio.directAskPresent, true);
       assert.equal(result.index.length, 31000); assert.equal(base.records[900001].portfolio.ask, 500);
+      assert.equal(result.records[900001].portfolio.solicitor,"Source staff");
+      state.values.push({...values[1],field:"secondarySolicitor",value:"Source secondary"});
+      let secondary=await reads.directData(client,base,"records",deps);assert.equal(secondary.records[900001].portfolio.secondary,"Source secondary");
+      manualSql={updates:[{id:2,cptid:900001,field:"solicitor2",new_value:"",old_value:"Source secondary"}],prospects:[]};
+      secondary=await reads.directData(client,base,"records",deps);assert.equal(secondary.records[900001].portfolio.secondary,"");
+
       const o = buildOverlay([]), resolved = effectiveAsk(900001, o, new Map(), id => result.records[id].portfolio.ask, id => result.records[id].portfolio.directAskPresent);
       assert.equal(campaignAskAmount({ ...resolved, rating: 10000 }), 0);
       manualSql = { updates: [{ id: 1, cptid: 900001, field: "ask", new_value: null, old_value: "0.00" }], prospects: [] };

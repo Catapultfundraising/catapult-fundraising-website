@@ -7,7 +7,8 @@ import { confirmedDirectPreview, confirmedDirectReceipt } from "@/lib/portal-v2/
 const input = "w-full rounded border border-[rgb(var(--line))] px-3 py-2 text-sm";
 const button = "rounded bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
 const targets = [["", "Do not import"], ["clientId", "Exact client ID"], ["ask", "Campaign ask"], ["primarySolicitor", "Primary solicitor"], ["secondarySolicitor", "Secondary solicitor"], ["note", "New notes only"], ["noteDate", "Note date (ISO text)"], ["eventId", "Stable note event ID"]] as const;
-const suggested: Record<string, string> = { Client_ID: "clientId", "Campaign Ask": "ask", "Primary Solicitor": "primarySolicitor", "Secondary Solicitor": "secondarySolicitor", "New Notes": "note" };
+const normalizedHeader = (header: string) => header.toLowerCase().replace(/[^a-z0-9]/g, "");
+const suggested: Record<string, string> = { clientid: "clientId", campaignask: "ask", solicitor: "primarySolicitor", primarysolicitor: "primarySolicitor", solicitor1: "primarySolicitor", secondarysolicitor: "secondarySolicitor", solicitor2: "secondarySolicitor", newnotes: "note" };
 type Upload = { fileName: string; bytes: string };
 type Pending = { requestId: string; uncertain: boolean; receipt?: DirectFileReceipt };
 /** Lives inside the existing all-five Add + Upload tab; never uses legacy multipart applyBatch. */
@@ -60,7 +61,7 @@ export function DirectDashboardUpload({ client }: { client: string }) {
     finally { if (id === generation.current) setBusy(false); }
   }
   function applyHeaders(h: string[]) {
-    setHeaders(h); setMapping(Object.fromEntries(h.map(x => [x, suggested[x] ?? ""])));
+    setHeaders(h); setMapping(Object.fromEntries(h.map(x => [x, suggested[normalizedHeader(x)] ?? ""])));
     setVerify(h.includes("CPTID") ? "CPTID" : null);
   }
   async function inspectSheet() {
@@ -117,9 +118,9 @@ export function DirectDashboardUpload({ client }: { client: string }) {
   }
   return <section className="rounded-lg border border-[rgb(var(--line))] bg-white p-5" aria-label="Direct notes and portfolio import">
     <h3 className="font-display text-lg text-[rgb(var(--navy))]">Direct notes + portfolio import</h3>
-    <p className="mt-1 text-sm text-[rgb(var(--ink))]/65">One complete file, one preview and one approval. At most 50 mapped write cells including blanks, 500 rows and 2,000,000 bytes. Further audit-storage and safety limits can hold the entire file before writes. Exact client IDs only; no name matching, donor creation or gifts.</p>
+    <p className="mt-1 text-sm text-[rgb(var(--ink))]/65">One complete file, one preview and one approval. At most 2,000 mapped write cells including blanks, 500 rows and 2,000,000 bytes. Complete source-view bytes, audit-storage and safety limits can hold the entire file before writes. Exact client IDs only; no name matching, donor creation or gifts.</p>
     {authRequired && <p role="alert" className="mt-3 text-sm">Your dashboard sign-in has expired or is unavailable. <a className="underline" href={`/${client}/data-dashboard/login`}>Sign in to this dashboard</a>, then return to Add + Upload. No separate research sign-in is required.</p>}
-    {caps && (caps.status !== "known" || !caps.applyEnabled || !caps.templates.length) && <p role="status" className="mt-3 bg-[rgb(var(--paper))] p-3 text-sm">OFF — no approved active template is available. You may inspect a file while signed in to this dashboard, but cannot preview or commit an import. No production field ownership has been activated.</p>}
+    {caps && (caps.status !== "known" || !caps.applyEnabled || !caps.templates.length) && <p role="status" className="mt-3 bg-[rgb(var(--paper))] p-3 text-sm">OFF: no approved active template is available. You may inspect a file while signed in to this dashboard, but cannot preview or commit an import. No production field ownership has been activated.</p>}
     <fieldset disabled={locked || authRequired} className="mt-4 space-y-3">
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="text-xs">Source template<select className={input} value={template} onChange={e => { invalidate(); setTemplate(e.target.value); }}><option value="">No approved template</option>{caps?.templates.map(t => <option key={t.template}>{t.template}</option>)}</select></label>
@@ -133,11 +134,12 @@ export function DirectDashboardUpload({ client }: { client: string }) {
         <label className="text-xs">Client-ID source format<select className={input} value={integerId ? "integer" : "text"} onChange={e => { invalidate(); setIntegerId(e.target.value === "integer"); }}><option value="text">Exact text, preserve zeros</option><option value="integer">Declared integer crosswalk (no zero inference)</option></select></label>
         <button type="button" className={button} onClick={inspectSheet}>Inspect chosen sheet + header</button>
       </div>}
-      {!!headers.length && <div className="grid gap-2 sm:grid-cols-2">{headers.map(h => <label key={h} className="text-xs">{h || "(blank header — unsupported)"}<select className={input} aria-label={`Map ${h}`} value={mapping[h] ?? ""} onChange={e => { invalidate(); setMapping(m => ({ ...m, [h]: e.target.value })); }}>{targets.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>)}
+      {!!headers.length && <div className="grid gap-2 sm:grid-cols-2">{headers.map(h => <label key={h} className="text-xs">{h || "(blank header: unsupported)"}<select className={input} aria-label={`Map ${h}`} value={mapping[h] ?? ""} onChange={e => { invalidate(); setMapping(m => ({ ...m, [h]: e.target.value })); }}>{targets.map(([v, label]) => <option key={v} value={v}>{label}</option>)}</select></label>)}
         <label className="text-xs">Optional supplied CPTID verification<select className={input} value={verify ?? ""} onChange={e => { invalidate(); setVerify(e.target.value === "" ? null : e.target.value); }}><option value="">No supplied verification column</option>{headers.map(h => <option key={h} value={h}>{h}</option>)}</select></label>
       </div>}
       <label className="block text-sm"><input type="checkbox" checked={useSourceDate} onChange={e => { invalidate(); setUseSourceDate(e.target.checked); }} /> Use selected source date {sourceDate || "(choose date)"} as the date for new notes. This does not certify notes as new events.</label>
-      <p className="text-xs text-[rgb(var(--ink))]/65">Historical Notes are never appended. Current history is tracking-only, not complete Access history. Each new-note event requires a separate reviewed resolution below. Solicitors without an approved exact alias stay held. This website adapter accepts nonnegative asks up to 9,999,999,999.99 with at most two exact decimal places; larger amounts are held, never rounded.</p>
+      <p className="text-xs text-[rgb(var(--ink))]/65">{caps?.solicitorAliases.status === "known" ? `${caps.solicitorAliases.entries.length} current staff-name aliases observed. ` : "Current staff-name inventory unavailable: solicitor cells will be held. "}Blank cells make no changes.</p>
+      <p className="text-xs text-[rgb(var(--ink))]/65">Historical Notes are never appended. Current history is tracking-only, not complete Access history. Each new-note event requires a separate reviewed resolution below. Primary and secondary solicitors match current staff names from this dashboard. Unknown or ambiguous names stay held; the preview shows canonical names and reasons. Manual dashboard edits and clears still take priority. This website adapter accepts nonnegative asks up to 9,999,999,999.99 with at most two exact decimal places; larger amounts are held, never rounded.</p>
       <button className={button} disabled={!upload || !headers.length || !template || !caps?.applyEnabled || !sourceDate || !actor} onClick={preview}>Preview complete file</button>
     </fieldset>
     {!!exceptions.length && <div className="mt-4 overflow-x-auto"><p className="text-sm font-semibold">Entire file held — complete gateway exception list</p><table className="w-full text-left text-xs"><tbody>{exceptions.map((e, i) => <tr key={i}><td className="p-2">Row {e.ordinal} (line {e.line})</td><td>{e.source}</td><td>{e.reason}</td></tr>)}</tbody></table></div>}

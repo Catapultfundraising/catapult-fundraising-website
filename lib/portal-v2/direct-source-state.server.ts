@@ -1,6 +1,6 @@
 import "server-only";
 import type { PortalClient } from "./clients";
-import { DIRECT_STATE_MAX_IDS, DIRECT_STATE_MAX_NOTES } from "./directFileProtocol";
+import { DIRECT_STATE_MAX_IDS, DIRECT_STATE_MAX_NOTES, DIRECT_STATE_MAX_BYTES } from "./directFileProtocol";
 import { directLaneEnabled } from "./direct-registration.server";
 import { strictTrackingFor } from "./direct-tracking-reader.server";
 import type { StrictTracking } from "./direct-tracking-state";
@@ -35,9 +35,9 @@ const hex = (x: unknown) => typeof x === "string" && /^[a-f0-9]{64}$/.test(x);
 const text = (x: unknown, max: number) => typeof x === "string" && x.length <= max && !/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(x);
 const date = (x: unknown) => typeof x === "string" && /^\d{4}-\d{2}-\d{2}$/.test(x) && Number.isFinite(Date.parse(x)) && new Date(x).toISOString().slice(0, 10) === x;
 export function validateDirectState(raw: unknown, client: PortalClient): DirectState {
-  if (!object(raw) || raw.protocol !== "direct-file-v1" || raw.status !== "known" || raw.scope !== "whole-client" || raw.complete !== true ||
+  if (Buffer.byteLength(JSON.stringify(raw) ?? "", "utf8") > DIRECT_STATE_MAX_BYTES || !object(raw) || raw.protocol !== "direct-file-v1" || raw.status !== "known" || raw.scope !== "whole-client" || raw.complete !== true ||
       raw.client !== client || !hex(raw.revision) || !text(raw.observedAt, 40) || !Number.isFinite(Date.parse(String(raw.observedAt))) ||
-      !Array.isArray(raw.values) || raw.values.length > 300 || !Array.isArray(raw.notes) || raw.notes.length > DIRECT_STATE_MAX_NOTES || !text(raw.note, 1000)) throw new DirectReadUnavailable();
+      !Array.isArray(raw.values) || raw.values.length > 3 * DIRECT_STATE_MAX_IDS || !Array.isArray(raw.notes) || raw.notes.length > DIRECT_STATE_MAX_NOTES || !text(raw.note, 1000)) throw new DirectReadUnavailable();
   const ids = new Set<number>(), keys = new Set<string>();
   for (const x of raw.values) {
     if (!object(x) || !id(x.cptid) || !["ask", "primarySolicitor", "secondarySolicitor"].includes(String(x.field)) ||
@@ -57,7 +57,7 @@ export function validateDirectState(raw: unknown, client: PortalClient): DirectS
   return raw as unknown as DirectState;
 }
 export type DirectObservation = { state: DirectState; tracking: Exclude<StrictTracking, { kind: "unavailable" }>; sql: { updates: Record<string, unknown>[]; prospects: Record<string, unknown>[] } };
-/** Complete source layer (<=100 IDs), not a first page of the Access baseline. No cache. */
+/** Complete source layer (<=5000 IDs), not a first page of the Access baseline. No cache. */
 export async function observeDirect(client: PortalClient, deps: DirectReadDeps = defaults): Promise<DirectObservation | null> {
   if (!deps.enabled(client)) return null;
   const [source, tracking, sql] = await Promise.all([deps.state(client), deps.tracking(client), deps.sql(client)]);

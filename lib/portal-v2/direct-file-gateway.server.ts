@@ -12,10 +12,12 @@ import { fileInfo, inspectSourceFile, originalBytes, type ParseSettings } from "
 import { exactOoxmlNumber } from "./source-ooxml-values";
 import { strictTrackingFor } from "./direct-tracking-reader.server";
 import { projectTrackingManual, type StrictTracking } from "./direct-tracking-state";
+import { observeSolicitorInventory } from "./direct-solicitor-inventory.server";
 import { directLaneEnabled } from "./direct-registration.server";
 import { directSourceCall, readBoundedStream } from "./direct-source-transport.server";
 import {
-  DIRECT_FILE_MAX_BYTES, DIRECT_FILE_MAX_CELLS, DIRECT_MANUAL_TTL_SECONDS,
+  DIRECT_FILE_MAX_BYTES, DIRECT_FILE_MAX_CELLS, DIRECT_MANUAL_TTL_SECONDS, DIRECT_MANUAL_MAX_BYTES,
+  compileDirectSolicitors, normalizeDirectSolicitor, signDirectSolicitorContext, type DirectSolicitorInventory,
   directFileHash, signDirectManualContext, type DirectFileBatch, type DirectFileCapabilities,
   type DirectFileContext, type DirectManualObservation, type DirectManualPayload,
   type DirectResolveResult, type DirectFileApproval,
@@ -31,15 +33,15 @@ export interface GatewayDeps {
   call(client: PortalClient, op: string, body?: Record<string, unknown>): Promise<{ status: number; body: Record<string, unknown> }>;
   tracking(client: PortalClient): Promise<StrictTracking>;
   secret(): string; now(): number;
-  /** Exact approved alias owner. Production unavailable until metadata is reviewed; never browser input. */
-  aliases(client: PortalClient, template: string): Readonly<Record<string, string>> | null;
+  /** Complete server-observed website inventory; null is unavailable, never empty authority. */
+  inventory(client: PortalClient): Promise<DirectSolicitorInventory | null>;
   enabled(client: PortalClient): boolean;
   verifyView?(client: PortalClient): Promise<Record<string, unknown>>;
 }
 const defaults: GatewayDeps = {
   call: directSourceCall, tracking: strictTrackingFor,
   secret: () => process.env.PORTAL_WRITE_SECRET ?? "", now: () => Math.floor(Date.now() / 1000),
-  aliases: () => null,
+  inventory: observeSolicitorInventory,
   enabled: directLaneEnabled,
 };
 const object = (x: unknown): x is Record<string, unknown> => !!x && typeof x === "object" && !Array.isArray(x);
@@ -63,10 +65,22 @@ async function call(deps: GatewayDeps, client: PortalClient, op: string, body?: 
   }
   return r.body;
 }
-export async function gatewayCapabilities(client: PortalClient, deps = defaults): Promise<DirectFileCapabilities> {
-  const c = await call(deps, client, "directFileCapabilities");
+function solicitorContext(client: PortalClient, op: string, body: Record<string, unknown>, inventory: DirectSolicitorInventory | null, deps: GatewayDeps) {
+  if (!inventory) return {};
+  const secret = deps.secret();
+  if (secret.length < 24) throw new GatewayError("manual-proof-unavailable", 503);
+  const issuedAt = deps.now();
+  return { solicitorContext: signDirectSolicitorContext({ v: 1, client, operationHash: directFileHash({ op, client, ...body }),
+    revision: inventory.revision, names: inventory.names, issuedAt, expiresAt: issuedAt + DIRECT_MANUAL_TTL_SECONDS }, secret) };
+}
+function validAliases(raw: unknown, inventory: DirectSolicitorInventory | null) {
+  return object(raw) && directFileHash(raw) === directFileHash(inventory ? compileDirectSolicitors(inventory.names) : { status: "unavailable", revision: null, entries: [] });
+}
+export async function gatewayCapabilities(client: PortalClient, deps = defaults, observedInventory?: DirectSolicitorInventory | null): Promise<DirectFileCapabilities> {
+  const inventory = observedInventory === undefined ? await deps.inventory(client) : observedInventory;
+  const c = await call(deps, client, "directFileCapabilities", solicitorContext(client, "directFileCapabilities", {}, inventory, deps));
   if (c.protocol !== "direct-file-v1" || c.client !== client || !["known", "unavailable"].includes(String(c.status)) || typeof c.applyEnabled !== "boolean" ||
-      !Array.isArray(c.templates) || c.templates.length > 100 || !c.templates.every(t => object(t) && plain(t.template, 100) && hex(t.revision) &&
+      !validAliases(c.solicitorAliases, inventory) || !Array.isArray(c.templates) || c.templates.length > 100 || !c.templates.every(t => object(t) && plain(t.template, 100) && hex(t.revision) &&
         Array.isArray(t.fields) && t.fields.every(f => ["ask", "primarySolicitor", "secondarySolicitor", "note"].includes(String(f))) && object(t.cutovers)))
     throw new GatewayError("invalid-capabilities", 503);
   return { ...c, applyEnabled: c.applyEnabled && deps.enabled(client), ...(deps.enabled(client) ? {} : { reason: "website-integration-off" }) } as unknown as DirectFileCapabilities;
@@ -88,7 +102,8 @@ export function parseFileInput(value: unknown): FileInput {
 }
 export async function buildGatewayBatch(client: PortalClient, input: FileInput, deps: GatewayDeps = defaults) {
   // Always original bytes. Not a client-normalized CSV/digest, and not cached browser preview rows.
-  const parsed = inspectSourceFile(input.bytes, input.parseSettings), caps = await gatewayCapabilities(client, deps);
+  const parsed = inspectSourceFile(input.bytes, input.parseSettings), solicitorInventory = await deps.inventory(client);
+  const caps = await gatewayCapabilities(client, deps, solicitorInventory);
   if (parsed.headers.includes("@source-date")) throw new GatewayError("reserved-source-date-header");
   const virtualDate = Object.prototype.hasOwnProperty.call(input.mapping, "@source-date");
   if (virtualDate && input.mapping["@source-date"] !== "noteDate") throw new GatewayError("invalid-virtual-date-mapping");
@@ -135,13 +150,14 @@ export async function buildGatewayBatch(client: PortalClient, input: FileInput, 
   const unique = [...new Map(identities.map(x => [JSON.stringify(x), x])).values()];
   let resolved: DirectResolveResult | null = null;
   if (!errors.length) {
-    const result = await call(deps, client, "directFileResolve", { template: input.template, sourceDate: input.sourceDate, ids: unique });
+    const base = { template: input.template, sourceDate: input.sourceDate, ids: unique };
+    const result = await call(deps, client, "directFileResolve", { ...base, ...solicitorContext(client, "directFileResolve", base, solicitorInventory, deps) });
     if (result.protocol !== "direct-file-v1" || result.status !== "known" || result.client !== client || result.template !== input.template ||
-        result.registrationRevision !== template.revision || !Array.isArray(result.matches) || result.matches.length !== unique.length)
+        result.registrationRevision !== template.revision || !validAliases(result.solicitorAliases, solicitorInventory) || !Array.isArray(result.matches) || result.matches.length !== unique.length)
       throw new GatewayError("invalid-identity-response", 503);
     resolved = result as unknown as DirectResolveResult;
   }
-  const cells: DirectFileBatch["cells"] = [], aliases = deps.aliases(client, input.template);
+  const cells: DirectFileBatch["cells"] = [];
   for (let r = 0; r < parsed.rows.length; r++) {
     const identity = identities[r], matches = resolved?.matches.filter(m => m.clientId === identity.clientId && m.verifyCptid === identity.verifyCptid) ?? [];
     const match = matches.length === 1 ? matches[0] : null;
@@ -155,11 +171,7 @@ export async function buildGatewayBatch(client: PortalClient, input: FileInput, 
         const n = exactOoxmlNumber(parsed.numericLexemes.get(slot) ?? value, "askAmount");
         if (n.ok) value = n.value; else invalid(r, m.source, n.reason);
       } else if (numeric) invalid(r, m.source, `numeric-${m.target}-unsupported`);
-      if (m.target === "primarySolicitor" || m.target === "secondarySolicitor") {
-        if (value && (!aliases || !Object.prototype.hasOwnProperty.call(aliases, value))) invalid(r, m.source, "unknown-or-unreviewed-solicitor-alias");
-        else if (value) value = aliases![value];
-      }
-      if (m.target === "note" ? value.length > 4000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/.test(value) : !plain(value, 300) || value !== value.trim()) invalid(r, m.source, "invalid-field-text");
+      if (m.target === "note" ? value.length > 4000 || /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f-\u009f]/.test(value) : !plain(value, 300) || (!["primarySolicitor", "secondarySolicitor"].includes(m.target) && value !== value.trim())) invalid(r, m.source, "invalid-field-text");
       let noteDate: string | null = null, eventId: string | null = null, noteResolution: "new-event" | "hold" | null = null;
       if (m.target === "note") {
         const d = index("noteDate"), e = index("eventId");
@@ -185,7 +197,8 @@ export async function buildGatewayBatch(client: PortalClient, input: FileInput, 
     verifyCptidColumn: input.verifyCptidColumn, fileBytes: parsed.byteLength, dataRows: parsed.rows.length, reviewCells };
   const batch: DirectFileBatch = { requestId: input.requestId, client, template: input.template, fileDigest: parsed.fileDigest, mappingDigest: directFileHash({ parse, mapping }),
     fileName: input.fileName, sourceDate: input.sourceDate, actor: input.actor, cells, parse, mapping, fileContextHash: directFileHash(fileContext) };
-  return { batch, fileContext, registrationRevision: template.revision };
+  if (Buffer.byteLength(JSON.stringify(batch), "utf8") > DIRECT_FILE_MAX_BYTES) throw new GatewayError("whole-file-batch-byte-limit", 413);
+  return { batch, fileContext, registrationRevision: template.revision, solicitorInventory };
 }
 async function manualContext(client: PortalClient, phase: "preview" | "commit", built: Awaited<ReturnType<typeof buildGatewayBatch>>, deps: GatewayDeps) {
   const ids = [...new Set(built.batch.cells.map(c => c.cptid))].sort((a, b) => a - b), tracking = await deps.tracking(client);
@@ -199,16 +212,19 @@ async function manualContext(client: PortalClient, phase: "preview" | "commit", 
   });
   const issuedAt = deps.now();
   const payload: DirectManualPayload = { v: 1, phase, requestId: built.batch.requestId, client, template: built.batch.template, registrationRevision: built.registrationRevision,
-    batchHash: directFileHash(built.batch), fileContextHash: built.batch.fileContextHash, issuedAt, expiresAt: issuedAt + DIRECT_MANUAL_TTL_SECONDS, observations };
-  return signDirectManualContext(payload, deps.secret());
+    batchHash: directFileHash(built.batch), fileContextHash: built.batch.fileContextHash, issuedAt, expiresAt: issuedAt + DIRECT_MANUAL_TTL_SECONDS, observations,
+    ...(built.solicitorInventory ? { solicitorAliases: built.solicitorInventory } : {}) };
+  const context = signDirectManualContext(payload, deps.secret());
+  if (Buffer.byteLength(JSON.stringify(context), "utf8") > DIRECT_MANUAL_MAX_BYTES) throw new GatewayError("manual-context-byte-limit", 413);
+  return context;
 }
 function publicReceipt(raw: Record<string, unknown>, client: PortalClient, original: string, expected?: { payloadHash: string; previewHash: string; cells: number }) {
   const required = ["protocol", "requestId", "client", "status", "saved", "held", "unchanged", "payloadHash", "previewHash", "effect", "effectiveChanges", "publication"];
   if (raw.replay !== undefined) required.push("replay");
   if (!exact(raw, required) || raw.protocol !== "direct-file-v1" || raw.status !== "committed" || raw.client !== client || raw.requestId !== original ||
       raw.effect !== "source-state-only" || raw.effectiveChanges !== "not-asserted" || raw.publication !== "not-requested" ||
-      !hex(raw.payloadHash) || !hex(raw.previewHash) || !["saved", "held", "unchanged"].every(k => Number.isSafeInteger(raw[k]) && Number(raw[k]) >= 0 && Number(raw[k]) <= 50) ||
-      Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) < 1 || Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) > 50 ||
+      !hex(raw.payloadHash) || !hex(raw.previewHash) || !["saved", "held", "unchanged"].every(k => Number.isSafeInteger(raw[k]) && Number(raw[k]) >= 0 && Number(raw[k]) <= DIRECT_FILE_MAX_CELLS) ||
+      Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) < 1 || Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) > DIRECT_FILE_MAX_CELLS ||
       (raw.replay !== undefined && typeof raw.replay !== "boolean") ||
       (expected && (raw.payloadHash !== expected.payloadHash || raw.previewHash !== expected.previewHash || Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) !== expected.cells)))
     throw new GatewayError("invalid-source-receipt", 503);
@@ -263,7 +279,10 @@ export function directFileGateway(client: PortalClient, deps: GatewayDeps = defa
               !hex(p.previewHash) || !hex(p.proof) || !Number.isSafeInteger(p.expiresAt) || !Array.isArray(p.decisions) || p.decisions.length !== built.batch.cells.length ||
               !p.decisions.every((d, i) => object(d) && exact(d, ["ordinal", "cptid", "field", "before", "after", "action", "reason", "eventKey"]) &&
                 d.ordinal === built.batch.cells[i].ordinal && d.cptid === built.batch.cells[i].cptid && d.field === built.batch.cells[i].field &&
-                d.after === built.batch.cells[i].value && (d.before === null || typeof d.before === "string") &&
+                (d.after === built.batch.cells[i].value || (d.action !== "held" &&
+                  ["primarySolicitor", "secondarySolicitor"].includes(built.batch.cells[i].field) && typeof d.after === "string" &&
+                  plain(d.after, 300) && d.after === d.after.trim().replace(/\s+/g, " ") &&
+                  normalizeDirectSolicitor(d.after) === normalizeDirectSolicitor(built.batch.cells[i].value))) && (d.before === null || typeof d.before === "string") &&
                 ["set", "advance", "append", "unchanged", "held"].includes(String(d.action)) && (d.reason === null || typeof d.reason === "string") && (d.eventKey === null || hex(d.eventKey))))
             throw new GatewayError("invalid-source-preview", 503);
           result = preview;

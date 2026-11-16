@@ -7,8 +7,8 @@ export function confirmedDirectReceipt(raw: unknown, expected: Expected): Direct
   if (!obj(raw) || raw.protocol !== "direct-file-v1" || raw.status !== "committed" || raw.client !== expected.client ||
       raw.requestId !== expected.requestId || !/^[a-f0-9]{32}$/.test(expected.requestId) ||
       raw.effect !== "source-state-only" || raw.effectiveChanges !== "not-asserted" || raw.publication !== "not-requested" ||
-      !hex(raw.payloadHash) || !hex(raw.previewHash) || !["saved", "held", "unchanged"].every(k => Number.isSafeInteger(raw[k]) && Number(raw[k]) >= 0 && Number(raw[k]) <= 50) ||
-      Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) < 1 || Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) > 50 ||
+      !hex(raw.payloadHash) || !hex(raw.previewHash) || !["saved", "held", "unchanged"].every(k => Number.isSafeInteger(raw[k]) && Number(raw[k]) >= 0 && Number(raw[k]) <= 2000) ||
+      Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) < 1 || Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) > 2000 ||
       (expected.payloadHash !== undefined && raw.payloadHash !== expected.payloadHash) ||
       (expected.previewHash !== undefined && raw.previewHash !== expected.previewHash) ||
       (expected.cells !== undefined && Number(raw.saved) + Number(raw.held) + Number(raw.unchanged) !== expected.cells))
@@ -21,7 +21,7 @@ export function confirmedDirectReceipt(raw: unknown, expected: Expected): Direct
 export function confirmedDirectPreview(raw: unknown): DirectFilePlan {
   if (!obj(raw) || raw.protocol !== "direct-file-v1" || raw.status !== "previewed" || !obj(raw.plan) || Object.keys(raw).some(k => !["protocol", "status", "plan"].includes(k)) ||
       !hex(raw.plan.payloadHash) || !hex(raw.plan.previewHash) || !hex(raw.plan.proof) || !Number.isSafeInteger(raw.plan.expiresAt) ||
-      !Array.isArray(raw.plan.decisions) || !raw.plan.decisions.length || raw.plan.decisions.length > 50) throw new Error("Invalid source preview; no approval available.");
+      !Array.isArray(raw.plan.decisions) || !raw.plan.decisions.length || raw.plan.decisions.length > 2000) throw new Error("Invalid source preview; no approval available.");
   if (Object.keys(raw.plan).sort().join(",") !== ["payloadHash", "previewHash", "proof", "expiresAt", "decisions"].sort().join(",") ||
       raw.plan.decisions.some((d: unknown) => !obj(d) ||
         Object.keys(d).sort().join(",") !== ["ordinal", "cptid", "field", "before", "after", "action", "reason", "eventKey"].sort().join(",") ||
