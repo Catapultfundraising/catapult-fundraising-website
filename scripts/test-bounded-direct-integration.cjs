@@ -77,7 +77,7 @@ function fixtureDeps() {
 }
 function request(body, headers = {}) { return new NextRequest("http://localhost:3100/api/pvas-data-direct-import", { method: "POST", headers: { "content-type": "application/json", origin: "http://localhost:3100", cookie: `catapult_research_auth=${COOKIE}`, ...headers }, body: JSON.stringify(body) }); }
 let checks = 0;
-async function check(name, run) { if(process.env.MONTHLY_ONLY==="1" && !name.includes("monthly campaign"))return; if(process.env.DIRECT_STATE_IDS_ONLY==="1" && !name.includes("SQL manual state row-id boundary"))return; if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
+async function check(name, run) { if(process.env.MONTHLY_ONLY && (!name.includes("monthly campaign") || (process.env.MONTHLY_ONLY==="parser" && !name.includes("monthly campaign parser"))))return; if(process.env.DIRECT_STATE_IDS_ONLY==="1" && !name.includes("SQL manual state row-id boundary"))return; if(process.env.DIRECT_AUTH_ONLY==="1" && !name.includes("source gateway employee auth"))return; if(process.env.DIRECT_EXPORT_ONLY==="1" && !name.includes("export compatibility"))return; await run(); console.log(`ok ${++checks} - ${name}`); }
 (async () => {
   console.log("# MOCK backend wire / NO SQL / NO network / original website code");
   await check("monthly campaign parser: exact cash, original bytes, stable IDs, dates, unsupported rows and unchanged notes quotas", async () => {
@@ -102,6 +102,7 @@ async function check(name, run) { if(process.env.MONTHLY_ONLY==="1" && !name.inc
     ])assert.throws(()=>monthly.buildMonthlyRequest("jag",make(csv),ids),e=>e.exceptions.length===1);
     assert.throws(()=>monthly.buildMonthlyRequest("jag",make(),[...ids,{clientId:"0001",cptid:900002,name:"Ambiguous"}]),e=>e.exceptions[0].reason.includes("ambiguous"));
     assert.throws(()=>monthly.parseMonthlyFile({...make(),receivedUsdCash:false}));
+    assert.throws(()=>monthly.buildMonthlyRequest("jag",make("Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency,cptid\n0001,T-01,100.00,2026-11-10,gift,received,USD,900002\n"),ids),/Map supplied CPTID/);
     assert.throws(()=>monthly.buildMonthlyRequest("jag",{...make(),mapping:{...make().mapping,Type:""}},ids),/Map the kind/);
     const twice=make(Buffer.from(make().bytes,"base64").toString().trimEnd()+"\n0001,T-01,1500.25,2026-11-10,gift,received,USD\n");
     assert.throws(()=>monthly.buildMonthlyRequest("jag",twice,ids),e=>e.exceptions[0].reason.includes("Duplicate"));

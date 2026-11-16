@@ -45,7 +45,7 @@ export function buildMonthlyRequest(client: string, file: MonthlyFile, identitie
     byTarget.set(target, parsed.headers.indexOf(header));
   }
   if (["clientId", "transactionId", "amount", "date"].some(t => !byTarget.has(t))) throw new MonthlyFileError("Map exact client ID, transaction ID, amount and transaction date.");
-  if (parsed.headers.includes("CPTID") && !byTarget.has("cptid")) throw new MonthlyFileError("Map supplied CPTID as verification, or remove the conflicting column.");
+  if (parsed.headers.some(h => h.toLowerCase().replace(/[^a-z0-9]/g, "") === "cptid") && !byTarget.has("cptid")) throw new MonthlyFileError("Map supplied CPTID as verification, or remove the conflicting column.");
   // Recognized cash-policy columns cannot be silently ignored by an arbitrary mapping.
   for (const [pattern, target] of [[/^(type|kind|gift type|transaction type)$/i, "kind"], [/^(status|transaction status)$/i, "status"], [/^(currency|currency code)$/i, "currency"]] as const)
     if (parsed.headers.some(h => pattern.test(h)) && !byTarget.has(target)) throw new MonthlyFileError(`Map the ${target} column so unsupported transactions cannot be silently counted.`);

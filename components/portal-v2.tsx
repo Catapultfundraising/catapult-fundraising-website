@@ -478,7 +478,7 @@ export function AddAndUpload() {
       <AddProspect />
       <DirectDashboardUpload key={`direct:${client}`} client={client} />
       <MonthlyGiftUpload key={`monthly:${client}`} client={client} refresh={reload} />
-      <details><summary className="cursor-pointer text-sm font-medium">Legacy contact / gift upload (tuple dedupe only — not the monthly transaction importer)</summary><UploadClientFile /></details>
+      <details><summary className="cursor-pointer text-sm font-medium">Legacy contact / gift upload (tuple dedupe only: not the monthly transaction importer)</summary><UploadClientFile /></details>
       <div className={card}><DuplicatesPanel client={client} /></div>
       <AuditLog />
       {state && state.prospects.length > 0 && (
