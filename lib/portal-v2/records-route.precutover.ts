@@ -180,7 +180,7 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
 }
 
 /** Same current read projection used by records HTTP and authoritative exports. No IO or caller cells. */
-export function currentRecordProjection(client:PortalClient,data:NonNullable<Data>,state:Awaited<ReturnType<typeof portalCampaignStateSafe>>,tracking:AssignmentTracking){
+export function currentRecordProjection(client:PortalClient,data:NonNullable<Data>,state:Awaited<ReturnType<typeof portalCampaignStateSafe>>,tracking:AssignmentTracking,options?:{recordScope?:"current"|"own-source"}){
     const prospects = (state?.prospects ?? []) as Prospect[];
     const o = buildOverlay((state?.updates ?? []) as unknown as UpdateRow[]);
     // Committee/campaign-only donors can have a valid campaign CPTID but no master
@@ -193,17 +193,35 @@ export function currentRecordProjection(client:PortalClient,data:NonNullable<Dat
       return p ? prospectRecord(p) : (campaign.get(c) ?? null);
     };
     const assignment = assignmentResolver(data.records, tracking, (state?.updates ?? []) as UpdateRow[], o);
+    // OFFLINE preservation scope only. Index/snapshot/real identity maps always
+    // retain current semantics; never pass this option from a live HTTP route.
+    const ownSource = options?.recordScope === "own-source";
+    if (ownSource && client !== "pvas") throw new Error("PVAS own-source HOLD: client");
+    const recordOverlay = ownSource ? { ...o, mergedInto: new Map<number, number>() } : o;
+    const recordAssignment = ownSource ? assignmentResolver(data.records, tracking, (state?.updates ?? []) as UpdateRow[], recordOverlay) : assignment;
 
 let indexed: ReturnType<typeof overlaidIndex> | undefined;
 return {get index(){return indexed ??= overlaidIndex(data.index,prospects,campaign,o).map(r=>({...r,...assignment(r.cptid)}));},record(asked:number){
-      const target = finalId(o, asked);
+      if (ownSource) {
+        const entries = Object.entries(data.records).filter(([, r]) => (r as Full)?.cptid === asked);
+        if (!Number.isInteger(asked) || asked <= 0 || asked > 2147483647 || entries.length !== 1 ||
+          entries[0][0] !== String(asked) || data.index.filter(r => r.cptid === asked).length !== 1)
+          throw new Error("PVAS own-source HOLD: original-identity");
+      }
+      const target = ownSource ? asked : finalId(o, asked);
       const base = lookup(target);
       if (!base) return null;
-      const out = overlayRecord(base, o, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup);
-      const a = assignment(target);
+      if (ownSource && (["redirectedFrom","mergedFrom","dsFromCptid"].some(k => Object.hasOwn(base,k)) ||
+        [base.campaignAsk,base.portfolio].some(v => !!v && typeof v === "object" && Object.hasOwn(v,"askFromCptid"))))
+        throw new Error("PVAS own-source HOLD: already-derived-base");
+      const out = overlayRecord(base, recordOverlay, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup);
+      const a = recordAssignment(target);
       out.assignment = a;
       if (out.portfolio) out.portfolio = { ...(out.portfolio as object), solicitor: a.solicitor, secondary: a.solicitor2 };
       if (target !== asked) out.redirectedFrom = { cptid: asked, name: lookup(asked)?.name ?? `CPTID ${asked}` };
+      if (ownSource && (out.cptid !== asked || Object.hasOwn(out,"redirectedFrom") || Object.hasOwn(out,"mergedFrom") ||
+        Object.hasOwn(out,"dsFromCptid") || (out.campaignAsk as {askFromCptid?:number})?.askFromCptid !== undefined))
+        throw new Error("PVAS own-source HOLD: nonlocal-derived-record");
 
 return out;
 }};

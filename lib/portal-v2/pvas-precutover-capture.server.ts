@@ -11,6 +11,7 @@ import { currentRecordProjection } from "./records-route.precutover";
 import { currentDashboardSnapshot } from "./current-dashboard-snapshot.precutover";
 import { readStrictTracking } from "./direct-tracking-state";
 import { buildOverlay, type UpdateRow } from "./record-overlay";
+import { OUTCOME_FIELD, validateOutcome } from "./outcome";
 import type { PortalState } from "./clients";
 import type { PvasSnapshot, PvasRecords } from "../pvas-data-store";
 import type { PvasTracking as Tracking } from "../pvas-tracking-types";
@@ -47,9 +48,20 @@ export type FrozenCaptureInput = {
 };
 
 export async function assertPrecutoverCode(root: string): Promise<void> {
-  for (const [file, expected] of Object.entries(HASHES)) need(sha(await readFile(path.join(root, file))) === expected, "precedence-code-drift");
+  // HASHES remains the ORIGINAL source-owner identity, including original7f36.
+  // The separately pinned frozen copy adds an inert record-only scope; default
+  // output/proof is unchanged. Never pass off its modified bytes as original.
+  const frozen = { ...HASHES, "lib/portal-v2/records-route.precutover.ts": OWN_SOURCE_RECORD_SHA256 };
+  for (const [file, expected] of Object.entries(frozen)) need(sha(await readFile(path.join(root, file))) === expected, "precedence-code-drift");
 }
 
+const OWN_SOURCE_RECORD_SHA256 = "3da1b08dc65db164859c1254dbd6443474aef8c3b23e7e0013b0b40d85ffd8aa";
+export type OwnSourceOptions = { includeOwnMergedSources?: false } | {
+  includeOwnMergedSources: true;
+  /** Exact byte bindings only, NOT a claim that SQL/source correspondence or
+   * complete schema visibility has been verified. Upstream receipts still gate. */
+  ownSourceEvidence: { sources: Uint8Array; schema: Uint8Array };
+};
 
 export type FrozenCaptureParts = FrozenCaptureInput["parts"];
 
@@ -77,10 +89,13 @@ async function composeFrozenParts(parts: FrozenCaptureParts) {
  * All values are JSON-safe; original bytes are bound by proof.partDigests.
  * The assembler must preserve those bytes and still call captureFrozenPvas
  * with its complete reviewed manifest before treating the capture as sealed. */
-export async function projectFrozenPvas(root: string, parts: FrozenCaptureParts) {
+export async function projectFrozenPvas(root: string, parts: FrozenCaptureParts, options?: OwnSourceOptions) {
   await assertPrecutoverCode(root);
-  const { state, effectiveData, effectiveTracking, projection, visibleSnapshot } = await composeFrozenParts(parts);
+  const composed = await composeFrozenParts(parts);
+  const { state, effectiveData, effectiveTracking, projection, visibleSnapshot } = composed;
   const overlay = buildOverlay(state.updates as unknown as UpdateRow[]);
+  const sidecar = options?.includeOwnMergedSources === true ?
+    { ownSourceView: await ownMergedSourceView(root, parts, composed, options.ownSourceEvidence) } : {};
   return {
     held: true as const,
     effectiveView: { records: projection.index.map(r => projection.record(r.cptid)),
@@ -95,7 +110,96 @@ export async function projectFrozenPvas(root: string, parts: FrozenCaptureParts)
     proof: { sourceCommit: PRE_CUTOVER_COMMIT, extractorVersion: EXTRACTOR_VERSION,
       sourceHashes: { ...HASHES },
       partDigests: Object.fromEntries(Object.entries(parts).map(([name, bytes]) => [name, sha(bytes)])) },
+    ...sidecar,
   };
+}
+
+/** Derived closure, not a second winner parser. All donor-local rows are
+ * exported in the SAME stable order consumed by the original folds; complete
+ * supplied parts remain byte-bound. No single-event authority is invented. */
+async function ownMergedSourceView(root: string, parts: FrozenCaptureParts,
+  composed: Awaited<ReturnType<typeof composeFrozenParts>>, evidence: {sources:Uint8Array;schema:Uint8Array}) {
+  need(object(evidence) && evidence.sources instanceof Uint8Array && evidence.schema instanceof Uint8Array &&
+    evidence.sources.byteLength > 0 && evidence.schema.byteLength > 0, "own-source-evidence-bytes");
+  const { data, state, source, tracking, effectiveData, effectiveTracking } = composed;
+  const updates = state.updates as unknown as Obj[];
+  const id = (v: unknown) => Number.isInteger(v) && Number(v) > 0 && Number(v) <= 2147483647;
+  need(updates.every(u => object(u) && Number.isSafeInteger(u.id) && u.id > 0 && id(u.cptid) &&
+    typeof u.field === "string" && (u.new_value === null || typeof u.new_value === "string")) &&
+    new Set(updates.map(u=>u.id)).size === updates.length, "own-source-update-order-identity");
+  const overlay = buildOverlay(updates as UpdateRow[]);
+  need([...overlay.mergedInto].every(([from,to])=>id(from)&&id(to)), "own-source-merge-identity");
+  const donorIds: number[] = [], excludedMergedIds: number[] = [];
+  const originalEntries = Object.entries(data.records) as [string,Obj][];
+  for (const c of [...overlay.mergedInto.keys()].sort((a,b)=>a-b)) {
+    need(id(c), "own-source-merge-identity");
+    const records = originalEntries.filter(([key,r]) => key === String(c) || r?.cptid === c);
+    const index = data.index.map((r,i)=>({ordinal:i,row:r})).filter(r=>r.row.cptid===c);
+    if (!records.length && !index.length) { excludedMergedIds.push(c); continue; }
+    need(records.length === 1 && records[0][0] === String(c) && object(records[0][1]) &&
+      records[0][1].cptid === c && index.length === 1, "own-source-original-identity");
+    donorIds.push(c);
+  }
+  const own = currentRecordProjection("pvas", effectiveData as never, state, effectiveTracking, {recordScope:"own-source"});
+  const records: Obj[] = [], fieldStates: Obj[] = [], donors: Obj[] = [];
+  const property = (base: unknown, keys: string[]) => {
+    let value = base;
+    for (const key of keys) {
+      if (!object(value) || !Object.hasOwn(value,key)) return {path:keys,present:false,state:"absent"};
+      value = value[key];
+    }
+    return {path:keys,present:true,state:value===undefined?"undefined":value===null?"null":"value",
+      ...(value===undefined?{}:{value})};
+  };
+  const ordered = updates.map((row,ordinal)=>({key:String(row.id),ordinal,row})).sort((a,b)=>a.row.id-b.row.id);
+  for (const c of donorIds) {
+    const key = String(c), record = own.record(c) as Obj;
+    need(record && record.cptid===c, "own-source-record");
+    records.push(record);
+    const paths: Record<string,string[]> = {fullName:["name"],ask:["campaignAsk","ask"],
+      primarySolicitor:["assignment","solicitor"],secondarySolicitor:["assignment","solicitor2"],outcome:["outcome","value"]};
+    for (const name of ["street","city","state","zip","phone","phone2","phone3","email","email2"]) paths[name]=["contact",name];
+    const fields = Object.fromEntries(Object.entries(paths).map(([name,p])=>[name,property(record,p)]));
+    fields.status = property(tracking as unknown,["prospects",key,"status"]);
+    fieldStates.push({cptid:c,fields});
+    const local = ordered.filter(u=>u.row.cptid===c);
+    // Reuse the ORIGINAL outcome validator for EACH event, without selecting
+    // another winner or inferring a clear from its rendered blank/default.
+    const outcomeEvents = local.filter(u=>u.row.field===OUTCOME_FIELD).map(u=>{
+      try {
+        const raw = JSON.parse(u.row.new_value ?? "null");
+        return {key:u.key,valid:true,validated:validateOutcome(raw?.value,raw?.note)};
+      } catch { return {key:u.key,valid:false}; }
+    });
+    const semanticStates = Object.fromEntries(["campaignAsk","outcome","assignment","wealth"].map(name=>[name,
+      Object.fromEntries(Object.keys(record[name]??{}).map(k=>[k,property(record,[name,k])]))]));
+    donors.push({cptid:c,originalRecordKey:key,semanticStates,
+      originalRecord:data.records[key],effectiveBase:effectiveData.records[key],
+      originalIndexEntries:data.index.map((row,ordinal)=>({ordinal,row})).filter(x=>x.row.cptid===c),
+      prospects:state.prospects.map((row,ordinal)=>({ordinal,row})).filter(x=>x.row.cptid===c),
+      tracking:{prospect:property(tracking as unknown,["prospects",key]),
+        activity:tracking.activity.map((row,ordinal)=>({ordinal,row})).filter(x=>x.row.cptid===c),
+        removed:(tracking.removed??[]).map((row,ordinal)=>({ordinal,row})).filter(x=>x.row.cptid===c)},
+      updates:local,outcomeEvents,
+      directValues:source.values.map((row,ordinal)=>({key:`${row.cptid}:${row.field}`,ordinal,row})).filter(x=>x.row.cptid===c),
+      directNotes:source.notes.map((row,ordinal)=>({key:row.event_key,ordinal,row})).filter(x=>x.row.cptid===c)});
+  }
+  const moduleSha256: Record<string,string> = {};
+  for (const file of [...Object.keys(HASHES),"lib/portal-v2/outcome.ts","lib/portal-v2/pvas-precutover-capture.server.ts"])
+    moduleSha256[file] = sha(await readFile(path.join(root,file)));
+  need(moduleSha256["lib/portal-v2/outcome.ts"] === "594dce417037d9e0ab34adc97d2cffbbe32026deb22dfa472f6afdc9c83e5a83", "own-source-outcome-code-drift");
+  return {version:"old-own-source-projection-v1",scope:"donor-local-pre-merge",
+    semantics:"preservation candidate; NOT historical visible HTTP response",
+    held:true,accepted:false,frozen:false,approved:false,activated:false,
+    donorIds,donorIdsSha256:sha(Buffer.from(JSON.stringify(donorIds),"utf8")),records,fieldStates,
+    foldEvidence:{kind:"complete-donor-local-derived-closure-v1",extractorVersion:EXTRACTOR_VERSION,
+      originalSourceCommit:PRE_CUTOVER_COMMIT,originalSourceHashes:{...HASHES},moduleSha256,
+      partDigests:Object.fromEntries(Object.entries(parts).map(([name,bytes])=>[name,sha(bytes)])),
+      byteBindings:{sources:{sha256:sha(evidence.sources),bytes:evidence.sources.byteLength},
+        schema:{sha256:sha(evidence.schema),bytes:evidence.schema.byteLength}},
+      sourceSchemaCorrespondence:"NOT verified here; upstream source/part/state receipts required",
+      cohort:"original records AND unique original index identities intersect actual mergedInto keys",
+      excludedMergedIds,donors}};
 }
 
 /** Returns exact manifest bytes and companion original-byte attachments.
