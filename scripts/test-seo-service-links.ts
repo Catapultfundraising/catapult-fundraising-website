@@ -71,15 +71,36 @@ for (const { slug } of ANSWERS) {
   assert.ok(entry, `sitemap contains ${slug}`);
   assert.ok(entry.lastModified instanceof Date);
   assert.equal(entry.lastModified.toISOString().slice(0, 10),
-    changedSlugs.has(slug) ? "2026-11-10" : "2026-10-07", slug);
+    slug === "is-my-nonprofit-ready-for-a-capital-campaign" ? "2026-11-16" : changedSlugs.has(slug) ? "2026-11-10" : "2026-10-07", slug);
 }
 for (const [route, date] of [
   ["/answers", "2026-08-29"],
-  ["/services/capital-campaign", "2026-09-26"],
-  ["/services/feasibility-study", "2026-09-11"],
+  ["/services/capital-campaign", "2026-11-16"],
+  ["/services/feasibility-study", "2026-11-16"],
 ]) {
   const entry = entries.find(item => item.url === `https://www.catapultfr.com${route}`);
   assert.ok(entry?.lastModified instanceof Date);
   assert.equal(entry.lastModified.toISOString().slice(0, 10), date, route);
 }
 console.log("Scoped answer sitemap dates: all assertions passed");
+
+// Approved Nov 16 clarity batch: existing titles/H1s and tool behavior are preserved.
+const readinessAnswer = getAnswerBySlug("is-my-nonprofit-ready-for-a-capital-campaign")!;
+assert.match(readinessAnswer.answer[0], /^Start by reviewing your board’s commitment/);
+assert.equal(readinessAnswer.lastModified, "2026-11-16");
+assert.deepEqual(readinessAnswer.introLinks, [
+  { label: "campaign readiness assessment", href: "/resources/campaign-readiness-assessment" },
+  { label: "capital campaign feasibility study", href: "/services/feasibility-study" },
+]);
+assert.ok(ANSWERS.filter(a => a.slug !== readinessAnswer.slug).every(a => !a.introLinks && !a.lastModified));
+assert.ok(readiness.indexOf("This free self-assessment") < readiness.indexOf("<CampaignReadinessAssessment"));
+assert.ok(readiness.indexOf("capital campaign feasibility study") < readiness.indexOf("<CampaignReadinessAssessment"));
+const campaignSource = readFileSync("app/services/capital-campaign/page.tsx", "utf8");
+assert.match(campaignSource, /title="Campaign planning, major gift coaching and public-phase calling from one accountable team\."/);
+assert.match(campaignSource, /contactLabel="Discuss Campaign Support"/);
+assert.match(campaignSource, /eyebrow="Capital Campaign Consulting Services"/);
+const feasibilitySource = readFileSync("app/services/feasibility-study/page.tsx", "utf8");
+assert.match(feasibilitySource, /Catapult conducts confidential interviews with board members, staff and top prospects/);
+assert.match(feasibilitySource, /title="Test the goal before you announce it\."/);
+assert.match(feasibilitySource, /eyebrow="Capital Campaign Feasibility Study"/);
+console.log("Nov 16 service clarity: all assertions passed");

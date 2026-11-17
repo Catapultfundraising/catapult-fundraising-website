@@ -30,7 +30,9 @@ export interface Answer {
   slug: string;
   pillar: string;
   question: string;
-  answer: string[]; // paragraphs
+  answer: string[]; // paragraphs, also used as plain text in FAQ schema
+  introLinks?: RelatedLink[]; // Link matching phrases in the first paragraph only.
+  lastModified?: string; // Route-specific date; other answers retain the legacy fallback.
   related: RelatedLink[];
   // Optional shorter overrides for the <title> tag and meta description.
   // `question` stays the on-page H1 (full, natural phrasing -- good for
@@ -174,12 +176,17 @@ export const ANSWERS: Answer[] = [
   },
   {
     slug: "is-my-nonprofit-ready-for-a-capital-campaign",
+    lastModified: "2026-11-16",
+    introLinks: [
+      { label: "campaign readiness assessment", href: "/resources/campaign-readiness-assessment" },
+      { label: "capital campaign feasibility study", href: "/services/feasibility-study" },
+    ],
     pillar: "Capital Campaigns",
     question: "How do I know if my nonprofit is ready for a capital campaign?",
     metaTitle: "Is my nonprofit ready for a capital campaign?",
     metaDescription: "Readiness is exactly what a feasibility study is designed to answer honestly, before an organization commits publicly to a dollar goal.",
     answer: [
-      "Readiness is exactly what a feasibility study is designed to answer honestly, before an organization commits publicly to a dollar goal. Catapult's feasibility process interviews board members, staff, and top prospects to test whether the case for support resonates, whether leadership and top donors will actually make and ask for gifts, and whether the organization's current systems and staffing can support a multi-year campaign.",
+      "Start by reviewing your board’s commitment, case for support, donor prospects and capacity to manage a campaign. Catapult’s free campaign readiness assessment helps you review those foundations. A capital campaign feasibility study then tests donor support through confidential interviews with board members, staff and top prospects, giving your board evidence to set or adjust the goal and timing.",
       "A few practical signals we look for: a board willing to give and ask first, a compelling and specific project (not just \"we need money\"), a donor file with at least a handful of prospects capable of leadership-level gifts, and organizational capacity to track pledges and steward donors for years, not months.",
       "If those pieces aren't yet in place, that's not a reason to abandon the goal, it's information that shapes a realistic timeline and often points to a Donor Engagement or Legacy Call program first, to build the donor base a campaign will eventually need.",
     ],

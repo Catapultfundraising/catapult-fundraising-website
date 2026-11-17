@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { CtaBand } from "@/components/cta-band";
+import { AnswerParagraph } from "@/components/answer-paragraph";
 import { ANSWERS, getAnswerBySlug } from "@/lib/answers";
 
 // Heading anchors, so the in-page contents list on the longer answers links
@@ -61,12 +62,17 @@ export default async function AnswerPage({
   const a = getAnswerBySlug(slug);
   if (!a) notFound();
 
+  const lastModified = a.lastModified ?? ANSWERS_LAST_MODIFIED;
+  const lastModifiedDisplay = a.lastModified
+    ? new Intl.DateTimeFormat("en-US", { month: "long", day: "numeric", year: "numeric", timeZone: "UTC" }).format(new Date(a.lastModified))
+    : ANSWERS_LAST_MODIFIED_DISPLAY;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@graph": [
       {
         "@type": "FAQPage",
-        dateModified: ANSWERS_LAST_MODIFIED,
+        dateModified: lastModified,
         mainEntity: [
           {
             "@type": "Question",
@@ -74,7 +80,7 @@ export default async function AnswerPage({
             acceptedAnswer: {
               "@type": "Answer",
               text: a.answer.join(" "),
-              dateModified: ANSWERS_LAST_MODIFIED,
+              dateModified: lastModified,
             },
           },
         ],
@@ -117,13 +123,13 @@ export default async function AnswerPage({
         </Link>
 
         <p className="mt-4 text-xs uppercase tracking-wider text-[rgb(var(--ink))]/40">
-          Last updated {ANSWERS_LAST_MODIFIED_DISPLAY}
+          Last updated {lastModifiedDisplay}
         </p>
 
         <div className="mt-8 space-y-5">
           {a.answer.map((para, i) => (
             <p key={i} className="text-lg leading-relaxed text-[rgb(var(--ink))]/75">
-              {para}
+              <AnswerParagraph text={para} links={i === 0 ? a.introLinks : undefined} />
             </p>
           ))}
         </div>

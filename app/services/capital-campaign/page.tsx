@@ -203,8 +203,8 @@ export default function CapitalCampaignPage() {
       <PageHero
         serviceHeading
         eyebrow="Capital Campaign Consulting Services"
-        title="The full-service firm that carries your campaign from first feasibility call to final pledge."
-        description="Catapult is the only national firm that plans your capital campaign from the earliest quiet-phase strategy through a professionally staffed public-phase calling program, wrapping every campaign in one accountable partner instead of three vendors."
+        title="Campaign planning, major gift coaching and public-phase calling from one accountable team."
+        description="Catapult helps nonprofits plan and carry out capital campaigns, from feasibility studies and case development through quiet-phase counsel and professionally staffed public-phase calling. We prepare your staff and volunteers to make major gift asks and keep the work coordinated across each phase."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/62ebe036-cc54-4a61-8952-61060ecd662c.jpeg"
       />
       <ServiceDetail
@@ -464,7 +464,7 @@ export default function CapitalCampaignPage() {
         </div>
       </section>
 
-      <CtaBand />
+      <CtaBand heading="Discuss your capital campaign" description="Tell us your proposed goal, where the campaign stands and the support your team needs. We’ll discuss the right starting point." contactLabel="Discuss Campaign Support" />
     </>
   );
 }

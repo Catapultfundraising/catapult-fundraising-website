@@ -201,7 +201,7 @@ export default function FeasibilityStudyPage() {
         serviceHeading
         eyebrow="Capital Campaign Feasibility Study"
         title="Test the goal before you announce it."
-        description="Catapult's feasibility study puts a confidential conversation in front of every prospect who would have to fund your campaign, then hands your board a defensible goal, a gift chart, and a leadership list instead of a guess."
+        description="Catapult conducts confidential interviews with board members, staff and top prospects to test your campaign goal, case for support and potential leadership. Your board receives a written report, a recommended goal, gift chart scenarios and a leadership prospect list to guide its next decision."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/2a0d01eb-79d6-4dfe-b7ce-54b1b8418ee0.png"
       />
       <ServiceDetail
