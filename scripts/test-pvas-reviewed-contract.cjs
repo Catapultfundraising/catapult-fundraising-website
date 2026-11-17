@@ -14,6 +14,8 @@ const compile = (source, require = () => ({}), extra = {}) => {
   return {exports, context};
 };
 const canonical = {pvasCanonicalEnabled: c => c === "pvas"};
+const uploadHistory = compile(read("lib/portal-v2/pvas-upload-history.ts"), n =>
+  n === "./pvas-canonical" ? canonical : {}).exports;
 const action = compile(read("lib/portal-v2/pvas-action.server.ts"), n =>
   n === "node:async_hooks" ? require(n) : n === "./pvas-canonical" ? canonical : {}).exports;
 const backend = compile(fixture.envelope + "\n" + fixture.displayDate +
@@ -32,6 +34,7 @@ const fakeFetch = async (_url, init) => {
 const server = compile(read("lib/portal-v2/server.ts"), n => {
   if(n === "./pvas-action.server") return action;
   if(n === "./pvas-canonical") return canonical;
+  if(n === "./pvas-upload-history") return uploadHistory;
   if(n === "next/server") return {NextResponse:Response};
   if(n.endsWith("-auth")) return new Proxy({}, {get:()=>async()=>true});
   if(n === "@/lib/pvas-data-store") return {invalidatePvasDataCache:()=>{}};

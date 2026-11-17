@@ -1,6 +1,7 @@
 "use client";
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
+import { uploadUndoPolicy, uploadHistoryRowKey, completePvasUploadHistory } from "@/lib/portal-v2/pvas-upload-history";
 import { moneyInput } from "@/lib/portal-v2/pvas-financials";
 import {usdExact}from"@/lib/portal-v2/pvas-financials";
 import {pvasGiftMetadata,pvasGiftTarget,pvasGiftValues}from"@/lib/portal-v2/pvas-gift-wire";
@@ -15,7 +16,7 @@ import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
 import { buildOverlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 
 import { Fragment, createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
+import { PORTAL_V2, campaignByLevel, type PortalClient, type PortalGift, type PortalState, type PortalBatch } from "@/lib/portal-v2/clients";
 import { Dialog, DialogContent, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DuplicatesPanel, refreshCrmIndex } from "@/components/record-tools";
 import { DateInput, NameLink, isoToUs, parseUsDateClient, useSort, SortTh } from "@/components/dashboard-shared";
@@ -42,7 +43,15 @@ export function PortalV2Provider({ client, children }: { client: PortalClient; c
     try {
       const r = await fetch(PORTAL_V2[client].api, { cache: "no-store" });
       if (!r.ok) throw new Error("Current state unavailable");
-      setState(await r.json());
+      let next: V2State = await r.json();
+      if (pvasCanonicalEnabled(client)) next = await completePvasUploadHistory(next, async before => {
+        const page = await fetch(PORTAL_V2[client].api, { method: "POST", cache: "no-store",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ op: "pvasHistoricalUploads", before, limit: 200 }) });
+        if (!page.ok) throw new Error("PVAS upload history unavailable");
+        return page.json();
+      });
+      setState(next);
     } catch { setState(previous => previous ? { ...previous, configured: false, error: "Current state unavailable; retained last good data, not current success" } : null); }
     finally { setLoading(false); }
   }, [client]);
@@ -464,24 +473,31 @@ export function UploadClientFile() {
 export function AuditLog() {
   const { client, state, reload } = useV2();
   const [by] = useBy();
-  const [busy, setBusy] = useState<number | null>(null); const [msg, setMsg] = useState("");
+  const [busy, setBusy] = useState<number | string | null>(null); const [msg, setMsg] = useState("");
   const aso = useSort(state?.batches ?? [], (r, k) => (r as unknown as Record<string, unknown>)[k]);
-  const undo = async (id: number) => {
+  const undo = async (batch: PortalBatch) => {
+    const policy = uploadUndoPolicy(client, batch);
+    if (!policy.allowed) { setMsg(policy.reason); return; }
+    const id = batch.id;
     if (!confirm(`Undo batch ${id}? Every record, change and gift it added will be removed from the portal (kept in the audit log).`)) return;
     setBusy(id); setMsg("");
-    try { await post(client, pvasCanonicalEnabled(client)?{op:"pvasBatchUndo",by,command:{actor:by,batchId:id}}:{ op: "undo", batchId: id, by }); await reload(); } catch (e) { setMsg((e as Error).message); } finally { setBusy(null); }
+    try { await post(client, { op: "undo", batchId: id, by }); await reload(); } catch (e) { setMsg((e as Error).message); } finally { setBusy(null); }
   };
   if (!state) return null;
   return (
     <div className={card}>
       <h3 className="font-display text-lg text-[rgb(var(--navy))]">Change log</h3>
+      {pvasCanonicalEnabled(client) && <p className="mt-2 text-sm text-[rgb(var(--ink))]/60">Pre-cutover upload history is read-only; Undo is unavailable for those uploads. Undo for new uploads is not yet available in this view.</p>}
       <div className="mt-3 max-h-[420px] overflow-auto">
         <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={aso} k="created_at" label="When" className={th} /><SortTh s={aso} k="file_name" label="What" className={th} /><SortTh s={aso} k="created_by" label="By" className={th} /><SortTh s={aso} k="new_rows" label="New" className={`${th} text-right`} /><SortTh s={aso} k="changed_rows" label="Changed" className={`${th} text-right`} /><SortTh s={aso} k="gift_rows" label="Gifts" className={`${th} text-right`} /><th className={th} /></tr></thead>
           <tbody>{aso.sorted.map((b) => (
-            <tr key={b.id} className={`border-b border-[rgb(var(--line))] ${b.undone_at ? "text-[rgb(var(--ink))]/40 line-through" : ""}`}>
+            <tr key={uploadHistoryRowKey(client, b)} className={`border-b border-[rgb(var(--line))] ${b.undone_at ? "text-[rgb(var(--ink))]/40 line-through" : ""}`}>
               <td className={td}>{new Date(b.created_at).toLocaleString()}</td><td className={td}>{b.kind === "upload" ? `File: ${b.file_name}` : b.kind === "edit" ? `Change: ${b.file_name}` : `Entry: ${b.file_name}`}</td><td className={td}>{b.created_by}</td>
               <td className={`${td} text-right`}>{b.new_rows}</td><td className={`${td} text-right`}>{b.changed_rows}</td><td className={`${td} text-right`}>{b.gift_rows}</td>
-              <td className={td}>{b.kind === "edit" ? <span className="text-xs text-[rgb(var(--ink))]/50">Logged</span> : b.undone_at ? <span className="no-underline">Undone {new Date(b.undone_at).toLocaleDateString()}</span> : <button className="text-sm text-[rgb(var(--navy))] underline" disabled={busy === b.id} onClick={() => undo(b.id)}>Undo</button>}</td>
+              <td className={td}>
+                {uploadUndoPolicy(client, b).kind === "pre-cutover" && <span className="block text-xs">Pre-cutover · read-only</span>}
+                {b.kind === "edit" ? <span className="text-xs text-[rgb(var(--ink))]/50">Logged</span> : b.undone_at ? <span className="no-underline">Undone {new Date(b.undone_at).toLocaleDateString()}</span> : <button className="text-sm text-[rgb(var(--navy))] underline disabled:opacity-50" disabled={busy === b.id || !uploadUndoPolicy(client, b).allowed} title={uploadUndoPolicy(client, b).reason || undefined} onClick={() => undo(b)}>Undo</button>}
+              </td>
             </tr>))}</tbody></table>
         {!state.batches.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No changes yet.</p>}
       </div>

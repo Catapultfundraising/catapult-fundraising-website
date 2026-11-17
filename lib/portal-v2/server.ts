@@ -1,5 +1,6 @@
 import { readBoundedStream } from "./direct-source-transport.server";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
+import { HISTORICAL_UPLOAD_READ_ONLY, historicalUploadRejection, historicalUploadsReadBody } from "./pvas-upload-history";
 import { pvasActionBody, withPvasAction, PvasActionIdentityError } from "./pvas-action.server";
 import { canonicalPvasState } from "./pvas-state-wire";
 import { askEdits, effectiveAsk } from "./effective-ask";
@@ -452,6 +453,16 @@ export function portalV2Route(client: PortalClient) {
       const b = (await req.json().catch(() => null)) as Record<string, any> | null;
       if (!b) return bad("bad body");
       const by = txt(b.by, 200) || "Catapult portal";
+      if (pvasCanonicalEnabled(client) && b.op === "pvasHistoricalUploads") {
+        let page: ReturnType<typeof historicalUploadsReadBody>;
+        try { page = historicalUploadsReadBody(b); } catch { return bad("Invalid PVAS upload history page request", 400); }
+        const r = await engageCall(client, b.op, page);
+        return r.status === 200 ? NextResponse.json(r.body) : bad("PVAS upload history unavailable", 503);
+      }
+      // This operation names the legacy undoBatch namespace, never a new
+      // canonical upload. Reject before a numeric archive ID can be forwarded.
+      if (pvasCanonicalEnabled(client) && b.op === "undo")
+        return NextResponse.json(HISTORICAL_UPLOAD_READ_ONLY, { status: 410 });
       if (pvasCanonicalEnabled(client) && ["setContact","setWealth","setOutcome","addGift","editGift","voidGift","addProspect","editProspect","requestScreening","mergeRecords","unmerge","restoreRecord","deleteRecord","notDuplicate","undo"].includes(b.op))
         return bad("Use the canonical command with original expected values and source identity",503);
       if (pvasCanonicalEnabled(client) && ["pvasFields","pvasContact","pvasNote","pvasGift","pvasBatch","pvasBatchUndo","pvasRequestStatus"].includes(b.op)) {
@@ -464,6 +475,8 @@ export function portalV2Route(client: PortalClient) {
             b.command.actor !== b.by || typeof b.requestId !== "string" || !/^[a-f0-9]{32}$/.test(b.requestId) ||
             b.command.requestId !== undefined && b.command.requestId !== b.requestId) return bad("Canonical command requires matching actor and original requestId",400);
         const r = await engageCall(client,b.op,{command:{...b.command,requestId:b.requestId}});
+        const historicalRefusal = historicalUploadRejection(b.op, r.status, r.body);
+        if (historicalRefusal) return NextResponse.json({ ...historicalRefusal, requestId: b.requestId }, { status: 410 });
         if (r.status!==200) return NextResponse.json({error:r.status===409?"Canonical values changed; reload before saving":"Canonical save unconfirmed; reconcile the same requestId",requestId:b.requestId,unconfirmed:r.status>=500},{status:[400,409].includes(r.status)?r.status:503});
         return NextResponse.json(r.body);
       }

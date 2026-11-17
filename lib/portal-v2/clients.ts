@@ -2,6 +2,7 @@ import { buildGiftChart, type GiftChart } from "@/lib/gift-chart";
 import {moneyCents,centsMoney,displayMoney}from"./pvas-financials";
 import type{PvasGiftMetadata}from"./pvas-gift-wire";
 import type{PvasContactProfile}from"./pvas-contact-wire";
+import type { UploadHistoryIdentity, HistoricalBatchPage } from "./pvas-upload-history";
 import { pvasChart, PVAS_GOAL } from "@/lib/pvas-gc2p";
 import { wcbhcChart, WCBHC_GOAL } from "@/lib/wcbhc-gc2p";
 import { baqChart, BAQ_GOAL } from "@/lib/baq-gc2p";
@@ -34,9 +35,9 @@ export interface PortalGift { id: number; cptid: number | null; client_id: strin
 export interface GiftOverride { id: number; gift_key: string; cptid: number | null; donor_name: string | null; kind: "gift" | "pledge" | null; amount: number | null; gift_date: string | null; note: string | null; voided: boolean; void_reason: string | null; created_by: string; created_at: string }
 export interface VoidedGift { id: number | string; cptid: number | null; donor_name: string; kind: string; amount: number; gift_date: string | null; void_reason: string | null; voided_by: string | null; voided_at: string | null }
 export interface PortalProspect { _canonicalContact?:PvasContactProfile;id: number; cptid: number; client_id: string | null; full_name: string; first_name: string | null; last_name: string | null; org_name: string | null; address1: string | null; city: string | null; state: string | null; zip: string | null; email: string | null; phone: string | null; note?: string | null; source: string; batch_id: number | null; created_by: string | null; created_at: string }
-export interface PortalBatch { id: number; kind: string; file_name: string | null; created_by: string | null; created_at: string; new_rows: number; changed_rows: number; gift_rows: number; undone_at: string | null; undone_by: string | null }
+export interface PortalBatch extends UploadHistoryIdentity { kind: string; file_name: string | null; created_by: string | null; created_at: string; new_rows: number; changed_rows: number; gift_rows: number; undone_at: string | null; undone_by: string | null }
 export interface PortalUpdate { id: number; cptid: number; client_id: string | null; field: string; old_value: string | null; new_value: string | null; batch_id: number | null; created_at: string }
-export interface PortalState { prospects: PortalProspect[]; gifts: PortalGift[]; updates: PortalUpdate[]; batches: PortalBatch[]; giftOverrides?: GiftOverride[]; voidedGifts?: VoidedGift[];otherCanonicalGifts?:Record<string,unknown>[] }
+export interface PortalState { prospects: PortalProspect[]; gifts: PortalGift[]; updates: PortalUpdate[]; batches: PortalBatch[]; historicalBatchPage?: HistoricalBatchPage; giftOverrides?: GiftOverride[]; voidedGifts?: VoidedGift[];otherCanonicalGifts?:Record<string,unknown>[] }
 
 export interface CampaignDonor { key: string; cptid: number | null; name: string; gifts: number; pledges: number; credit: number; level: number | null; items: PortalGift[] }
 export interface CampaignLevel { level: number; gifts: number; value: number; secured: number; securedValue: number; remaining: number; remainingValue: number; donors: CampaignDonor[] }
