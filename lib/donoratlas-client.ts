@@ -161,7 +161,11 @@ const EXPORT_FIELDS = [
 // DonorAtlas credit per call (on top of the 1 credit for getDonorById).
 // Returns {} (rather than throwing) on any failure so a hiccup here never
 // blocks the rest of the donor profile from loading.
-export async function exportDonorFields(id: string): Promise<Record<string, string>> {
+export async function exportDonorFieldsWithStatus(
+  id: string
+): Promise<{ fields: Record<string, string>; warning?: string }> {
+  const warning =
+    "DonorAtlas contact and family details (spouse, parents, children, phones, emails) could not be retrieved. Re-run this lookup or enter them manually.";
   try {
     const body = await daFetch("/exports", {
       method: "POST",
@@ -171,13 +175,25 @@ export async function exportDonorFields(id: string): Promise<Record<string, stri
         fields: EXPORT_FIELDS,
       }),
     });
-    const url = body?.download_url;
-    if (!url) return {};
+    let url = body?.download_url;
+    // Larger exports run asynchronously (status "processing"); a single donor should return a link directly.
+    if (!url && body?.export_id) {
+      for (let i = 0; i < 5 && !url; i++) {
+        await new Promise((r) => setTimeout(r, 1500));
+        const poll = await daFetch(`/exports/${encodeURIComponent(body.export_id)}/download`, { method: "GET" }).catch(() => null);
+        url = poll?.download_url;
+      }
+    }
+    if (!url) return { fields: {}, warning };
     const res = await fetch(url);
-    if (!res.ok) return {};
-    const text = await res.text();
-    return parseCsvSingleRow(text);
+    if (!res.ok) return { fields: {}, warning };
+    return { fields: parseCsvSingleRow(await res.text()) };
   } catch {
-    return {};
+    return { fields: {}, warning };
   }
+}
+
+// Kept for any other callers; prefer exportDonorFieldsWithStatus so failures are visible.
+export async function exportDonorFields(id: string): Promise<Record<string, string>> {
+  return (await exportDonorFieldsWithStatus(id)).fields;
 }
