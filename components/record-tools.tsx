@@ -257,12 +257,28 @@ export function ContactSection({ client, r, onSaved }: { client: string; r: AnyR
 const CAP_KEYS = ["Wealth-Based Capacity", "Capacity", "Estimated Capacity", "Wealth Capacity"];
 const RATING_KEYS = ["DS Rating", "DS_Rating", "Rating"];
 const pick = (o: Record<string, string> | null | undefined, keys: string[]) => { for (const k of keys) if (o?.[k]) return String(o[k]); return ""; };
+type PirWealth = { found: boolean; capacity?: string; rating?: string; profile?: string; updatedAt?: string; status?: string };
+
+/** Canonical PVAS SQL owns the main values, including NULL/blank/zero.
+ * Other clients retain their original staff -> PIR -> DS display precedence. */
+export function wealthDisplayValues(client: string, r: AnyRec, pir: PirWealth | null) {
+  if (pvasCanonicalEnabled(client)) {
+    const fields = pvasContactProfile(r._canonicalContact, r.cptid).fields;
+    return { canonical: true, capacity: fields.wealthCapacity, rating: fields.dsRating, capSrc: "PVAS SQL", ratingSrc: "PVAS SQL" };
+  }
+  const dsCap = pick(r.ds, CAP_KEYS), dsRating = pick(r.ds, RATING_KEYS);
+  const capEdit = r.wealth?.edits?.capacity, ratingEdit = r.wealth?.edits?.rating;
+  const pirCap = pir?.found ? pir.capacity ?? "" : "", pirRating = pir?.found ? pir.rating ?? "" : "";
+  return { canonical: false,
+    capacity: capEdit?.value || pirCap || dsCap, rating: ratingEdit?.value || pirRating || dsRating,
+    capSrc: capEdit ? "Edited" : pirCap ? "From PIR" : dsCap ? "DonorSearch" : "",
+    ratingSrc: ratingEdit ? "Edited" : pirRating ? "From PIR" : dsRating ? "DonorSearch" : "" };
+}
 
 export function WealthSection({ client, r, pirName, onSaved }: { client: string; r: AnyRec; pirName?: string; onSaved: () => void }) {
   const w = r.wealth ?? {};
   const ds = r.ds && Object.keys(r.ds).length ? r.ds : null;
-  const dsCap = pick(ds, CAP_KEYS), dsRating = pick(ds, RATING_KEYS);
-  const [pir, setPir] = useState<{ found: boolean; capacity?: string; rating?: string; profile?: string; updatedAt?: string; status?: string } | null>(null);
+  const [pir, setPir] = useState<PirWealth | null>(null);
   const [edit, setEdit] = useState<"capacity" | "rating" | null>(null);
   const [val, setVal] = useState("");
   const editOriginal=useRef<AnyRec|null>(null);
@@ -275,12 +291,8 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
     if (!pirName) return;
     v2(client, { op: "pirWealth", pirName, name: r.name }).then(setPir).catch(() => setPir({ found: false }));
   }, [client, pirName, r.name]);
-  const pirCap = pir?.found ? pir.capacity ?? "" : "", pirRating = pir?.found ? pir.rating ?? "" : "";
   const capEdit = w.edits?.capacity, ratingEdit = w.edits?.rating;
-  // What the dashboard uses: staff edit, then the PIR, then DonorSearch.
-  const canonical=pvasCanonicalEnabled(client);
-  const capacity = canonical?dsCap:capEdit?.value || pirCap || dsCap, capSrc = canonical?"Canonical SQL":capEdit ? "Edited" : pirCap ? "From PIR" : dsCap ? "DonorSearch" : "";
-  const rating = canonical?dsRating:ratingEdit?.value || pirRating || dsRating, ratingSrc = canonical?"Canonical SQL":ratingEdit ? "Edited" : pirRating ? "From PIR" : dsRating ? "DonorSearch" : "";
+  const { canonical, capacity, rating, capSrc, ratingSrc } = wealthDisplayValues(client, r, pir);
 
   async function saveEdit() {
     if (!by.trim()) { setErr("Enter your name so the change is credited to you"); return; }
@@ -313,7 +325,7 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
   return (
     <Sec title="Wealth screening" right={!edit && !screenForm && !w.pending && !org && <button onClick={openScreen} className={lineBtn}><Search className="h-3.5 w-3.5" />{ds || scr ? "Re-run screening" : "Run wealth screening"}</button>}>
       <div className="mb-3 grid grid-cols-2 gap-2">
-        {([["capacity", "Wealth capacity", capacity, capSrc, capEdit], ["rating", "Wealth rating", rating, ratingSrc, ratingEdit]] as const).map(([k, label, v, src, ed]) => (
+        {([["capacity", "Wealth capacity", capacity, capSrc, canonical ? undefined : capEdit], ["rating", "Wealth rating", rating, ratingSrc, canonical ? undefined : ratingEdit]] as const).map(([k, label, v, src, ed]) => (
           <div key={k} className="rounded-lg border border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5 p-2.5">
             <p className="text-[11px] uppercase tracking-wider text-[rgb(var(--ink))]/55">{label}</p>
             {edit === k ? (
@@ -325,11 +337,11 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
               </div>
             ) : (
               <>
-                <p className="mt-0.5 font-display text-lg text-[rgb(var(--navy))]">{v || "Not screened"}</p>
+                <p className="mt-0.5 font-display text-lg text-[rgb(var(--navy))]">{canonical ? v === null ? "SQL NULL" : v === "" ? "(blank)" : String(v) : v || "Not screened"}</p>
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-[rgb(var(--ink))]/60">
-                  {src && <span className="rounded-full bg-white px-2 py-0.5">{src}</span>}
+                  {src && <span className="rounded-full bg-white px-2 py-0.5" title={canonical ? k === "capacity" ? "PVAS SQL owner by row presence: pvas.portfolio.Wealth_Capacity → pvas.donorsearch_results.Wealth_Based_Capacity → pvas.wealth_extensions.wealth_capacity" : "PVAS SQL owner by row presence: pvas.portfolio.DS_Rating → pvas.donorsearch_results.DS_Rating → pvas.wealth_extensions.ds_rating" : undefined}>{src}</span>}
                   {ed && <span>by {ed.by} · {day(ed.at)}{ed.from ? ` · was ${ed.from}` : ""}</span>}
-                  <button onClick={() => { editOriginal.current=structuredClone(r);setVal(v); setEdit(k); setErr(""); }} className="underline">Edit</button>
+                  <button onClick={() => { editOriginal.current=structuredClone(r);setVal(v === null ? "" : String(v)); setEdit(k); setErr(""); }} className="underline">Edit</button>
                   {ed && !pvasCanonicalEnabled(client) && <button onClick={async () => { setBusy(true); try { await v2(client, { op: "setWealth", cptid: r.cptid, field: k, value: "", current: ed.value, by: by || "dashboard" }); onSaved(); } finally { setBusy(false); } }} className="underline">Undo edit</button>}
                 </div>
               </>
@@ -338,6 +350,7 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
         ))}
       </div>
       {pir?.found && (
+        canonical ? <p className="mb-2 rounded-md bg-[rgb(var(--paper))] px-2.5 py-1.5 text-xs">PIR reference ({pir.profile || "profile not provided"}; status {pir.status || "not provided"}{pir.updatedAt ? `, updated ${day(pir.updatedAt)}` : ""}): capacity {pir.capacity || "not stated"}, rating {pir.rating || "not stated"}. Separate reference only; does not replace PVAS SQL values.</p> :
         <p className="mb-2 rounded-md bg-[rgb(var(--paper))] px-2.5 py-1.5 text-xs">PIR ({pir.profile}{pir.updatedAt ? `, updated ${day(pir.updatedAt)}` : ""}): capacity {pir.capacity || "not stated"}, rating {pir.rating || "not stated"}. The PIR wins over DonorSearch unless someone edits the value.</p>
       )}
       {w.pending && <p className="mb-2 rounded-md bg-[rgb(var(--brass))]/15 px-2.5 py-1.5 text-xs text-[rgb(var(--navy))]">DonorSearch screening requested{w.requested ? ` by ${w.requested.by} on ${day(w.requested.at)}` : ""}. Results usually land here within 15 minutes.</p>}
