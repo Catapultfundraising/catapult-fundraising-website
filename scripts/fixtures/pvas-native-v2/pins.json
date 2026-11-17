@@ -1,0 +1,12 @@
+{
+  "role": "INERT exact source owners for fictional composed regression only; never runtime imports",
+  "backendCommit": "6c1db58738874eb095c5a63debd909b0925f9f2a",
+  "eventOwnerCommit": "a1f128f7 (held final evidence unchanged event owner)",
+  "files": {
+    "pvasNativeGiftReadV2.ts.source": "567c78ba0d77cce49181000a67ae770357fff8b40008d7f21506de936e3874a0",
+    "pvasNativeGiftSchemaV2.ts.source": "b6fe379764c0860652ae125295fb13f9dc3d9efd701c475b017d38e581506638",
+    "NATIVE-WIRE-CONTRACT.md": "3f9953e5f42045b94e1893d320c6768e19daa148c8caea7f5f87e574a00d5117",
+    "pvasNativeGiftFoundation.ts.source": "c111caa9a913eed0d9e5c642e95db38a6394559ade8f417887107fcd4d9a7d90",
+    "pvasCanonicalGifts.ts.source": "b3276b62868cdce3ded46a64eb05d76dea4a4ac2176d2d6dde445fe744660656"
+  }
+}

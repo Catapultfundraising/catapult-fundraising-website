@@ -1,0 +1,335 @@
+/**
+ * Held, pool-free canonical gift repository. Caller supplies authorization and a
+ * single SERIALIZABLE transaction. No retries, commit, DDL, provider-table writes
+ * or legacy overlays. See docs/pvas-canonical-gifts.DRAFT.md.
+ */
+import { createHash } from "node:crypto";
+import type { Run } from "./sourceImport";
+
+export type GiftSourceSystem = "portal_gifts" | "client_gift_history" | "website_db" | "manual" | "caller" | "monthly_import";
+export interface GiftSource { system: GiftSourceSystem; key: string }
+export interface PvasGiftValue {
+  amount: string; currency: string; date: string | null; year: number | null;
+  kind: "gift" | "pledge"; status: "received" | "pledged" | "void";
+  scope: "historical" | "campaign"; credit: "hard" | "soft";
+  campaign: string | null; fund: string | null; type: string | null;
+  note: string | null; donorName: string | null;
+}
+export interface PvasGift extends PvasGiftValue {
+  giftId: number; cptid: number; version: number; voidReason: string | null;
+}
+interface BaseCommand { requestId: string; cptid: number; actor: string }
+interface Target { giftId: number; expectedVersion: number; source: GiftSource }
+export type PvasGiftCommand = BaseCommand & (
+  { action: "create"; gift: PvasGiftValue; source: GiftSource } |
+  { action: "edit"; target: Target; gift: PvasGiftValue } |
+  { action: "void"; target: Target; reason: string }
+);
+export interface PvasGiftReceipt {
+  v: 1; requestId: string; cptid: number; payloadHash: string; giftId: number;
+  version: number; action: PvasGiftCommand["action"]; changed: boolean;
+  replayed: boolean; sourceReplayed: boolean;
+}
+export class PvasGiftError extends Error {
+  constructor(readonly code: "invalid-command" | "request-conflict" | "source-conflict" |
+    "corrupt-ledger" | "stale" | "not-found" | "id-exhausted" | "write-invariant") {
+    super(`PVAS canonical gifts held: ${code}`);
+  }
+}
+const fail = (code: PvasGiftError["code"]): never => { throw new PvasGiftError(code); };
+const object = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+const exact = (o: Record<string, unknown>, keys: string[]) => Object.keys(o).sort().join("|") === [...keys].sort().join("|");
+const int = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v > 0 && v <= 2147483647;
+const text = (v: unknown, max: number): v is string =>
+  typeof v === "string" && v.length > 0 && v.length <= max && !/[\x00-\x1f\x7f]/.test(v);
+const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v)).digest("hex");
+const systems: readonly string[] = ["portal_gifts", "client_gift_history", "website_db", "manual", "caller", "monthly_import"];
+const valueKeys = ["amount", "currency", "date", "year", "kind", "status", "scope", "credit", "campaign", "fund", "type", "note", "donorName"];
+/** Strict plain DECIMAL(18,2) lexeme, no exponent, Number coercion or rounding. */
+export function pvasGiftAmount(value: unknown): string {
+  if (typeof value !== "string" || !/^(0|[1-9]\d{0,15})(?:\.\d{1,2})?$/.test(value)) return fail("invalid-command");
+  const [whole, fraction = ""] = value.split(".");
+  const fixed = `${whole}.${fraction.padEnd(2, "0")}`;
+  if (fixed === "0.00") return fail("invalid-command");
+  return fixed;
+}
+function dateValid(v: unknown): v is string {
+  if (typeof v !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(v) || v < "0001-01-01") return false;
+  const n = Date.parse(`${v}T00:00:00.000Z`);
+  return Number.isFinite(n) && new Date(n).toISOString().slice(0, 10) === v;
+}
+export function validatePvasGiftSource(v: unknown): GiftSource {
+  if (!object(v) || !exact(v, ["system", "key"]) || typeof v.system !== "string" || !systems.includes(v.system) ||
+    !text(v.key, 400) || v.key.trim() !== v.key) return fail("invalid-command");
+  return { system: v.system as GiftSourceSystem, key: v.key };
+}
+export function validatePvasGiftValue(v: unknown): PvasGiftValue {
+  if (!object(v) || !exact(v, valueKeys) || typeof v.currency !== "string" || !/^[A-Z]{3}$/.test(v.currency) ||
+    (v.date !== null && !dateValid(v.date)) ||
+    (v.year !== null && (typeof v.year !== "number" || !Number.isInteger(v.year) || v.year < 1 || v.year > 9999)) ||
+    ["kind", "status", "scope", "credit"].some(k => typeof v[k] !== "string") ||
+    !["gift", "pledge"].includes(String(v.kind)) || !["received", "pledged", "void"].includes(String(v.status)) ||
+    !["historical", "campaign"].includes(String(v.scope)) || !["hard", "soft"].includes(String(v.credit)) ||
+    (v.status !== "void" && ((v.kind === "gift" && v.status !== "received") || (v.kind === "pledge" && v.status !== "pledged"))) ||
+    (v.note !== null && (typeof v.note !== "string" || v.note.length > 1000000 || /[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(v.note))) ||
+    (v.donorName !== null && (typeof v.donorName !== "string" || v.donorName.length > 300 || /[\x00-\x1f\x7f]/.test(v.donorName))) ||
+    ["campaign", "fund", "type"].some(k => v[k] !== null &&
+      (typeof v[k] !== "string" || (v[k] as string).length > 200 || /[\x00-\x1f\x7f]/.test(v[k] as string)))) return fail("invalid-command");
+  return { amount: pvasGiftAmount(v.amount), currency: v.currency as string, date: v.date as string | null, year: v.year as number | null,
+    kind: v.kind as PvasGiftValue["kind"], status: v.status as PvasGiftValue["status"],
+    scope: v.scope as PvasGiftValue["scope"], credit: v.credit as PvasGiftValue["credit"],
+    campaign: v.campaign as string | null, fund: v.fund as string | null, type: v.type as string | null,
+    note: v.note as string | null, donorName: v.donorName as string | null };
+}
+export function validatePvasGiftCommand(v: unknown): PvasGiftCommand {
+  if (!object(v) || typeof v.requestId !== "string" || !/^[a-f0-9]{32}$/.test(v.requestId) ||
+    !int(v.cptid) || !text(v.actor, 200) || !v.actor.trim()) return fail("invalid-command");
+  const base = { requestId: v.requestId, cptid: v.cptid, actor: v.actor };
+  if (v.action === "create" && exact(v, ["requestId", "cptid", "actor", "action", "gift", "source"])) {
+    const gift = validatePvasGiftValue(v.gift);
+    if (gift.status === "void") return fail("invalid-command");
+    return { ...base, action: "create", gift, source: validatePvasGiftSource(v.source) };
+  }
+  if (!object(v.target) || !exact(v.target, ["giftId", "expectedVersion", "source"]) ||
+    !int(v.target.giftId) || !int(v.target.expectedVersion)) return fail("invalid-command");
+  const target = { giftId: v.target.giftId, expectedVersion: v.target.expectedVersion, source: validatePvasGiftSource(v.target.source) };
+  if (v.action === "edit" && exact(v, ["requestId", "cptid", "actor", "action", "target", "gift"])) {
+    const gift = validatePvasGiftValue(v.gift);
+    if (gift.status === "void") return fail("invalid-command");
+    return { ...base, action: "edit", target, gift };
+  }
+  if (v.action === "void" && exact(v, ["requestId", "cptid", "actor", "action", "target", "reason"]) &&
+    text(v.reason, 400) && v.reason.trim()) return { ...base, action: "void", target, reason: v.reason };
+  return fail("invalid-command");
+}
+const columns = `g.gift_id AS giftId,g.cptid,g.version,CONVERT(varchar(40),g.amount) AS amount,
+  g.currency,CONVERT(varchar(10),g.event_date,23) AS date,g.calendar_year AS year,g.kind,g.status,g.scope,g.credit,
+  g.campaign,g.fund,g.gift_type AS type,g.note,g.donor_name AS donorName,g.void_reason AS voidReason`;
+export const PVAS_GIFT_SQL = Object.freeze({
+  request: `SELECT operation,cptid,payload_hash,result_json FROM pvas.write_requests WITH (UPDLOCK,HOLDLOCK) WHERE request_id=@requestId`,
+  start: `INSERT INTO pvas.write_requests(request_id,operation,cptid,payload_hash,actor,result_json)
+    VALUES(@requestId,'gift',@cptid,@hash,@actor,NULL)`,
+  finish: `UPDATE pvas.write_requests SET result_json=@receipt WHERE request_id=@requestId AND payload_hash=@hash AND result_json IS NULL`,
+  source: `SELECT gift_id AS giftId,cptid,source_hash,creation_version FROM pvas.gift_source_links WITH (UPDLOCK,HOLDLOCK)
+    WHERE source_system=@system AND source_key=@key COLLATE Latin1_General_100_BIN2 AND DATALENGTH(source_key)=DATALENGTH(@key)`,
+  current: `SELECT ${columns} FROM pvas.gifts g WITH (UPDLOCK,HOLDLOCK) WHERE g.gift_id=@giftId`,
+  allocate: `SELECT ISNULL(MAX(ids.gift_id),0) AS maxId FROM (
+    SELECT gift_id FROM pvas.gifts WITH (TABLOCKX,HOLDLOCK)
+    UNION ALL SELECT gift_id FROM pvas.gift_history WITH (TABLOCKX,HOLDLOCK)) ids`,
+  insert: `INSERT INTO pvas.gifts(gift_id,cptid,version,amount,currency,event_date,calendar_year,kind,status,scope,credit,campaign,fund,gift_type,note,donor_name,void_reason)
+    VALUES(@giftId,@cptid,1,CONVERT(decimal(18,2),@amount),@currency,CONVERT(date,@date,23),@year,@kind,@status,@scope,@credit,@campaign,@fund,@type,@note,@donorName,NULL)`,
+  update: `UPDATE pvas.gifts SET version=@version,amount=CONVERT(decimal(18,2),@amount),currency=@currency,
+    event_date=CONVERT(date,@date,23),calendar_year=@year,kind=@kind,status=@status,scope=@scope,credit=@credit,
+    campaign=@campaign,fund=@fund,gift_type=@type,note=@note,donor_name=@donorName,void_reason=@voidReason
+    WHERE gift_id=@giftId AND cptid=@cptid AND version=@expectedVersion`,
+  link: `INSERT INTO pvas.gift_source_links(source_system,source_key,gift_id,cptid,source_hash,creation_version,request_id)
+    VALUES(@system,@key,@giftId,@cptid,@sourceHash,1,@requestId)`,
+  history: `INSERT INTO pvas.gift_history(gift_id,version,cptid,request_id,action,snapshot_json,actor)
+    VALUES(@giftId,@version,@cptid,@requestId,@action,@after,@actor)`,
+  audit: `INSERT INTO pvas.write_audit(request_id,sequence_no,cptid,source_table,source_column,before_json,after_json,actor)
+    VALUES(@requestId,1,@cptid,N'pvas.gifts',N'gift',@before,@after,@actor)`,
+});
+function project(v: Record<string, unknown>): PvasGift {
+  if (!exact(v, ["giftId", "cptid", "version", "voidReason", ...valueKeys]) ||
+    !int(v.giftId) || !int(v.cptid) || !int(v.version) ||
+    (v.voidReason !== null && !text(v.voidReason, 400))) return fail("write-invariant");
+  let gift: PvasGiftValue;
+  try { gift = validatePvasGiftValue(Object.fromEntries(valueKeys.map(k => [k, v[k]]))); }
+  catch { return fail("write-invariant"); }
+  if (gift.amount !== v.amount || (gift.status === "void") !== (v.voidReason !== null)) return fail("write-invariant");
+  return { ...gift, giftId: v.giftId, cptid: v.cptid, version: v.version, voidReason: v.voidReason as string | null };
+}
+function decodeReceipt(row: Record<string, unknown>, b: PvasGiftCommand, digest: string): PvasGiftReceipt {
+  if (row.payload_hash !== digest || row.operation !== "gift" || row.cptid !== b.cptid) return fail("request-conflict");
+  let r: unknown;
+  try { r = JSON.parse(String(row.result_json)); } catch { return fail("corrupt-ledger"); }
+  if (!object(r) || !exact(r, ["v", "requestId", "cptid", "payloadHash", "giftId", "version", "action", "changed", "replayed", "sourceReplayed"]) ||
+    r.v !== 1 || r.requestId !== b.requestId || r.cptid !== b.cptid || r.payloadHash !== digest || r.action !== b.action ||
+    !int(r.giftId) || !int(r.version) || typeof r.changed !== "boolean" || r.replayed !== false || typeof r.sourceReplayed !== "boolean" ||
+    (b.action === "create" && r.version !== 1) ||
+    (b.action !== "create" && (r.giftId !== b.target.giftId || r.sourceReplayed || r.version !== b.target.expectedVersion + 1)) ||
+    r.changed === r.sourceReplayed) return fail("corrupt-ledger");
+  return { ...r, replayed: true } as unknown as PvasGiftReceipt;
+}
+async function write(run: Run, sql: string, p: Record<string, unknown>) {
+  if ((await run(sql, p)).affected !== 1) fail("write-invariant");
+}
+/**
+ * Caller MUST run this within one SERIALIZABLE tx, including read locks, receipt,
+ * history and audit. If COMMIT outcome is unknown, reconcile requestId read-only:
+ * do not retry automatically. Capture/copy validation occurs before first await.
+ */
+export async function applyPvasGiftTx(run: Run, input: unknown): Promise<PvasGiftReceipt> {
+  const b = validatePvasGiftCommand(input), digest = hash({ v: 1, op: "gift", command: b });
+  const p = { requestId: b.requestId, cptid: b.cptid, actor: b.actor, hash: digest };
+  const requests = (await run(PVAS_GIFT_SQL.request, p)).rows;
+  if (requests.length > 1) return fail("corrupt-ledger");
+  if (requests.length) return decodeReceipt(requests[0], b, digest);
+  const source = b.action === "create" ? b.source : b.target.source;
+  const links = (await run(PVAS_GIFT_SQL.source, { system: source.system, key: source.key })).rows;
+  if (links.length > 1) return fail("write-invariant");
+  const sourceHash = b.action === "create" ? hash({ v: 1, cptid: b.cptid, source: b.source, gift: b.gift }) : null;
+  let before: PvasGift | null = null, next: PvasGift, sourceReplayed = false;
+  if (b.action === "create" && links.length) {
+    const l = links[0];
+    if (!int(l.giftId) || l.cptid !== b.cptid || l.source_hash !== sourceHash || l.creation_version !== 1) return fail("source-conflict");
+    const rows = (await run(PVAS_GIFT_SQL.current, { giftId: l.giftId })).rows;
+    if (rows.length !== 1) return fail("write-invariant");
+    before = project(rows[0]);
+    if (before.cptid !== b.cptid || before.version < l.creation_version) return fail("write-invariant");
+    // Original outcome, not current values/version which may have been corrected.
+    next = { ...b.gift, giftId: l.giftId, cptid: b.cptid, version: l.creation_version, voidReason: null };
+    sourceReplayed = true;
+  } else if (b.action === "create") {
+    const ids = (await run(PVAS_GIFT_SQL.allocate, {})).rows;
+    const max = ids.length === 1 ? ids[0].maxId : undefined;
+    if (typeof max !== "number" || !Number.isInteger(max) || max < 0 || max > 2147483647) return fail("write-invariant");
+    if (max === 2147483647) return fail("id-exhausted");
+    next = { ...b.gift, giftId: max + 1, cptid: b.cptid, version: 1, voidReason: null };
+  } else {
+    if (links.length !== 1 || links[0].giftId !== b.target.giftId || links[0].cptid !== b.cptid) return fail("source-conflict");
+    const rows = (await run(PVAS_GIFT_SQL.current, { giftId: b.target.giftId })).rows;
+    if (rows.length !== 1) return fail("not-found");
+    before = project(rows[0]);
+    if (before.cptid !== b.cptid || before.version !== b.target.expectedVersion || before.status === "void") return fail("stale");
+    if (before.version === 2147483647) return fail("id-exhausted");
+    next = b.action === "edit" ?
+      { ...b.gift, giftId: before.giftId, cptid: before.cptid, version: before.version + 1, voidReason: null } :
+      { ...before, status: "void", version: before.version + 1, voidReason: b.reason };
+  }
+  await write(run, PVAS_GIFT_SQL.start, p);
+  if (!sourceReplayed) {
+    const values = { ...p, ...next, expectedVersion: before?.version };
+    await write(run, before ? PVAS_GIFT_SQL.update : PVAS_GIFT_SQL.insert, values);
+    if (!before) await write(run, PVAS_GIFT_SQL.link, { ...p, giftId: next.giftId, system: source.system, key: source.key, sourceHash });
+    const rows = (await run(PVAS_GIFT_SQL.current, { giftId: next.giftId })).rows;
+    if (rows.length !== 1 || JSON.stringify(project(rows[0])) !== JSON.stringify(next)) return fail("write-invariant");
+    // Derive exact audit money/date/text from actual SQL readback.
+    const after = JSON.stringify({ gift: project(rows[0]) });
+    await write(run, PVAS_GIFT_SQL.history, { ...p, giftId: next.giftId, version: next.version, action: b.action, after });
+    await write(run, PVAS_GIFT_SQL.audit, { ...p, before: JSON.stringify({ gift: before }), after });
+  } else {
+    // Distinct source-idempotent request still gets its own append-only audit
+    // receipt. It must not create a phantom gift version or revert corrections.
+    const unchanged = JSON.stringify({ gift: before });
+    await write(run, PVAS_GIFT_SQL.audit, { ...p, before: unchanged, after: unchanged });
+  }
+  const receipt: PvasGiftReceipt = { v: 1, requestId: b.requestId, cptid: b.cptid, payloadHash: digest,
+    giftId: next.giftId, version: next.version, action: b.action, changed: !sourceReplayed, replayed: false, sourceReplayed };
+  await write(run, PVAS_GIFT_SQL.finish, { ...p, receipt: JSON.stringify(receipt) });
+  return receipt;
+}
+
+/** Read-only receipt reconciliation after an uncertain response/COMMIT.
+ * null means "not observed", NEVER proof of rollback or permission to retry.
+ * Requires the original actual command, not a caller-claimed payload digest.
+ */
+export async function readPvasGiftReceipt(run: Run, input: unknown): Promise<PvasGiftReceipt | null> {
+  const b = validatePvasGiftCommand(input), digest = hash({ v: 1, op: "gift", command: b });
+  const rows = (await run(`SELECT operation,cptid,payload_hash,result_json FROM pvas.write_requests
+    WHERE request_id=@requestId`, { requestId: b.requestId })).rows;
+  if (rows.length > 1) return fail("corrupt-ledger");
+  return rows.length ? { ...decodeReceipt(rows[0], b, digest), replayed: false } : null;
+}
+
+function page(cptid: number | null, after: number, limit: number) {
+  if ((cptid !== null && !int(cptid)) || !Number.isInteger(after) || after < 0 || after > 2147483647 ||
+    !Number.isInteger(limit) || limit < 1 || limit > 1000) fail("invalid-command");
+}
+export interface PvasGiftWireRow extends PvasGift { id: number; financialYear: number | null }
+/** No cache; raw numeric keyset/order (never ORDER BY a text alias). */
+export async function readPvasGiftsPage(run: Run, cptid: number | null = null, afterGiftId = 0, limit = 500): Promise<PvasGiftWireRow[]> {
+  page(cptid, afterGiftId, limit);
+  const rows = (await run(`SELECT TOP (@limit) ${columns} FROM pvas.gifts g
+    WHERE (@cptid IS NULL OR g.cptid=@cptid) AND g.gift_id>@after ORDER BY g.gift_id`, { cptid, after: afterGiftId, limit })).rows;
+  let previous = afterGiftId;
+  if (rows.length > limit) return fail("write-invariant");
+  return rows.map(row => {
+    const g = project(row);
+    if ((cptid !== null && g.cptid !== cptid) || g.giftId <= previous) return fail("write-invariant");
+    previous = g.giftId;
+    return { ...g, id: g.giftId, financialYear: g.year ?? (g.date === null ? null : Number(g.date.slice(0, 4))) };
+  });
+}
+export async function readPvasGiftHistoryPage(run: Run, cptid: number, giftId: number, afterVersion = 0, limit = 500) {
+  page(cptid, afterVersion, limit);
+  if (!int(cptid) || !int(giftId)) return fail("invalid-command");
+  const rows = (await run(`SELECT TOP (@limit) h.version,h.action,h.snapshot_json,h.actor,h.request_id
+    FROM pvas.gift_history h WHERE h.cptid=@cptid AND h.gift_id=@giftId AND h.version>@after ORDER BY h.version`,
+  { cptid, giftId, after: afterVersion, limit })).rows;
+  let previous = afterVersion;
+  if (rows.length > limit) return fail("write-invariant");
+  return rows.map(row => {
+    if (!int(row.version) || row.version <= previous || !["create", "edit", "void", "migration"].includes(String(row.action)) ||
+      !text(row.actor, 200) || typeof row.request_id !== "string" || !/^[a-f0-9]{32}$/.test(row.request_id)) return fail("write-invariant");
+    let snapshot: unknown;
+    try { snapshot = JSON.parse(String(row.snapshot_json)); } catch { return fail("write-invariant"); }
+    if (!object(snapshot) || !exact(snapshot, ["gift"]) || !object(snapshot.gift)) return fail("write-invariant");
+    const gift = project(snapshot.gift);
+    if (gift.giftId !== giftId || gift.cptid !== cptid || gift.version !== row.version) return fail("write-invariant");
+    previous = row.version;
+    return { version: row.version, action: row.action as string, gift, actor: row.actor, requestId: row.request_id };
+  });
+}
+export interface PvasGiftTotal {
+  currency: string; scope: PvasGiftValue["scope"]; credit: PvasGiftValue["credit"];
+  kind: PvasGiftValue["kind"]; status: PvasGiftValue["status"]; count: string; amount: string;
+}
+/** Received hard-credit cash = kind gift/status received/credit hard; campaign only
+ * adds scope=campaign. Pledges and voids remain separate buckets, never added to cash.
+ * SQL-side decimal38 sums are projected as strings; totals can exceed decimal18.
+ */
+export async function readPvasGiftTotals(run: Run, cptid: number | null = null): Promise<PvasGiftTotal[]> {
+  if (cptid !== null && !int(cptid)) return fail("invalid-command");
+  const rows = (await run(`SELECT g.currency,g.scope,g.credit,g.kind,g.status,
+    CONVERT(varchar(30),COUNT_BIG(*)) AS count,CONVERT(varchar(50),SUM(CONVERT(decimal(38,2),g.amount))) AS amount
+    FROM pvas.gifts g WHERE (@cptid IS NULL OR g.cptid=@cptid)
+    GROUP BY g.currency,g.scope,g.credit,g.kind,g.status ORDER BY g.currency,g.scope,g.credit,g.kind,g.status`, { cptid })).rows;
+  return rows.map(projectTotal);
+}
+function projectTotal(r: Record<string, unknown>): PvasGiftTotal {
+    if (typeof r.amount !== "string" || !/^(0|[1-9]\d{0,35})\.\d{2}$/.test(r.amount) ||
+      typeof r.count !== "string" || !/^[1-9]\d{0,18}$/.test(r.count) ||
+      typeof r.currency !== "string" || !/^[A-Z]{3}$/.test(r.currency) ||
+      !["historical", "campaign"].includes(String(r.scope)) || !["hard", "soft"].includes(String(r.credit)) ||
+      !["gift", "pledge"].includes(String(r.kind)) || !["received", "pledged", "void"].includes(String(r.status))) return fail("write-invariant");
+    return { currency: r.currency as string, scope: r.scope as PvasGiftValue["scope"], credit: r.credit as PvasGiftValue["credit"],
+      kind: r.kind as PvasGiftValue["kind"], status: r.status as PvasGiftValue["status"], count: r.count as string, amount: r.amount as string };
+}
+
+/** Explicit year buckets, including year:null (unknown, not omitted). cal_year
+ * wins when supplied; otherwise an actual event date supplies the year.
+ * Year-only gifts have date:null, never a fabricated first/last chronology date.
+ */
+export async function readPvasGiftYearTotals(run: Run, cptid: number | null = null): Promise<(PvasGiftTotal & { year: number | null })[]> {
+  if (cptid !== null && !int(cptid)) return fail("invalid-command");
+  const rows = (await run(`SELECT COALESCE(g.calendar_year,DATEPART(year,g.event_date)) AS year,
+    g.currency,g.scope,g.credit,g.kind,g.status,CONVERT(varchar(30),COUNT_BIG(*)) AS count,
+    CONVERT(varchar(50),SUM(CONVERT(decimal(38,2),g.amount))) AS amount FROM pvas.gifts g
+    WHERE (@cptid IS NULL OR g.cptid=@cptid)
+    GROUP BY COALESCE(g.calendar_year,DATEPART(year,g.event_date)),g.currency,g.scope,g.credit,g.kind,g.status
+    ORDER BY COALESCE(g.calendar_year,DATEPART(year,g.event_date)),g.currency,g.scope,g.credit,g.kind,g.status`, { cptid })).rows;
+  return rows.map(r => {
+    if (r.year !== null && (typeof r.year !== "number" || !Number.isInteger(r.year) || r.year < 1 || r.year > 9999)) return fail("write-invariant");
+    return { ...projectTotal(r), year: r.year as number | null };
+  });
+}
+
+/** Stable state/correction compatibility. Keys are links, not recomputed dates/
+ * occurrence numbers. Call alongside the gift page in the caller's read snapshot. */
+export async function readPvasGiftSourceLinks(run: Run, cptid: number | null = null, afterGiftId = 0, limit = 500) {
+  page(cptid, afterGiftId, limit);
+  // Page canonical IDs FIRST so aliases for one gift are never split/lost.
+  const rows = (await run(`WITH page_ids AS (SELECT TOP (@limit) g.gift_id FROM pvas.gifts g
+    WHERE (@cptid IS NULL OR g.cptid=@cptid) AND g.gift_id>@after ORDER BY g.gift_id)
+    SELECT l.gift_id AS giftId,l.source_system AS system,l.source_key AS [key]
+    FROM page_ids p JOIN pvas.gift_source_links l ON l.gift_id=p.gift_id
+    WHERE (@cptid IS NULL OR l.cptid=@cptid) ORDER BY l.gift_id,l.source_system,l.source_key`, { cptid, after: afterGiftId, limit })).rows;
+  const seen = new Set<string>();
+  return rows.map(r => {
+    if (!int(r.giftId) || r.giftId <= afterGiftId || seen.has(JSON.stringify([r.system, r.key]))) return fail("write-invariant");
+    const source = validatePvasGiftSource({ system: r.system, key: r.key });
+    seen.add(JSON.stringify([r.system, r.key]));
+    return { giftId: r.giftId, ...source };
+  });
+}
