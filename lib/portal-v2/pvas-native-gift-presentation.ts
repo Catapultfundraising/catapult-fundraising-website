@@ -7,7 +7,7 @@ type HistoryRow = { metadata: NativeHistoryRecord; row: NativeHistoryLegacy } |
 type CampaignRow = { metadata: NativeCampaignRecord | NativeEventRecord; row: NativeCampaignRow };
 
 function laneRecords(input: readonly NativeGiftRecord[], lane: "history" | "campaign") {
-  let last = -1n;
+  let last = BigInt("-1");
   const ids = new Set<number>(), aliases = new Set<string>();
   return input.map(raw => {
     const r = decodeNativeGiftRecordV2(raw);

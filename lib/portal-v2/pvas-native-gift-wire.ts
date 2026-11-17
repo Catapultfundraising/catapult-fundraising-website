@@ -21,10 +21,10 @@ const text = (x: unknown, max = 1000000): x is string => typeof x === "string" &
 const nullable = (x: unknown, max = 1000000) => x === null || text(x, max);
 const finite = (x: unknown): x is number => typeof x === "number" && Number.isFinite(x);
 export function nativeOrder(x: unknown): string {
-  if (typeof x !== "string" || !/^(0|[1-9]\d{0,18})$/.test(x) || BigInt(x) > 9223372036854775807n) return fail("record");
+  if (typeof x !== "string" || !/^(0|[1-9]\d{0,18})$/.test(x) || BigInt(x) > BigInt("9223372036854775807")) return fail("record");
   return x;
 }
-const positiveBigint = (x: unknown) => typeof x === "string" && /^[1-9]\d{0,18}$/.test(x) && BigInt(x) <= 9223372036854775807n;
+const positiveBigint = (x: unknown) => typeof x === "string" && /^[1-9]\d{0,18}$/.test(x) && BigInt(x) <= BigInt("9223372036854775807");
 function day(x: unknown): boolean {
   if (x === null) return true;
   if (typeof x !== "string" || !/^\d{4}-\d\d-\d\d$/.test(x) || x < "0001-01-01") return false;
@@ -75,7 +75,7 @@ function campaignIdentity(x: unknown): boolean {
 }
 function eventValid(e: unknown): e is PvasGiftValue {
   if (!object(e) || !exact(e, "amount currency date year kind status scope credit campaign fund type note donorName".split(" "))) return false;
-  if (typeof e.amount !== "string" || !/^(0|[1-9]\d{0,15})\.\d{2}$/.test(e.amount) || BigInt(e.amount.replace(".", "")) <= 0n ||
+  if (typeof e.amount !== "string" || !/^(0|[1-9]\d{0,15})\.\d{2}$/.test(e.amount) || BigInt(e.amount.replace(".", "")) <= BigInt(0) ||
     typeof e.currency !== "string" || !/^[A-Z]{3}$/.test(e.currency) || !day(e.date) ||
     !(e.year === null || typeof e.year === "number" && Number.isInteger(e.year) && e.year >= 1 && e.year <= 9999) ||
     !["kind", "status", "scope", "credit"].every(k => typeof e[k] === "string") ||
@@ -146,7 +146,7 @@ export function decodeNativeGiftPageV2(input: unknown, request: NativePageReques
     input.lane !== req.lane || input.view !== req.view || !Array.isArray(input.records) || input.records.length > req.limit ||
     typeof input.done !== "boolean") return fail("page");
   const records = input.records.map(decodeNativeGiftRecordV2), ids = new Set<number>(), aliases = new Set<string>();
-  let last = req.after === null ? -1n : BigInt(req.after);
+  let last = req.after === null ? BigInt("-1") : BigInt(req.after);
   for (const record of records) {
     if (BigInt(record.order) <= last || ids.has(record.giftId)) return fail("page");
     last = BigInt(record.order); ids.add(record.giftId);
