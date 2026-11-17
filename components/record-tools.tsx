@@ -323,7 +323,7 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
   const scr = w.screening;
   const org = (r.kind ?? "").toLowerCase().includes("org") || (r.kind ?? "").toLowerCase().includes("found") || (r.kind ?? "").toLowerCase().includes("corp") || (r.kind ?? "").toLowerCase().includes("business");
   return (
-    <Sec title="Wealth screening" right={!edit && !screenForm && !w.pending && !org && <button onClick={openScreen} className={lineBtn}><Search className="h-3.5 w-3.5" />{ds || scr ? "Re-run screening" : "Run wealth screening"}</button>}>
+    <Sec title="Wealth screening" right={!pvasCanonicalEnabled(client) && !edit && !screenForm && !w.pending && !org && <button onClick={openScreen} className={lineBtn}><Search className="h-3.5 w-3.5" />{ds || scr ? "Re-run screening" : "Run wealth screening"}</button>}>
       <div className="mb-3 grid grid-cols-2 gap-2">
         {([["capacity", "Wealth capacity", capacity, capSrc, canonical ? undefined : capEdit], ["rating", "Wealth rating", rating, ratingSrc, canonical ? undefined : ratingEdit]] as const).map(([k, label, v, src, ed]) => (
           <div key={k} className="rounded-lg border border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5 p-2.5">
@@ -444,7 +444,7 @@ export function RecordBanners({ client, r, onChanged, openRecord }: { client: st
       {r.deleted && (
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border-2 border-red-300 bg-red-50 px-3 py-2 text-sm">
           <Trash2 className="h-4 w-4 text-red-700" /><span>Deleted by {r.deleted.by} on {day(r.deleted.at)}: {r.deleted.reason}. It no longer shows in searches or lists.</span>
-          <button disabled={busy} onClick={() => act({ op: "restoreRecord", cptid: r.cptid })} className={`${lineBtn} ml-auto`}><RotateCcw className="h-3.5 w-3.5" />Restore record</button>
+          <button disabled={busy || pvasCanonicalEnabled(client)} onClick={() => act({ op: "restoreRecord", cptid: r.cptid })} className={`${lineBtn} ml-auto`}><RotateCcw className="h-3.5 w-3.5" />Restore record</button>
         </div>
       )}
       {r.redirectedFrom && (
@@ -456,7 +456,7 @@ export function RecordBanners({ client, r, onChanged, openRecord }: { client: st
         <div className="mb-3 rounded-lg bg-[rgb(var(--paper))] px-3 py-2 text-xs">
           <span className="font-semibold">Merged into this record: </span>
           {(r.mergedFrom ?? []).map((m, i) => (
-            <span key={m.cptid}>{i ? "; " : ""}{m.name} (CPTID {m.cptid}{m.lifetime ? `, ${usd(m.lifetime)}` : ""}) <button disabled={busy} onClick={() => { if (confirm(`Unmerge ${m.name} (CPTID ${m.cptid})? It becomes its own record again.`)) act({ op: "unmerge", cptid: m.cptid }); }} className="underline">Unmerge</button>
+            <span key={m.cptid}>{i ? "; " : ""}{m.name} (CPTID {m.cptid}{m.lifetime ? `, ${usd(m.lifetime)}` : ""}) <button disabled={busy || pvasCanonicalEnabled(client)} onClick={() => { if (confirm(`Unmerge ${m.name} (CPTID ${m.cptid})? It becomes its own record again.`)) act({ op: "unmerge", cptid: m.cptid }); }} className="underline">Unmerge</button>
               {openRecord && <> </>}</span>
           ))}
           <span className="text-[rgb(var(--ink))]/55"> · Giving, notes and contacts from these records are combined here.</span>
@@ -468,7 +468,7 @@ export function RecordBanners({ client, r, onChanged, openRecord }: { client: st
 
 export function MergeDeleteButtons({ client, r, index, onChanged }: { client: string; r: AnyRec; index: IdxRow[] | null; onChanged: () => void }) {
   const [mode, setMode] = useState<"merge" | "delete" | null>(null);
-  if (r.deleted) return null;
+  if (r.deleted || pvasCanonicalEnabled(client)) return null;
   return (
     <>
       <button onClick={() => setMode("merge")} className={lineBtn} title="Merge a duplicate record into this one"><GitMerge className="h-3.5 w-3.5" />Merge duplicate</button>
@@ -585,6 +585,7 @@ export function DuplicatesPanel({ client, openRecord: openProp }: { client: stri
   const load = () => { setErr(""); v2(client, { op: "duplicates", minStrength, q: qd, limit: 300 }).then(setData).catch((e) => setErr((e as Error).message)); };
   useEffect(load, [client, minStrength, qd]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = data?.groups ?? [];
+  if (pvasCanonicalEnabled(client)) return null;
   async function act(key: string, body: Record<string, unknown>) {
     if (!by.trim()) { setErr("Enter your name first"); return; }
     setBusy(key); setErr("");

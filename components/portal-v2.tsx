@@ -342,7 +342,7 @@ function GiftForm() {
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<{ cptid: number; name: string; address: string; exact: boolean }[] | null>(null);
   const save = async (confirmNew = false, gift = f) => {
-    if (pvasCanonicalEnabled(client)) { setMsg("Native gift entry is not yet integrated; no gift request was sent."); return; }
+    if (pvasCanonicalEnabled(client)) { setMsg("New gift entry is unavailable."); return; }
     if (parseUsDateClient(gift.date) === null) { setMsg("Use MM/DD/YYYY for the date."); return; }
     setBusy(true); setMsg("");
     try {
@@ -365,6 +365,7 @@ function GiftForm() {
       setMatches(null); setF({ donorName: "", cptid: "", kind: f.kind, amount: "", date: "", note: "" }); setMsg("Saved."); await reload();
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
+  if (pvasCanonicalEnabled(client)) return <p className="text-sm">New gift entry is unavailable. Existing gifts can be edited in Gift history.</p>;
   return (
     <div className={card}>
       <h3 className="font-display text-lg text-[rgb(var(--navy))]">Record a gift or pledge</h3>
@@ -422,6 +423,7 @@ export function AddProspect() {
       setDups(null); setP(EMPTY_P); setMsg(`Added with CPTID ${r.cptid}.${pvasCanonicalEnabled(client)?" Live wealth-screening submission is held until the canonical request consumer is accepted.":screened ? " A DonorSearch wealth screening was requested and will appear on the record within about 15 minutes." : " Add a first name, last name and state to run a DonorSearch wealth screening from the record."}`); await reload(); refreshCrmIndex();
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
+  if (pvasCanonicalEnabled(client)) return <p className="text-sm">Adding new donors is unavailable. Existing records can still be edited.</p>;
   const fld = (k: keyof typeof EMPTY_P, ph: string, cls = "") => <input className={`${input} ${cls}`} placeholder={ph} value={p[k]} onChange={(e) => { setP({ ...p, [k]: e.target.value }); setDups(null); }} />;
   return (
     <div className={card}>
@@ -467,6 +469,7 @@ export function UploadClientFile() {
       else setPv(j);
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
+  if (pvasCanonicalEnabled(client)) return <p className="text-sm">File uploads are unavailable. Upload history remains readable.</p>;
   return (
     <div className={card}>
       <h3 className="font-display text-lg text-[rgb(var(--navy))]">Upload client file</h3>
@@ -577,11 +580,13 @@ export function AddAndUpload() {
   const pso = useSort([...(state?.prospects ?? [])].reverse().map((p) => ({ ...p, addr: [p.address1, p.city, p.state, p.zip].filter(Boolean).join(", ") })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   return (
     <div className="space-y-6">
-      <AddProspect />
-      <DirectDashboardUpload key={`direct:${client}`} client={client} />
-      <MonthlyGiftUpload key={`monthly:${client}`} client={client} refresh={reload} />
-      <details><summary className="cursor-pointer text-sm font-medium">Legacy contact / gift upload (tuple dedupe only: not the monthly transaction importer)</summary><UploadClientFile /></details>
-      <div className={card}><DuplicatesPanel client={client} /></div>
+      {pvasCanonicalEnabled(client) ? <p className="text-sm">New donors, new gifts and uploads are unavailable. Existing records can still be edited below or from their donor record.</p> : <>
+        <AddProspect />
+        <DirectDashboardUpload key={`direct:${client}`} client={client} />
+        <MonthlyGiftUpload key={`monthly:${client}`} client={client} refresh={reload} />
+        <details><summary className="cursor-pointer text-sm font-medium">Legacy contact / gift upload (tuple dedupe only: not the monthly transaction importer)</summary><UploadClientFile /></details>
+        <div className={card}><DuplicatesPanel client={client} /></div>
+      </>}
       <AuditLog />
       {state && state.prospects.length > 0 && (
         <div className={card}>

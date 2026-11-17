@@ -1,5 +1,6 @@
 import { readBoundedStream } from "./direct-source-transport.server";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
+import { pvasExistingOperationAllowed, PVAS_EXISTING_ONLY } from "./pvas-existing-only";
 import { HISTORICAL_UPLOAD_READ_ONLY, historicalUploadRejection, historicalUploadsReadBody } from "./pvas-upload-history";
 import { pvasActionBody, withPvasAction, PvasActionIdentityError } from "./pvas-action.server";
 import { canonicalPvasState } from "./pvas-state-wire";
@@ -72,6 +73,8 @@ function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<str
 
 /** Raw gateway call keeps HTTP status; invalid successful state row IDs also fail closed. */
 export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (pvasCanonicalEnabled(client) && !pvasExistingOperationAllowed(op, body))
+    return { status: 403, body: { ...PVAS_EXISTING_ONLY } };
   if (pvasCanonicalEnabled(client) && op === "state") op = "nativeStateV3";
   body = pvasActionBody(client, op, body);
   const url = engageUrl(), secret = process.env.PORTAL_WRITE_SECRET;
@@ -428,7 +431,8 @@ export function portalV2Route(client: PortalClient) {
         return await campaignDownload(client, goal, state.gifts, format as "pdf" | "xlsx");
       }
       const direct = await observeDirect(client);
-      return NextResponse.json({ ...state, goal: cfg.goal, configured: true, ...(direct ? { directView: directClientView(direct), directSourceRevision: direct.state.revision } : {}) });
+      return NextResponse.json({ ...state, goal: cfg.goal, configured: true, ...(direct ? { directView: directClientView(direct), directSourceRevision: direct.state.revision } : {}) },
+        pvasCanonicalEnabled(client) ? { headers: { "Cache-Control": "no-store" } } : undefined);
     } catch (e) {
       if (pvasCanonicalEnabled(client) || directLaneEnabled(client)) return bad("Complete current source/manual state unavailable. Retain the last good view.", 503);
       // Never export an incomplete campaign total when SQL or rendering is unavailable.
@@ -522,6 +526,8 @@ export function portalV2Route(client: PortalClient) {
       // canonical upload. Reject before a numeric archive ID can be forwarded.
       if (pvasCanonicalEnabled(client) && b.op === "undo")
         return NextResponse.json(HISTORICAL_UPLOAD_READ_ONLY, { status: 410 });
+      if (pvasCanonicalEnabled(client) && ["addGift","addProspect","requestScreening","mergeRecords","unmerge","restoreRecord","deleteRecord","notDuplicate"].includes(b.op))
+        return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
       if (pvasCanonicalEnabled(client) && ["setContact","setWealth","setOutcome","addGift","editGift","voidGift","addProspect","editProspect","requestScreening","mergeRecords","unmerge","restoreRecord","deleteRecord","notDuplicate","undo"].includes(b.op))
         return bad("Use the canonical command with original expected values and source identity",503);
       if (pvasCanonicalEnabled(client) && ["pvasFields","pvasContact","pvasNote","pvasGift","pvasBatch","pvasBatchUndo","pvasRequestStatus"].includes(b.op)) {
@@ -534,9 +540,11 @@ export function portalV2Route(client: PortalClient) {
             b.command.actor !== b.by || typeof b.requestId !== "string" || !/^[a-f0-9]{32}$/.test(b.requestId) ||
             b.command.requestId !== undefined && b.command.requestId !== b.requestId) return bad("Canonical command requires matching actor and original requestId",400);
         const r = await engageCall(client,b.op,{command:{...b.command,requestId:b.requestId}});
+        if (r.status === 403 && r.body.code === PVAS_EXISTING_ONLY.code)
+          return NextResponse.json({ ...PVAS_EXISTING_ONLY, requestId: b.requestId, unconfirmed: false }, { status: 403 });
         const historicalRefusal = historicalUploadRejection(b.op, r.status, r.body);
         if (historicalRefusal) return NextResponse.json({ ...historicalRefusal, requestId: b.requestId }, { status: 410 });
-        if (r.status!==200) return NextResponse.json({error:r.status===409?"Canonical values changed; reload before saving":"Canonical save unconfirmed; reconcile the same requestId",requestId:b.requestId,unconfirmed:r.status>=500},{status:[400,409].includes(r.status)?r.status:503});
+        if (r.status!==200) return NextResponse.json({error:r.status===409?"Canonical values changed; reload before saving":"Canonical save unconfirmed; reconcile the same requestId",requestId:b.requestId,unconfirmed:r.status>=500},{status:[400,403,409,410].includes(r.status)?r.status:503});
         return NextResponse.json(r.body);
       }
       if (b.op === "addProspect") {
@@ -758,7 +766,7 @@ export function portalV2Route(client: PortalClient) {
     if (!(await AUTH[client](req))) return bad("unauthorized", 401);
     // Old spreadsheet mutation path has no canonical source-key/expected-value
     // receipt contract. Hold rather than silently use its tuple-based adapter.
-    if (!req.headers.get("content-type")?.includes("application/json")) return bad("Use the canonical monthly/direct import with stable request identity", 503);
+    if (!req.headers.get("content-type")?.includes("application/json")) return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
     const body = await req.clone().json().catch(() => null);
     return withPvasAction(body?.requestId, () => POST(req));
   } };

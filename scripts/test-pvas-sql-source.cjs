@@ -116,21 +116,22 @@ commonMock = { ...common, rows: async query => { aggregateQueries.push(query); i
   records.records["12984"].name = "ZZTEST mutation";
   snapshot.pool[0].ask = -1;
   assert.equal((await store.getPvasRecords()).records["12984"].name, "ZZTEST canonical name");
-  assert.equal((await store.getPvasSnapshot()).pool[0].ask, 1234, "cached data not mutable by callers");
-  now = 299999; await store.getPvasRecords(); assert.equal(builds, 1);
-  now = 300000; await store.getPvasSnapshot(); assert.equal(builds, 2, "expires at five minutes");
+  assert.equal((await store.getPvasSnapshot()).pool[0].ask, 1234, "current SQL data not mutable by callers");
+  assert.equal(builds,3,"completed builds are never reused, even in the same millisecond");
+  now = 299999; await store.getPvasRecords(); assert.equal(builds, 4);
+  now = 300000; await store.getPvasSnapshot(); assert.equal(builds, 5, "each load/Reload reads SQL, no five-minute cache");
   now = 600000; unavailable = true;
   assert.equal(await store.getPvasRecords(), null, "never stale-on-error");
-  unavailable = false; assert.ok(await store.getPvasSnapshot()); assert.equal(builds, 4, "failed promise not cached");
+  unavailable = false; assert.ok(await store.getPvasSnapshot()); assert.equal(builds, 7, "failed promise not cached");
   store.invalidatePvasDataCache();release={};const older=store.getPvasRecords(),oldRelease=release;
   store.invalidatePvasDataCache();release={};const newer=store.getPvasSnapshot(),newRelease=release;
   await Promise.resolve();oldRelease.resolve();await older;
   const beforeJoin=builds,joined=store.getPvasRecords();
   assert.equal(builds,beforeJoin,"older pending completion cannot clear newer single-flight");
   newRelease.resolve();release=null;await Promise.all([newer,joined]);
-  await store.getPvasRecords();assert.equal(builds,beforeJoin,"newest generation supplies cache");
+  await store.getPvasRecords();assert.equal(builds,beforeJoin+1,"next completed request reads fresh SQL after invalidation");
   Date.now = realNow;
-  console.log("PASS SQL cache single-flight/TTL/immutability/failure recovery; no local/blob fallback");
+  console.log("PASS SQL fresh-on-each-load, in-flight-only sharing, invalidation/immutability/failure recovery; no local/blob fallback");
 
   let response, calls = [];
   gatewayMock = { engageCall: async (...args) => { calls.push(args); return response; } };

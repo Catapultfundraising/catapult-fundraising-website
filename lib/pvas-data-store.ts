@@ -79,23 +79,14 @@ export interface DonorRecord {
 }
 export interface PvasRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
-// A single SQL build supplies KPI/detail/export data. The TTL starts BEFORE the
-// query so a slow build cannot extend freshness past five minutes. Never serve
-// stale data after an expired build fails, and never cache a failed promise.
+// Canonical PVAS never retains completed SQL data between requests. Concurrent
+// readers may share an in-flight build; after writes, detach that older job.
 type Built = Awaited<ReturnType<typeof buildPvas>>;
-let cache: { at: number; data: Built } | null = null;
 let pending: Promise<Built> | null = null;
-let generation = 0;
-export function invalidatePvasDataCache(): void { generation++; cache = null; pending = null; }
+export function invalidatePvasDataCache(): void { pending = null; }
 async function currentPvas(): Promise<Built> {
-  if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   if (!pending) {
-    const at = Date.now();
-    const version = generation;
-    const job = buildPvas().then(data => {
-      if (version === generation) cache = { at, data };
-      return data;
-    }).finally(() => { if (pending === job) pending = null; });
+    const job = buildPvas().finally(() => { if (pending === job) pending = null; });
     pending = job;
   }
   return pending;

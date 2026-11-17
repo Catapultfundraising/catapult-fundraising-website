@@ -1,5 +1,6 @@
 import "server-only";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
+import { PVAS_EXISTING_ONLY } from "./pvas-existing-only";
 import {pvasImportPlan,pvasImportReceipt,pvasImportApproval}from"./pvas-import-wire";
 import { NextRequest, NextResponse } from "next/server";
 import type { PortalClient } from "./clients";
@@ -15,6 +16,7 @@ const defaults: Deps = { call: engageCall, identities: readIds };
 export function monthlyGiftGateway(client: PortalClient, deps: Deps = defaults) {
   return async (req: NextRequest) => {
     if (!(await dashboardDataAuthed(client, req))) return NextResponse.json({ error: "Matching employee dashboard sign-in required", dashboardLogin: `/${client}/data-dashboard/login` }, { status: 401 });
+    if (pvasCanonicalEnabled(client)) return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
     if (req.headers.get("origin") !== req.nextUrl.origin || req.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ error: "Same origin required" }, { status: 403 });
     if (!req.headers.get("content-type")?.startsWith("application/json")) return NextResponse.json({ error: "Use bounded JSON" }, { status: 415 });
     let uncertain: string | null = null, localRequestId: string | null = null;

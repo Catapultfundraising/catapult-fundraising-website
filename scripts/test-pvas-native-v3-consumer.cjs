@@ -104,6 +104,7 @@ const compile=(source,require,extra={},fileName="fixture.ts")=>{
 let fetchResponse;
 const gateway=compile(fs.readFileSync(path.join(root,"lib/portal-v2/server.ts"),"utf8"),name=>{
  if(name==="./pvas-canonical")return canonical;
+ if(name==="./pvas-existing-only")return load("lib/portal-v2/pvas-existing-only.ts");
  if(name==="./pvas-action.server")return action;
  if(name==="./pvas-state-wire")return S;
  if(name==="./pvas-native-consumer")return C;

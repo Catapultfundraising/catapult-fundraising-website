@@ -1,4 +1,5 @@
 import "server-only";
-/** Separate coordinated write acceptance. NOT an environment/browser toggle,
- * issuer or proof that the backend has its capability/original-entry provider. */
-export const pvasNativeWriteAccepted = () => false;
+import { pvasCanonicalEnabled } from "./pvas-canonical";
+/** This switch grants no backend capability. Backend readiness still fails
+ * closed independently before SQL. Never derive write authority from HTML. */
+export const pvasNativeWriteAccepted = () => pvasCanonicalEnabled("pvas");
