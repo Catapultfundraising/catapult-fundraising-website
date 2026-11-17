@@ -157,6 +157,17 @@ async function main(){
     assert.throws(()=>currentDashboardSnapshot("pvas",built.snapshot,invalidIndex,tracking,updates));
     assert.equal(hook(built.snapshot,invalidIndex,tracking).directReadUnavailable,true);
     assert.equal(hook(built.snapshot,current.index,tracking).directReadUnavailable,undefined);
+    const sourceOnly={...built.snapshot,pool:[{...built.snapshot.portfolio.find(row=>row.cptid===1),rating:250000}],
+      portfolio:[{...built.snapshot.portfolio.find(row=>row.cptid===1)}],board:[]};
+    const missingSurvivor=current.index.filter(row=>row.cptid!==3),sourceOnlyBytes=JSON.stringify(sourceOnly);
+    assert.throws(()=>currentDashboardSnapshot("pvas",sourceOnly,missingSurvivor,tracking,updates),
+      /profile unavailable/,"raw linked source cannot disappear before required survivor validation");
+    assert.equal(hook(sourceOnly,missingSurvivor,tracking).directReadUnavailable,true);
+    assert.equal(JSON.stringify(sourceOnly),sourceOnlyBytes);
+    const deletedUpdates=[...updates,update(6,3,"deleted","Fictional deleted target")];
+    const excluded=currentDashboardSnapshot("pvas",sourceOnly,missingSurvivor,tracking,deletedUpdates);
+    assert.deepEqual(excluded.pool,[]);assert.deepEqual(excluded.portfolio,[],
+      "deleted targets retain original membership exclusion without borrowing/defaulting");
     const dirty=structuredClone(built.snapshot);
     for(const lane of ["pool","portfolio","board"])for(const row of dirty[lane])Object.assign(row,{
       askEdited:true,askBlank:true,askConflict:true,askFromCptid:1,directAskPresent:true,directManualAskPresent:true});

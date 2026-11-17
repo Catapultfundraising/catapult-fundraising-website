@@ -15,8 +15,7 @@ export function currentDashboardSnapshot<T extends object>(
   const source = directSnapshot(snapshot, pvasCanonicalEnabled(client) ? null : directView, client !== "wcbhc" && client !== "baq");
   const asks = pvasCanonicalEnabled(client) ? source :
     overlayCampaignAsks(source, overlay, askEdits(updates), client !== "wcbhc" && client !== "baq");
-  const assigned = tracking ? assignmentSnapshot(asks, index, tracking, overlay) : asks;
-  if (!pvasCanonicalEnabled(client)) return assigned;
+  if (!pvasCanonicalEnabled(client)) return tracking ? assignmentSnapshot(asks, index, tracking, overlay) : asks;
   if (!index || !tracking) throw new Error("Current canonical ask index/tracking unavailable");
   const byId = new Map(index.map(row=>[row.cptid,row]));
   if (byId.size!==index.length) throw new Error("Ambiguous canonical ask index");
@@ -35,7 +34,13 @@ export function currentDashboardSnapshot<T extends object>(
       delete out[key];
     return out;
   };
-  const s=assigned as T & {pool:Row[];portfolio?:Row[];board:Row[]};
+  const raw=asks as T & {pool:Row[];portfolio?:Row[];board:Row[]};
+  // The unchanged assignment resolver may omit a merged row when its survivor
+  // is missing from the index. Validate required owners BEFORE that omission;
+  // deleted targets retain the original exclusion and need no visible owner.
+  for (const row of [...raw.pool,...(raw.portfolio??[])])
+    if (row.cptid!=null && !overlay.deleted.has(finalId(overlay,row.cptid))) own(row);
+  const s=assignmentSnapshot(asks,index,tracking,overlay) as T & {pool:Row[];portfolio?:Row[];board:Row[]};
   return {...s,pool:s.pool.map(row=>own(row,true)).filter(row=>(row.ask??0)>0),
     ...(s.portfolio?{portfolio:s.portfolio.map(row=>own(row))}:{}),
     board:s.board.map(row=>row.active?own(row):row)};
