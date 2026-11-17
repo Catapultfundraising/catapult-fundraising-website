@@ -1,7 +1,6 @@
 "use client";
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
-import { usdExact } from "@/lib/portal-v2/pvas-financials";
 import {pvasGiftMetadata}from"@/lib/portal-v2/pvas-gift-wire";
 import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayload} from "@/lib/portal-v2/pvas-export-model";
 import type {ExportIntent} from "@/lib/portal-v2/dashboard-export-types";
@@ -313,7 +312,6 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         <WealthSection client="pvas" r={r as never} pirName={tracking.pirs[String(r.cptid)]?.name} onSaved={reload} />
         <Sec title="Giving summary">
           {!!r.otherGiftRows?.length&&<div className="mb-2 text-sm"><p>Other gift rows, not counted in USD hard-credit received totals:</p>{r.otherGiftRows.map(row=>{const g=pvasGiftMetadata(row._canonicalGift).gift;return <p key={g.giftId}>{g.amount} {g.currency} · {g.scope} · {g.credit} · {g.kind} · {g.status} · {g.date??(g.year===null?"Unknown date/year":String(g.year))}</p>;})}</div>}
-          {r.financials&&(r.financials.undatedCount>0||r.financials.undatedPledged!=="0.00")&&<Field k="Unknown year (included in lifetime)" v={`${r.financials.undatedCount} received gifts · ${usdExact(r.financials.undatedReceived)} received · ${usdExact(r.financials.undatedPledged)} pledged`} />}
           <Field k="First gift" v={s.first} /><Field k="Last gift" v={s.last} /><Field k="Lifetime band" v={s.band} />
           
           {r.softCredits && <><Field k="Soft credits" v={r.softCredits.count} /><Field k="Largest soft credit" v={r.softCredits.largest} /></>}

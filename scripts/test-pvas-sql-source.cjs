@@ -25,15 +25,18 @@ const fixture = {
   calendar_year_giving: [{ CPTID: 12984, Calendar_Year: 2025, SumOfGift_Amount: 100 }],
   notes: [{ CPTID: 12984, Date: "2026-11-16", Note: "ZZTEST canonical note", Note_Order_Newest_to_Oldest: 1 }],
 };
-let giftFails = false, contactsFail = false;
+let giftFails = false, contactsFail = false, aggregateFails = false;
+const aggregateQueries = [];
+const eventGift = { cptid:12984, date:"2024-02-03", amount:"777.77", status:"received", campaign:"Fictional", fund:"", type:"", year:2024,
+  _canonicalGift:{gift:{giftId:7,cptid:12984,version:1,amount:"777.77",currency:"USD",date:"2024-02-03",year:2024,kind:"gift",status:"received",scope:"historical",credit:"hard",campaign:"Fictional",fund:null,type:null,note:null,donorName:null,voidReason:null},source:{system:"client_gift_history",key:"7"}} };
 const canonicalFields=Object.fromEntries("fullName firstName middleName lastName street street2 city state zip phone phone2 email email2 spouseFirstName spouseMiddleName spouseLastName ask primarySolicitor secondarySolicitor phone3 phone4 dsRating wealthCapacity majorGiftScore realEstate stock status outcome".split(" ").map(k=>[k,null]));
 Object.assign(canonicalFields,{fullName:"ZZTEST canonical name",street:"ZZTEST SQL street",city:"",phone:"",phone2:"9565559876",email:"",ask:1234,primarySolicitor:"ZZTEST SQL primary",secondarySolicitor:"",status:"Active"});
 const profile={cptid:12984,clientId:null,presence:{},fields:canonicalFields,extras:{},identity:{isProspect:false,deleted:false,deleteReason:null,mergedInto:null,version:0,createdBy:null,createdAt:null}};
 const financials={v:1,donors:[{cptid:12984,lifetime:"100.00",receivedCount:1,undatedReceived:"0.00",undatedCount:0,undatedPledged:"0.00",firstDate:null,lastDate:null,largestGift:"100.00",years:[{year:2025,received:"100.00",receivedCount:1,pledged:"0.00"}]}],totals:{received:"100.00",pledged:"0.00"}};
-commonMock = { ...common, rows: async query => fixture[query.match(/pvas\.\[([a-z_]+)\]/)?.[1]] ?? [],
+commonMock = { ...common, rows: async query => { aggregateQueries.push(query); if(aggregateFails&&query.includes("[giving_history_overview]"))throw Error("Aggregate read unavailable"); return structuredClone(fixture[query.match(/pvas\.\[([a-z_]+)\]/)?.[1]] ?? []); },
   loadedAsOf: async () => "2026-11-16", pirLinks: async () => ({}),
   engagePvasFinancials:async()=>structuredClone(financials),
-  engageClientGifts: async () => { if (giftFails) throw Error("unavailable"); return []; },
+  engageClientGifts: async () => { if (giftFails) throw Error("unavailable"); return [structuredClone(eventGift)]; },
   engageClientContacts: async () => { if (contactsFail) throw Error("unavailable"); return [{ cptid: 12984, name: "ZZTEST canonical name", street: "ZZTEST SQL street", city: "", email: "", phone: "", phone2: "9565559876",_canonicalContact:structuredClone(profile) }]; },
 };
 (async () => {
@@ -50,8 +53,46 @@ commonMock = { ...common, rows: async query => fixture[query.match(/pvas\.\[([a-
   assert.equal(r.contact.phone2, "(956) 555-9876", "canonical slot not shifted into primary");
   assert.deepEqual(r.notes,[],"canonical note history appears once through SQL tracking, never raw baseline");
   assert.deepEqual(r._canonicalContact,profile,"unformatted expected values preserved");
-  assert.deepEqual(built.snapshot.financials,financials);
+  assert.equal(Object.hasOwn(built.snapshot,"financials"),false,"event analytics are not aggregate presentation");
+  assert.equal(Object.hasOwn(built.snapshot,"undatedFinancials"),false);
+  assert.equal(Object.hasOwn(r,"financials"),false);
   assert.equal(built.snapshot.kpi.total, 100, "SQL totals retained");
+  assert.equal(r.summary.lifetime,100,"contradictory777.77 event never replaces/adds to overview100");
+  assert.equal(r.gifts[0].amount,777.77,"individual gift path remains intact and independent");
+  assert.deepEqual(r.years,[{year:2025,amount:100}],"calendar years are not event years");
+  assert.deepEqual(built.snapshot.fys,[{fy:2025,total:100,gifts:1,donors:1}]);
+  for (const table of ["giving_history_overview","calendar_year_giving"])
+    assert.ok(aggregateQueries.includes(`SELECT * FROM pvas.[${table}] ORDER BY row_id`),"fixed original aggregate read owner");
+  const originalOverview=structuredClone(fixture.giving_history_overview),originalCalendar=structuredClone(fixture.calendar_year_giving);
+  try {
+    // SQL-only aggregate edits reach the same canonical live builder without any
+    // event-feed delta, fallback, opening balance or recomputed aggregate row.
+    fixture.giving_history_overview=[{CPTID:12984,Total_Gift_Amount:875.25,Total_of_Gifts:9,Largest_Gift_Amount:207.5,First_Gift_Date:"2020-01-02",Last_Gift_Date:"2025-03-04"}];
+    fixture.calendar_year_giving=[{CPTID:12984,Calendar_Year:2022,SumOfGift_Amount:25},{CPTID:12984,Calendar_Year:2022,SumOfGift_Amount:50},{CPTID:12984,Calendar_Year:2023,SumOfGift_Amount:0},{CPTID:12984,Calendar_Year:2024,SumOfGift_Amount:null}];
+    const changed=await buildPvas(),cr=changed.records.records["12984"];
+    assert.equal(changed.snapshot.kpi.total,875.25);assert.equal(changed.snapshot.kpi.gifts,9);
+    assert.equal(cr.summary.lifetime,875.25);assert.equal(cr.summary.largest,207.5);
+    assert.equal(cr.summary.first,"2020-01-02");assert.equal(cr.summary.last,"2025-03-04");
+    assert.deepEqual(cr.years,[{year:2022,amount:75}]);
+    assert.deepEqual(changed.snapshot.fys,[{fy:2022,total:75,gifts:1,donors:1}],"original calendar donor-count/chart selection, never event count");
+    assert.equal(cr.gifts[0].amount,777.77);
+    for (const total of [null,0]) {
+      fixture.giving_history_overview=[{CPTID:12984,Total_Gift_Amount:total,Total_of_Gifts:99,Largest_Gift_Amount:777}];
+      fixture.calendar_year_giving=[{CPTID:12984,Calendar_Year:2024,SumOfGift_Amount:total}];
+      const empty=await buildPvas(),er=empty.records.records["12984"];
+      assert.equal(empty.snapshot.kpi.total,0);assert.equal(empty.snapshot.kpi.gifts,0);
+      assert.equal(er.summary.lifetime,0);assert.equal(er.summary.ghoTotal,null);
+      assert.equal(er.summary.largest,0);assert.equal(er.summary.first,"");assert.equal(er.summary.last,"");
+      assert.deepEqual(empty.snapshot.fys,[]);assert.equal(er.years,undefined);
+      assert.equal(er.gifts[0].amount,777.77,"null/zero aggregate never falls back to nonzero event");
+    }
+    commonMock.engagePvasFinancials=async()=>{throw Error("Event analytics must not be queried for aggregate presentation");};
+    await buildPvas();
+    aggregateFails=true;
+    await assert.rejects(buildPvas,/Aggregate read unavailable/,"aggregate failures never fall back to events or legacy client");
+    aggregateFails=false;
+  } finally {aggregateFails=false;fixture.giving_history_overview=originalOverview;fixture.calendar_year_giving=originalCalendar;}
+  console.log("PASS fixed live GHO/CYG ownership, direct SQL edit projection, null/zero and independent contradictory events");
   giftFails = true; await assert.rejects(buildPvas); giftFails = false;
   contactsFail = true; await assert.rejects(buildPvas); contactsFail = false;
   console.log("PASS builder SQL ask/contact/clear/note/total and unavailable-feed checks");

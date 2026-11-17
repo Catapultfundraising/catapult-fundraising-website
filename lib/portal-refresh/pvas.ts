@@ -1,10 +1,10 @@
 import {
-  band, builtAt, dsField, capmin, cid, counter, engageClientContacts, engageClientGifts, engagePvasFinancials, fmtPhone, loadedAsOf, money, mostCommon, pdate, Per,
+  band, builtAt, dsField, capmin, cid, counter, engageClientContacts, engageClientGifts, fmtPhone, loadedAsOf, money, mostCommon, pdate, Per,
   pirLinks, pyramid, round2, Row, rows, s, sortedItems, yearsAgo,
 } from "./common";
 import { pvasCanonicalEnabled } from "../portal-v2/pvas-canonical";
 import { buildPvas as buildLegacyPvas } from "./pvas.legacy";
-import { displayMoney, moneyCents, centsMoney } from "../portal-v2/pvas-financials";
+import { displayMoney } from "../portal-v2/pvas-financials";
 import { pvasContactProfile, type PvasContactProfile } from "../portal-v2/pvas-contact-wire";
 import {pvasGiftMetadata,countedReceived}from"../portal-v2/pvas-gift-wire";
 
@@ -30,21 +30,13 @@ export async function buildPvas() {
 
 export async function buildCanonicalPvas() {
   const q = (t: string) => rows(`SELECT * FROM pvas.[${t}] ORDER BY row_id`);
-  const financials = await engagePvasFinancials();
-  const financialRows: Row[] = financials.donors.map(d => ({
-    CPTID: d.cptid, Total_Gift_Amount: displayMoney(d.lifetime), Total_of_Gifts: d.receivedCount,
-    First_Gift_Date: d.firstDate, Last_Gift_Date: d.lastDate, Largest_Gift_Amount: displayMoney(d.largestGift),
-  }));
-  const yearlyRows: Row[] = financials.donors.flatMap(d => d.years.map(y => ({
-    CPTID: d.cptid, Calendar_Year: y.year, SumOfGift_Amount: displayMoney(y.received),
-  })));
   const [ghoRows, cygRows, dsRows, phoneRows, noteRows, boardRows, commRows, portRows, gbIds, gbTx, gbPl, asOf] = await Promise.all([
-    financialRows, yearlyRows, q("donorsearch_results"), q("phone_numbers"), [] as Row[],
+    q("giving_history_overview"), q("calendar_year_giving"), q("donorsearch_results"), q("phone_numbers"), [] as Row[],
     q("board_info"), q("campaign_committee"), q("portfolio"), q("givebutter_id_numbers"), q("givebutter_transactions"),
     q("givebutter_pledges"), loadedAsOf("pvas"),
   ]);
-  // Canonical individual gifts. Empty histories use calendar-year totals;
-  // unavailable feeds must fail the build, never silently fall back.
+  // Canonical individual gifts are independent of the original aggregate
+  // presentations. Unavailable feeds fail the build, never silently fall back.
   const giftRows = await engageClientGifts("pvas");
   // Canonical migrated contacts, served by Engage from PVAS SQL.
   const masterRows = await engageClientContacts("pvas");
@@ -97,7 +89,7 @@ export async function buildCanonicalPvas() {
     pd.set(c, { total, n: Math.round(money(r.Total_of_Gifts)), first: pdate(r.First_Gift_Date), last: pdate(r.Last_Gift_Date),
       max: money(r.Largest_Gift_Amount), fys: new Set(cyg.get(c)?.keys() ?? []) });
   }
-  const tot = displayMoney(financials.totals.received);
+  const tot = [...pd.values()].reduce((a, p) => a + p.total, 0);
   const giftCount = [...pd.values()].reduce((a, p) => a + p.n, 0);
 
   // Calendar-year totals and retention (labelled "fy" for the shared chart code; these are calendar years).
@@ -106,12 +98,7 @@ export async function buildCanonicalPvas() {
     const x = byYear.get(y) ?? { total: 0, donors: new Set<number>() }; byYear.set(y, x); x.total += a; x.donors.add(c);
   }
   const years = [...byYear.keys()].sort((a, b) => a - b);
-  const exactYears = new Map<number, { cents: bigint; gifts: number }>();
-  for (const donor of financials.donors) for (const y of donor.years) {
-    const before = exactYears.get(y.year) ?? { cents: BigInt(0), gifts: 0 };
-    before.cents += moneyCents(y.received); before.gifts += y.receivedCount; exactYears.set(y.year, before);
-  }
-  const fys = years.map((y) => ({ fy: y, total: displayMoney(centsMoney(exactYears.get(y)!.cents)), gifts: exactYears.get(y)!.gifts, donors: byYear.get(y)!.donors.size }));
+  const fys = years.map((y) => ({ fy: y, total: round2(byYear.get(y)!.total), gifts: byYear.get(y)!.donors.size, donors: byYear.get(y)!.donors.size }));
   const retention: { fy: number; retained: number; prior: number; rate: number; new: number }[] = [];
   const seen = new Set<number>();
   for (const y of years) {
@@ -258,12 +245,7 @@ export async function buildCanonicalPvas() {
   });
 
   const snapshot = {
-    pool, client: "Palm Valley Animal Society", asOf, builtAt: builtAt(), source: "Canonical PVAS SQL", financials,
-    undatedFinancials:{
-      received:centsMoney(financials.donors.reduce((a,d)=>a+moneyCents(d.undatedReceived),BigInt(0))),
-      pledged:centsMoney(financials.donors.reduce((a,d)=>a+moneyCents(d.undatedPledged),BigInt(0))),
-      count:financials.donors.reduce((a,d)=>a+d.undatedCount,0),
-    },
+    pool, client: "Palm Valley Animal Society", asOf, builtAt: builtAt(), source: "Canonical PVAS SQL",
     kpi: { total: round2(tot), gifts: giftCount, donors: pd.size, avg: round2(tot / Math.max(1, giftCount)), gho: round2(tot), cash: round2(tot), inkind: 0 },
     stages: [...stagesM].map(([k, v]) => ({ stage: k, gifts: v[0], total: round2(v[1]) })).sort((a, b) => b.total - a.total), fys, retention,
     pyramid: pyramid(pd), dsRating: sortedItems(dsr), capacity: [...capc.entries()].sort((a, b) => capmin(b[0]) - capmin(a[0])),
@@ -277,7 +259,7 @@ export async function buildCanonicalPvas() {
   // ---------------- records ----------------
   type Rec = { cptid: number; name: string; kind: string; contact: Record<string, string>; flags: string[]; ds: Record<string, string>;
     gifts: Record<string, unknown>[]; board: Record<string, unknown>[]; committees: string[]; calling: Record<string, unknown>[];
-    calls: Record<string, unknown>[]; notes: string[]; summary: Record<string, unknown>; otherGiftRows?:unknown[]; _canonicalContact?: PvasContactProfile; sourceHistory?: Record<string, unknown>; financials?: unknown; years?: { year: number; amount: number }[];
+    calls: Record<string, unknown>[]; notes: string[]; summary: Record<string, unknown>; otherGiftRows?:unknown[]; _canonicalContact?: PvasContactProfile; sourceHistory?: Record<string, unknown>; years?: { year: number; amount: number }[];
     givebutter?: Record<string, unknown>[]; portfolio?: Record<string, unknown> };
   const R = new Map<number, Rec>();
   const rec = (c: number): Rec => {
@@ -338,7 +320,6 @@ export async function buildCanonicalPvas() {
       last: sm.last, years: sm.years, band: sm.band, ds: d["DS Rating"] || s(port.get(c)?.DS_Rating), capacity: cap || (Object.keys(d).length ? "Unrated" : ""), capMin: capmin(cap) });
   }
   index.sort((a, b) => (b.lifetime as number) - (a.lifetime as number));
-  for (const d of financials.donors) rec(d.cptid).financials = d;
   const records = { asOf: builtAt(), index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
   return { snapshot, records, pirs: await pirLinks("pvas") };
 }

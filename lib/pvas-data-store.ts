@@ -2,7 +2,6 @@ import "server-only";
 import { buildPvas } from "./portal-refresh/pvas";
 import { pvasCanonicalEnabled } from "./portal-v2/pvas-canonical";
 import * as legacy from "./pvas-data-store.legacy";
-import type { PvasFinancials } from "./portal-v2/pvas-financials";
 import type{PvasGiftMetadata}from"./portal-v2/pvas-gift-wire";
 import type{PvasContactProfile}from"./portal-v2/pvas-contact-wire";
 
@@ -15,8 +14,6 @@ export interface Person {
   largest: number; years: number; ds: string; capacity: string; capMin: number; qs: string;
 }
 export interface PvasSnapshot {
-  financials?: PvasFinancials;
-  undatedFinancials?: { received:string; pledged:string; count:number };
   client: string; asOf: string; builtAt: string; source: string;
   kpi: { total: number; gifts: number; donors: number; avg: number; gho: number; cash: number; inkind: number };
   stages: { stage: string; gifts: number; total: number }[];
@@ -62,7 +59,6 @@ export interface IndexRow {
 export interface DonorRecord {
   _canonicalContact?:PvasContactProfile;
   otherGiftRows?:Record<string,unknown>[];
-  financials?: PvasFinancials["donors"][number];
   assignment?: { solicitor: string; solicitor2: string; assignmentConflict?: boolean };
   cptid: number; name: string; kind?: string;
   contact?: Record<string, string>; flags?: string[]; ds?: Record<string, string>;

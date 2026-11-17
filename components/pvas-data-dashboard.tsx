@@ -1,5 +1,4 @@
 "use client";
-import { usdExact } from "@/lib/portal-v2/pvas-financials";
 import {pvasCanonicalEnabled}from"@/lib/portal-v2/pvas-canonical";
 import {buildDashboardExportModel,type TableSource} from "@/lib/portal-v2/dashboard-export-types";
 
@@ -190,7 +189,6 @@ function Overview({ d }: { d: PvasSnapshot }) {
       </div>
       <Card>
         <H sub="Calendar years. Bars = dollars.">Giving by year</H>
-        {d.undatedFinancials&&(d.undatedFinancials.count>0||d.undatedFinancials.pledged!=="0.00")&&<p className="mb-3 text-sm text-[rgb(var(--ink))]/70">Unknown year: {d.undatedFinancials.count} received gifts, {usdExact(d.undatedFinancials.received)} received and {usdExact(d.undatedFinancials.pledged)} pledged. Included in lifetime totals, not assigned an invented calendar year.</p>}
         <div className="h-72">
           <ResponsiveContainer>
             <BarChart data={d.fys}>
