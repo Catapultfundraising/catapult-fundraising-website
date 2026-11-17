@@ -95,6 +95,16 @@ export default function CampaignReadinessAssessmentPage() {
       />
 
       <section className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
+        <p className="mb-8 text-lg leading-relaxed text-[rgb(var(--ink))]/75">
+          This free self-assessment reviews your organization’s preparation using the answers you provide.
+          To test donor support for your goal through confidential interviews, explore our{" "}
+          <Link
+            href="/services/feasibility-study"
+            className="font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40 decoration-2 underline-offset-4"
+          >
+            capital campaign feasibility study
+          </Link>.
+        </p>
         <CampaignReadinessAssessment />
       </section>
 
