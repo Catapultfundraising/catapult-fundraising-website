@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { PageHero } from "@/components/page-hero";
 import { ServiceDetail } from "@/components/service-detail";
 import { CtaBand } from "@/components/cta-band";
@@ -182,6 +183,15 @@ export default function AnnualFundPage() {
         description="AF Connect is our annual fund calling program. It pairs experienced callers with personal pre-call letters and asks built from each donor's own giving history, to renew, upgrade and win back the donors who matter most."
         backgroundImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/513c85b8-7588-44b1-9dcb-41e3cf4f486e.jpeg"
       />
+      <section aria-labelledby="changing-calling-providers" className="border-b border-[rgb(var(--line))] bg-white py-8">
+        <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 sm:flex-row sm:items-center sm:justify-between lg:px-10">
+          <div>
+            <h2 id="changing-calling-providers" className="font-display text-2xl text-[rgb(var(--navy))]">Changing calling providers?</h2>
+            <p className="mt-2 text-lg text-[rgb(var(--ink))]/75">Review what to plan for your next university calling program.</p>
+          </div>
+          <Link href="/rnl-calling-program-alternative" className="inline-flex min-h-12 shrink-0 items-center font-semibold text-[rgb(var(--navy))] underline underline-offset-4">Plan your calling program transition</Link>
+        </div>
+      </section>
       <ServiceDetail
         heroImage="https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/0144f19e-bed4-4f42-a09b-211276c3f4a1.png"
         heroImageAlt="A Catapult Engagement Officer smiling while on an annual fund calling program"

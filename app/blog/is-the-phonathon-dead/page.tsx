@@ -51,7 +51,7 @@ const jsonLd = {
       "@type": "BlogPosting",
       headline: TITLE,
       datePublished: "2026-10-17",
-      dateModified: "2026-10-17",
+      dateModified: "2026-11-17",
       description: DESCRIPTION,
       image: [`${SITE_URL}${HERO}`],
       author: {
@@ -140,6 +140,10 @@ export default function IsThePhonathonDeadPost() {
         <h2 className={H2}>Where to start</h2>
         <p className={P}>Pull last year&rsquo;s numbers: contact rate, pledge rate, average gift, fulfillment rate and cost per dollar raised. If you can&rsquo;t get those five numbers easily, that&rsquo;s your first finding.</p>
         <p className={P}>Then look at who you&rsquo;re calling and who&rsquo;s calling them. That&rsquo;s usually where the answer is. If you&rsquo;d like a second set of eyes, <Link href="/contact" className="font-semibold text-[rgb(var(--navy))] underline">let&rsquo;s talk</Link>.</p>
+
+        <aside aria-label="Calling program transition" className="clear-both mt-8 border-l-4 border-[rgb(var(--brass))] bg-white px-6 py-5">
+          <p className="text-lg leading-relaxed text-[rgb(var(--ink))]/75">Evaluating a new calling partner? <Link href="/rnl-calling-program-alternative" className="font-semibold text-[rgb(var(--navy))] underline underline-offset-4">Explore Catapult’s university calling programs and transition planning.</Link></p>
+        </aside>
 
         <h2 className={H2}>Questions we hear</h2>
         <dl className="mt-6 space-y-6">
