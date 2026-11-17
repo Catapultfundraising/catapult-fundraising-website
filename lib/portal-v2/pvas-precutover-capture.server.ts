@@ -124,9 +124,18 @@ async function ownMergedSourceView(root: string, parts: FrozenCaptureParts,
   const { data, state, source, tracking, effectiveData, effectiveTracking } = composed;
   const updates = state.updates as unknown as Obj[];
   const id = (v: unknown) => Number.isInteger(v) && Number(v) > 0 && Number(v) <= 2147483647;
-  need(updates.every(u => object(u) && Number.isSafeInteger(u.id) && u.id > 0 && id(u.cptid) &&
+  // Original SQL BIGINT IDs may be exact strings. Validate the Number ordering
+  // projection the old folds actually consume, WITHOUT rewriting raw row.id.
+  const updateOrder = (v: unknown): number | null => {
+    if (typeof v === "number") return Number.isSafeInteger(v) && v > 0 ? v : null;
+    if (typeof v !== "string" || !/^[1-9]\d{0,15}$/.test(v)) return null;
+    const n = Number(v);
+    return Number.isSafeInteger(n) && BigInt(v) === BigInt(n) ? n : null;
+  };
+  const orderIds = updates.map(u=>updateOrder(u?.id));
+  need(updates.every((u,i) => object(u) && orderIds[i] !== null && id(u.cptid) &&
     typeof u.field === "string" && (u.new_value === null || typeof u.new_value === "string")) &&
-    new Set(updates.map(u=>u.id)).size === updates.length, "own-source-update-order-identity");
+    new Set(orderIds).size === updates.length, "own-source-update-order-identity");
   const overlay = buildOverlay(updates as UpdateRow[]);
   need([...overlay.mergedInto].every(([from,to])=>id(from)&&id(to)), "own-source-merge-identity");
   const donorIds: number[] = [], excludedMergedIds: number[] = [];
@@ -151,7 +160,7 @@ async function ownMergedSourceView(root: string, parts: FrozenCaptureParts,
     return {path:keys,present:true,state:value===undefined?"undefined":value===null?"null":"value",
       ...(value===undefined?{}:{value})};
   };
-  const ordered = updates.map((row,ordinal)=>({key:String(row.id),ordinal,row})).sort((a,b)=>a.row.id-b.row.id);
+  const ordered = updates.map((row,ordinal)=>({key:String(row.id),ordinal,row})).sort((a,b)=>orderIds[a.ordinal]!-orderIds[b.ordinal]!);
   for (const c of donorIds) {
     const key = String(c), record = own.record(c) as Obj;
     need(record && record.cptid===c, "own-source-record");

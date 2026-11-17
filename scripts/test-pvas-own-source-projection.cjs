@@ -132,6 +132,20 @@ const changed=(part,edit)=>{const value=JSON.parse(parts[part]);edit(value);retu
   for(const [file,digest] of Object.entries(own.foldEvidence.moduleSha256))assert.equal(sha(fs.readFileSync(path.join(root,file))),digest);
   for(const [name,part] of Object.entries(parts))assert.equal(own.foldEvidence.partDigests[name],sha(part));
   assert.equal(JSON.parse(JSON.stringify(own)).fieldStates.find(x=>x.cptid===E).fields.ask.state,"undefined","JSON sidecar preserves undefined presence explicitly");
+  const stringParts=changed("portalState",s=>s.updates.forEach(u=>u.id=String(u.id)));
+  const stringBefore=Buffer.from(stringParts.portalState);
+  const stringResult=await capture.projectFrozenPvas(root,stringParts,options);
+  const {ownSourceView:stringSidecar,...stringOrdinary}=stringResult;
+  assert.deepEqual(stringOrdinary,await oldCapture.projectFrozenPvas(root,stringParts),"safe exact SQL string IDs retain original default output");
+  assert.deepEqual(stringSidecar.records,own.records);assert.deepEqual(stringSidecar.fieldStates,own.fieldStates);
+  for(const donor of stringSidecar.foldEvidence.donors)for(const entry of donor.updates){
+    assert.equal(typeof entry.row.id,"string");assert.equal(entry.key,entry.row.id);
+    assert.deepEqual(entry.row,JSON.parse(stringParts.portalState).updates[entry.ordinal]);
+  }
+  assert.deepEqual(stringParts.portalState,stringBefore,"never normalize original row.id bytes");
+  const boundary=changed("portalState",s=>s.updates[0].id=String(Number.MAX_SAFE_INTEGER));
+  const edge=await capture.projectFrozenPvas(root,boundary,options);
+  assert.equal(edge.ownSourceView.foldEvidence.donors.find(r=>r.cptid===A).updates.at(-1).row.id,"9007199254740991");
   const noMerge={...state,updates:[u(12,A,"contact:city",null)]};
   const city=currentRecordProjection("pvas",data,noMerge,tracking,{recordScope:"own-source"});
   assert.equal(city.index.find(r=>r.cptid===A).city,`City ${A}`);assert.equal(city.record(A).contact.city,"","own record clear is NOT old truthy index city");
@@ -146,8 +160,10 @@ const changed=(part,edit)=>{const value=JSON.parse(parts[part]);edit(value);retu
   ])await assert.rejects(()=>capture.projectFrozenPvas(root,changed("records",edit),options),/own-source-original-identity/);
   for(const edit of [
     s=>delete s.updates[0].id,s=>s.updates[0].id=Number.MAX_SAFE_INTEGER+1,s=>s.updates[0].id=s.updates[1].id,
-    s=>s.updates[0].id="9",s=>s.updates[0].cptid=2147483648,
+    s=>s.updates[0].id=String(s.updates[1].id),s=>s.updates[0].cptid=2147483648,
   ])await assert.rejects(()=>capture.projectFrozenPvas(root,changed("portalState",edit),options),/own-source-update-order-identity/);
+  for(const invalid of ["9007199254740992","01","1e1","","+1"," 1","1 ","-1","1.0","0",0,-1,1.5])
+    await assert.rejects(()=>capture.projectFrozenPvas(root,changed("portalState",s=>s.updates[0].id=invalid),options),/own-source-update-order-identity/);
   await assert.rejects(()=>capture.projectFrozenPvas(root,changed("portalState",s=>s.updates[1].new_value="9007199254740993"),options),/own-source-merge-identity/);
   for(const key of ["mergedFrom","redirectedFrom","dsFromCptid"]){
     const bad=changed("records",d=>d.records[A][key]=key==="dsFromCptid"?B:[]);
