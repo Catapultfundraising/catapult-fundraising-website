@@ -953,6 +953,10 @@ function ResearchProfileFormInner() {
       }
       const fetched = body?.data || {};
       const photo = body?.photo || "";
+      if (Array.isArray(body?.warnings) && body.warnings.length) {
+        // Lookup succeeded, but part of it (contact/family export) did not; show it instead of silently dropping fields.
+        setDonorFetchError(body.warnings.join(" "));
+      }
 
       // Selecting a donor from search results starts this prospect over
       // from a completely blank profile, not just a field-by-field replace

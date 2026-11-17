@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { isResearchAuthed } from "@/lib/research-auth";
-import { getDonorById, exportDonorFields } from "@/lib/donoratlas-client";
+import { getDonorById, exportDonorFieldsWithStatus } from "@/lib/donoratlas-client";
 import { formatPhoneNumber } from "@/lib/phone-format";
 
 export const runtime = "nodejs";
@@ -71,6 +71,24 @@ function splitDelimited(value: string | undefined): string[] {
     .filter(Boolean);
 }
 
+// DonorAtlas now includes lower-confidence records (probability 0.3 to 0.5).
+// Records with no probability are kept; anything below the profile threshold is not.
+const MIN_CONFIDENCE = 0.7;
+function isConfident(item: any): boolean {
+  const p = item?.probability;
+  return typeof p !== "number" || p >= MIN_CONFIDENCE;
+}
+
+// bio was a list of strings; it is becoming a list of {text, source_urls}. Accept both.
+function bioToText(bio: any): string {
+  if (!Array.isArray(bio)) return typeof bio === "string" ? bio.trim() : "";
+  return bio
+    .map((b: any) => (typeof b === "string" ? b : typeof b?.text === "string" ? b.text : ""))
+    .map((t: string) => t.trim())
+    .filter(Boolean)
+    .join("\n\n");
+}
+
 function dedupeBy<T>(arr: T[], key: (item: T) => string): T[] {
   const seen = new Set<string>();
   return arr.filter((item) => {
@@ -123,6 +141,7 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
     .join("\n");
 
   const businessAddresses = (Array.isArray(donor?.work) ? donor.work : [])
+    .filter(isConfident)
     .map((w: any) => {
       const startYear = w.start_date ? String(w.start_date).slice(0, 4) : "";
       const endYear = w.end_date ? String(w.end_date).slice(0, 4) : "Present";
@@ -131,7 +150,7 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
     })
     .join("\n");
 
-  const educationEntries = (Array.isArray(donor?.education) ? donor.education : []).map((e: any) => ({
+  const educationEntries = (Array.isArray(donor?.education) ? donor.education : []).filter(isConfident).map((e: any) => ({
     institution: e.institution_name || "",
     degree: e.degree || "",
     year: e.graduation_year ? String(e.graduation_year) : "",
@@ -156,6 +175,7 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
     });
 
   const realEstate = (Array.isArray(donor?.assets) ? donor.assets : [])
+    .filter(isConfident)
     .filter((a: any) => a?.type === "real_estate")
     .map((a: any) => ({
       photo: "",
@@ -190,6 +210,7 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   // no current value (e.g. stale public-filing holdings DonorAtlas can't
   // price reliably) show "No current value" instead of a blank/zero.
   const otherAssets = (Array.isArray(donor?.assets) ? donor.assets : [])
+    .filter(isConfident)
     .filter((a: any) => a?.type !== "real_estate")
     .map((a: any) => {
       const hasValue = (a.value_min != null && a.value_min > 0) || (a.value_max != null && a.value_max > 0);
@@ -276,8 +297,8 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   // Bio: falls back to the donor's top_issues explanations (which often
   // contain rich biographical narrative tied to specific causes) whenever
   // DonorAtlas hasn't generated a dedicated bio for this particular donor.
-  const bioText = Array.isArray(donor?.bio) && donor.bio.length
-    ? donor.bio.join("\n\n")
+  const bioText = bioToText(donor?.bio)
+    ? bioToText(donor?.bio)
     : (Array.isArray(donor?.top_issues) ? donor.top_issues : [])
         .map((t: any) => t?.description)
         .filter(Boolean)
@@ -291,8 +312,9 @@ function mapDonorToProfileFields(donor: any, exportRow: Record<string, string> =
   // either on this form. Marital status is inferred as Married when a
   // spouse is on file (the profiler can correct this if it's actually
   // widowed/separated -- DonorAtlas doesn't distinguish that itself).
-  const spouseName = (exportRow["Spouse"] || "").trim();
-  const parentsNames = (exportRow["Parents"] || "").trim();
+  const spouseName = splitDelimited(exportRow["Spouse"]).join(" and ");
+  // Multi-name export cells now separate names with ";" (previously ","); show a readable list.
+  const parentsNames = splitDelimited(exportRow["Parents"]).join(", ");
   const childrenRows = splitDelimited(exportRow["Children"]).map((childName) => ({
     name: childName,
     age: "",
@@ -383,10 +405,11 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
     if (!id) {
       return NextResponse.json({ error: "Missing donor id." }, { status: 400 });
     }
-    const [donor, exportRow] = await Promise.all([getDonorById(id), exportDonorFields(id)]);
-    const mapped = mapDonorToProfileFields(donor, exportRow);
+    const [donor, exportResult] = await Promise.all([getDonorById(id), exportDonorFieldsWithStatus(id)]);
+    const mapped = mapDonorToProfileFields(donor, exportResult.fields);
+    const warnings = exportResult.warning ? [exportResult.warning] : [];
     const photo = await fetchImageAsDataUri(donor?.primary_photo_url);
-    return NextResponse.json({ ok: true, data: mapped, photo });
+    return NextResponse.json({ ok: true, data: mapped, photo, warnings });
   } catch (err: any) {
     console.error("research-donoratlas-donor error", err);
     return NextResponse.json({ error: err?.message || "Failed to retrieve this donor from DonorAtlas." }, { status: 500 });
