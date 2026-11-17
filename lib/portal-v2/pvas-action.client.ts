@@ -34,7 +34,7 @@ export async function pvasActionFetch(client: string, url: string, init: Request
   const raw: unknown = JSON.parse(init.body);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid canonical action");
   const data = raw as Record<string, unknown>;
-  if(["getAsk","matchDonor","duplicates","pirWealth","pvasRequestStatus"].includes(String(data.op)))return fetch(url,init);
+  if(["getAsk","matchDonor","duplicates","pirWealth","pvasRequestStatus","nativeGiftPageV2","pvasHistoricalUploads"].includes(String(data.op)))return fetch(url,init);
   const action = await identity(url, init.body);
   if (data.requestId !== undefined && data.requestId !== action.id) throw new Error("Conflicting canonical action identity");
   try{

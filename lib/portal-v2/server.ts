@@ -3,6 +3,8 @@ import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { HISTORICAL_UPLOAD_READ_ONLY, historicalUploadRejection, historicalUploadsReadBody } from "./pvas-upload-history";
 import { pvasActionBody, withPvasAction, PvasActionIdentityError } from "./pvas-action.server";
 import { canonicalPvasState } from "./pvas-state-wire";
+import { consumeNativeStateCampaignV2 } from "./pvas-native-consumer";
+import { decodeNativePageRequestV2, decodeNativeGiftPageV2 } from "./pvas-native-gift-wire";
 import { askEdits, effectiveAsk } from "./effective-ask";
 import { observeDirect, directClientView } from "./direct-source-state.server";
 import { directLaneEnabled } from "./direct-registration.server";
@@ -77,9 +79,14 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
       !Array.isArray(result) && !result.error && result.configured !== false) result = normalizeManualUpdateRowIds(result);
   if (pvasCanonicalEnabled(client) && r.ok && !result.error && result.configured !== false) {
     if (op === "state") {
+      const campaign = await consumeNativeStateCampaignV2(result, async body => {
+        const page = await engageCall(client, body.op, { request: body.request });
+        if (page.status !== 200) throw new Error("Native campaign read unavailable");
+        return page.body;
+      });
       const data=await getPvasRecords();
       if(!data)throw new Error("Canonical contact/financial state unavailable");
-      result=canonicalPvasState(result,data.records);
+      result=canonicalPvasState(result,data.records,campaign.records);
     }
     if (result.ok === true && typeof result.requestId === "string") invalidatePvasDataCache();
   }
@@ -233,7 +240,9 @@ function stewardshipWins(client: PortalClient, snap: SnapLike, items: PortalGift
   };
   const mine = new Map<number, PortalGift[]>(), rest: PortalGift[] = [];
   for (const g of items) { const o = owner(g); if (o === undefined) rest.push(g); else mine.set(o, [...(mine.get(o) ?? []), g]); }
-  let id = Math.min(0, ...items.map((g) => g.id)) - 1;
+  // This private caller receives only synthetic numeric IDs constructed above
+  // by dbCampaignGifts. Type narrowing only: no runtime ID conversion/change.
+  let id = Math.min(0, ...items.map((g) => g.id as number)) - 1;
   const out: PortalGift[] = [];
   stew.forEach((p, i) => {
     const gs = mine.get(i) ?? [];
@@ -453,6 +462,17 @@ export function portalV2Route(client: PortalClient) {
       const b = (await req.json().catch(() => null)) as Record<string, any> | null;
       if (!b) return bad("bad body");
       const by = txt(b.by, 200) || "Catapult portal";
+      if (pvasCanonicalEnabled(client) && b.op === "nativeGiftPageV2") {
+        let request: ReturnType<typeof decodeNativePageRequestV2>;
+        try {
+          if (Object.keys(b).some(key => !["op", "client", "request"].includes(key)) ||
+              b.client !== undefined && b.client !== client) throw new Error("Unexpected read key/client");
+          request = decodeNativePageRequestV2(b.request);
+        } catch { return bad("Invalid native gift page request", 400); }
+        const page = await engageCall(client, b.op, { request });
+        if (page.status !== 200) return bad("PVAS native gift read unavailable", 503);
+        return NextResponse.json(decodeNativeGiftPageV2(page.body, request));
+      }
       if (pvasCanonicalEnabled(client) && b.op === "pvasHistoricalUploads") {
         let page: ReturnType<typeof historicalUploadsReadBody>;
         try { page = historicalUploadsReadBody(b); } catch { return bad("Invalid PVAS upload history page request", 400); }

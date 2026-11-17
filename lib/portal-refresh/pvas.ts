@@ -1,17 +1,18 @@
 import {
-  band, builtAt, dsField, capmin, cid, counter, engageClientContacts, engageClientGifts, fmtPhone, loadedAsOf, money, mostCommon, pdate, Per,
+  band, builtAt, dsField, capmin, cid, counter, engageClientContacts, fmtPhone, loadedAsOf, money, mostCommon, pdate, Per,
   pirLinks, pyramid, round2, Row, rows, s, sortedItems, yearsAgo,
 } from "./common";
 import { pvasCanonicalEnabled } from "../portal-v2/pvas-canonical";
 import { buildPvas as buildLegacyPvas } from "./pvas.legacy";
-import { displayMoney } from "../portal-v2/pvas-financials";
+import { readPvasNativeGiftsV2 } from "../portal-v2/pvas-native-gifts.server";
+import { nativeHistoryPresentationV2 } from "../portal-v2/pvas-native-gift-presentation";
+import type { NativeDonorHistory } from "../portal-v2/pvas-native-consumer";
 import { pvasContactProfile, type PvasContactProfile } from "../portal-v2/pvas-contact-wire";
-import {pvasGiftMetadata,countedReceived}from"../portal-v2/pvas-gift-wire";
 
 // PVAS (Palm Valley Animal Society) builder. Reads Azure schema `pvas`.
 // Per-donor totals come from giving_history_overview, yearly giving
 // from calendar_year_giving (calendar years). Engage's clientContacts and
-// clientGifts PVAS feeds own migrated canonical contact/individual-gift rows.
+// nativeGiftPageV2 PVAS feeds own migrated canonical contact/individual-gift rows.
 // Present canonical contact keys override portfolio/phone/Givebutter fields.
 // Givebutter transactions and pledges are kept
 // in their own "Recent Givebutter Activity" section and are NOT counted in any
@@ -37,21 +38,16 @@ export async function buildCanonicalPvas() {
   ]);
   // Canonical individual gifts are independent of the original aggregate
   // presentations. Unavailable feeds fail the build, never silently fall back.
-  const giftRows = await engageClientGifts("pvas");
+  const history = await readPvasNativeGiftsV2("history", "current");
+  const giftRows = nativeHistoryPresentationV2(history.records).inventory;
   // Canonical migrated contacts, served by Engage from PVAS SQL.
   const masterRows = await engageClientContacts("pvas");
   const master = new Map<number, (typeof masterRows)[number]>();
   for (const m of masterRows) if (m.cptid > 0) master.set(m.cptid, m);
-  const giftsBy = new Map<number, Record<string, unknown>[]>();
-  const otherGiftsBy=new Map<number,unknown[]>();
+  const giftsBy = new Map<number, NativeDonorHistory["records"]>();
   for (const g of giftRows) {
-    const meta=pvasGiftMetadata((g as unknown as Record<string,unknown>)._canonicalGift);
-    if(meta.gift.cptid!==g.cptid||meta.gift.amount!==(g.amount as unknown))throw new Error("Canonical gift feed metadata mismatch");
-    if(!countedReceived(meta.gift)){const other=otherGiftsBy.get(g.cptid)??[];other.push(g);otherGiftsBy.set(g.cptid,other);continue;}
-    (giftsBy.get(g.cptid) ?? giftsBy.set(g.cptid, []).get(g.cptid)!).push({
-      ...g, amountExact: g.amount, amount: displayMoney(g.amount),eventDate:g.date,
-      date: g.date ?? (g.year ? String(g.year) : ""),
-    });
+    if (!master.has(g.cptid)) throw new Error("Native history donor missing from canonical contacts");
+    (giftsBy.get(g.cptid) ?? giftsBy.set(g.cptid, []).get(g.cptid)!).push(g);
   }
   const byC = (rr: Row[]) => { const m = new Map<number, Row>(); for (const r of rr) { const c = cid(r.CPTID); if (c !== null) m.set(c, r); } return m; };
   const gho = byC(ghoRows), ds = byC(dsRows), port = byC(portRows), phones = byC(phoneRows);
@@ -258,13 +254,13 @@ export async function buildCanonicalPvas() {
 
   // ---------------- records ----------------
   type Rec = { cptid: number; name: string; kind: string; contact: Record<string, string>; flags: string[]; ds: Record<string, string>;
-    gifts: Record<string, unknown>[]; board: Record<string, unknown>[]; committees: string[]; calling: Record<string, unknown>[];
+    nativeGiftHistory: NativeDonorHistory; board: Record<string, unknown>[]; committees: string[]; calling: Record<string, unknown>[];
     calls: Record<string, unknown>[]; notes: string[]; summary: Record<string, unknown>; otherGiftRows?:unknown[]; _canonicalContact?: PvasContactProfile; sourceHistory?: Record<string, unknown>; years?: { year: number; amount: number }[];
     givebutter?: Record<string, unknown>[]; portfolio?: Record<string, unknown> };
   const R = new Map<number, Rec>();
   const rec = (c: number): Rec => {
     let x = R.get(c);
-    if (!x) R.set(c, (x = { cptid: c, name: name.get(c) ?? "", kind: "", contact: {}, flags: [], ds: {}, gifts: [], board: [], committees: [], calling: [], calls: [], notes: [], summary: {} }));
+    if (!x) R.set(c, (x = { cptid: c, name: name.get(c) ?? "", kind: "", contact: {}, flags: [], ds: {}, nativeGiftHistory: { v:2, lane:"history", view:history.view, records:giftsBy.get(c)??[] }, board: [], committees: [], calling: [], calls: [], notes: [], summary: {} }));
     return x;
   };
   for (const c of allc) rec(c);
@@ -275,8 +271,6 @@ export async function buildCanonicalPvas() {
     const x = rec(c); x.years = [...m].sort((a, b) => b[0] - a[0]).map(([year, amount]) => ({ year, amount: round2(amount) }));
     // No synthetic calendar-year "gift" rows in the canonical detail ledger.
   }
-  for (const [c, list] of giftsBy) if (R.has(c)) R.get(c)!.gifts = list.sort((a, b) => String(b.date).localeCompare(String(a.date)));
-  for(const[c,rows]of otherGiftsBy)rec(c).otherGiftRows=rows;
   for (const b of board) if (b.cptid !== undefined) rec(b.cptid).board.push({ board: b.board, title: b.title, term: b.term, active: b.active, ask: b.ask, get: 0 });
   for (const m of committee) if (m.cptid !== null) rec(m.cptid).committees.push(`Campaign committee${m.title ? ` (${m.title})` : ""}`);
   for (const p of portfolio) {

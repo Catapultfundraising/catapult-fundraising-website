@@ -199,7 +199,7 @@ export function CampaignDonors() {
   );
 }
 
-function giftId(g: PortalGift) { return Number(g.id) > 0 ? String(g.id) : g.key ?? String(g.id); }
+function giftId(g: PortalGift) { return g._nativeGift ? `native:${g._nativeGift.giftId}` : Number(g.id) > 0 ? String(g.id) : g.key ?? String(g.id); }
 function AllGifts() {
   const { client, state, reload } = useV2();
   const [by, setBy] = useBy();
@@ -208,9 +208,10 @@ function AllGifts() {
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   const editorName = useRef<HTMLInputElement>(null);
   const voidReason = useRef<HTMLInputElement>(null);
-  const gso = useSort([...(state?.gifts ?? [])].reverse().map((g) => ({ ...g, amount: Number(g.amount), src: g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry" })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
+  const gso = useSort([...(state?.gifts ?? [])].reverse().map((g) => ({ ...g, amount: Number(g.amount), src: g._nativeGift ? (g._nativeGift.representation === "admitted-event" ? "Canonical event" : g._nativeGift.source.system) : g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry" })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   if (!state) return null;
   const start = (g: PortalGift, kind: "edit" | "void") => {
+    if (pvasCanonicalEnabled(client)) { setMsg("Native gift changes are not yet integrated; this view is read-only."); return; }
     setMsg("");setMode({id:giftId(g),kind,...(pvasCanonicalEnabled(client)?{original:structuredClone(g)}:{})});
     const raw=pvasCanonicalEnabled(client)?pvasGiftMetadata(g._canonicalGift).gift:null;
     setF({amount:raw?raw.amount:String(Number(g.amount)),kind:g.kind,date:isoToUs(raw?raw.date:g.gift_date),note:raw?raw.note??"":g.note??"",reason:""});
@@ -218,6 +219,7 @@ function AllGifts() {
   const base = (g: PortalGift) => ({ id: Number(g.id) > 0 ? Number(g.id) : undefined, key: Number(g.id) > 0 ? undefined : g.key, cptid: g.cptid, donorName: g.donor_name,
     original: { amount: Number(g.amount), kind: g.kind, date: g.gift_date, name: g.donor_name, cptid: g.cptid } });
   const save = async (g: PortalGift) => {
+    if (pvasCanonicalEnabled(client)) { setMsg("Native gift changes are not yet integrated; no gift request was sent."); return; }
     if (!by.trim()) { setMsg("Enter your name below so we can record who made this change."); editorName.current?.focus(); return; }
     setBusy(true); setMsg("");
     try {
@@ -257,23 +259,24 @@ function AllGifts() {
         <h3 className="font-display text-lg text-[rgb(var(--navy))]">All campaign gifts and pledges</h3>
         <label className="text-xs">Your name (required to edit or void)<input className={`${input} mt-1 w-56`} value={by} onChange={(e) => setBy(e.target.value)} /></label>
       </div>
-      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. {pvasCanonicalEnabled(client)?"Changes write the canonical gift, preserving its source identity, expected version and audit. No weekly import is required.":"Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh."}</p>
+      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">{pvasCanonicalEnabled(client) ? "Native gift detail is read-only in this held integration. Entry, corrections and voids require the paired native write owner." : "Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh."}</p>
       {msg && !mode && <p role="status" aria-live="polite" className="mt-2 rounded border border-[rgb(var(--brass))] p-3 text-sm">{msg}</p>}
       <div className="mt-3 max-h-[560px] overflow-auto">
         <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={gso} k="gift_date" label="Date" className={th} /><SortTh s={gso} k="donor_name" label="Donor" className={th} /><SortTh s={gso} k="kind" label="Type" className={th} /><SortTh s={gso} k="amount" label="Amount" className={`${th} text-right`} /><SortTh s={gso} k="src" label="Source" className={th} /><SortTh s={gso} k="note" label="Note" className={th} /><th className={th} /></tr></thead>
           <tbody>{gso.sorted.map((g) => (
             <Fragment key={giftId(g)}>
-              <tr className="border-b border-[rgb(var(--line))]"><td className={td}>{isoToUs(g.gift_date)}</td><td className={td}><NameLink name={g.donor_name} cptid={g.cptid} />{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
+              <tr className="border-b border-[rgb(var(--line))]"><td className={td}>{g._nativeGift ? g.gift_date ?? "Unknown date" : isoToUs(g.gift_date)}</td><td className={td}><NameLink name={g.donor_name} cptid={g.cptid} />{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
                 <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{g.amountExact?usdExact(g.amountExact):usd(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usd(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
-                <td className={td}>{g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry"}</td><td className={td}>{g.note ?? ""}</td>
-                <td className={`${td} whitespace-nowrap text-right`}>{(Number(g.id) > 0 || g.key) && <>
-                  <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => start(g, "edit")}>Edit</button>
-                  <button className="ml-3 text-xs font-semibold text-red-700 hover:underline" onClick={() => start(g, "void")}>Void</button></>}</td></tr>
+                <td className={td}>{g.src}</td><td className={td}>{g.note ?? ""}</td>
+                <td className={`${td} whitespace-nowrap text-right`}>{(g._nativeGift || Number(g.id) > 0 || g.key) && <>
+                  <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline disabled:opacity-50" disabled={pvasCanonicalEnabled(client)} onClick={() => start(g, "edit")}>Edit</button>
+                  <button className="ml-3 text-xs font-semibold text-red-700 hover:underline disabled:opacity-50" disabled={pvasCanonicalEnabled(client)} onClick={() => start(g, "void")}>Void</button></>}</td></tr>
             </Fragment>
           ))}</tbody></table>
         {!state.gifts.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No campaign gifts or pledges recorded yet.</p>}
       </div>
       {!!state.otherCanonicalGifts?.length&&<details className="mt-3"><summary>Other canonical gift rows (not counted in USD hard-credit campaign totals)</summary><ul className="text-sm">{state.otherCanonicalGifts.map((row,i)=>{const g=pvasGiftMetadata(row._canonicalGift).gift;return <li key={g.giftId??i}>{g.donorName??`CPTID ${g.cptid}`} · {g.amount} {g.currency} · {g.scope} · {g.credit} · {g.kind} · {g.status}</li>;})}</ul></details>}
+      {state.giftWireVersion === 2 && <details className="mt-3"><summary>Native campaign source facts — current view</summary><pre className="overflow-auto text-xs">{JSON.stringify(state.nativeCampaignInventory, null, 2)}</pre></details>}
       <Dialog open={!!(mode && activeGift)} onOpenChange={(open) => { if (!open && !busy) { setMode(null); setMsg(""); } }}>
         {mode && activeGift && <DialogContent className="z-[100] max-h-[85vh] max-w-2xl overflow-y-auto bg-white text-[rgb(var(--navy))]">
           <DialogTitle>{mode.kind === "edit" ? "Edit" : "Void"} {activeGift.donor_name}&rsquo;s {activeGift.kind}</DialogTitle>
@@ -315,6 +318,7 @@ function GiftForm() {
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<{ cptid: number; name: string; address: string; exact: boolean }[] | null>(null);
   const save = async (confirmNew = false, gift = f) => {
+    if (pvasCanonicalEnabled(client)) { setMsg("Native gift entry is not yet integrated; no gift request was sent."); return; }
     if (parseUsDateClient(gift.date) === null) { setMsg("Use MM/DD/YYYY for the date."); return; }
     setBusy(true); setMsg("");
     try {
@@ -340,6 +344,7 @@ function GiftForm() {
   return (
     <div className={card}>
       <h3 className="font-display text-lg text-[rgb(var(--navy))]">Record a gift or pledge</h3>
+      {pvasCanonicalEnabled(client) && <p className="mt-2 text-sm">Gift entry is unavailable until the native write protocol is integrated.</p>}
       <div className="mt-3 grid gap-3 md:grid-cols-6">
         <input className={`${input} md:col-span-2`} placeholder="Donor name *" value={f.donorName} onChange={(e) => { setF({ ...f, donorName: e.target.value }); setMatches(null); }} />
         <input className={input} placeholder="CPTID (if known)" value={f.cptid} onChange={(e) => { setF({ ...f, cptid: e.target.value }); setMatches(null); }} />
@@ -348,7 +353,7 @@ function GiftForm() {
         <DateInput className={input} value={f.date} onChange={(v) => setF({ ...f, date: v })} />
         <input className={`${input} md:col-span-4`} placeholder="Note" value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} />
         <input className={input} placeholder="Your name" value={by} onChange={(e) => setBy(e.target.value)} />
-        <button className={btn} disabled={busy} onClick={() => save(false)}>{busy ? "Saving…" : "Save"}</button>
+        <button className={btn} disabled={busy || pvasCanonicalEnabled(client)} onClick={() => save(false)}>{busy ? "Saving…" : "Save"}</button>
       </div>
       {matches && (
         <div className="mt-4 rounded border border-amber-400 bg-amber-50 p-4 text-sm">

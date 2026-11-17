@@ -1,6 +1,7 @@
 "use client";
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
+import { PvasNativeHistory } from "@/components/pvas-native-history";
 import {pvasGiftMetadata}from"@/lib/portal-v2/pvas-gift-wire";
 import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayload} from "@/lib/portal-v2/pvas-export-model";
 import type {ExportIntent} from "@/lib/portal-v2/dashboard-export-types";
@@ -273,7 +274,10 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
   const c = r.contact ?? {};
   const s = r.summary;
   const byYear = new Map<string, number>();
-  for (const g of r.gifts ?? []) { const y = (g.date ?? "").slice(0, 4) || "Undated"; byYear.set(y, (byYear.get(y) ?? 0) + g.amount); }
+  const native = pvasCanonicalEnabled("pvas");
+  if (native && !r.nativeGiftHistory) throw new Error("Native historical gift detail unavailable");
+  if (native) for (const y of r.years ?? []) byYear.set(String(y.year), y.amount); // Existing CYG SQL owner only.
+  else for (const g of r.gifts ?? []) { const y = (g.date ?? "").slice(0, 4) || "Undated"; byYear.set(y, (byYear.get(y) ?? 0) + g.amount); }
   return (
     <Modal title={r.name} sub={[r.kind, c.city && `${c.city}${c.state ? ", " + c.state : ""}`, `CPTID ${r.cptid}`].filter(Boolean).join(" · ")} onClose={onClose} wide>
       <RecordBanners client="pvas" r={r as never} onChanged={reload} />
@@ -341,7 +345,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
         </div>
       )}
       <div className="mt-4">
-        <GiftsByYear gifts={(r.gifts ?? []) as never} />
+        {native ? <PvasNativeHistory history={r.nativeGiftHistory!} cptid={r.cptid} /> : <GiftsByYear gifts={(r.gifts ?? []) as never} />}
       </div>
     </Modal>
   );

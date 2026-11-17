@@ -157,4 +157,5 @@ async function main(){
  assert.equal(sqlCalls,0,"fixture owner has no capability issuer");
  console.log("PASS composed exact-envelope -> pinned strict backend -> website v2 decoder/paginator -> pure history/campaign adapters; current/provenance membership, strings/FLOAT/decimals, full pagination, preserved aliases, fail-closed negatives, off-client no calls; NO runtime wiring");
 }
-main().catch(e=>{console.error(e);process.exitCode=1});
+module.exports={campaign,history,event,transport,backend,schema,wire,read,present};
+if(require.main===module)main().catch(e=>{console.error(e);process.exitCode=1});

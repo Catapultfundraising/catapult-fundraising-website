@@ -11,6 +11,8 @@ Module._load = function(name, parent, isMain) {
   if(name.endsWith("/pvas-canonical")||name==="./pvas-canonical")return {pvasCanonicalEnabled:client=>client==="pvas"&&canonicalEnabled,PVAS_CANONICAL_ACCEPTED:false};
   if (name === "@vercel/blob") return { get: async () => { throw new Error("Unexpected Blob read"); }, put: async () => { throw new Error("Unexpected Blob write"); } };
   if (name === "./common" && parent.filename.endsWith("/portal-refresh/pvas.ts") && commonMock) return commonMock;
+  if (name === "../portal-v2/pvas-native-gifts.server" && parent.filename.endsWith("/portal-refresh/pvas.ts"))
+    return {readPvasNativeGiftsV2:async(lane,view)=>{assert.equal(lane,"history");assert.equal(view,"current");if(giftFails)throw Error("unavailable");return {v:2,lane,view,records:[structuredClone(nativeHistory)]};}};
   if (name === "./portal-refresh/pvas" && builderMock) return { buildPvas: builderMock };
   if ((name === "./portal-v2/server" || name === "@/lib/portal-v2/server" || name === "./server") && gatewayMock) return gatewayMock;
   if (name.startsWith("@/")) name = path.join(root, name.slice(2));
@@ -29,6 +31,10 @@ let giftFails = false, contactsFail = false, aggregateFails = false;
 const aggregateQueries = [];
 const eventGift = { cptid:12984, date:"2024-02-03", amount:"777.77", status:"received", campaign:"Fictional", fund:"", type:"", year:2024,
   _canonicalGift:{gift:{giftId:7,cptid:12984,version:1,amount:"777.77",currency:"USD",date:"2024-02-03",year:2024,kind:"gift",status:"received",scope:"historical",credit:"hard",campaign:"Fictional",fund:null,type:null,note:null,donorName:null,voidReason:null},source:{system:"client_gift_history",key:"7"}} };
+const historySource={system:"client_gift_history",key:"7"};
+const nativeHistory={giftId:7,cptid:12984,version:1,order:"7",sources:[historySource],representation:"native-history",source:historySource,
+  native:{amount:"777.77",date:"2024-02-03",year:2024,status:"received",campaign:"Fictional",fund:"",type:"",recordType:"gift",note:null,loadedAt:"2026-11-17T00:00:00.1234567"},
+  legacy:{id:"7",cptid:12984,date:"2024-02-03",amount:"777.77",status:"received",campaign:"Fictional",fund:"",type:"",year:2024,note:null,record_type:"gift"}};
 const canonicalFields=Object.fromEntries("fullName firstName middleName lastName street street2 city state zip phone phone2 email email2 spouseFirstName spouseMiddleName spouseLastName ask primarySolicitor secondarySolicitor phone3 phone4 dsRating wealthCapacity majorGiftScore realEstate stock status outcome".split(" ").map(k=>[k,null]));
 Object.assign(canonicalFields,{fullName:"ZZTEST canonical name",street:"ZZTEST SQL street",city:"",phone:"",phone2:"9565559876",email:"",ask:1234,primarySolicitor:"ZZTEST SQL primary",secondarySolicitor:"",status:"Active"});
 const profile={cptid:12984,clientId:null,presence:{},fields:canonicalFields,extras:{},identity:{isProspect:false,deleted:false,deleteReason:null,mergedInto:null,version:0,createdBy:null,createdAt:null}};
@@ -36,7 +42,7 @@ const financials={v:1,donors:[{cptid:12984,lifetime:"100.00",receivedCount:1,und
 commonMock = { ...common, rows: async query => { aggregateQueries.push(query); if(aggregateFails&&query.includes("[giving_history_overview]"))throw Error("Aggregate read unavailable"); return structuredClone(fixture[query.match(/pvas\.\[([a-z_]+)\]/)?.[1]] ?? []); },
   loadedAsOf: async () => "2026-11-16", pirLinks: async () => ({}),
   engagePvasFinancials:async()=>structuredClone(financials),
-  engageClientGifts: async () => { if (giftFails) throw Error("unavailable"); return [structuredClone(eventGift)]; },
+  engageClientGifts: async () => { throw Error("Retired v1 gift read must not be called"); },
   engageClientContacts: async () => { if (contactsFail) throw Error("unavailable"); return [{ cptid: 12984, name: "ZZTEST canonical name", street: "ZZTEST SQL street", city: "", email: "", phone: "", phone2: "9565559876",_canonicalContact:structuredClone(profile) }]; },
 };
 (async () => {
@@ -58,7 +64,8 @@ commonMock = { ...common, rows: async query => { aggregateQueries.push(query); i
   assert.equal(Object.hasOwn(r,"financials"),false);
   assert.equal(built.snapshot.kpi.total, 100, "SQL totals retained");
   assert.equal(r.summary.lifetime,100,"contradictory777.77 event never replaces/adds to overview100");
-  assert.equal(r.gifts[0].amount,777.77,"individual gift path remains intact and independent");
+  assert.equal(r.nativeGiftHistory.records[0].native.amount,"777.77","original individual decimal string remains independent");
+  assert.equal(Object.hasOwn(r,"gifts"),false,"no empty old-history disguise or fabricated legacy Number rows");
   assert.deepEqual(r.years,[{year:2025,amount:100}],"calendar years are not event years");
   assert.deepEqual(built.snapshot.fys,[{fy:2025,total:100,gifts:1,donors:1}]);
   for (const table of ["giving_history_overview","calendar_year_giving"])
@@ -75,7 +82,7 @@ commonMock = { ...common, rows: async query => { aggregateQueries.push(query); i
     assert.equal(cr.summary.first,"2020-01-02");assert.equal(cr.summary.last,"2025-03-04");
     assert.deepEqual(cr.years,[{year:2022,amount:75}]);
     assert.deepEqual(changed.snapshot.fys,[{fy:2022,total:75,gifts:1,donors:1}],"original calendar donor-count/chart selection, never event count");
-    assert.equal(cr.gifts[0].amount,777.77);
+    assert.equal(cr.nativeGiftHistory.records[0].native.amount,"777.77");
     for (const total of [null,0]) {
       fixture.giving_history_overview=[{CPTID:12984,Total_Gift_Amount:total,Total_of_Gifts:99,Largest_Gift_Amount:777}];
       fixture.calendar_year_giving=[{CPTID:12984,Calendar_Year:2024,SumOfGift_Amount:total}];
@@ -84,7 +91,7 @@ commonMock = { ...common, rows: async query => { aggregateQueries.push(query); i
       assert.equal(er.summary.lifetime,0);assert.equal(er.summary.ghoTotal,null);
       assert.equal(er.summary.largest,0);assert.equal(er.summary.first,"");assert.equal(er.summary.last,"");
       assert.deepEqual(empty.snapshot.fys,[]);assert.equal(er.years,undefined);
-      assert.equal(er.gifts[0].amount,777.77,"null/zero aggregate never falls back to nonzero event");
+      assert.equal(er.nativeGiftHistory.records[0].native.amount,"777.77","null/zero aggregate never falls back to nonzero history detail");
     }
     commonMock.engagePvasFinancials=async()=>{throw Error("Event analytics must not be queried for aggregate presentation");};
     await buildPvas();
@@ -254,14 +261,20 @@ commonMock = { ...common, rows: async query => { aggregateQueries.push(query); i
   assert.deepEqual(contact.pvasProspectChanges(prospectProfile,{clientId:"",address1:"",orgName:"Test"}),{operation:"contact-prospect-edit",cptid:12984,changes:[{field:"street",expected:"ZZTEST SQL street",value:""},{field:"orgName",expected:null,value:"Test",expectedPresent:false}],clientId:{expected:null,value:""}});
   const stateWire=load("lib/portal-v2/pvas-state-wire.ts");
   const gift={giftId:1,cptid:12984,version:1,amount:"0.10",currency:"USD",date:null,year:null,kind:"gift",status:"received",scope:"campaign",credit:"hard",campaign:null,fund:null,type:null,note:null,donorName:null,voidReason:null};
-  const giftRow={id:1,cptid:12984,amount:"0.10",_canonicalGift:{gift,source:{system:"website_db",key:"db:1"}}};
-  const canonicalState=stateWire.canonicalPvasState({prospects:[],batches:[],gifts:[giftRow],updates:[{id:1,field:"ask"},{id:2,field:"contact:street"},{id:3,field:"merged_into"}],giftOverrides:[{id:1}]});
-  assert.deepEqual(canonicalState.updates,[{id:3,field:"merged_into"}]);assert.equal(canonicalState.gifts[0].amountExact,"0.10");assert.deepEqual(canonicalState.giftOverrides,[]);
-  const identityState=stateWire.canonicalPvasState({prospects:[],batches:[],gifts:[],updates:[{id:1,field:"merged_into"},{id:2,field:"deleted"}]},{"12984":{_canonicalContact:profile}});
+  const {voidReason,giftId:unusedGiftId,cptid:unusedCptid,version:unusedVersion,...event}=gift;
+  const nativeEvent={giftId:1,cptid:12984,version:1,order:"1",sources:[{system:"manual",key:"fixture"}],representation:"admitted-event",event,voidReason};
+  const rawState={giftWireVersion:2,nativeCampaignPage:{v:2,lane:"campaign",view:"current",records:[nativeEvent],next:null,done:true},prospects:[],batches:[],updates:[{id:1,field:"ask"},{id:2,field:"contact:street"},{id:3,field:"merged_into"}]};
+  const canonicalState=stateWire.canonicalPvasState(rawState,undefined,[nativeEvent]);
+  assert.deepEqual(canonicalState.updates,[{id:3,field:"merged_into"}]);assert.equal(canonicalState.gifts[0].amount,0.1);
+  assert.equal(Object.hasOwn(canonicalState.gifts[0],"amountExact"),false);
+  assert.equal(Object.hasOwn(canonicalState,"giftOverrides"),false);
+  const identityState=stateWire.canonicalPvasState({...rawState,updates:[{id:1,field:"merged_into"},{id:2,field:"deleted"}]},{"12984":{_canonicalContact:profile}},[]);
   assert.deepEqual(identityState.updates,[],"historical identity flags cannot override current raw identity");
-  const eur={...giftRow,_canonicalGift:{...giftRow._canonicalGift,gift:{...gift,currency:"EUR"}}};
-  assert.deepEqual(stateWire.canonicalPvasState({prospects:[],batches:[],gifts:[eur],updates:[]}).otherCanonicalGifts,[eur],"non-USD kept separately, never converted or lost");
-  assert.throws(()=>stateWire.canonicalPvasState({prospects:[],batches:[],gifts:[{...giftRow,amount:"0.20"}],updates:[]}),"mismatched raw metadata held");
+  const eur={...nativeEvent,event:{...event,currency:"EUR"}};
+  const eurState=stateWire.canonicalPvasState({...rawState,updates:[]},undefined,[eur]);
+  assert.deepEqual(eurState.gifts,[]);assert.deepEqual(eurState.nativeCampaignInventory,[eur],"non-USD retained typed in complete inventory, never converted or lost");
+  assert.throws(()=>stateWire.canonicalPvasState({...rawState,gifts:[]},undefined,[]),"old gifts array rejected, not interpreted as v2 empty");
+  assert.throws(()=>stateWire.canonicalPvasState(rawState),"complete native stream required");
   console.log("PASS exact-string financial/undated reconciliation, raw contact presence and retired overlay guards");
   canonicalEnabled=false;
   const beforeBuilds=builds;

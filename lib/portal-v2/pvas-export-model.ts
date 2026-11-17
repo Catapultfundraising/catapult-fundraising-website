@@ -2,6 +2,8 @@
 // Shared by visible Table and authoritative export; no caller cell values or executable input.
 import type {PvasSnapshot,Person,IndexRow} from "../pvas-data-store";
 import type {PvasTracking} from "../pvas-tracking-types";
+import { pvasCanonicalEnabled } from "./pvas-canonical";
+import { nativeHistoryDetail } from "./pvas-native-consumer";
 import {seatGc2p,extrasFromIndex} from "../pvas-gc2p";
 import {formatDollars} from "../gift-chart";
 import {campaignAskAmount} from "./effective-ask";
@@ -250,6 +252,9 @@ export function indexPayload(title: string, sub: string, rows: IndexRow[]): Curr
   };
 }
 export function recordPayload(r: DonorRecord, t?: PvasTracking, includeDirect=false): CurrentExportPayload {
+  const native = pvasCanonicalEnabled("pvas");
+  if (native && !r.nativeGiftHistory) throw new Error("Native historical gift detail unavailable for export");
+  const nativeRows = native ? nativeHistoryDetail(r.nativeGiftHistory!,r.cptid) : null;
   const ca=(r as unknown as {campaignAsk?:{ask?:number|null;askBlank?:boolean;askConflict?:boolean}}).campaignAsk;
   const st = t?.prospects[String(r.cptid)];
   const acts = (t?.activity ?? []).filter((a) => a.cptid === r.cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
@@ -269,13 +274,16 @@ export function recordPayload(r: DonorRecord, t?: PvasTracking, includeDirect=fa
   ];
   return {
     title: `Donor Record, ${r.name}`, subtitle: `CPTID ${r.cptid}`,
-    cols: [{ label: "Year" }, { label: "Amount", kind: "usd" }, { label: "" }, { label: "" }, { label: "" }, { label: "" }],
+    cols: nativeRows ? ["Field / gift ID","Value / original amount","Date","Year","Status","Campaign","Fund","Type","Record type","Note","Loaded at","View","Typed original facts / sources"].map(label=>({label,kind:"text" as const})) :
+      [{ label: "Year" }, { label: "Amount", kind: "usd" }, { label: "" }, { label: "" }, { label: "" }, { label: "" }],
     sections: [
       { heading: "Profile", rows: prof.filter((x) => x[1]) },
       ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}${st.solicitor2 ? `, secondary solicitor ${st.solicitor2}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
       ...(includeDirect && (r as unknown as {directSourceNotes?:DirectFileStateNote[]}).directSourceNotes?.length ? [{heading:"Imported source notes — read only (declared attribution)",rows:(r as unknown as {directSourceNotes:DirectFileStateNote[]}).directSourceNotes.map(n=>[n.note_date,null,n.declared_actor,n.file_name,n.body,`Source date ${n.source_date}; request ${n.request_id}; SHA256 ${n.file_digest}`] as (string|number|null)[])}] : []),
-      { heading: `Giving by calendar year (${r.gifts?.length ?? 0})`, rows: (r.gifts ?? []).map((g) => [g.date ?? "", g.amount, "", "", "", ""]) },
-    ],
+      ...(nativeRows ? [{ heading: `Original historical detail — ${r.nativeGiftHistory!.view} view (${nativeRows.length}); not aggregate totals`,
+        rows: nativeRows.map(g=>[g.giftId,g.amount,g.date,g.year,g.status,g.campaign,g.fund,g.type,g.recordType,g.note,g.loadedAt,g.view,JSON.stringify(g.raw)]) }] :
+        [{ heading: `Giving by calendar year (${r.gifts?.length ?? 0})`, rows: (r.gifts ?? []).map((g) => [g.date ?? "", g.amount, "", "", "", ""]) }]),
+    ].map(section=>({...section, rows:section.rows.map(row=>nativeRows ? [...row,...Array(Math.max(0,13-row.length)).fill("")] : row)})),
     notes: [...(r.calls ?? []).map((x) => `Call ${x.date}: ${x.result}${x.reason ? ` (${x.reason})` : ""}. ${x.comments ?? ""}`), ...(r.notes ?? []).map((n) => `Note: ${n}`)],
   };
 }

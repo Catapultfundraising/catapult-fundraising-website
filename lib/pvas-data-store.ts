@@ -4,6 +4,7 @@ import { pvasCanonicalEnabled } from "./portal-v2/pvas-canonical";
 import * as legacy from "./pvas-data-store.legacy";
 import type{PvasGiftMetadata}from"./portal-v2/pvas-gift-wire";
 import type{PvasContactProfile}from"./portal-v2/pvas-contact-wire";
+import type { NativeDonorHistory } from "./portal-v2/pvas-native-consumer";
 
 // Legacy refresh/upload destinations only. Dashboard readers never read these blobs.
 export const PVAS_DATA_PATH = "pvas-data/snapshot.json";
@@ -57,6 +58,7 @@ export interface IndexRow {
   last: string; years: number; band: string; ds?: string; capacity?: string; capMin: number;
 }
 export interface DonorRecord {
+  nativeGiftHistory?: NativeDonorHistory;
   _canonicalContact?:PvasContactProfile;
   otherGiftRows?:Record<string,unknown>[];
   assignment?: { solicitor: string; solicitor2: string; assignmentConflict?: boolean };
