@@ -2,6 +2,7 @@
 import { collectNativeGiftPagesV2, type NativeGiftReadBody } from "./pvas-native-gift-read";
 import { nativeHistoryPresentationV2 } from "./pvas-native-gift-presentation";
 import { NativeGiftWireHold, type NativeGiftRecord } from "./pvas-native-gift-wire";
+import { collectMixedPages, object, exact } from "./pvas-native-v3";
 export const NATIVE_STATE_CAMPAIGN_REQUEST = Object.freeze({
   v: 2 as const, lane: "campaign" as const, view: "current" as const, after: null, limit: 500,
 });
@@ -16,6 +17,26 @@ export async function consumeNativeStateCampaignV2(raw: Record<string, unknown>,
     if (!initialUsed) { initialUsed = true; return Promise.resolve(raw.nativeCampaignPage); }
     return send(body);
   }, NATIVE_STATE_CAMPAIGN_REQUEST);
+}
+export const NATIVE_STATE_V3_CAMPAIGN_REQUEST = Object.freeze({
+  v: 3 as const, lane: "campaign" as const, view: "current" as const, after: null, limit: 500,
+});
+export async function consumeNativeStateCampaignV3(raw: Record<string, unknown>, send: Parameters<typeof collectMixedPages>[1]) {
+  const keys = "v stateVersion giftWireVersion nativeCampaignPage prospects updates batches databaseGiftEditsAvailable canonicalAudit historicalBatchPage".split(" ");
+  if (Object.keys(raw).sort().join("|") !== keys.sort().join("|") || raw.v !== 3 || raw.stateVersion !== 3 ||
+    raw.giftWireVersion !== 3 || raw.databaseGiftEditsAvailable !== false ||
+    !["prospects", "updates", "batches", "canonicalAudit"].every(k => Array.isArray(raw[k])) ||
+    !object(raw.historicalBatchPage) || !exact(raw.historicalBatchPage, ["next", "done"]) ||
+    typeof raw.historicalBatchPage.done !== "boolean" ||
+    !(raw.historicalBatchPage.next === null || typeof raw.historicalBatchPage.next === "string" &&
+      /^[1-9]\d{0,18}$/.test(raw.historicalBatchPage.next) && BigInt(raw.historicalBatchPage.next) <= BigInt("9223372036854775807")) ||
+    raw.historicalBatchPage.done !== (raw.historicalBatchPage.next === null))
+    throw new NativeGiftWireHold("page");
+  let initialUsed = false;
+  return collectMixedPages("pvas", body => {
+    if (!initialUsed) { initialUsed = true; return Promise.resolve(raw.nativeCampaignPage); }
+    return send(body);
+  }, NATIVE_STATE_V3_CAMPAIGN_REQUEST);
 }
 
 /** Raw original history columns remain strings/nulls/int32; never Number(amount),

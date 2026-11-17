@@ -5,12 +5,15 @@ import { pvasCanonicalEnabled } from "./pvas-canonical";
 const scope = new AsyncLocalStorage<{ requestId?: unknown }>();
 export const withPvasAction = <T,>(requestId: unknown, action: () => T): T => scope.run({ requestId }, action);
 const commands = new Set(["pvasFields", "pvasContact", "pvasNote", "pvasGift", "pvasBatch", "pvasBatchUndo"]);
-const reads = new Set(["state", "clientContacts", "clientGifts", "pvasFinancials", "getTracking", "monthlyPreview", "monthlyStatus", "pvasRequestStatus", "pvasHistoricalUploads", "nativeGiftPageV2"]);
+const reads = new Set(["state", "nativeStateV3", "nativeGiftPageV3", "nativeCampaignStatusV3", "clientContacts", "clientGifts", "pvasFinancials", "getTracking", "monthlyPreview", "monthlyStatus", "pvasRequestStatus", "pvasHistoricalUploads", "nativeGiftPageV2"]);
 export class PvasActionIdentityError extends Error {
   constructor() { super("Canonical mutation requires the original requestId"); }
 }
 export function pvasActionBody(client: string, op: string, body: Record<string, unknown>): Record<string, unknown> {
   if (!pvasCanonicalEnabled(client) || reads.has(op)) return body;
+  // Native v3 owns original command identity and declared actor; never widen
+  // this exact envelope with the unrelated generic mutation identity.
+  if (op === "nativeCampaignMutationV3") return body;
   // These repositories own identity inside command. The backend accepts
   // exactly {op,client,command}; ALS must never widen that strict envelope.
   if (commands.has(op)) {

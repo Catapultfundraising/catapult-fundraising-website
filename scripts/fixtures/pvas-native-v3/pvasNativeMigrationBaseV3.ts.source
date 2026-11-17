@@ -1,0 +1,143 @@
+/** HELD closed migration-base proof codec, not an issuer or migration executor.
+ * Expected entry MUST come separately from the trusted frozen compiler manifest.
+ * Parsing/constructing that entry does not authenticate it. Runtime installer
+ * remains absent. No DB/network access; all actual rows supplied by future Run.
+ */
+import {createHash} from "node:crypto";
+import {PVAS_NATIVE_CAMPAIGN_SCHEMA_V3 as S,requireNativeCampaignSchemaV3} from "./pvasNativeCampaignSchemaV3";
+import {campaignV3Hold as fail,objectV3 as obj,exactV3 as exact,hexV3 as hex,
+  positiveV3 as positive,decodeCampaignSnapshotV3,decodeKeyedCampaignBaseV3,
+  type CampaignRecordV3,type CampaignValueV3} from "./pvasNativeCampaignSnapshotV3";
+
+export const MIGRATION_BASE_V3=Object.freeze({operation:"gift-migration-v3",
+  namespace:"pvas-native-migration-v3",receiptKind:"pvas-native-migration-receipt-v2",
+  requestDomain:"pvas-native-migration-v3/request/v1",
+  payloadDomain:"pvas-native-migration-v3/payload/v1",
+  sourceDomain:"pvas-native-migration-v3/source/v1"});
+export const migrationBytesShaV3=(s:string,encoding:BufferEncoding="utf8")=>
+  createHash("sha256").update(s,encoding).digest("hex");
+type Source={system:"website_db";key:string};
+export interface ExpectedOriginalMigrationEntryV3{
+  v:1;kind:"pvas-expected-original-migration-entry-v3";
+  cutover:{manifestDigest:string;packageDigest:string;stateDigest:string;freezeMarker:string;
+    schemaFingerprint:typeof S;migrationId:string};
+  ledger:{requestId:string;operation:"gift-migration-v3";actor:string;payloadHash:string;receiptSha256:string};
+  source:Source;giftId:number;rootCptid:number;order:string;sourceHash:string;snapshotSha256:string;
+  financialSha256:string;contractSha256:string;
+  base:{keyedIndex:number;keyedCount:number;keyedRowUtf8Sha256:string;keyedRowUtf16leSha256:string;
+    stagesSha256:string;replayProofSha256:string;originalOwnerCommit:string;
+    originalSnapshotSha256:string;rawStateSha256:string};
+}
+const expectedKeys="v kind cutover ledger source giftId rootCptid order sourceHash snapshotSha256 financialSha256 contractSha256 base".split(" ");
+const baseKeys="keyedIndex keyedCount keyedRowUtf8Sha256 keyedRowUtf16leSha256 stagesSha256 replayProofSha256 originalOwnerCommit originalSnapshotSha256 rawStateSha256".split(" ");
+const pinKeys="keyedRowUtf8Sha256 keyedRowUtf16leSha256 stagesSha256 replayProofSha256 originalSnapshotSha256 rawStateSha256".split(" ");
+const source=(v:unknown):v is Source=>obj(v)&&exact(v,["system","key"])&&v.system==="website_db"&&
+  typeof v.key==="string"&&v.key.startsWith("db|")&&v.key.length<=400;
+const nonblank=(v:unknown,n=200):v is string=>typeof v==="string"&&!!v.trim()&&v.length<=n;
+function order(v:unknown):v is string{
+  return typeof v==="string"&&/^(0|[1-9]\d{0,18})$/.test(v)&&BigInt(v)<=BigInt("9223372036854775807");
+}
+/** Shape only: a browser may construct these bytes, so transport must NEVER
+ * accept this field as authority. Only the trusted manifest owner may supply it.
+ */
+export function decodeExpectedOriginalMigrationEntryV3(raw:unknown):ExpectedOriginalMigrationEntryV3{
+  if(!obj(raw)||!exact(raw,expectedKeys)||raw.v!==1||raw.kind!=="pvas-expected-original-migration-entry-v3"||
+    !positive(raw.giftId)||!positive(raw.rootCptid)||!order(raw.order)||!source(raw.source)||
+    !["sourceHash","snapshotSha256","financialSha256","contractSha256"].every(k=>hex(raw[k]))||
+    !obj(raw.cutover)||!exact(raw.cutover,["manifestDigest","packageDigest","stateDigest","freezeMarker","schemaFingerprint","migrationId"])||
+    !["manifestDigest","packageDigest","stateDigest"].every(k=>hex((raw.cutover as Record<string,unknown>)[k]))||
+    !hex(raw.cutover.freezeMarker,32)||!nonblank(raw.cutover.migrationId,200)||
+    !obj(raw.ledger)||!exact(raw.ledger,["requestId","operation","actor","payloadHash","receiptSha256"])||
+    !hex(raw.ledger.requestId,32)||raw.ledger.operation!==MIGRATION_BASE_V3.operation||
+    !nonblank(raw.ledger.actor)||!hex(raw.ledger.payloadHash)||!hex(raw.ledger.receiptSha256)||
+    !obj(raw.base)||!exact(raw.base,baseKeys)||!Number.isSafeInteger(raw.base.keyedIndex)||
+    !Number.isSafeInteger(raw.base.keyedCount)||(raw.base.keyedIndex as number)<0||
+    (raw.base.keyedCount as number)<=0||(raw.base.keyedIndex as number)>=(raw.base.keyedCount as number)||
+    !pinKeys.every(k=>hex((raw.base as Record<string,unknown>)[k]))||!hex(raw.base.originalOwnerCommit,40))
+      return fail("expected-migration-entry");
+  requireNativeCampaignSchemaV3(raw.cutover.schemaFingerprint);
+  return JSON.parse(JSON.stringify(raw)) as ExpectedOriginalMigrationEntryV3;
+}
+export interface MigrationProofRowsV3{ledger:unknown;link:unknown;history:unknown;audit:unknown;cutover:unknown}
+/** Opaque per-process value produced only by full raw-row proof verification. */
+export interface VerifiedCampaignBaseV3{readonly kind:"verified-private-campaign-base-v3"}
+interface Bound{base:CampaignValueV3;giftId:number;rootCptid:number;source:Source;order:string;evidenceSha256:string}
+const verified=new WeakMap<object,Bound>();
+const same=(a:unknown,b:unknown)=>obj(a)&&obj(b)&&
+  a.system===b.system&&a.key===b.key;
+export function verifyOriginalMigrationBaseV3(rows:MigrationProofRowsV3,
+  separatelyTrustedExpected:unknown):VerifiedCampaignBaseV3{
+  const e=decodeExpectedOriginalMigrationEntryV3(separatelyTrustedExpected),r=rows;
+  const l=r.ledger;
+  if(!obj(l)||!exact(l,["request_id","operation","cptid","payload_hash","actor","result_json"])||
+    l.request_id!==e.ledger.requestId||l.operation!==e.ledger.operation||l.cptid!==e.rootCptid||
+    l.actor!==e.ledger.actor||l.payload_hash!==e.ledger.payloadHash||typeof l.result_json!=="string"||
+    migrationBytesShaV3(l.result_json)!==e.ledger.receiptSha256)return fail("migration-ledger-binding");
+  let receipt:unknown;try{receipt=JSON.parse(l.result_json);}catch{return fail("migration-receipt");}
+  const keys="v kind operation requestId payloadHash migrationId actor giftId rootCptid version representation order action source sourceHash snapshotSha256 financialSha256 contractSha256 keyedBase".split(" ");
+  if(!obj(receipt)||!exact(receipt,keys)||receipt.v!==3||receipt.kind!==MIGRATION_BASE_V3.receiptKind||
+    receipt.operation!==e.ledger.operation||receipt.requestId!==e.ledger.requestId||
+    receipt.payloadHash!==e.ledger.payloadHash||receipt.migrationId!==e.cutover.migrationId||
+    receipt.actor!==e.ledger.actor||receipt.giftId!==e.giftId||receipt.rootCptid!==e.rootCptid||
+    receipt.version!==1||receipt.representation!=="native-campaign"||receipt.order!==e.order||
+    receipt.action!=="migration"||!source(receipt.source)||!same(receipt.source,e.source)||
+    receipt.sourceHash!==e.sourceHash||receipt.snapshotSha256!==e.snapshotSha256||
+    receipt.financialSha256!==e.financialSha256||receipt.contractSha256!==e.contractSha256)
+      return fail("migration-receipt");
+  const b=receipt.keyedBase;
+  const storedKeys=["v","kind","source","keyedRowWire",...baseKeys,"giftId","rootCptid",
+    "creationVersion","creationRequestId","migrationId","financialSha256","schemaFingerprint","freezeMarker"];
+  if(!obj(b)||!exact(b,storedKeys)||b.v!==1||b.kind!=="pvas-original-keyed-base-stored-v1"||
+    !source(b.source)||!same(b.source,e.source)||typeof b.keyedRowWire!=="string"||
+    b.giftId!==e.giftId||b.rootCptid!==e.rootCptid||b.creationVersion!==1||
+    b.creationRequestId!==e.ledger.requestId||b.migrationId!==e.cutover.migrationId||
+    b.financialSha256!==e.financialSha256||b.freezeMarker!==e.cutover.freezeMarker||
+    baseKeys.some(k=>b[k]!==e.base[k as keyof typeof e.base])||
+    migrationBytesShaV3(b.keyedRowWire)!==e.base.keyedRowUtf8Sha256||
+    migrationBytesShaV3(b.keyedRowWire,"utf16le")!==e.base.keyedRowUtf16leSha256)
+      return fail("keyed-base-binding");
+  requireNativeCampaignSchemaV3(b.schemaFingerprint);
+  const link=r.link;
+  if(!obj(link)||!exact(link,["source_system","source_key","gift_id","cptid","source_hash","creation_version","request_id"])||
+    link.source_system!==e.source.system||link.source_key!==e.source.key||link.gift_id!==e.giftId||
+    link.cptid!==e.rootCptid||link.source_hash!==e.sourceHash||link.creation_version!==1||
+    link.request_id!==e.ledger.requestId)return fail("migration-source-binding");
+  const h=r.history;
+  if(!obj(h)||!exact(h,["gift_id","version","cptid","representation","presentation_order","wire_version",
+    "request_id","action","snapshot_json","actor"])||h.gift_id!==e.giftId||h.version!==1||
+    h.cptid!==e.rootCptid||h.representation!=="native-campaign"||h.presentation_order!==e.order||
+    h.wire_version!==3||h.request_id!==e.ledger.requestId||h.action!=="migration"||
+    h.actor!==e.ledger.actor||typeof h.snapshot_json!=="string"||
+    migrationBytesShaV3(h.snapshot_json)!==e.snapshotSha256)return fail("migration-history-binding");
+  const creation=decodeCampaignSnapshotV3(h.snapshot_json);
+  if(creation.giftId!==e.giftId||creation.cptid!==e.rootCptid||creation.version!==1||
+    creation.order!==e.order||!same(creation.source,e.source)||
+    creation.membership.state!=="active")return fail("migration-history-binding");
+  const a=r.audit;
+  if(!obj(a)||!exact(a,["request_id","sequence_no","cptid","source_table","source_column","before_json","after_json","actor"])||
+    a.request_id!==e.ledger.requestId||a.sequence_no!==1||a.cptid!==e.rootCptid||
+    a.source_table!=="pvas.gifts"||a.source_column!=="gift"||a.actor!==e.ledger.actor||
+    typeof a.before_json!=="string"||typeof a.after_json!=="string"||
+    migrationBytesShaV3(a.after_json)!==e.snapshotSha256)return fail("migration-audit-binding");
+  let before:unknown;try{before=JSON.parse(a.before_json);}catch{return fail("migration-audit-binding");}
+  if(!obj(before)||!exact(before,["v","gift"])||before.v!==3||before.gift!==null)
+    return fail("migration-audit-binding");
+  const c=r.cutover;
+  if(!obj(c)||!exact(c,["manifest_digest","package_digest","state_digest","freeze_marker"])||
+    c.manifest_digest!==e.cutover.manifestDigest||c.package_digest!==e.cutover.packageDigest||
+    c.state_digest!==e.cutover.stateDigest||c.freeze_marker!==e.cutover.freezeMarker)
+      return fail("migration-cutover-binding");
+  const base=decodeKeyedCampaignBaseV3(b.keyedRowWire,e.source);
+  const token=Object.freeze({kind:"verified-private-campaign-base-v3" as const});
+  verified.set(token,{base,giftId:e.giftId,rootCptid:e.rootCptid,source:e.source,order:e.order,
+    evidenceSha256:migrationBytesShaV3(l.result_json)});
+  return token;
+}
+/** Never accepts a boolean/structural imitation or exposes base via public
+ * receipt. Consumer obtains a fresh private copy and a provenance-only digest. */
+export function originalCampaignBaseForV3(token:VerifiedCampaignBaseV3,current:CampaignRecordV3){
+  const b=verified.get(token);
+  if(!b||b.giftId!==current.giftId||b.rootCptid!==current.cptid||b.order!==current.order||
+    !same(b.source,current.source))return fail("unverified-keyed-base");
+  return{base:JSON.parse(JSON.stringify(b.base)) as CampaignValueV3,evidenceSha256:b.evidenceSha256};
+}

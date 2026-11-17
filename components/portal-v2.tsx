@@ -1,10 +1,11 @@
 "use client";
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
+import { pendingCampaignChange, newCampaignRequestId, submitCampaignChange, checkCampaignChange } from "@/lib/portal-v2/pvas-native-mutation.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
 import { uploadUndoPolicy, uploadHistoryRowKey, completePvasUploadHistory } from "@/lib/portal-v2/pvas-upload-history";
 import { moneyInput } from "@/lib/portal-v2/pvas-financials";
 import {usdExact}from"@/lib/portal-v2/pvas-financials";
-import {pvasGiftMetadata,pvasGiftTarget,pvasGiftValues}from"@/lib/portal-v2/pvas-gift-wire";
+import {pvasGiftMetadata}from"@/lib/portal-v2/pvas-gift-wire";
 import {pvasContactProfile,pvasProspectChanges}from"@/lib/portal-v2/pvas-contact-wire";
 import { MonthlyGiftUpload } from "@/components/monthly-gift-upload";
 import {currentDashboardSnapshot} from "@/lib/portal-v2/current-dashboard-snapshot";
@@ -144,7 +145,7 @@ export function CampaignDonors() {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-[rgb(var(--navy))]">Campaign donors by gift-chart level</h2>
-            <p className="text-sm text-[rgb(var(--ink))]/65">Click a level to see every donor in it; click a name to open the record. {pvasCanonicalEnabled(client)?"Campaign gifts and pledges come from current canonical pvas.gifts SQL rows; provider-only activity is separate.":"Campaign gifts and pledges from the client database (weekly refresh), client uploads and portal entries."} Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
+            <p className="text-sm text-[rgb(var(--ink))]/65">Click a level to see every donor in it; click a name to open the record. {pvasCanonicalEnabled(client)?"Campaign gifts and pledges reflect current donor records; online activity is shown separately.":"Campaign gifts and pledges from the client database (weekly refresh), client uploads and portal entries."} Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
           </div>
           <label className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">Campaign goal
             <input className={`${input} mt-1 w-40`} value={goalText} onChange={(e) => setGoalText(e.target.value)} />
@@ -211,36 +212,42 @@ function AllGifts() {
   const [mode, setMode] = useState<{ id: string; kind: "edit" | "void";original?:PortalGift } | null>(null);
   const [f, setF] = useState({ amount: "", kind: "pledge", date: "", note: "", reason: "" });
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
+  const [pendingChange, setPendingChange] = useState(false);
+  useEffect(() => {
+    if (!pvasCanonicalEnabled(client)) return;
+    try { setPendingChange(!!pendingCampaignChange()); }
+    catch { setPendingChange(true); setMsg("The saved change could not be verified. Keep this tab and ask for help before making another change."); }
+  }, [client]);
   const editorName = useRef<HTMLInputElement>(null);
   const voidReason = useRef<HTMLInputElement>(null);
-  const gso = useSort([...(state?.gifts ?? [])].reverse().map((g) => ({ ...g, amount: Number(g.amount), src: g._nativeGift ? (g._nativeGift.representation === "admitted-event" ? "Canonical event" : g._nativeGift.source.system) : g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry" })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
+  const gso = useSort([...(state?.gifts ?? [])].reverse().map((g) => ({ ...g, amount: Number(g.amount), src: g._nativeGift ? (g._nativeGift.representation === "admitted-event" ? "Recorded gift" : g._nativeGift.source.system === "website_db" ? "Client database" : "Portal entry") : g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry" })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   if (!state) return null;
   const start = (g: PortalGift, kind: "edit" | "void") => {
-    if (pvasCanonicalEnabled(client)) { setMsg("Native gift changes are not yet integrated; this view is read-only."); return; }
+    if (pvasCanonicalEnabled(client) && (!state.databaseGiftEditsAvailable || pendingChange || g._nativeGift?.representation !== "native-campaign")) { setMsg("Gift changes are currently unavailable."); return; }
     setMsg("");setMode({id:giftId(g),kind,...(pvasCanonicalEnabled(client)?{original:structuredClone(g)}:{})});
-    const raw=pvasCanonicalEnabled(client)?pvasGiftMetadata(g._canonicalGift).gift:null;
-    setF({amount:raw?raw.amount:String(Number(g.amount)),kind:g.kind,date:isoToUs(raw?raw.date:g.gift_date),note:raw?raw.note??"":g.note??"",reason:""});
+    setF({amount:String(g.amount),kind:g.kind,date:g._nativeGift ? g.gift_date ?? "" : isoToUs(g.gift_date),note:g.note??"",reason:""});
   };
   const base = (g: PortalGift) => ({ id: Number(g.id) > 0 ? Number(g.id) : undefined, key: Number(g.id) > 0 ? undefined : g.key, cptid: g.cptid, donorName: g.donor_name,
     original: { amount: Number(g.amount), kind: g.kind, date: g.gift_date, name: g.donor_name, cptid: g.cptid } });
   const save = async (g: PortalGift) => {
-    if (pvasCanonicalEnabled(client)) { setMsg("Native gift changes are not yet integrated; no gift request was sent."); return; }
+    if (pvasCanonicalEnabled(client) && (!state.databaseGiftEditsAvailable || pendingChange)) { setMsg("Gift changes are currently unavailable."); return; }
     if (!by.trim()) { setMsg("Enter your name below so we can record who made this change."); editorName.current?.focus(); return; }
     setBusy(true); setMsg("");
     try {
       if(pvasCanonicalEnabled(client)){
-        const meta=pvasGiftMetadata(g._canonicalGift);
-        const command={cptid:meta.gift.cptid,actor:by,target:pvasGiftTarget(meta)};
+        const meta=g._nativeGift;
+        if (!meta || meta.representation !== "native-campaign") throw new Error("This gift cannot be changed here.");
+        const command={v:3 as const,requestId:newCampaignRequestId(),rootCptid:meta.cptid,
+          target:{giftId:meta.giftId,expectedVersion:meta.version,source:meta.source}};
         if(mode?.kind==="void"){
           if(!f.reason.trim())throw new Error("Enter a reason for voiding");
-          await post(client,{op:"pvasGift",by,command:{...command,action:"void",reason:f.reason}});
+          await submitCampaignChange(PORTAL_V2[client].api,{op:"nativeCampaignMutationV3",client:"pvas",by,command:{...command,action:"void",reason:f.reason}});
         }else{
-          const date=f.date===isoToUs(meta.gift.date)?meta.gift.date:parseUsDateClient(f.date);
-          if(date===null&&f.date!=="")throw new Error("Use MM/DD/YYYY or blank for an unknown date");
-          await post(client,{op:"pvasGift",by,command:{...command,action:"edit",gift:{...pvasGiftValues(meta),amount:moneyInput(f.amount),date:date===""?null:date,
-            kind:f.kind,status:f.kind==="pledge"?"pledged":"received",note:f.note===(meta.gift.note??"")?meta.gift.note:f.note}}});
+          if(f.kind!=="gift"&&f.kind!=="pledge")throw new Error("Choose Gift or Pledge.");
+          await submitCampaignChange(PORTAL_V2[client].api,{op:"nativeCampaignMutationV3",client:"pvas",by,command:{...command,action:"edit",
+            values:{amount:f.amount,kind:f.kind,date:f.date,note:f.note}}});
         }
-        await reload();setMode(null);setMsg("Saved against the original canonical gift version.");return;
+        await reload();setMode(null);setMsg("Saved. The existing record was updated.");return;
       }
       if (mode?.kind === "void") {
         if (!f.reason.trim()) { setMsg("Enter a reason for voiding."); voidReason.current?.focus(); return; }
@@ -253,7 +260,19 @@ function AllGifts() {
         setMsg("Saved. The existing record was updated.");
       }
       await reload(); setMode(null);
-    } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+    } catch (e) {
+      if(pvasCanonicalEnabled(client)) { try { setPendingChange(!!pendingCampaignChange()); } catch { setPendingChange(true); } }
+      setMsg((e as Error).message);
+    } finally { setBusy(false); }
+  };
+  const checkSaved = async () => {
+    setBusy(true);
+    try {
+      const result=await checkCampaignChange(PORTAL_V2[client].api);
+      if(result.status==="committed"){setPendingChange(false);setMode(null);await reload();setMsg("Saved. The current record has been reloaded.");}
+      else setMsg("This change is not yet confirmed. Do not resend it; check again later.");
+    } catch {setMsg("The change could not be confirmed. Keep the saved change and check again later.");}
+    finally {setBusy(false);}
   };
   const voided = state.voidedGifts ?? [];
   const dbVoids = (state.giftOverrides ?? []).filter((o) => o.voided);
@@ -264,7 +283,8 @@ function AllGifts() {
         <h3 className="font-display text-lg text-[rgb(var(--navy))]">All campaign gifts and pledges</h3>
         <label className="text-xs">Your name (required to edit or void)<input className={`${input} mt-1 w-56`} value={by} onChange={(e) => setBy(e.target.value)} /></label>
       </div>
-      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">{pvasCanonicalEnabled(client) ? "Native gift detail is read-only in this held integration. Entry, corrections and voids require the paired native write owner." : "Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh."}</p>
+      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">{pvasCanonicalEnabled(client) ? state.databaseGiftEditsAvailable ? "Edit updates the existing gift or pledge. Void removes it from campaign totals and keeps the reason and history." : "Gift changes are currently unavailable." : "Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh."}</p>
+      {pvasCanonicalEnabled(client)&&pendingChange&&<button className={`${btn2} mt-2`} disabled={busy} onClick={checkSaved}>Check saved change</button>}
       {msg && !mode && <p role="status" aria-live="polite" className="mt-2 rounded border border-[rgb(var(--brass))] p-3 text-sm">{msg}</p>}
       <div className="mt-3 max-h-[560px] overflow-auto">
         <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={gso} k="gift_date" label="Date" className={th} /><SortTh s={gso} k="donor_name" label="Donor" className={th} /><SortTh s={gso} k="kind" label="Type" className={th} /><SortTh s={gso} k="amount" label="Amount" className={`${th} text-right`} /><SortTh s={gso} k="src" label="Source" className={th} /><SortTh s={gso} k="note" label="Note" className={th} /><th className={th} /></tr></thead>
@@ -274,14 +294,13 @@ function AllGifts() {
                 <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{g.amountExact?usdExact(g.amountExact):usd(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usd(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
                 <td className={td}>{g.src}</td><td className={td}>{g.note ?? ""}</td>
                 <td className={`${td} whitespace-nowrap text-right`}>{(g._nativeGift || Number(g.id) > 0 || g.key) && <>
-                  <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline disabled:opacity-50" disabled={pvasCanonicalEnabled(client)} onClick={() => start(g, "edit")}>Edit</button>
-                  <button className="ml-3 text-xs font-semibold text-red-700 hover:underline disabled:opacity-50" disabled={pvasCanonicalEnabled(client)} onClick={() => start(g, "void")}>Void</button></>}</td></tr>
+                  <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline disabled:opacity-50" disabled={pvasCanonicalEnabled(client)&&(!state.databaseGiftEditsAvailable||pendingChange||g._nativeGift?.representation!=="native-campaign")} onClick={() => start(g, "edit")}>Edit</button>
+                  <button className="ml-3 text-xs font-semibold text-red-700 hover:underline disabled:opacity-50" disabled={pvasCanonicalEnabled(client)&&(!state.databaseGiftEditsAvailable||pendingChange||g._nativeGift?.representation!=="native-campaign")} onClick={() => start(g, "void")}>Void</button></>}</td></tr>
             </Fragment>
           ))}</tbody></table>
         {!state.gifts.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No campaign gifts or pledges recorded yet.</p>}
       </div>
       {!!state.otherCanonicalGifts?.length&&<details className="mt-3"><summary>Other canonical gift rows (not counted in USD hard-credit campaign totals)</summary><ul className="text-sm">{state.otherCanonicalGifts.map((row,i)=>{const g=pvasGiftMetadata(row._canonicalGift).gift;return <li key={g.giftId??i}>{g.donorName??`CPTID ${g.cptid}`} · {g.amount} {g.currency} · {g.scope} · {g.credit} · {g.kind} · {g.status}</li>;})}</ul></details>}
-      {state.giftWireVersion === 2 && <details className="mt-3"><summary>Native campaign source facts — current view</summary><pre className="overflow-auto text-xs">{JSON.stringify(state.nativeCampaignInventory, null, 2)}</pre></details>}
       <Dialog open={!!(mode && activeGift)} onOpenChange={(open) => { if (!open && !busy) { setMode(null); setMsg(""); } }}>
         {mode && activeGift && <DialogContent className="z-[100] max-h-[85vh] max-w-2xl overflow-y-auto bg-white text-[rgb(var(--navy))]">
           <DialogTitle>{mode.kind === "edit" ? "Edit" : "Void"} {activeGift.donor_name}&rsquo;s {activeGift.kind}</DialogTitle>
@@ -300,7 +319,7 @@ function AllGifts() {
                     <label className="block text-xs">Reason for voiding (required), e.g. &ldquo;Duplicate of the $7,500 pledge&rdquo;<input ref={voidReason} className={input} value={f.reason} onChange={(e) => setF({ ...f, reason: e.target.value })} /></label>
                   )}
                   {msg && <p role="alert" className="mt-3 rounded border border-[rgb(var(--brass))] bg-white p-3 text-sm">{msg}</p>}
-                  <div className="mt-2 flex gap-2"><button className={btn} disabled={busy} onClick={() => save(activeGift)}>{busy ? "Saving…" : mode.kind === "edit" ? "Save changes" : "Void this record"}</button><button className={btn2} disabled={busy} onClick={() => { setMode(null); setMsg(""); }}>Cancel</button></div>
+                  <div className="mt-2 flex gap-2"><button className={btn} disabled={busy||(pvasCanonicalEnabled(client)&&(!state.databaseGiftEditsAvailable||pendingChange))} onClick={() => save(activeGift)}>{busy ? "Saving…" : mode.kind === "edit" ? "Save changes" : "Void this record"}</button><button className={btn2} disabled={busy} onClick={() => { setMode(null); setMsg(""); }}>Cancel</button></div>
 
         </DialogContent>}
       </Dialog>
@@ -349,7 +368,7 @@ function GiftForm() {
   return (
     <div className={card}>
       <h3 className="font-display text-lg text-[rgb(var(--navy))]">Record a gift or pledge</h3>
-      {pvasCanonicalEnabled(client) && <p className="mt-2 text-sm">Gift entry is unavailable until the native write protocol is integrated.</p>}
+      {pvasCanonicalEnabled(client) && <p className="mt-2 text-sm">New gift entry is currently unavailable.</p>}
       <div className="mt-3 grid gap-3 md:grid-cols-6">
         <input className={`${input} md:col-span-2`} placeholder="Donor name *" value={f.donorName} onChange={(e) => { setF({ ...f, donorName: e.target.value }); setMatches(null); }} />
         <input className={input} placeholder="CPTID (if known)" value={f.cptid} onChange={(e) => { setF({ ...f, cptid: e.target.value }); setMatches(null); }} />

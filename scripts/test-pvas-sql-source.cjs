@@ -264,7 +264,7 @@ commonMock = { ...common, rows: async query => { aggregateQueries.push(query); i
   const gift={giftId:1,cptid:12984,version:1,amount:"0.10",currency:"USD",date:null,year:null,kind:"gift",status:"received",scope:"campaign",credit:"hard",campaign:null,fund:null,type:null,note:null,donorName:null,voidReason:null};
   const {voidReason,giftId:unusedGiftId,cptid:unusedCptid,version:unusedVersion,...event}=gift;
   const nativeEvent={giftId:1,cptid:12984,version:1,order:"1",sources:[{system:"manual",key:"fixture"}],representation:"admitted-event",event,voidReason};
-  const rawState={giftWireVersion:2,nativeCampaignPage:{v:2,lane:"campaign",view:"current",records:[nativeEvent],next:null,done:true},prospects:[],batches:[],updates:[{id:1,field:"ask"},{id:2,field:"contact:street"},{id:3,field:"merged_into"}]};
+  const rawState={v:3,stateVersion:3,giftWireVersion:3,nativeCampaignPage:{v:3,lane:"campaign",view:"current",records:[{v:2,gift:nativeEvent}],next:null,done:true},prospects:[],batches:[],updates:[{id:1,field:"ask"},{id:2,field:"contact:street"},{id:3,field:"merged_into"}]};
   const canonicalState=stateWire.canonicalPvasState(rawState,undefined,[nativeEvent]);
   assert.deepEqual(canonicalState.updates,[{id:3,field:"merged_into"}]);assert.equal(canonicalState.gifts[0].amount,0.1);
   assert.equal(Object.hasOwn(canonicalState.gifts[0],"amountExact"),false);

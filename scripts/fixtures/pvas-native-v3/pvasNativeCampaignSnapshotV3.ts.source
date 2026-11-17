@@ -1,0 +1,91 @@
+/** HELD pure campaign-v3 codec. No pool, SQL, routes or capability issuance.
+ * V2 history/admitted codec and byte algorithms are deliberately unchanged. */
+import {nativeColumns, type CampaignRow} from "./pvasNativeGiftFoundation";
+import {decodeNativeGiftSnapshotV2, type RecordBase} from "./pvasNativeGiftReadV2";
+import type {GiftSource} from "./pvasCanonicalGifts";
+
+export function campaignV3Hold(code:string):never{
+  throw new Error(`PVAS campaign v3 held: ${code}`);
+}
+export const objectV3=(v:unknown):v is Record<string,unknown>=>
+  !!v&&typeof v==="object"&&!Array.isArray(v);
+export const exactV3=(v:object,k:readonly string[])=>
+  Object.keys(v).sort().join("|")===[...k].sort().join("|");
+export const ownV3=(v:object,k:string)=>Object.prototype.hasOwnProperty.call(v,k);
+export const positiveV3=(v:unknown):v is number=>
+  typeof v==="number"&&Number.isInteger(v)&&v>0&&v<=2147483647;
+export const hexV3=(v:unknown,n=64):v is string=>
+  typeof v==="string"&&new RegExp(`^[0-9a-f]{${n}}$`).test(v);
+export type CampaignValueV3=Omit<CampaignRow,"cptid">&{cptid:number|null};
+export type CampaignMembershipV3=
+  {state:"active"|"retired";retiredByRequestId:string|null}|
+  {state:"voided";requestId:string;reason:string};
+export interface CampaignRecordV3 extends RecordBase{
+  representation:"native-campaign";
+  source:{system:"website_db"|"portal_gifts";key:string};
+  native:CampaignValueV3;
+  membership:CampaignMembershipV3;
+}
+/** Exact legacy fields/presence and source closure are checked by unchanged v2
+ * codec using a TECHNICAL validation surrogate. It never becomes data/output:
+ * business donor is independently validated then restored, including NULL.
+ * Voided similarly validates native fields with active surrogate membership.
+ */
+export function decodeCampaignSnapshotV3(raw:unknown):CampaignRecordV3{
+  try{
+    const e:unknown=typeof raw==="string"?JSON.parse(raw):raw;
+    if(!objectV3(e)||!exactV3(e,["v","gift"])||e.v!==3||!objectV3(e.gift))
+      return campaignV3Hold("snapshot");
+    const g=e.gift;
+    if(g.representation!=="native-campaign"||!objectV3(g.native)||
+      !ownV3(g.native,"cptid")||!(g.native.cptid===null||positiveV3(g.native.cptid))||
+      !objectV3(g.membership))return campaignV3Hold("snapshot");
+    const business=g.native.cptid,m=g.membership;
+    if(m.state==="voided"&&(!exactV3(m,["state","requestId","reason"])||
+      !hexV3(m.requestId,32)||typeof m.reason!=="string"||!m.reason.trim()||m.reason.length>500))
+      return campaignV3Hold("snapshot");
+    const surrogate={...g,native:{...g.native,cptid:g.cptid},
+      membership:m.state==="voided"?{state:"active",retiredByRequestId:null}:m};
+    const old=decodeNativeGiftSnapshotV2({v:2,gift:surrogate});
+    if(old.representation!=="native-campaign")return campaignV3Hold("snapshot");
+    return {...old,native:{...old.native,cptid:business},
+      membership:JSON.parse(JSON.stringify(m)) as CampaignMembershipV3};
+  }catch{return campaignV3Hold("snapshot");}
+}
+export function encodeCampaignSnapshotV3(gift:unknown):string{
+  return JSON.stringify({v:3,gift:decodeCampaignSnapshotV3({v:3,gift})});
+}
+export function decodeKeyedCampaignBaseV3(wire:string,source:GiftSource):CampaignValueV3{
+  try{
+    const native:unknown=JSON.parse(wire);
+    const decoded=decodeCampaignSnapshotV3({v:3,gift:{
+      giftId:1,cptid:1,version:1,order:"0",representation:"native-campaign",
+      source,sources:[source],membership:{state:"active",retiredByRequestId:null},native}});
+    if(source.system!=="website_db"||ownV3(decoded.native,"corrected"))
+      return campaignV3Hold("keyed-base");
+    return decoded.native;
+  }catch{return campaignV3Hold("keyed-base");}
+}
+/** Complete native-campaign owner columns plus lifecycle. Other representation
+ * columns remain schema-inapplicable, not caller-supplied defaults. */
+export function campaignColumnsV3(input:CampaignRecordV3):Record<string,string|number|null>{
+  const g=decodeCampaignSnapshotV3({v:3,gift:input});
+  const old={representation:"native-campaign" as const,cptid:g.cptid,source:g.source,
+    native:{...g.native,cptid:g.cptid}};
+  return {...nativeColumns(old),native_campaign_cptid:g.native.cptid,
+    native_lifecycle:g.membership.state,
+    native_retired_request_id:g.membership.state==="retired"?g.membership.retiredByRequestId:null,
+    native_void_request_id:g.membership.state==="voided"?g.membership.requestId:null,
+    native_void_reason:g.membership.state==="voided"?g.membership.reason:null};
+}
+/** Current donor/export/detail filters MUST use business identity, never root.
+ * NULL selects the real unassigned path; technical source/audit joins do not
+ * use this predicate. No aggregate or cash policy is introduced. */
+export function currentCampaignForDonorV3(input:CampaignRecordV3,donor:number|null):boolean{
+  if(donor!==null&&!positiveV3(donor))return campaignV3Hold("donor-filter");
+  const g=decodeCampaignSnapshotV3({v:3,gift:input});
+  return g.membership.state==="active"&&g.native.cptid===donor;
+}
+export function projectCampaignLegacyV3(input:CampaignRecordV3):CampaignValueV3{
+  return decodeCampaignSnapshotV3({v:3,gift:input}).native;
+}

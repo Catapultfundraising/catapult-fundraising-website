@@ -3,7 +3,10 @@ import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { HISTORICAL_UPLOAD_READ_ONLY, historicalUploadRejection, historicalUploadsReadBody } from "./pvas-upload-history";
 import { pvasActionBody, withPvasAction, PvasActionIdentityError } from "./pvas-action.server";
 import { canonicalPvasState } from "./pvas-state-wire";
-import { consumeNativeStateCampaignV2 } from "./pvas-native-consumer";
+import { consumeNativeStateCampaignV3 } from "./pvas-native-consumer";
+import { mixedPageRequest, mixedGiftPage } from "./pvas-native-v3";
+import { campaignBody, campaignReceipt, campaignStatus, campaignStatusBody } from "./pvas-native-mutation-v3";
+import { pvasNativeWriteAccepted } from "./pvas-native-write-acceptance.server";
 import { decodeNativePageRequestV2, decodeNativeGiftPageV2 } from "./pvas-native-gift-wire";
 import { askEdits, effectiveAsk } from "./effective-ask";
 import { observeDirect, directClientView } from "./direct-source-state.server";
@@ -69,6 +72,7 @@ function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<str
 
 /** Raw gateway call keeps HTTP status; invalid successful state row IDs also fail closed. */
 export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (pvasCanonicalEnabled(client) && op === "state") op = "nativeStateV3";
   body = pvasActionBody(client, op, body);
   const url = engageUrl(), secret = process.env.PORTAL_WRITE_SECRET;
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
@@ -78,15 +82,16 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
   if (op === "state" && r.status >= 200 && r.status < 300 && result && typeof result === "object" &&
       !Array.isArray(result) && !result.error && result.configured !== false) result = normalizeManualUpdateRowIds(result);
   if (pvasCanonicalEnabled(client) && r.ok && !result.error && result.configured !== false) {
-    if (op === "state") {
-      const campaign = await consumeNativeStateCampaignV2(result, async body => {
+    if (op === "nativeStateV3") {
+      const campaign = await consumeNativeStateCampaignV3(result, async body => {
         const page = await engageCall(client, body.op, { request: body.request });
         if (page.status !== 200) throw new Error("Native campaign read unavailable");
         return page.body;
       });
       const data=await getPvasRecords();
       if(!data)throw new Error("Canonical contact/financial state unavailable");
-      result=canonicalPvasState(result,data.records,campaign.records);
+      result=canonicalPvasState(normalizeManualUpdateRowIds(result),data.records,campaign.records);
+      result.databaseGiftEditsAvailable = pvasNativeWriteAccepted();
     }
     if (result.ok === true && typeof result.requestId === "string") invalidatePvasDataCache();
   }
@@ -462,6 +467,40 @@ export function portalV2Route(client: PortalClient) {
       const b = (await req.json().catch(() => null)) as Record<string, any> | null;
       if (!b) return bad("bad body");
       const by = txt(b.by, 200) || "Catapult portal";
+      if (pvasCanonicalEnabled(client) && b.op === "nativeGiftPageV3") {
+        let request: ReturnType<typeof mixedPageRequest>;
+        try {
+          if (Object.keys(b).some(k => !["op", "client", "request"].includes(k)) || b.client !== undefined && b.client !== client) throw new Error();
+          request = mixedPageRequest(b.request);
+        } catch { return bad("Invalid gift history request", 400); }
+        const page = await engageCall(client, b.op, { request });
+        if (page.status !== 200) return bad("Gift history is currently unavailable.", 503);
+        mixedGiftPage(page.body, request);
+        return NextResponse.json(page.body); // Preserve the strict snapshot envelopes on HTTP.
+      }
+      if (pvasCanonicalEnabled(client) && ["nativeCampaignMutationV3", "nativeCampaignStatusV3"].includes(b.op)) {
+        let original: ReturnType<typeof campaignBody>;
+        const status = b.op === "nativeCampaignStatusV3";
+        try {
+          const keys = status ? ["op", "client", "by", "operation", "command"] : ["op", "client", "by", "command"];
+          if (Object.keys(b).sort().join("|") !== keys.sort().join("|") || b.client !== client ||
+            status && b.operation !== "nativeCampaignMutationV3") throw new Error();
+          original = campaignBody({ op: "nativeCampaignMutationV3", client: b.client, by: b.by, command: b.command });
+        } catch { return bad("Invalid original gift-change request.", 400); }
+        if (!status && !pvasNativeWriteAccepted()) return bad("Gift changes are currently unavailable.", 503);
+        const envelope = status ? campaignStatusBody(original) : original;
+        const { op: forwardOp, client: _client, ...forward } = envelope;
+        const result = await engageCall(client, forwardOp, forward);
+        if (result.status !== 200) return NextResponse.json({
+          error: "This change is not yet confirmed. Check its status before making another change.",
+          requestId: original.command.requestId, retry: false, unconfirmed: true, statusOp: "nativeCampaignStatusV3",
+        }, { status: [400, 409].includes(result.status) ? result.status : 503 });
+        try {
+          const receipt = status ? await campaignStatus(result.body, original) : await campaignReceipt(result.body, original);
+          if (!status || receipt.status === "committed") invalidatePvasDataCache();
+          return NextResponse.json(receipt);
+        } catch { return bad("Gift change could not be verified. Check its status before making another change.", 503); }
+      }
       if (pvasCanonicalEnabled(client) && b.op === "nativeGiftPageV2") {
         let request: ReturnType<typeof decodeNativePageRequestV2>;
         try {
