@@ -5,6 +5,7 @@ import { PROSPECT_STATUSES, ACTIVITY_KINDS, type ProspectStatus, type PvasTracki
 import { logHistoryAudit, parseUsDate, secondarySolicitors, saveSecondarySolicitor } from "@/lib/portal-v2/server";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 import { currentTracking, directTrackingView } from "@/lib/portal-v2/direct-source-state.server";
+import { canonicalTrackingStatusIntent, validCanonicalTrackingProspect } from "@/lib/portal-v2/pvas-tracking-presence";
 
 // Shared committee-tracking API for all five data dashboards (tracking shapes are identical per client).
 // POST { type: "status", cptid, status, level?, solicitor?, reason?, by }
@@ -12,10 +13,10 @@ import { currentTracking, directTrackingView } from "@/lib/portal-v2/direct-sour
 //      { type: "editActivity", cptid, id, date?, kind?, note?, by }
 //      { type: "deleteActivity", cptid, id, by }   -> moved to `removed` (kept with who/when), never dropped
 // Every status change is also written to the activity history. Every history add/edit/delete is mirrored to the Engage SQL audit log.
-export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, get: () => Promise<Tracking>, save: (t: Tracking, action?: { requestId: string; by: string }) => Promise<void>) {
+export function trackingRoute<T extends Tracking>(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, get: () => Promise<T>, save: (t: T, action?: { requestId: string; by: string }) => Promise<void>) {
   const clean = (v: unknown, max = 2000) => String(v ?? "").trim().slice(0, max);
   // SQL is the source of truth for the secondary solicitor; merge it into the tracking view.
-  async function withSecondary(t: Tracking): Promise<Tracking> {
+  async function withSecondary(t: T): Promise<T> {
     if (pvasCanonicalEnabled(client)) return t;
     const sec = await secondarySolicitors(client);
     for (const [id, v] of Object.entries(sec)) {
@@ -55,29 +56,38 @@ export function trackingRoute(client: PortalClient, auth: (r: NextRequest) => Pr
     const dateOf = (v: unknown): string | null | "bad" => { const s = clean(v, 20); if (!s) return null; return parseUsDate(s) ?? "bad"; };
     let audit: { action: string; oldValue?: string | null; newValue?: string | null } | null = null;
     if (b.type === "status") {
-      const status = clean(b.status, 40) as ProspectStatus;
-      if (!PROSPECT_STATUSES.includes(status)) return NextResponse.json({ error: "bad status" }, { status: 400 });
-      const level = Number(b.level) > 0 ? Math.round(Number(b.level)) : undefined;
       const prev = t.prospects[cptid];
+      let intent: ReturnType<typeof canonicalTrackingStatusIntent>;
+      if (canonical) {
+        if (!validCanonicalTrackingProspect(prev)) return NextResponse.json({error:"Canonical tracking presence unavailable"},{status:503});
+        try { intent = canonicalTrackingStatusIntent(prev,b); }
+        catch { return NextResponse.json({error:"Invalid tracking status intent; presence metadata is read-only"},{status:400}); }
+      } else {
+        const status = clean(b.status, 40) as ProspectStatus;
+        if (!PROSPECT_STATUSES.includes(status)) return NextResponse.json({ error: "bad status" }, { status: 400 });
+        intent = {changed:true,patch:{status}};
+      }
+      const level = canonical && !Object.hasOwn(b,"level") ? prev?.level : Number(b.level) > 0 ? Math.round(Number(b.level)) : undefined;
       const solicitor2 = clean(b.solicitor2, 120);
       const prev2 = (canonical ? undefined : (await secondarySolicitors(client))[String(cptid)]) ?? prev?.solicitor2 ?? "";
       const primarySpecified = b.solicitor !== undefined;
       const primary = primarySpecified ? clean(b.solicitor, 120) : prev?.solicitor;
       const secondary = b.solicitor2 !== undefined ? solicitor2 : prev?.solicitor2;
-      const st = { status, level,
+      const st = { ...(canonical?prev:{}), ...intent.patch, level,
         ...(primary !== undefined ? { solicitor: primary } : {}),
-        solicitorEdited: primarySpecified ? true : prev?.solicitorEdited ?? (prev?.updatedAt ? undefined : false),
-        ...(secondary !== undefined ? { solicitor2: secondary } : {}), reason: clean(b.reason, 500) || undefined, updatedAt: now, by };
+        ...(!canonical ? {solicitorEdited: primarySpecified ? true : prev?.solicitorEdited ?? (prev?.updatedAt ? undefined : false)} : {}),
+        ...(secondary !== undefined ? { solicitor2: secondary } : {}), reason: canonical && !Object.hasOwn(b,"reason") ? prev?.reason : clean(b.reason, 500) || undefined, updatedAt: now, by };
       if (!canonical && b.solicitor2 !== undefined && solicitor2 !== prev2) {
         try { await saveSecondarySolicitor(client, cptid, prev2, solicitor2, by); }
         catch (e) { return NextResponse.json({ error: `Could not save the secondary solicitor: ${(e as Error).message}` }, { status: 500 }); }
       }
       t.prospects[cptid] = st;
-      const parts = [`Status: ${prev?.status ?? "none"} → ${status}`];
+      const parts = !canonical || intent.changed ? [`Status: ${prev?.status ?? "none"} → ${st.status}`] : [];
       if (level !== prev?.level) parts.push(`Gift level: ${level ? `$${level.toLocaleString("en-US")}` : "auto"}`);
       if (primarySpecified && st.solicitor !== prev?.solicitor) parts.push(`Solicitor: ${st.solicitor ?? "none"}`);
       if (b.solicitor2 !== undefined && (st.solicitor2 ?? "") !== prev2) parts.push(`Secondary solicitor: ${st.solicitor2 ?? "none"}`);
       if (st.reason) parts.push(`Reason: ${st.reason}`);
+      if (!parts.length) parts.push("Committee update (status unchanged)");
       t.activity.push({ id, cptid, date: now.slice(0, 10), kind: "Committee update", note: parts.join(" · "), by, at: now });
       audit = { action: "status", newValue: parts.join(" · ") };
     } else if (b.type === "activity") {

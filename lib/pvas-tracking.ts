@@ -1,6 +1,7 @@
 import "server-only";
 import type { PvasTracking } from "@/lib/pvas-tracking-types";
 import { pvasCanonicalEnabled } from "./portal-v2/pvas-canonical";
+import { validCanonicalTrackingProspect } from "./portal-v2/pvas-tracking-presence";
 import * as legacy from "./pvas-tracking.legacy";
 
 // Legacy refresh/upload destination only; dashboard PIR reads come from SQL.
@@ -39,8 +40,7 @@ export async function getPvasTracking(): Promise<PvasTracking> {
   if (r.status !== 200 || r.body.configured !== true || r.body.error || !object(r.body.state)) throw new Error("PVAS SQL tracking unavailable");
   const state = r.body.state;
   if (!object(state.prospects) || !Array.isArray(state.activity) || !Array.isArray(state.removed) ||
-      !Object.entries(state.prospects).every(([key,p]) => /^[1-9]\d*$/.test(key) && int(Number(key),1) && object(p) &&
-        typeof p.status === "string" && ["solicitor","solicitor2"].every(k => !Object.hasOwn(p,k) || typeof p[k] === "string")) ||
+      !Object.entries(state.prospects).every(([key,p]) => /^[1-9]\d*$/.test(key) && int(Number(key),1) && validCanonicalTrackingProspect(p)) ||
       typeof state.revision !== "string" || !/^[a-f0-9]{64}$/.test(state.revision) || !object(state.pirs) ||
       !Object.values(state.pirs).every(p => object(p) && typeof p.name === "string" && typeof p.url === "string")) throw new Error("Invalid PVAS SQL tracking");
   const all = [...(state.activity as unknown[]), ...((state.removed as unknown[]) ?? [])];

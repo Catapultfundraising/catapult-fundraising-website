@@ -1,0 +1,118 @@
+/**
+ * Held full-universe canonical field contract; no production route wiring.
+ * Existing columns verified by 2026-11-17 admin catalog. contacts/campaign_state/
+ * wealth_extensions are PROPOSED, not claimed to exist. Migration must hydrate
+ * pre-cutover effective values BEFORE NULL/blank becomes canonical.
+ */
+import type { Run } from "./sourceImport";
+import { PVAS_PORTFOLIO_FIELDS } from "./pvasCanonical";
+/** Only the tracking form constrains NEW status intent to this enum. Generic
+ * fields retain their existing nullable/custom-text policy. Reads do neither. */
+export const PVAS_TRACKING_STATUSES=Object.freeze(["Active","Assigned","Cultivate","New referral","Hold","Committed","Disqualified"]);
+export const PVAS_CAMPAIGN_PRESENCE_SQL=Object.freeze({
+  source:"SELECT cptid,status,tracking_object_present,tracking_status_present FROM pvas.campaign_state WITH (UPDLOCK,HOLDLOCK) WHERE cptid=@cptid",
+  seed:"INSERT INTO pvas.campaign_state (cptid,tracking_object_present,tracking_status_present) VALUES (@cptid,0,0)",
+  status:"UPDATE pvas.campaign_state SET status=@value,tracking_object_present=1,tracking_status_present=1 WHERE cptid=@cptid AND (status=@expected OR (status IS NULL AND @expected IS NULL)) AND tracking_object_present=@objectPresent AND tracking_status_present=@statusPresent",
+});
+export function pvasCampaignPresence(row:Record<string,unknown>,cptid:number){
+  if(row.cptid!==cptid||(row.status!==null&&typeof row.status!=="string")||
+    typeof row.tracking_object_present!=="boolean"||typeof row.tracking_status_present!=="boolean"||
+    (row.tracking_status_present&&!row.tracking_object_present))throw new Error("PVAS campaign presence held: invalid-source");
+  return {cptid,status:row.status as string|null,tracking_object_present:row.tracking_object_present,tracking_status_present:row.tracking_status_present};
+}
+export type PvasOwner = "contacts" | "portfolio" | "phone_numbers" | "donorsearch_results" | "campaign_state" | "wealth_extensions";
+type Target = Readonly<{owner:PvasOwner;column:string}>;
+type Rule = Readonly<{kind:"text"|"number";fallback:Target;preferred?:Target}>;
+const target=(owner:PvasOwner,column:string):Target=>Object.freeze({owner,column});
+const text=(owner:PvasOwner,column:string,preferred?:Target):Rule=>Object.freeze({kind:"text",fallback:target(owner,column),...(preferred?{preferred}:{})});
+const number=(owner:PvasOwner,column:string,preferred?:Target):Rule=>Object.freeze({kind:"number",fallback:target(owner,column),...(preferred?{preferred}:{})});
+const CONTACT_COLUMNS = Object.freeze({
+  fullName:"full_name",firstName:"first_name",middleName:"middle_name",lastName:"last_name",
+  street:"street",street2:"street2",city:"city",state:"state",zip:"zip",
+  phone:"phone",phone2:"phone2",email:"email",email2:"email2",
+  spouseFirstName:"spouse_first_name",spouseMiddleName:"spouse_middle_name",spouseLastName:"spouse_last_name",
+});
+export const PVAS_FIELD_RULES:Readonly<Record<string,Rule>>=Object.freeze({
+  ...Object.fromEntries(Object.entries(CONTACT_COLUMNS).map(([field,column])=>[
+    field,text("contacts",column,target("portfolio",PVAS_PORTFOLIO_FIELDS[field as keyof typeof PVAS_PORTFOLIO_FIELDS])),
+  ])),
+  ask:number("campaign_state","ask",target("portfolio","Campaign_Ask")),
+  primarySolicitor:text("campaign_state","primary_solicitor",target("portfolio","Primary_Solicitor")),
+  secondarySolicitor:text("campaign_state","secondary_solicitor",target("portfolio","Secondary_Solicitor")),
+  phone3:text("contacts","phone3",target("phone_numbers","Phone3")),
+  phone4:text("contacts","phone4",target("phone_numbers","Phone4")),
+  // Three-level authority for these two fields is rendered explicitly below.
+  dsRating:text("wealth_extensions","ds_rating",target("donorsearch_results","DS_Rating")),
+  wealthCapacity:text("wealth_extensions","wealth_capacity",target("donorsearch_results","Wealth_Based_Capacity")),
+  majorGiftScore:number("wealth_extensions","major_gift_score",target("donorsearch_results","Major_Gift_Score")),
+  realEstate:number("wealth_extensions","real_estate",target("donorsearch_results","Real_Estate_Est")),
+  stock:text("wealth_extensions","stock",target("donorsearch_results","SEC_Stock_Value")),
+  status:text("campaign_state","status"),
+  outcome:text("campaign_state","outcome"),
+});
+const ALIAS:Readonly<Record<PvasOwner,string>>=Object.freeze({
+  contacts:"c",portfolio:"p",phone_numbers:"ph",donorsearch_results:"ds",campaign_state:"s",wealth_extensions:"w",
+});
+const key=(owner:PvasOwner)=>["portfolio","phone_numbers","donorsearch_results"].includes(owner)?"CPTID":"cptid";
+const ref=(t:Target)=>`${ALIAS[t.owner]}.[${t.column}]`;
+export function pvasFieldTarget(field:string,presence:Readonly<{portfolio:boolean;phone_numbers:boolean;donorsearch_results:boolean}>):Target {
+  if(!presence||["portfolio","phone_numbers","donorsearch_results"].some(k=>typeof presence[k as keyof typeof presence]!=="boolean"))
+    throw new Error("PVAS canonical owner presence invalid");
+  if(!Object.hasOwn(PVAS_FIELD_RULES,field))throw new Error("PVAS canonical field unsupported");
+  if(presence.portfolio&&(field==="dsRating"||field==="wealthCapacity"))
+    return target("portfolio",field==="dsRating"?"DS_Rating":"Wealth_Capacity");
+  const rule=PVAS_FIELD_RULES[field];
+  return rule.preferred&&presence[rule.preferred.owner as keyof typeof presence]?rule.preferred:rule.fallback;
+}
+function expression(field:string,rule:Rule):string {
+  let value=ref(rule.fallback);
+  if(rule.preferred)value=`CASE WHEN ${ALIAS[rule.preferred.owner]}.[${key(rule.preferred.owner)}] IS NOT NULL THEN ${ref(rule.preferred)} ELSE ${value} END`;
+  if(field==="dsRating"||field==="wealthCapacity")value=`CASE WHEN p.[CPTID] IS NOT NULL THEN p.[${field==="dsRating"?"DS_Rating":"Wealth_Capacity"}] ELSE ${value} END`;
+  return `${value} AS [${field}]`;
+}
+const SELECT=`SELECT TOP (@take) c.[cptid],c.[client_id],
+CASE WHEN p.[CPTID] IS NULL THEN 0 ELSE 1 END AS [has_portfolio],
+CASE WHEN ph.[CPTID] IS NULL THEN 0 ELSE 1 END AS [has_phone],
+CASE WHEN ds.[CPTID] IS NULL THEN 0 ELSE 1 END AS [has_wealth],
+${Object.entries(PVAS_FIELD_RULES).map(([f,r])=>expression(f,r)).join(",\n")}
+FROM pvas.contacts c
+LEFT JOIN pvas.portfolio p ON p.[CPTID]=c.[cptid]
+LEFT JOIN pvas.phone_numbers ph ON ph.[CPTID]=c.[cptid]
+LEFT JOIN pvas.donorsearch_results ds ON ds.[CPTID]=c.[cptid]
+LEFT JOIN pvas.campaign_state s ON s.[cptid]=c.[cptid]
+LEFT JOIN pvas.wealth_extensions w ON w.[cptid]=c.[cptid]`;
+export const PVAS_CANONICAL_PAGE_SQL=`${SELECT}
+WHERE c.[cptid]>@after ORDER BY c.[cptid] ASC`;
+export interface PvasCanonicalContact {
+  cptid:number;clientId:string|null;
+  presence:{portfolio:boolean;phone_numbers:boolean;donorsearch_results:boolean};
+  fields:Record<string,string|number|null>;
+}
+const id=(x:unknown):x is number=>typeof x==="number"&&Number.isInteger(x)&&x>0&&x<=2147483647;
+function invalid():never{throw new Error("PVAS canonical projection invariant");}
+export function projectPvasCanonicalContact(row:Record<string,unknown>):PvasCanonicalContact {
+  if(!id(row.cptid)||(row.client_id!==null&&typeof row.client_id!=="string"))invalid();
+  for(const k of ["has_portfolio","has_phone","has_wealth"])if(row[k]!==0&&row[k]!==1)invalid();
+  const fields:Record<string,string|number|null>={};
+  for(const [field,rule] of Object.entries(PVAS_FIELD_RULES)){
+    const v=row[field];
+    if(v!==null&&(typeof v!==(rule.kind==="text"?"string":"number")||(typeof v==="number"&&!Number.isFinite(v))))invalid();
+    fields[field]=v as string|number|null; // SQL NULL and "" always retained.
+  }
+  return {cptid:row.cptid as number,clientId:row.client_id as string|null,
+    presence:{portfolio:row.has_portfolio===1,phone_numbers:row.has_phone===1,donorsearch_results:row.has_wealth===1},fields};
+}
+/**
+ * Uncached keyset page over FULL contacts universe, never portfolio membership.
+ * limit+1 detects ambiguity across a page boundary; joined uniqueness must also
+ * be enforced by approved migration constraints before release.
+ */
+export async function readPvasCanonicalPage(run:Run,after:number,limit=500){
+  if(!Number.isInteger(after)||after<0||after>2147483647||!Number.isInteger(limit)||limit<1||limit>2000)
+    throw new Error("PVAS canonical page invalid");
+  const raw=(await run(PVAS_CANONICAL_PAGE_SQL,{after,take:limit+1})).rows;
+  if(raw.length>limit+1)invalid();
+  const rows=raw.map(projectPvasCanonicalContact);
+  for(let i=0;i<rows.length;i++)if(rows[i].cptid<=(i?rows[i-1].cptid:after))invalid();
+  return {rows:rows.slice(0,limit),next:rows.length>limit?rows[limit-1].cptid:null};
+}

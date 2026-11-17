@@ -134,7 +134,7 @@ commonMock = { ...common, rows: async query => { aggregateQueries.push(query); i
 
   let response, calls = [];
   gatewayMock = { engageCall: async (...args) => { calls.push(args); return response; } };
-  const tracking = { revision:"a".repeat(64),prospects: { "12984": { status: "Active", solicitor: "ZZTEST canonical primary", solicitor2: "", solicitorEdited: true, updatedAt: "", by: "" } }, activity: [], removed: [], pirs: {} };
+  const tracking = { revision:"a".repeat(64),prospects: { "12984": { status: "Active", _canonicalTracking:{objectPresent:true,statusPresent:true}, solicitor: "ZZTEST canonical primary", solicitor2: "", solicitorEdited: true, updatedAt: "", by: "" } }, activity: [], removed: [], pirs: {} };
   response = { status: 200, body: { configured: true, state: tracking } };
   const tracker = load("lib/pvas-tracking.ts");
   assert.deepEqual(await tracker.getPvasTracking(), tracking);

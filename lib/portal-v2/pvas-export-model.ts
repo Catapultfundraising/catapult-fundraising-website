@@ -4,6 +4,7 @@ import type {PvasSnapshot,Person,IndexRow} from "../pvas-data-store";
 import type {PvasTracking} from "../pvas-tracking-types";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { nativeHistoryDetail } from "./pvas-native-consumer";
+import { trackingObjectPresent } from "./pvas-tracking-presence";
 import {seatGc2p,extrasFromIndex} from "../pvas-gc2p";
 import {formatDollars} from "../gift-chart";
 import {campaignAskAmount} from "./effective-ask";
@@ -92,7 +93,7 @@ const exportCols: TableColumn[] = [
                     { key: "largest", label: "Largest Gift", fmt: (v: unknown) => usd(v as number), right: true },
                     { key: "last", label: "Last Gift" },
                   ];
-return {title:(`GC2P ${formatDollars(x.level)} Level`).replace(/\.csv$/i,"").replace(/^PVAS /,""),subtitle:`${formatDollars(goal)} goal`,rows:(x.people.map((p) => ({ ...p, solicitor2: p.solicitor2 ?? "", status: stOf(p.cptid)?.status ?? "Unassigned", solicitor: p.solicitor, pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" }))) as unknown as TableRow[],cols:exportCols};
+return {title:(`GC2P ${formatDollars(x.level)} Level`).replace(/\.csv$/i,"").replace(/^PVAS /,""),subtitle:`${formatDollars(goal)} goal`,rows:(x.people.map((p) => ({ ...p, solicitor2: p.solicitor2 ?? "", status: stOf(p.cptid)?.status ?? (pvasCanonicalEnabled("pvas")?"":"Unassigned"), solicitor: p.solicitor, pir: tracking.pirs[String(p.cptid)] ? "Yes" : "" }))) as unknown as TableRow[],cols:exportCols};
 }
 case "GiftChartTab.2": {
 const goal = parameters.goal!;
@@ -257,6 +258,7 @@ export function recordPayload(r: DonorRecord, t?: PvasTracking, includeDirect=fa
   const nativeRows = native ? nativeHistoryDetail(r.nativeGiftHistory!,r.cptid) : null;
   const ca=(r as unknown as {campaignAsk?:{ask?:number|null;askBlank?:boolean;askConflict?:boolean}}).campaignAsk;
   const st = t?.prospects[String(r.cptid)];
+  const hasTracking = t ? trackingObjectPresent("pvas",st) : false;
   const acts = (t?.activity ?? []).filter((a) => a.cptid === r.cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
   const c = r.contact ?? {};
   const assignment = viewAssignment({ cptid: r.cptid, ...r.assignment }, null, t ?? { prospects: {} });
@@ -278,7 +280,7 @@ export function recordPayload(r: DonorRecord, t?: PvasTracking, includeDirect=fa
       [{ label: "Year" }, { label: "Amount", kind: "usd" }, { label: "" }, { label: "" }, { label: "" }, { label: "" }],
     sections: [
       { heading: "Profile", rows: prof.filter((x) => x[1]) },
-      ...(st || acts.length ? [{ heading: `Campaign tracking${st ? `: ${st.status}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}${st.solicitor2 ? `, secondary solicitor ${st.solicitor2}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
+      ...(hasTracking || acts.length ? [{ heading: `Campaign tracking${hasTracking && st ? `: ${st.status??""}${st.level ? `, $${st.level.toLocaleString("en-US")} level` : ""}${st.solicitor ? `, solicitor ${st.solicitor}` : ""}${st.solicitor2 ? `, secondary solicitor ${st.solicitor2}` : ""}` : ""}`, rows: acts.map((a) => [a.date, null, a.kind, a.by, a.note, ""] as (string | number | null)[]) }] : []),
       ...(includeDirect && (r as unknown as {directSourceNotes?:DirectFileStateNote[]}).directSourceNotes?.length ? [{heading:"Imported source notes — read only (declared attribution)",rows:(r as unknown as {directSourceNotes:DirectFileStateNote[]}).directSourceNotes.map(n=>[n.note_date,null,n.declared_actor,n.file_name,n.body,`Source date ${n.source_date}; request ${n.request_id}; SHA256 ${n.file_digest}`] as (string|number|null)[])}] : []),
       ...(nativeRows ? [{ heading: `Original historical detail — ${r.nativeGiftHistory!.view} view (${nativeRows.length}); not aggregate totals`,
         rows: nativeRows.map(g=>[g.giftId,g.amount,g.date,g.year,g.status,g.campaign,g.fund,g.type,g.recordType,g.note,g.loadedAt,g.view,JSON.stringify(g.raw)]) }] :

@@ -2,6 +2,7 @@
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
 import { PvasNativeHistory } from "@/components/pvas-native-history";
+import { trackingObjectPresent, trackingFormStatus, trackingStatusPatch } from "@/lib/portal-v2/pvas-tracking-presence";
 import {pvasGiftMetadata}from"@/lib/portal-v2/pvas-gift-wire";
 import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayload} from "@/lib/portal-v2/pvas-export-model";
 import type {ExportIntent} from "@/lib/portal-v2/dashboard-export-types";
@@ -293,7 +294,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
           const a = viewAssignment({ cptid: r.cptid, ...r.assignment }, index, tracking);
           return <span key={key} className="rounded-full bg-[rgb(var(--paper))] px-2.5 py-0.5 text-xs">{key === "solicitor" ? "Primary solicitor" : "Secondary solicitor"}: {a[key] || "Unassigned"}</span>;
         })}
-        {tracking.prospects[String(r.cptid)] && <span className="rounded-full border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium">{tracking.prospects[String(r.cptid)].status}</span>}
+        <TrackingStatusBadge prospect={tracking.prospects[String(r.cptid)]} />
         <MergeDeleteButtons client="pvas" r={r as never} index={index} onChanged={reload} />
         <DownloadButtons get={() => recordPayload(r, tracking)} small />
       </div>
@@ -358,12 +359,17 @@ function useByName() {
   useEffect(() => { setBy(localStorage.getItem("pvas-by") ?? ""); }, []);
   return [by, (v: string) => { setBy(v); localStorage.setItem("pvas-by", v); }] as const;
 }
-function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { solicitor: string; solicitor2: string } }) {
+export function TrackingStatusBadge({prospect}:{prospect: PvasTracking["prospects"][string] | undefined}) {
+  return trackingObjectPresent("pvas",prospect) ?
+    <span className="rounded-full border border-[rgb(var(--navy))] px-2.5 py-0.5 text-xs font-medium">{prospect?.status??""}</span> : null;
+}
+export function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { solicitor: string; solicitor2: string } }) {
   const { index, tracking, setTracking } = useCrm();
   const cur = tracking.prospects[String(cptid)];
   const acts = tracking.activity.filter((a) => a.cptid === cptid).sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at));
   const [by, setBy] = useByName();
-  const [status, setStatus] = useState<string>(cur?.status ?? "Active");
+  const [status, setStatus] = useState<string>(trackingFormStatus("pvas",cur));
+  const [statusEdited, setStatusEdited] = useState(false);
   const [level, setLevel] = useState(cur?.level ? String(cur.level) : "");
   const a = viewAssignment({ cptid, ...assignment }, index, tracking);
   const [solicitor, setSolicitor] = useState(a.solicitor);
@@ -388,7 +394,7 @@ function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { so
     <div className="mb-4 rounded-xl border-2 border-[rgb(var(--brass))]/50 bg-[rgb(var(--paper))] p-4">
       <div className="mb-3 flex flex-wrap items-center gap-3">
         <h4 className="text-xs font-semibold uppercase tracking-[0.15em] text-[rgb(var(--brass))]">Campaign tracking</h4>
-        {cur && <span className="text-xs text-[rgb(var(--ink))]/60">Last updated {cur.updatedAt.slice(0, 10)} by {cur.by}</span>}
+        {trackingObjectPresent("pvas",cur) && <span className="text-xs text-[rgb(var(--ink))]/60">Last updated {cur!.updatedAt.slice(0, 10)} by {cur!.by}</span>}
         <label className="ml-auto flex items-center gap-2 text-xs">Your name
           <input value={by} onChange={(e) => setBy(e.target.value)} placeholder="Required to save" className="w-44 rounded-md border border-[rgb(var(--line))] px-2 py-1 text-sm" />
         </label>
@@ -398,7 +404,9 @@ function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { so
           <p className="text-sm font-semibold text-[rgb(var(--navy))]">Committee update</p>
           <div className="grid grid-cols-2 gap-2">
             <label className="text-xs">Status
-              <select value={status} onChange={(e) => setStatus(e.target.value)} className={inputCls}>{PROSPECT_STATUSES.map((s) => <option key={s}>{s}</option>)}</select>
+              <select value={status} onChange={(e) => { setStatus(e.target.value); setStatusEdited(true); }} className={inputCls}>
+                {!PROSPECT_STATUSES.some(s=>s===status) && <option value={status}>{status===""?"Not recorded":status}</option>}
+                {PROSPECT_STATUSES.map((s) => <option key={s}>{s}</option>)}</select>
             </label>
             <label className="text-xs">Gift level (GC2P)
               <input value={level} onChange={(e) => setLevel(e.target.value.replace(/[^\d]/g, ""))} placeholder="Auto from Campaign Ask" className={inputCls} />
@@ -413,7 +421,7 @@ function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { so
               <input value={reason} onChange={(e) => setReason(e.target.value)} className={inputCls} />
             </label>
           </div>
-          <button disabled={!!busy} onClick={async () => { if (await post({ type: "status", status, level, ...manualAssignmentPatch(solicitor, solicitor2, primaryEdited, secondaryEdited), reason }, "status")) { setPrimaryEdited(false); setSecondaryEdited(false); } }} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
+          <button disabled={!!busy} onClick={async () => { if (await post({ type: "status", ...trackingStatusPatch("pvas",status,statusEdited), level, ...manualAssignmentPatch(solicitor, solicitor2, primaryEdited, secondaryEdited), reason }, "status")) { setStatusEdited(false); setPrimaryEdited(false); setSecondaryEdited(false); } }} className="rounded-md bg-[rgb(var(--navy))] px-3 py-1.5 text-sm font-medium text-white disabled:opacity-60">{busy === "status" ? "Saving..." : "Save update"}</button>
           <p className="text-[11px] text-[rgb(var(--ink))]/55">Disqualified and Committed prospects drop off the GC2P. A gift level places the prospect at that level on the GC2P, even if they are not in the campaign portfolio.</p>
         </div>
         <div className="space-y-2 rounded-lg bg-white p-3">

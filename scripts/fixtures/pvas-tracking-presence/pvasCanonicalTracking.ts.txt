@@ -1,0 +1,249 @@
+/** Canonical tracking compatibility projection + atomic delta transaction.
+ * No tracking JSON authority. Production wrapper/route acceptance is external.
+ */
+import {createHash} from "node:crypto";
+import type {Run} from "./sourceImport";
+import {PVAS_TRACKING_STATUSES as STATUSES,pvasCampaignPresence} from "./pvasCanonicalOwners";
+import {applyPvasFieldsTx} from "./pvasCanonicalFieldsWrite";
+import {applyPvasNoteTx,validatePvasNoteCommand,type PvasNoteState} from "./pvasCanonicalNotes";
+const object=(x:unknown):x is Record<string,unknown>=>!!x&&typeof x==="object"&&!Array.isArray(x);
+const exact=(o:Record<string,unknown>,keys:string[])=>Object.keys(o).sort().join("|")===[...keys].sort().join("|");
+const id=(x:unknown):x is number=>typeof x==="number"&&Number.isInteger(x)&&x>0&&x<=2147483647;
+function fail(code:string):never{throw new Error(`PVAS tracking held: ${code}`);}
+function stable(x:unknown):string {
+  if(Array.isArray(x))return `[${x.map(stable).join(",")}]`;
+  if(object(x))return `{${Object.keys(x).sort().map(k=>`${JSON.stringify(k)}:${stable(x[k])}`).join(",")}}`;
+  const raw=JSON.stringify(x);if(raw===undefined)fail("invalid-serialization");return raw;
+}
+const digest=(x:unknown)=>createHash("sha256").update(stable(x)).digest("hex");
+const childId=(request:string,kind:string,key:string)=>digest({request,kind,key}).slice(0,32);
+const str=(x:unknown)=>x===null?"":typeof x==="string"?x:fail("invalid-source");
+const text=(x:unknown,max=65536):x is string=>typeof x==="string"&&x.length<=max&&!x.includes("\0");
+export const PVAS_TRACKING_SQL=Object.freeze({
+  lock:`DECLARE @result int; EXEC @result=sys.sp_getapplock @Resource=N'pvas:tracking',@LockMode='Exclusive',@LockOwner='Transaction',@LockTimeout=10000; IF @result<0 THROW 51700,'PVAS tracking lock unavailable',1;`,
+  request:"SELECT payload_hash,result_json FROM pvas.write_requests WITH (UPDLOCK,HOLDLOCK) WHERE request_id=@requestId",
+  start:"INSERT INTO pvas.write_requests (request_id,operation,cptid,payload_hash,actor,result_json) VALUES (@requestId,N'tracking',NULL,@hash,@actor,NULL)",
+  finish:"UPDATE pvas.write_requests SET result_json=@receipt WHERE request_id=@requestId AND payload_hash=@hash AND result_json IS NULL",
+  prospects:`SELECT c.cptid,p.CPTID AS portfolio_cptid,s.cptid AS state_cptid,s.status,s.level,s.reason,s.updated_by,s.tracking_object_present,s.tracking_status_present,
+CONVERT(varchar(33),s.updated_at,127) AS updated_at,
+CASE WHEN p.CPTID IS NOT NULL THEN p.Primary_Solicitor ELSE s.primary_solicitor END AS solicitor,
+CASE WHEN p.CPTID IS NOT NULL THEN p.Secondary_Solicitor ELSE s.secondary_solicitor END AS solicitor2
+FROM pvas.contacts c
+LEFT JOIN pvas.portfolio p ON p.CPTID=c.cptid
+LEFT JOIN pvas.campaign_state s ON s.cptid=c.cptid
+ORDER BY c.cptid`,
+  notes:`SELECT n.ID AS note_id,n.row_id,n.CPTID,n.Note,n.Date,n.Source,n.Note_Order_Newest_to_Oldest,
+s.note_id AS state_note_id,s.deleted,s.version,s.tracking_key,s.tracking_kind,s.tracking_by,
+CONVERT(varchar(33),s.tracking_at,127) AS tracking_at,s.edited_by,CONVERT(varchar(33),s.edited_at,127) AS edited_at,
+s.removed_by,CONVERT(varchar(33),s.removed_at,127) AS removed_at
+FROM pvas.notes n LEFT JOIN pvas.note_state s ON s.note_id=n.ID
+WHERE EXISTS (SELECT 1 FROM pvas.contacts c WHERE c.cptid=n.CPTID) ORDER BY n.ID`,
+  pirs:"SELECT cptid,sharepoint_url,file_name FROM pvas.pir_links ORDER BY cptid",
+  statusUpdate:`UPDATE pvas.campaign_state SET status=@status,level=@level,reason=@reason,tracking_object_present=@objectPresent,tracking_status_present=@statusPresent,updated_by=@actor,updated_at=SYSUTCDATETIME()
+WHERE cptid=@cptid AND (status=@oldStatus OR (status IS NULL AND @oldStatus IS NULL))
+AND tracking_object_present=@oldObjectPresent AND tracking_status_present=@oldStatusPresent
+AND (level=@oldLevel OR (level IS NULL AND @oldLevel IS NULL))
+AND (reason=@oldReason OR (reason IS NULL AND @oldReason IS NULL))
+AND (updated_by=@oldBy OR (updated_by IS NULL AND @oldBy IS NULL))
+AND (CONVERT(varchar(33),updated_at,127)=@oldAt OR (updated_at IS NULL AND @oldAt IS NULL))`,
+  noteMetadata:`UPDATE pvas.note_state SET
+tracking_key=COALESCE(tracking_key,@legacyKey),tracking_kind=@kind,
+tracking_by=CASE WHEN tracking_by IS NULL THEN @actor ELSE tracking_by END,
+tracking_at=CASE WHEN tracking_at IS NULL THEN SYSUTCDATETIME() ELSE tracking_at END,
+edited_by=CASE WHEN @edited=1 THEN @actor ELSE edited_by END,
+edited_at=CASE WHEN @edited=1 THEN SYSUTCDATETIME() ELSE edited_at END,
+removed_by=CASE WHEN @deleted=1 THEN @actor ELSE removed_by END,
+removed_at=CASE WHEN @deleted=1 THEN SYSUTCDATETIME() ELSE removed_at END
+WHERE note_id=@noteId`,
+  audit:"INSERT INTO pvas.write_audit (request_id,sequence_no,cptid,source_table,source_column,before_json,after_json,actor) VALUES (@requestId,@sequence,@cptid,@table,@column,@before,@after,@actor)",
+});
+interface Prospect {status?:string|null;level?:number;solicitor:string;solicitor2:string;reason?:string;updatedAt:string;by:string;
+  _canonicalTracking:{objectPresent:boolean;statusPresent:boolean}}
+interface Activity {id:string;cptid:number;date:string;sourceDate?:string;kind:string;note:string;by:string;at:string;editedBy?:string;editedAt?:string;
+  removedBy?:string;removedAt?:string;_canonical:PvasNoteState}
+interface Tracking {prospects:Record<string,Prospect>;activity:Activity[];removed:Activity[];pirs:Record<string,{name:string;url:string}>;revision:string}
+export interface PvasTrackingReceipt {ok:true;requestId:string;revision:string;changed:number;replayed:boolean}
+function displayDate(raw:string|null):{date:string;sourceDate?:string}{
+  if(raw===null||raw==="")return {date:""};
+  let m=raw.match(/^(\d{4})-(\d{2})-(\d{2})$/),iso:string;
+  if(m)iso=`${m[1]}-${m[2]}-${m[3]}`;
+  else{m=raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);if(!m)return {date:"",sourceDate:raw};
+    iso=`${m[3]}-${m[1].padStart(2,"0")}-${m[2].padStart(2,"0")}`;}
+  const d=new Date(`${iso}T00:00:00Z`);
+  return Number.isFinite(d.valueOf())&&d.toISOString().slice(0,10)===iso?{date:iso}:{date:"",sourceDate:raw};
+}
+function projectProspect(r:Record<string,unknown>):Prospect {
+  if(!id(r.cptid)||(r.portfolio_cptid!==null&&r.portfolio_cptid!==r.cptid)||(r.state_cptid!==null&&r.state_cptid!==r.cptid)||
+    (r.level!==null&&(!id(r.level))))fail("invalid-source");
+  if(r.state_cptid!==r.cptid)fail("missing-campaign-state");
+  const raw=pvasCampaignPresence(r,r.cptid as number),nonnull=raw.status!==null;
+  return {...(nonnull||raw.tracking_status_present?{status:raw.status}:{}),
+    _canonicalTracking:{objectPresent:nonnull||raw.tracking_object_present,statusPresent:nonnull||raw.tracking_status_present},
+    ...(r.level!==null?{level:r.level as number}:{}),solicitor:str(r.solicitor),solicitor2:str(r.solicitor2),
+    ...(r.reason!==null?{reason:str(r.reason)}:{}),updatedAt:str(r.updated_at),by:str(r.updated_by)};
+}
+function projectActivity(r:Record<string,unknown>):Activity {
+  if(!id(r.note_id)||!id(r.CPTID)||typeof r.row_id!=="number"||!Number.isInteger(r.row_id)||r.row_id< -2147483648||r.row_id>2147483647)fail("invalid-source");
+  const hasState=r.state_note_id!==null;
+  if((hasState&&(r.state_note_id!==r.note_id||typeof r.version!=="number"||!Number.isInteger(r.version)||r.version<0||r.version>=2147483647||typeof r.deleted!=="boolean"))||
+    (!hasState&&(r.version!==null||r.deleted!==null)))fail("invalid-source");
+  for(const k of ["Note","Date","Source","tracking_key","tracking_kind","tracking_by","tracking_at","edited_by","edited_at","removed_by","removed_at"])str(r[k]);
+  if(r.Note_Order_Newest_to_Oldest!==null&&(typeof r.Note_Order_Newest_to_Oldest!=="number"||!Number.isFinite(r.Note_Order_Newest_to_Oldest)))fail("invalid-source");
+  const raw:PvasNoteState={noteId:r.note_id,rowId:r.row_id,cptid:r.CPTID,version:hasState?r.version as number:0,
+    text:r.Note as string|null,date:r.Date as string|null,source:r.Source as string|null,order:r.Note_Order_Newest_to_Oldest as number|null,deleted:hasState?r.deleted as boolean:false};
+  // Existing notes.Source owns displayed history type. tracking_kind is legacy
+  // provenance only; it must not mask a subsequent direct SQL Source edit.
+  return {id:`sql:${raw.noteId}`,cptid:raw.cptid,...displayDate(raw.date),kind:str(raw.source)||"Note",note:str(raw.text),by:str(r.tracking_by),at:str(r.tracking_at),
+    ...(r.edited_by!==null?{editedBy:str(r.edited_by),editedAt:str(r.edited_at)}:{}),
+    ...(raw.deleted?{removedBy:str(r.removed_by),removedAt:str(r.removed_at)}:{}),_canonical:raw};
+}
+const lockReads=(q:string)=>q.replace(/(pvas\.[a-z_]+ [a-z]+)(?= ON | LEFT | ORDER|\n)/g,"$1 WITH (UPDLOCK,HOLDLOCK)");
+async function trackingState(run:Run,locked=false){
+  const prospectRows=(await run(locked?lockReads(PVAS_TRACKING_SQL.prospects):PVAS_TRACKING_SQL.prospects,{})).rows;
+  const rawProspects:Record<string,Record<string,unknown>>={},prospects:Record<string,Prospect>={};
+  for(const r of prospectRows){const p=projectProspect(r),k=String(r.cptid);if(Object.hasOwn(prospects,k))fail("ambiguous-source");prospects[k]=p;rawProspects[k]=r;}
+  const noteRows=(await run(locked?lockReads(PVAS_TRACKING_SQL.notes):PVAS_TRACKING_SQL.notes,{})).rows;
+  const activity:Activity[]=[],removed:Activity[]=[];const seen=new Set<number>();
+  for(const r of noteRows){const a=projectActivity(r);if(seen.has(a._canonical.noteId))fail("ambiguous-source");seen.add(a._canonical.noteId);(a._canonical.deleted?removed:activity).push(a);}
+  const pirs:Record<string,{name:string;url:string}>={};
+  for(const r of (await run(PVAS_TRACKING_SQL.pirs,{})).rows){
+    if(!id(r.cptid)||Object.hasOwn(pirs,String(r.cptid)))fail("ambiguous-source");
+    pirs[String(r.cptid)]={name:str(r.file_name),url:str(r.sharepoint_url)};
+  }
+  const state={prospects,activity,removed,pirs};
+  // Raw nullable statuses/assignments and non-display metadata participate too.
+  const revision=digest({state,rawProspects,noteRows});
+  return {state:{...state,revision} as Tracking,rawProspects};
+}
+export async function readPvasCanonicalTracking(run:Run){return (await trackingState(run)).state;}
+function prospectInput(p:unknown):asserts p is Prospect {
+  if(!object(p)||Object.keys(p).some(k=>!["status","level","solicitor","solicitor2","reason","updatedAt","by","_canonicalTracking"].includes(k))||
+    (Object.hasOwn(p,"status")&&p.status!==null&&!text(p.status))||!text(p.updatedAt,40)||!text(p.by,200)||
+    !object(p._canonicalTracking)||!exact(p._canonicalTracking,["objectPresent","statusPresent"])||
+    typeof p._canonicalTracking.objectPresent!=="boolean"||typeof p._canonicalTracking.statusPresent!=="boolean"||
+    (p._canonicalTracking.statusPresent&&!p._canonicalTracking.objectPresent)||
+    (p.level!==undefined&&!id(p.level))||(p.solicitor!==undefined&&!text(p.solicitor,4000))||
+    (p.solicitor2!==undefined&&!text(p.solicitor2,4000))||(p.reason!==undefined&&!text(p.reason,500)))fail("invalid-prospect");
+}
+function activityInput(a:unknown):asserts a is Activity {
+  if(!object(a)||Object.keys(a).some(k=>!["id","cptid","date","sourceDate","kind","note","by","at","editedBy","editedAt","removedBy","removedAt","_canonical"].includes(k))||
+    !text(a.id,80)||!a.id||!id(a.cptid)||!text(a.date,65536)||(a.sourceDate!==undefined&&!text(a.sourceDate))||
+    !text(a.kind,65536)||!a.kind||!text(a.note)||!text(a.by,200)||!text(a.at,40))fail("invalid-activity");
+  for(const k of ["editedBy","removedBy"])if(a[k]!==undefined&&!text(a[k],200))fail("invalid-activity");
+  for(const k of ["editedAt","removedAt"])if(a[k]!==undefined&&!text(a[k],40))fail("invalid-activity");
+  if(a._canonical!==undefined){
+    if(!object(a._canonical))fail("invalid-activity");
+    const r=a._canonical;
+    validatePvasNoteCommand({requestId:"a".repeat(32),actor:"validation",cptid:a.cptid,noteId:r.noteId,expected:r,
+      value:{text:r.text,date:r.date,source:r.source,order:r.order,deleted:r.deleted}});
+  }
+}
+export function validatePvasTrackingCommand(input:unknown){
+  if(!object(input)||!exact(input,["requestId","actor","data"])||typeof input.requestId!=="string"||!/^[a-f0-9]{32}$/.test(input.requestId)||
+    !text(input.actor,200)||!input.actor.trim()||!object(input.data)||!exact(input.data,["prospects","activity","removed","pirs","revision"])||
+    !object(input.data.prospects)||!object(input.data.pirs)||!Array.isArray(input.data.activity)||!Array.isArray(input.data.removed)||
+    typeof input.data.revision!=="string"||!/^[a-f0-9]{64}$/.test(input.data.revision)||stable(input).length>2_000_000)fail("invalid");
+  const b=JSON.parse(JSON.stringify(input)) as {requestId:string;actor:string;data:Tracking};
+  for(const p of Object.values(b.data.prospects))prospectInput(p);
+  for(const a of [...b.data.activity,...b.data.removed])activityInput(a);
+  return b;
+}
+/** Caller owns ONE SERIALIZABLE tx spanning all reads, field/note cores+receipt. */
+export async function applyPvasTrackingTx(run:Run,input:unknown):Promise<PvasTrackingReceipt>{
+  const b=validatePvasTrackingCommand(input),hash=digest(b);
+  const base={requestId:b.requestId,actor:b.actor,hash};
+  await run(PVAS_TRACKING_SQL.lock,{});
+  const prior=(await run(PVAS_TRACKING_SQL.request,base)).rows;
+  if(prior.length>1)fail("corrupt-ledger");
+  if(prior.length){
+    if(prior[0].payload_hash!==hash)fail("request-conflict");
+    let r:unknown;try{r=JSON.parse(String(prior[0].result_json));}catch{fail("corrupt-ledger");}
+    if(!object(r)||!exact(r,["ok","requestId","revision","changed","replayed"])||r.ok!==true||r.requestId!==b.requestId||
+      typeof r.revision!=="string"||!/^[a-f0-9]{64}$/.test(r.revision)||typeof r.changed!=="number"||!Number.isInteger(r.changed)||r.changed<0||r.replayed!==false)fail("corrupt-ledger");
+    return {...r,replayed:true} as unknown as PvasTrackingReceipt;
+  }
+  const before=await trackingState(run,true);
+  if(before.state.revision!==b.data.revision)fail("stale");
+  if(stable(before.state.pirs)!==stable(b.data.pirs))fail("pir-write-needs-tool");
+  for(const k of Object.keys(before.state.prospects))if(!Object.hasOwn(b.data.prospects,k))fail("prospect-removal-not-a-command");
+  // Server-derived metadata is readonly; validate ALL prospect intent before
+  // ledger/child DML. Object carriers remain even for absent original tracking.
+  for(const [k,p] of Object.entries(b.data.prospects)){
+    if(!id(Number(k))||String(Number(k))!==k||!Object.hasOwn(before.state.prospects,k))fail("contact-identity");
+    const old=before.state.prospects[k];
+    if(stable(p._canonicalTracking)!==stable(old._canonicalTracking))fail("readonly-tracking-presence");
+    const statusChanged=Object.hasOwn(p,"status")!==Object.hasOwn(old,"status")||p.status!==old.status;
+    if(statusChanged&&(typeof p.status!=="string"||!STATUSES.includes(p.status)))fail("invalid-status-intent");
+  }
+  // Validate every target/removal before first mutation. Root ledger insertion
+  // and all changes still roll back together on any later invariant failure.
+  const existing=new Map([...before.state.activity,...before.state.removed].map(a=>[a.id,a]));
+  const incoming=new Map<string,Activity>();
+  for(const a of [...b.data.activity,...b.data.removed]){if(incoming.has(a.id))fail("duplicate-activity");incoming.set(a.id,a);}
+  for(const a of Array.from(existing.values()))if(!incoming.has(a.id))fail("history-removal-not-a-tombstone");
+  if((await run(PVAS_TRACKING_SQL.start,base)).affected!==1)fail("write-invariant");
+  let changed=0,sequence=0;
+  async function audit(cptid:number,table:string,column:string,old:unknown,next:unknown){
+    if((await run(PVAS_TRACKING_SQL.audit,{...base,cptid,sequence:++sequence,table,column,before:JSON.stringify({value:old}),after:JSON.stringify({value:next})})).affected!==1)fail("write-invariant");
+  }
+  for(const [k,p] of Object.entries(b.data.prospects)){
+    const cptid=Number(k);if(!id(cptid)||String(cptid)!==k)fail("invalid-prospect");
+    const raw=before.rawProspects[k],old=before.state.prospects[k];
+    const fields=[];
+    if((p.solicitor??"")!==old.solicitor)fields.push({field:"primarySolicitor",expected:raw.solicitor as string|null,value:p.solicitor??""});
+    if((p.solicitor2??"")!==old.solicitor2)fields.push({field:"secondarySolicitor",expected:raw.solicitor2 as string|null,value:p.solicitor2??""});
+    if(fields.length){
+      const r=await applyPvasFieldsTx(run,{requestId:childId(b.requestId,"assignments",k),cptid,actor:b.actor,changes:fields});
+      if(r.replayed)fail("orphan-child-receipt");
+    }
+    if(fields.length||stable(p)!==stable(old)){
+      const statusChanged=Object.hasOwn(p,"status")!==Object.hasOwn(old,"status")||p.status!==old.status;
+      const params={cptid,actor:b.actor,status:statusChanged?p.status:raw.status,
+        objectPresent:statusChanged?true:raw.tracking_object_present,statusPresent:statusChanged?true:raw.tracking_status_present,
+        oldStatus:raw.status,oldObjectPresent:raw.tracking_object_present,oldStatusPresent:raw.tracking_status_present,
+        oldLevel:raw.level,oldReason:raw.reason,oldBy:raw.updated_by,oldAt:raw.updated_at,
+        level:p.level??null,reason:(p.reason??"")===(old.reason??"")?raw.reason:p.reason??null};
+      const n=(await run(PVAS_TRACKING_SQL.statusUpdate,params)).affected;
+      if(n!==1)fail("write-invariant");
+      const point=lockReads(PVAS_TRACKING_SQL.prospects).replace("ORDER BY c.cptid","WHERE c.cptid=@cptid");
+      const rows=(await run(point,{cptid})).rows;
+      const p1=fields.find(c=>c.field==="primarySolicitor"),p2=fields.find(c=>c.field==="secondarySolicitor");
+      if(rows.length!==1||rows[0].status!==params.status||rows[0].level!==params.level||rows[0].reason!==params.reason||
+        rows[0].tracking_object_present!==params.objectPresent||rows[0].tracking_status_present!==params.statusPresent||
+        rows[0].updated_by!==b.actor||rows[0].solicitor!==(p1?p1.value:raw.solicitor)||
+        rows[0].solicitor2!==(p2?p2.value:raw.solicitor2))fail("write-invariant");
+      projectProspect(rows[0]);
+      await audit(cptid,"pvas.campaign_state","tracking",raw,rows[0]);changed++;
+    }
+  }
+  const removedIds=new Set(b.data.removed.map(a=>a.id));
+  for(const a of Array.from(incoming.values())){
+    const old=existing.get(a.id),deleted=removedIds.has(a.id);
+    if(old){
+      if(stable(a._canonical)!==stable(old._canonical)||a.cptid!==old.cptid)fail("stale-note");
+      if(old._canonical.deleted&&!deleted)fail("restore-needs-command");
+      if(a.by!==old.by||a.at!==old.at)fail("immutable-activity-metadata");
+      if(a.sourceDate!==old.sourceDate)fail("immutable-source-date");
+      if(old._canonical.deleted&&stable(a)!==stable(old))fail("removed-history-immutable");
+      const noteChanged=a.note!==old.note||a.date!==old.date||a.kind!==old.kind||deleted!==old._canonical.deleted||
+        a.editedAt!==old.editedAt||a.editedBy!==old.editedBy;
+      if(!noteChanged){if(stable(a)!==stable(old))fail("metadata-only-history-change");continue;}
+    }else if(a._canonical!==undefined||a.sourceDate!==undefined||deleted||a.id.startsWith("sql:"))fail("invalid-new-note");
+    const receipt=await applyPvasNoteTx(run,{requestId:childId(b.requestId,"note",a.id),cptid:a.cptid,actor:b.actor,
+      noteId:old?old._canonical.noteId:null,expected:old?old._canonical:null,
+      value:{text:a.note===old?.note?old._canonical.text:a.note,date:a.date===old?.date?old._canonical.date:a.date,
+        source:a.kind===old?.kind?old._canonical.source:a.kind,order:old?old._canonical.order:null,deleted}});
+    if(receipt.replayed)fail("orphan-child-receipt");
+    if((await run(PVAS_TRACKING_SQL.noteMetadata,{noteId:receipt.noteId,legacyKey:a.id,kind:a.kind,actor:b.actor,edited:old?1:0,deleted:deleted?1:0})).affected!==1)fail("write-invariant");
+    const actual=(await run(lockReads(PVAS_TRACKING_SQL.notes),{})).rows.filter(r=>r.note_id===receipt.noteId);
+    if(actual.length!==1)fail("write-invariant");
+    const afterNote=projectActivity(actual[0]);
+    if(afterNote.kind!==a.kind||afterNote._canonical.version!==receipt.version||afterNote._canonical.deleted!==deleted||
+      afterNote.cptid!==a.cptid||(old?afterNote.editedBy:afterNote.by)!==b.actor)fail("write-invariant");
+    await audit(a.cptid,"pvas.note_state","tracking",old??null,afterNote);changed++;
+  }
+  const after=(await trackingState(run,true)).state;
+  const receipt:PvasTrackingReceipt={ok:true,requestId:b.requestId,revision:after.revision,changed,replayed:false};
+  if((await run(PVAS_TRACKING_SQL.finish,{...base,receipt:JSON.stringify(receipt)})).affected!==1)fail("write-invariant");
+  return receipt;
+}

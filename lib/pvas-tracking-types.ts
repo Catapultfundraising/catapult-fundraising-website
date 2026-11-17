@@ -1,9 +1,10 @@
 // Campaign tracking entered in the PVAS portal after committee meetings.
+import type { CanonicalTrackingPresence } from "./portal-v2/pvas-tracking-presence";
 export const PROSPECT_STATUSES = ["Active", "Assigned", "Cultivate", "New referral", "Hold", "Committed", "Disqualified"] as const;
 export type ProspectStatus = (typeof PROSPECT_STATUSES)[number];
 export const ACTIVITY_KINDS = ["Visit", "Call", "Email", "Event", "Committee update", "Ask made", "Gift / pledge", "Note"] as const;
 export interface ProspectState {
-  status: ProspectStatus; level?: number; solicitor?: string; /** False only when a status-only request did not edit primary. Absent preserves legacy clear semantics. */ solicitorEdited?: boolean; /** Saved in Engage SQL (dashboard-origin). */ solicitor2?: string; reason?: string; updatedAt: string; by: string;
+  status?: string | null; readonly _canonicalTracking?: CanonicalTrackingPresence; level?: number; solicitor?: string; /** False only when a status-only request did not edit primary. Absent preserves legacy clear semantics. */ solicitorEdited?: boolean; /** Saved in Engage SQL (dashboard-origin). */ solicitor2?: string; reason?: string; updatedAt: string; by: string;
 }
 export interface CanonicalNoteState {
   noteId: number; rowId: number; cptid: number; version: number;
