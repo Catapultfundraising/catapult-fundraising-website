@@ -69,6 +69,11 @@ export function useCampaignAskSnapshot<T extends object>(snapshot: T, index?: ({
     const updates = (state?.updates ?? []) as UpdateRow[];
     if (state?.directSourceRevision && (index as unknown as { directSourceRevision?: string })?.directSourceRevision !== state.directSourceRevision)
       return { ...snapshot, directReadUnavailable: true };
+    if (pvasCanonicalEnabled(client)) {
+      if (!index || !tracking) return { ...snapshot, directReadUnavailable: true };
+      try { return currentDashboardSnapshot(client,snapshot,index,tracking,updates,state?.directView); }
+      catch { return { ...snapshot, directReadUnavailable: true }; }
+    }
     return currentDashboardSnapshot(client,snapshot,index??null,tracking,updates,state?.directView);
   }, [snapshot, state, client, index, tracking]);
 }

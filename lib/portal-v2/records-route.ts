@@ -71,7 +71,7 @@ const minDate = (a: string, b: string) => (!a ? b : !b ? a : a < b ? a : b);
 const maxDate = (a: string, b: string) => (!a ? b : !b ? a : a > b ? a : b);
 
 /** Fold merged duplicates into the surviving record and apply dashboard edits (contact, wealth). Client data itself is untouched. */
-function overlayRecord(base: Full, o: Overlay, edits: ReturnType<typeof askEdits>, boardCampaignAsk: boolean, lookup: (c: number) => Full | null): Full {
+function overlayRecord(base: Full, o: Overlay, edits: ReturnType<typeof askEdits>, boardCampaignAsk: boolean, lookup: (c: number) => Full | null, canonicalOwnAsk?: {ask:number|null}): Full {
   const r: Full = JSON.parse(JSON.stringify(base));
   const sources = mergedSources(o, r.cptid);
   if (sources.length) {
@@ -106,16 +106,20 @@ function overlayRecord(base: Full, o: Overlay, edits: ReturnType<typeof askEdits
     if (portfolio?.directAskPresent || portfolio?.directManualAskPresent) return portfolio.ask;
     return portfolio?.ask ?? (boardCampaignAsk ? (source?.board as { active?: boolean; ask?: number }[] | undefined)?.find((b) => b.active && b.ask)?.ask : undefined);
   };
-  const ask = effectiveAsk(r.cptid, o, edits, baseAsk, (id) => (lookup(id)?.portfolio as { directAskPresent?: boolean } | undefined)?.directAskPresent === true, (id) => (lookup(id)?.portfolio as { directManualAskPresent?: boolean } | undefined)?.directManualAskPresent === true);
+  // A present canonical option is current SQL authority, NOT historical manual
+  // edit attribution. Never enter old board/merged-source ask precedence here.
+  const ask: ReturnType<typeof effectiveAsk> = canonicalOwnAsk ?
+    {ask:canonicalOwnAsk.ask,askEdited:true,askBlank:canonicalOwnAsk.ask===null} :
+    effectiveAsk(r.cptid, o, edits, baseAsk, (id) => (lookup(id)?.portfolio as { directAskPresent?: boolean } | undefined)?.directAskPresent === true, (id) => (lookup(id)?.portfolio as { directManualAskPresent?: boolean } | undefined)?.directManualAskPresent === true);
   // Preserve the survivor's metadata; otherwise inherit only a single unambiguous source portfolio.
   // A merge chain can contain multiple portfolios. Never choose whichever happens to be first.
-  if (!r.portfolio && !ask.askConflict) {
+  if (!canonicalOwnAsk && !r.portfolio && !ask.askConflict) {
     const portfolios = sources.map((c) => lookup(c)?.portfolio).filter(Boolean);
     const distinct = new Map(portfolios.map((p) => [JSON.stringify(p), p]));
     if (distinct.size === 1) r.portfolio = [...distinct.values()][0];
   }
   r.campaignAsk = ask;
-  if (r.portfolio) r.portfolio = { ...(r.portfolio as object), ...ask, ask: ask.ask ?? 0 };
+  if (r.portfolio || canonicalOwnAsk) r.portfolio = { ...((r.portfolio ?? {}) as object), ...ask, ask: canonicalOwnAsk ? ask.ask : ask.ask ?? 0 };
   if (boardCampaignAsk && r.board) r.board = (r.board as { active?: boolean }[]).map((b) => b.active ? { ...b, ...ask, ask: ask.ask ?? 0 } : b);
   r.outcome = o.outcome.get(r.cptid) ?? { value: "", note: "" };
   const ce = o.contact.get(r.cptid);
@@ -202,9 +206,16 @@ return {get index(){return indexed ??= overlaidIndex(data.index,prospects,campai
       const target = finalId(o, asked);
       const base = lookup(target);
       if (!base) return null;
-      const out = overlayRecord(base, o, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup);
-      if(pvasCanonicalEnabled(client)){
-        const profile=pvasContactProfile(base._canonicalContact,target);
+      const profile=pvasCanonicalEnabled(client)?pvasContactProfile(base._canonicalContact,target):null;
+      let canonicalOwnAsk: {ask:number|null} | undefined;
+      if(profile){
+        const ask=profile.fields.ask;
+        if(!Object.hasOwn(profile.fields,"ask") || ask!==null && (typeof ask!=="number" || !Number.isFinite(ask)))
+          throw new Error("Invalid raw canonical ask");
+        canonicalOwnAsk={ask};
+      }
+      const out = overlayRecord(base, o, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup,canonicalOwnAsk);
+      if(profile){
         const raw=profile.fields.outcome;
         if(raw!==null&&typeof raw!=="string")throw new Error("Invalid canonical outcome");
         out.outcome=readOutcome(raw);

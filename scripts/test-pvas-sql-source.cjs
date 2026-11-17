@@ -171,7 +171,8 @@ commonMock = { ...common, rows: async query => { aggregateQueries.push(query); i
   reads.requireCurrentSql("pvas", { updates: [], prospects: [] });
   const { currentDashboardSnapshot } = load("lib/portal-v2/current-dashboard-snapshot.ts");
   const directView = { revision: "retired", values: [{ cptid: 12984, field: "ask", value: "99999", source: true }] };
-  assert.equal(currentDashboardSnapshot("pvas", built.snapshot, null, undefined, [], directView).pool[0].ask, 1234);
+  assert.throws(()=>currentDashboardSnapshot("pvas", built.snapshot, null, undefined, [], directView),/unavailable/);
+  assert.equal(currentDashboardSnapshot("pvas", built.snapshot, built.records.index, tracking, [], directView).pool[0].ask, 1234);
   assert.equal(currentDashboardSnapshot("jag", built.snapshot, null, undefined, [], directView).pool[0].ask, 99999, "other clients retain direct layer");
   assert.equal(await reads.observeDirect("jag", { ...deps, enabled: () => false }), null);
   console.log("PASS PVAS direct/manual composition bypass; other-client behavior retained");

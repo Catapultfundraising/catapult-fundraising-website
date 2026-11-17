@@ -53,6 +53,8 @@ export async function buildCanonicalPvas() {
   const gho = byC(ghoRows), ds = byC(dsRows), port = byC(portRows), phones = byC(phoneRows);
   for (const [c,m] of master) {
     const fields = pvasContactProfile(m._canonicalContact,c).fields;
+    if (!Object.hasOwn(fields,"ask") || fields.ask !== null && (typeof fields.ask !== "number" || !Number.isFinite(fields.ask)))
+      throw new Error("Invalid raw canonical ask");
     if(ds.has(c)||["dsRating","wealthCapacity","majorGiftScore","realEstate","stock"].some(k=>fields[k]!==null&&fields[k]!==""))
       ds.set(c,{...ds.get(c),CPTID:c,DS_Rating:fields.dsRating,Wealth_Based_Capacity:fields.wealthCapacity,
         Major_Gift_Score:fields.majorGiftScore,Real_Estate_Est:fields.realEstate,SEC_Stock_Value:fields.stock});
@@ -287,7 +289,10 @@ export async function buildCanonicalPvas() {
     const fields=pvasContactProfile(m._canonicalContact,c).fields;
     const x=rec(c);
     // A campaign-state owner is valid even without portfolio membership.
-    if(!x.portfolio)x.portfolio={ask:fields.ask,solicitor:fields.primarySolicitor,secondary:fields.secondarySolicitor};
+    if(!x.portfolio)x.portfolio={solicitor:fields.primarySolicitor,secondary:fields.secondarySolicitor};
+    // Snapshot amount cells are numeric presentation; the full record retains
+    // the actual current owner, including NULL distinct from literal zero.
+    x.portfolio.ask=fields.ask;
   }
   for (const r of [...noteRows].sort((a, b) => money(a.Note_Order_Newest_to_Oldest) - money(b.Note_Order_Newest_to_Oldest))) {
     const c = cid(r.CPTID); if (c === null || !s(r.Note)) continue;
