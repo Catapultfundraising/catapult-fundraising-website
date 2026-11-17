@@ -121,7 +121,11 @@ export async function captureFrozenPvas(root: string, input: FrozenCaptureInput)
     for (let i = 0; i < source.rows.length; i++) {
       const entry = source.rows[i];
       need(object(entry) && object(entry.value) && typeof entry.wire === "string" && typeof keys[i] === "string" && keys[i], "source-row");
-      need(isDeepStrictEqual(Object.keys(entry.value), columns.map(c => c.COLUMN_NAME)), "raw-column-order");
+      // JS enumerates integer-named columns (portfolio 2024/2025/2026)
+      // before other properties regardless of their SQL ordinal. Normalize
+      // the expected enumeration only; original wire bytes stay untouched.
+      const expectedKeys = Object.keys(Object.fromEntries(columns.map(c => [c.COLUMN_NAME, null])));
+      need(isDeepStrictEqual(Object.keys(entry.value), expectedKeys), "raw-column-order");
       const parsed = JSON.parse(entry.wire);
       // SQL JSON original wire is retained unchanged. Reject ambiguous JS
       // integer coercion; no bigint IDs are reconstructed from rounded Numbers.

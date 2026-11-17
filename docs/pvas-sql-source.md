@@ -285,3 +285,23 @@ Focused test in `scripts/test-pvas-action-capture.cjs`: manifest-free empty
 projection; source/part digests and byte immutability; JSON serialization;
 invalid tracking/unpinned root refusal; direct zero, manual five, explicit
 assignment clear and full snapshot/tracking parity with final capture.
+
+## Existing clear lineage (no new inference)
+
+`effectiveView.tracking.prospects[String(cptid)]` retains original tracking
+properties verbatim, including presence/absence of `solicitor`, `solicitor2`,
+`solicitorEdited`, `updatedAt` and `by`. The pinned assignment owner recognizes
+an own primary/secondary property as manual presence (including blank/null),
+and legacy absent primary as clear when `updatedAt` is truthy and
+`solicitorEdited !== false`. SQL secondary edits are present in the original
+`portalState.updates` attachment, not inferred from a blank visible assignment.
+Do not mark every blank visible assignment as an explicit clear.
+
+The projected record's `campaignAsk` retains `askEdited`, `askBlank`,
+`askFromCptid`, `askConflict` and `directAskPresent` when produced by the pinned
+owner. Underlying `effectiveData.records[id].portfolio` retains
+`directAskPresent`/`directManualAskPresent` plus its original ask metadata.
+`askBlank` marks a manual null/blank, not zero. Original portal updates and
+tracking attachments remain the raw lineage authority.
+
+Frozen capture catalog key validation normalizes ECMAScript integer-property enumeration (portfolio year columns), while preserving exact original SQL row wire and rejecting missing, extra, wrong and reordered nonnumeric columns.

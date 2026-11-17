@@ -141,6 +141,27 @@ const init={method:"POST",body:JSON.stringify({op:"pvasGift",by:"Fictional",comm
   assert.deepEqual(manualProjection.effectiveView.tracking,manual.effectiveView.tracking);
   assert.equal(manualProjection.effectiveView.records[0].campaignAsk.ask,5);
   assert.equal(manualProjection.effectiveView.records[0].assignment.solicitor,"");
+  // Real portfolio schema has integer-named year columns: JS moves them
+  // ahead of row_id even though SQL emits them in catalog ordinal order.
+  const numericColumns=structuredClone(donorManifest);
+  const portfolioColumns=catalog.filter(c=>c.TABLE_SCHEMA==="pvas"&&c.TABLE_NAME==="portfolio");
+  const portfolioValue=Object.fromEntries(portfolioColumns.map(c=>[c.COLUMN_NAME,c.COLUMN_NAME==="CPTID"?id:c.COLUMN_NAME==="row_id"?1:null]));
+  const portfolioWire="{"+portfolioColumns.map(c=>JSON.stringify(c.COLUMN_NAME)+":"+JSON.stringify(portfolioValue[c.COLUMN_NAME])).join(",")+"}";
+  numericColumns.sources["pvas.portfolio"]={count:1,rows:[{value:portfolioValue,wire:portfolioWire}]};
+  numericColumns.coverage.sourceKeys["pvas.portfolio"]=["1"];
+  const numericCapture=await capture.captureFrozenPvas(root,{manifest:numericColumns,parts:donorParts});
+  assert.equal(JSON.parse(numericCapture.manifestBytes).sources["pvas.portfolio"].rows[0].wire,portfolioWire,"SQL ordinal original wire retained");
+  const extraColumn=structuredClone(numericColumns);
+  extraColumn.sources["pvas.portfolio"].rows[0].value.unreviewed_column=null;
+  await assert.rejects(()=>capture.captureFrozenPvas(root,{manifest:extraColumn,parts:donorParts}),/raw-column-order/);
+  for(const mode of ["missing","wrong","reordered"]){
+    const malformed=structuredClone(numericColumns),v=malformed.sources["pvas.portfolio"].rows[0].value,original=v.row_id;
+    delete v.row_id;
+    if(mode==="wrong")v.wrong_row_id=original;
+    if(mode==="reordered")v.row_id=original;
+    await assert.rejects(()=>capture.captureFrozenPvas(root,{manifest:malformed,parts:donorParts}),/raw-column-order/,mode);
+  }
+  console.log("PASS nonempty portfolio integer-named year columns; original SQL wire intact; extra-column refusal");
   const hiddenId=id+1,mergedId=id+2,restoredId=id+3;
   const hiddenRecords=JSON.parse(donorParts.records.toString("utf8"));
   for(const c of [hiddenId,mergedId,restoredId]){
