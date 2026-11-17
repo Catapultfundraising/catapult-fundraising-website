@@ -1,9 +1,18 @@
 import sql from "mssql";
+import { pvasCanonicalEnabled } from "../portal-v2/pvas-canonical";
+import { validatePvasFinancials } from "../portal-v2/pvas-financials";
 
 // Shared helpers for the Azure SQL -> portal blob builders (ports of the old
 // Python build_snap*.py / build_records*.py scripts that read the Access file).
 
 export type Row = Record<string, unknown>;
+
+export async function engagePvasFinancials() {
+  const { engageCall } = await import("../portal-v2/server");
+  const r = await engageCall("pvas", "pvasFinancials");
+  if (r.status !== 200 || r.body.error || r.body.configured === false) throw new Error("Canonical financial feed unavailable");
+  return validatePvasFinancials(r.body);
+}
 
 let poolPromise: Promise<sql.ConnectionPool> | null = null;
 
@@ -92,15 +101,22 @@ export type ClientGift = { cptid: number; date: string | null; amount: number; s
 export async function engageClientGifts(client: string): Promise<ClientGift[]> {
   const secret = process.env.PORTAL_WRITE_SECRET;
   const url = process.env.ENGAGE_PORTAL_URL || "https://engage.catapultfr.com/api/portal-v2";
-  if (!secret) return [];
+  if (!secret) {
+    if (pvasCanonicalEnabled(client)) throw new Error("PVAS canonical gift feed is not configured");
+    return [];
+  }
   const out: ClientGift[] = [];
   let afterId = 0;
-  for (let page = 0; page < 40; page++) {
+  const pages=pvasCanonicalEnabled(client)?4096:40;
+  for (let page = 0; page < pages; page++) {
     const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
       body: JSON.stringify({ op: "clientGifts", client, afterId, limit: 15000 }) });
     if (!r.ok) throw new Error(`Engage clientGifts ${r.status}`);
     const j = (await r.json()) as { rows: (ClientGift & { id: number })[]; next: number | null; done: boolean };
+    if (pvasCanonicalEnabled(client) && (!Array.isArray(j.rows) || typeof j.done !== "boolean" || (!j.done && (!Number.isSafeInteger(j.next) || Number(j.next) <= afterId))))
+      throw new Error("Invalid PVAS canonical gift page");
     out.push(...j.rows);
+    if (pvasCanonicalEnabled(client) && !j.done && page === pages-1) throw new Error("PVAS canonical gift feed incomplete");
     if (j.done || !j.next) break;
     afterId = j.next;
   }
@@ -109,19 +125,26 @@ export async function engageClientGifts(client: string): Promise<ClientGift[]> {
 
 /** Client contact records Viktor loaded into Engage (engage.client_contacts) from a client's Access MASTER table when it
  *  isn't in the client schema (PVAS). Paged through Engage op clientContacts. Empty when nothing is loaded. */
-export type ClientContact = { cptid: number } & Record<string, string | boolean | number | undefined>;
+export type ClientContact = { cptid: number } & Record<string, unknown>;
 export async function engageClientContacts(client: string): Promise<ClientContact[]> {
   const secret = process.env.PORTAL_WRITE_SECRET;
   const url = process.env.ENGAGE_CONTACTS_URL || process.env.ENGAGE_PORTAL_URL || "https://engage.catapultfr.com/api/portal-v2";
-  if (!secret) return [];
+  if (!secret) {
+    if (pvasCanonicalEnabled(client)) throw new Error("PVAS canonical contact feed is not configured");
+    return [];
+  }
   const out: ClientContact[] = [];
   let afterId = 0;
-  for (let page = 0; page < 40; page++) {
+  const pages=pvasCanonicalEnabled(client)?4096:40;
+  for (let page = 0; page < pages; page++) {
     const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
       body: JSON.stringify({ op: "clientContacts", client, afterId, limit: 10000 }) });
     if (!r.ok) throw new Error(`Engage clientContacts ${r.status}`);
     const j = (await r.json()) as { rows: (ClientContact & { id: number })[]; next: number | null; done: boolean };
+    if (pvasCanonicalEnabled(client) && (!Array.isArray(j.rows) || typeof j.done !== "boolean" || (!j.done && (!Number.isSafeInteger(j.next) || Number(j.next) <= afterId))))
+      throw new Error("Invalid PVAS canonical contact page");
     out.push(...j.rows);
+    if (pvasCanonicalEnabled(client) && !j.done && page === pages-1) throw new Error("PVAS canonical contact feed incomplete");
     if (j.done || !j.next) break;
     afterId = j.next;
   }

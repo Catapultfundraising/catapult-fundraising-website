@@ -6,6 +6,9 @@ import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, screeningPending, type Overlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 import { campaignRecords } from "@/lib/portal-v2/campaign-records";
 import type { PortalClient } from "@/lib/portal-v2/clients";
+import {pvasCanonicalEnabled}from"./pvas-canonical";
+import {pvasContactProfile}from"./pvas-contact-wire";
+import {readOutcome}from"./outcome";
 
 export type Idx = { cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number; last: string; years: number; band: string; capMin: number };
 export type Data = { asOf?: string; index: Idx[]; records: Record<string, unknown> } | null;
@@ -77,7 +80,7 @@ function overlayRecord(base: Full, o: Overlay, edits: ReturnType<typeof askEdits
     for (const c of sources) {
       const s = lookup(c); if (!s) continue;
       const ssum = (s.summary ?? {}) as Record<string, unknown>;
-      merged.push({ cptid: c, name: s.name ?? `CPTID ${c}`, contact: { ...(s.contact ?? {}), ...(o.contact.get(c) ?? {}) } as Record<string, string>, lifetime: num(ssum.lifetime) });
+      merged.push({ cptid: c, name: s.name ?? `CPTID ${c}`, contact: { ...(s.contact ?? {}), ...(o.contact.get(c) ?? {}) } as Record<string, string>, lifetime: num(ssum.lifetime),...(s._canonicalContact?{_canonicalContact:s._canonicalContact}:{}) });
       r.gifts = [...(r.gifts ?? []), ...(s.gifts ?? []).map((g) => ({ ...g, fromCptid: c }))];
       r.notes = [...(r.notes ?? []), ...(s.notes ?? []).map((n) => `[from CPTID ${c}] ${n}`)];
       r.calls = [...(r.calls ?? []), ...(s.calls ?? [])];
@@ -200,6 +203,12 @@ return {get index(){return indexed ??= overlaidIndex(data.index,prospects,campai
       const base = lookup(target);
       if (!base) return null;
       const out = overlayRecord(base, o, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup);
+      if(pvasCanonicalEnabled(client)){
+        const profile=pvasContactProfile(base._canonicalContact,target);
+        const raw=profile.fields.outcome;
+        if(raw!==null&&typeof raw!=="string")throw new Error("Invalid canonical outcome");
+        out.outcome=readOutcome(raw);
+      }
       const a = assignment(target);
       out.assignment = a;
       if (out.portfolio) out.portfolio = { ...(out.portfolio as object), solicitor: a.solicitor, secondary: a.solicitor2 };

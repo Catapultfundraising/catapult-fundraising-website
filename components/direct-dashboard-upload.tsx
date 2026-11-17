@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import type { DirectFileCapabilities, DirectFilePlan, DirectFileReceipt } from "@/lib/portal-v2/directFileProtocol";
 import type { ParseSettings } from "@/lib/portal-v2/source-file-preview";
 import { confirmedDirectPreview, confirmedDirectReceipt } from "@/lib/portal-v2/direct-public-response";
+import {usePvasImportReview}from"./pvas-canonical-import-review";
 
 const input = "w-full rounded border border-[rgb(var(--line))] px-3 py-2 text-sm";
 const button = "rounded bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
@@ -25,7 +26,7 @@ export function DirectDashboardUpload({ client }: { client: string }) {
   const generation = useRef(0), request = useRef<string | null>(null);
   const api = `/api/${client}-data-direct-import`;
   const settings: ParseSettings = format === "csv" ? { format: "csv" } : { format: "xlsx", sheet, headerRow, clientIdFormat: integerId ? "integer" : "text" };
-  function invalidate() { generation.current++; setPlan(null); setVerified(false); setExceptions([]); }
+  function invalidate() { generation.current++; setPlan(null); setVerified(false); setExceptions([]);canonical.invalidate(); }
   async function call(body: unknown) {
     const r = await fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json();
@@ -41,7 +42,8 @@ export function DirectDashboardUpload({ client }: { client: string }) {
     call({ op: "capabilities" }).then(c => { if (active) { setCaps(c); setTemplate(c.templates?.[0]?.template ?? ""); } }).catch(e => { if (active) setMessage(e.message); });
     return () => { active = false; generation.current++; };
   }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
-  const locked = busy || !!pending;
+  const canonical=usePvasImportReview(client,"direct",call,async()=>{window.dispatchEvent(new Event("crm-index-refresh"));window.dispatchEvent(new Event("campaign-ask-refresh"));},()=>{request.current=null;setPlan(null);});
+  const locked = busy || !!pending || canonical.locked;
   async function choose(file: File | undefined) {
     invalidate(); setUpload(null); setHeaders([]); setMapping({}); setVerify(null); setSheets([]); setSheet(""); setResolutions({}); request.current = null;
     if (!file) return;
@@ -80,7 +82,7 @@ export function DirectDashboardUpload({ client }: { client: string }) {
   }
   async function preview() {
     const id = generation.current; setBusy(true); setMessage(""); setExceptions([]);
-    try { const j = await call({ op: "preview", file: fileBody() }); if (id === generation.current) { const p = confirmedDirectPreview(j); setPlan(p); setMessage("Review every cell and hold below. No SQL import has occurred."); } }
+    try { const file=fileBody(),j = await call({ op: "preview", file }); if (id === generation.current) { if(canonical.enabled){canonical.preview(j,file);setMessage("");}else{const p = confirmedDirectPreview(j); setPlan(p); setMessage("Review every cell and hold below. No SQL import has occurred.");} } }
     catch (e) { if (id === generation.current) { setPlan(null); setExceptions((e as Error & { exceptions?: typeof exceptions }).exceptions ?? []); setMessage((e as Error).message); } }
     finally { if (id === generation.current) setBusy(false); }
   }
@@ -139,10 +141,12 @@ export function DirectDashboardUpload({ client }: { client: string }) {
       </div>}
       <label className="block text-sm"><input type="checkbox" checked={useSourceDate} onChange={e => { invalidate(); setUseSourceDate(e.target.checked); }} /> Use selected source date {sourceDate || "(choose date)"} as the date for new notes. This does not certify notes as new events.</label>
       <p className="text-xs text-[rgb(var(--ink))]/65">{caps?.solicitorAliases.status === "known" ? `${caps.solicitorAliases.entries.length} current staff-name aliases observed. ` : "Current staff-name inventory unavailable: solicitor cells will be held. "}Blank cells make no changes.</p>
-      <p className="text-xs text-[rgb(var(--ink))]/65">Historical Notes are never appended. Current history is tracking-only, not complete Access history. Each new-note event requires a separate reviewed resolution below. Primary and secondary solicitors match current staff names from this dashboard. Unknown or ambiguous names stay held; the preview shows canonical names and reasons. Manual dashboard edits and clears still take priority. This website adapter accepts nonnegative asks up to 9,999,999,999.99 with at most two exact decimal places; larger amounts are held, never rounded.</p>
+      <p className="text-xs text-[rgb(var(--ink))]/65">{canonical.enabled?"Canonical current fields and notes are the only authority. Source chronology and divergence are checked in SQL; a held row prevents the complete transaction. Original file bytes are bound to the reviewed plan.":"Historical Notes are never appended. Current history is tracking-only, not complete Access history. Each new-note event requires a separate reviewed resolution below. Primary and secondary solicitors match current staff names from this dashboard. Unknown or ambiguous names stay held; the preview shows canonical names and reasons. Manual dashboard edits and clears still take priority."} This website adapter accepts nonnegative asks up to 9,999,999,999.99 with at most two exact decimal places; larger amounts are held, never rounded.</p>
       <button className={button} disabled={!upload || !headers.length || !template || !caps?.applyEnabled || !sourceDate || !actor} onClick={preview}>Preview complete file</button>
     </fieldset>
     {!!exceptions.length && <div className="mt-4 overflow-x-auto"><p className="text-sm font-semibold">Entire file held — complete gateway exception list</p><table className="w-full text-left text-xs"><tbody>{exceptions.map((e, i) => <tr key={i}><td className="p-2">Row {e.ordinal} (line {e.line})</td><td>{e.source}</td><td>{e.reason}</td></tr>)}</tbody></table></div>}
+    {canonical.panel}
+    {canonical.enabled&&canonical.plan&&canonical.plan.held.filter(r=>r.reason==="unresolved-note-event").map(r=><label key={r.ordinal} className="mt-2 block text-sm"><input type="checkbox" disabled={locked} checked={resolutions[String(r.ordinal)]==="new-event"} onChange={e=>{const checked=e.target.checked;invalidate();setResolutions(old=>{const next={...old};if(checked)next[String(r.ordinal)]="new-event";else delete next[String(r.ordinal)];return next;});}}/> I reviewed physical row {r.ordinal} and confirm this is a distinct new note occurrence. Re-preview required.</label>)}
     {plan && <div className="mt-4 overflow-x-auto">
       <h4 className="font-semibold">Every resulting mapped cell ({plan.decisions.length})</h4>
       <table className="w-full text-left text-xs"><thead><tr>{["Row", "CPTID", "Field", "Before", "After", "Decision"].map(x => <th key={x} className="p-2">{x}</th>)}</tr></thead><tbody>{plan.decisions.map((d, i) => <tr key={i} className="border-b border-[rgb(var(--line))]"><td className="p-2">{d.ordinal}</td><td>{d.cptid}</td><td>{d.field}</td><td className="whitespace-pre-wrap p-2">{d.before ?? "(absent)"}</td><td className="whitespace-pre-wrap p-2">{d.after || "(blank: no change)"}</td><td>{d.action} {d.reason}

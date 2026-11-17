@@ -1,4 +1,5 @@
 import "server-only";
+import { pvasCanonicalEnabled } from "./pvas-canonical";
 import type { PortalClient } from "./clients";
 import { DIRECT_STATE_MAX_IDS, DIRECT_STATE_MAX_NOTES, DIRECT_STATE_MAX_BYTES } from "./directFileProtocol";
 import { directLaneEnabled } from "./direct-registration.server";
@@ -59,6 +60,9 @@ export function validateDirectState(raw: unknown, client: PortalClient): DirectS
 export type DirectObservation = { state: DirectState; tracking: Exclude<StrictTracking, { kind: "unavailable" }>; sql: { updates: Record<string, unknown>[]; prospects: Record<string, unknown>[] } };
 /** Complete source layer (<=5000 IDs), not a first page of the Access baseline. No cache. */
 export async function observeDirect(client: PortalClient, deps: DirectReadDeps = defaults): Promise<DirectObservation | null> {
+  // PVAS source imports now write canonical SQL tables consumed by buildPvas.
+  // Never reapply source_import.direct_* or their manual-precedence projection.
+  if (pvasCanonicalEnabled(client)) return null;
   if (!deps.enabled(client)) return null;
   const [source, tracking, sql] = await Promise.all([deps.state(client), deps.tracking(client), deps.sql(client)]);
   if (tracking.kind === "unavailable" || !object(sql) || sql.configured === false || sql.error || !Array.isArray(sql.updates) || !Array.isArray(sql.prospects) ||
@@ -143,13 +147,14 @@ export async function directTrackingView<T>(client: PortalClient, legacy: T, dep
     directSourceNotes: observed.state.notes.map(n => ({ ...n, lane: "direct-source", editable: false })), directSourceRevision: observed.state.revision } as T;
 }
 export async function currentTracking<T>(client: PortalClient, legacy: () => Promise<T>): Promise<T> {
+  if (pvasCanonicalEnabled(client)) return legacy();
   if (!directLaneEnabled(client)) return legacy();
   const raw = await strictTrackingFor(client);
   if (raw.kind === "unavailable") throw new DirectReadUnavailable();
   return { ...raw.document, pirs: (raw.document as Record<string, unknown>).pirs ?? {} } as T;
 }
 export function requireCurrentSql(client: PortalClient, state: unknown) {
-  if (directLaneEnabled(client) && (!object(state) || state.configured === false || state.error || !Array.isArray(state.updates) || !Array.isArray(state.prospects)))
+  if ((pvasCanonicalEnabled(client) || directLaneEnabled(client)) && (!object(state) || state.configured === false || state.error || !Array.isArray(state.updates) || !Array.isArray(state.prospects)))
     throw new DirectReadUnavailable();
 }
 export function directClientView(observed: DirectObservation) {

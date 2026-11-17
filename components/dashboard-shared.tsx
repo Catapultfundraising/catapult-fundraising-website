@@ -83,7 +83,7 @@ export class SafeBoundary extends Component<{ children: ReactNode; label?: strin
 }
 
 // ---------- history notes: edit (date, type, note) or delete ----------
-export interface HistoryItem { id: string; cptid: number; date: string; kind: string; note: string; by: string; at: string; editedBy?: string; editedAt?: string }
+export interface HistoryItem { id: string; cptid: number; date: string; sourceDate?: string; _canonical?: unknown; kind: string; note: string; by: string; at: string; editedBy?: string; editedAt?: string }
 const inputCls = "w-full rounded-md border border-[rgb(var(--line))] px-2.5 py-1.5 text-sm";
 export function HistoryList({ items, kinds, post, busy }: {
   items: HistoryItem[]; kinds: readonly string[];
@@ -106,7 +106,7 @@ export function HistoryList({ items, kinds, post, busy }: {
               </div>
               <textarea value={f.note} onChange={(e) => setF({ ...f, note: e.target.value })} rows={3} className={inputCls} />
               <div className="flex gap-2">
-                <button disabled={!!busy || !dateOk || !f.note.trim()} onClick={async () => { if (await post({ type: "editActivity", id: a.id, date: f.date, kind: f.kind, note: f.note }, "edit")) setEditing(null); }}
+                <button disabled={!!busy || (!dateOk && !(a._canonical&&a.date===""&&f.date==="")) || !f.note.trim()} onClick={async () => { if (await post({ type: "editActivity", id: a.id, date: f.date, kind: f.kind, note: f.note }, "edit")) setEditing(null); }}
                   className="rounded-md bg-[rgb(var(--navy))] px-3 py-1 text-xs font-medium text-white disabled:opacity-50">{busy === "edit" ? "Saving..." : "Save changes"}</button>
                 <button onClick={() => setEditing(null)} className="rounded-md border border-[rgb(var(--navy))] px-3 py-1 text-xs">Cancel</button>
               </div>
@@ -114,7 +114,7 @@ export function HistoryList({ items, kinds, post, busy }: {
           ) : (
             <>
               <p className="flex flex-wrap items-center gap-x-2 text-xs text-[rgb(var(--ink))]/60">
-                <span><span className="font-semibold text-[rgb(var(--navy))]">{isoToUs(a.date)}</span> · {a.kind} · {a.by}{a.editedBy ? ` · edited by ${a.editedBy}` : ""}</span>
+                <span><span className="font-semibold text-[rgb(var(--navy))]">{a.date?isoToUs(a.date):a.sourceDate??"Undated"}</span> · {a.kind} · {a.by}{a.editedBy ? ` · edited by ${a.editedBy}` : ""}</span>
                 <button className="font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => { setEditing(a.id); setF({ date: isoToUs(a.date), kind: a.kind, note: a.note }); }}>Edit</button>
                 <button className="font-semibold text-red-700 hover:underline" disabled={!!busy} onClick={() => { if (confirm("Delete this history note? It is kept in the audit log.")) void post({ type: "deleteActivity", id: a.id }, "del"); }}>Delete</button>
               </p>

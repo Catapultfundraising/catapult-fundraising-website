@@ -1,4 +1,6 @@
 "use client";
+import { usdExact } from "@/lib/portal-v2/pvas-financials";
+import {pvasCanonicalEnabled}from"@/lib/portal-v2/pvas-canonical";
 import {buildDashboardExportModel,type TableSource} from "@/lib/portal-v2/dashboard-export-types";
 
 import { dashboardDateLabels } from "@/lib/dashboard-dates";
@@ -188,6 +190,7 @@ function Overview({ d }: { d: PvasSnapshot }) {
       </div>
       <Card>
         <H sub="Calendar years. Bars = dollars.">Giving by year</H>
+        {d.undatedFinancials&&(d.undatedFinancials.count>0||d.undatedFinancials.pledged!=="0.00")&&<p className="mb-3 text-sm text-[rgb(var(--ink))]/70">Unknown year: {d.undatedFinancials.count} received gifts, {usdExact(d.undatedFinancials.received)} received and {usdExact(d.undatedFinancials.pledged)} pledged. Included in lifetime totals, not assigned an invented calendar year.</p>}
         <div className="h-72">
           <ResponsiveContainer>
             <BarChart data={d.fys}>
@@ -653,6 +656,7 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
             <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
             <p className="mt-1 text-sm text-white/70">{dates.refreshed}</p>
             <p className="text-xs text-white/60">{dates.source}</p>
+            {pvasCanonicalEnabled("pvas")&&<div className="mt-2 text-xs text-white/80"><p>Reads canonical SQL, not a weekly file. Snapshot/contact/giving cache: up to5 minutes. Open pages do not poll or stream changes.</p><button type="button" onClick={()=>window.location.reload()} className="mt-1 underline">Reload current SQL view</button></div>}
           </div>
           <DonorSearch dark />
         </div>

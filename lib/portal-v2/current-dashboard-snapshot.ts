@@ -1,4 +1,5 @@
 import type { PortalClient } from "./clients";
+import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { assignmentSnapshot, type Assignment, type AssignmentTracking } from "./effective-assignment";
 import { askEdits, overlayCampaignAsks } from "./effective-ask";
 import { buildOverlay, type UpdateRow } from "./record-overlay";
@@ -10,7 +11,7 @@ export function currentDashboardSnapshot<T extends object>(
   tracking: AssignmentTracking | undefined, updates: UpdateRow[], directView?: DirectClientView | null,
 ): T {
   const overlay = buildOverlay(updates);
-  const source = directSnapshot(snapshot, directView, client !== "wcbhc" && client !== "baq");
+  const source = directSnapshot(snapshot, pvasCanonicalEnabled(client) ? null : directView, client !== "wcbhc" && client !== "baq");
   const asks = overlayCampaignAsks(source, overlay, askEdits(updates), client !== "wcbhc" && client !== "baq");
   return tracking ? assignmentSnapshot(asks, index, tracking, overlay) : asks;
 }

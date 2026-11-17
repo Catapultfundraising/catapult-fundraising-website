@@ -1,4 +1,10 @@
 "use client";
+import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
+import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
+import { moneyInput } from "@/lib/portal-v2/pvas-financials";
+import {usdExact}from"@/lib/portal-v2/pvas-financials";
+import {pvasGiftMetadata,pvasGiftTarget,pvasGiftValues}from"@/lib/portal-v2/pvas-gift-wire";
+import {pvasContactProfile,pvasProspectChanges}from"@/lib/portal-v2/pvas-contact-wire";
 import { MonthlyGiftUpload } from "@/components/monthly-gift-upload";
 import {currentDashboardSnapshot} from "@/lib/portal-v2/current-dashboard-snapshot";
 
@@ -59,7 +65,7 @@ export function useCampaignAskSnapshot<T extends object>(snapshot: T, index?: ({
 }
 function useV2() { const c = useContext(V2); if (!c) throw new Error("PortalV2Provider missing"); return c; }
 async function post(client: PortalClient, body: unknown) {
-  const r = await fetch(PORTAL_V2[client].api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const r = await pvasActionFetch(client, PORTAL_V2[client].api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || `Error ${r.status}`);
   return j;
@@ -124,7 +130,7 @@ export function CampaignDonors() {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-[rgb(var(--navy))]">Campaign donors by gift-chart level</h2>
-            <p className="text-sm text-[rgb(var(--ink))]/65">Click a level to see every donor in it; click a name to open the record. Campaign gifts and pledges from the client database (weekly refresh), client uploads and portal entries. Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
+            <p className="text-sm text-[rgb(var(--ink))]/65">Click a level to see every donor in it; click a name to open the record. {pvasCanonicalEnabled(client)?"Campaign gifts and pledges come from current canonical pvas.gifts SQL rows; provider-only activity is separate.":"Campaign gifts and pledges from the client database (weekly refresh), client uploads and portal entries."} Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
           </div>
           <label className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">Campaign goal
             <input className={`${input} mt-1 w-40`} value={goalText} onChange={(e) => setGoalText(e.target.value)} />
@@ -188,20 +194,38 @@ function giftId(g: PortalGift) { return Number(g.id) > 0 ? String(g.id) : g.key 
 function AllGifts() {
   const { client, state, reload } = useV2();
   const [by, setBy] = useBy();
-  const [mode, setMode] = useState<{ id: string; kind: "edit" | "void" } | null>(null);
+  const [mode, setMode] = useState<{ id: string; kind: "edit" | "void";original?:PortalGift } | null>(null);
   const [f, setF] = useState({ amount: "", kind: "pledge", date: "", note: "", reason: "" });
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   const editorName = useRef<HTMLInputElement>(null);
   const voidReason = useRef<HTMLInputElement>(null);
   const gso = useSort([...(state?.gifts ?? [])].reverse().map((g) => ({ ...g, amount: Number(g.amount), src: g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry" })), (r, k) => (r as unknown as Record<string, unknown>)[k]);
   if (!state) return null;
-  const start = (g: PortalGift, kind: "edit" | "void") => { setMsg(""); setMode({ id: giftId(g), kind }); setF({ amount: String(Number(g.amount)), kind: g.kind, date: isoToUs(g.gift_date), note: g.note ?? "", reason: "" }); };
+  const start = (g: PortalGift, kind: "edit" | "void") => {
+    setMsg("");setMode({id:giftId(g),kind,...(pvasCanonicalEnabled(client)?{original:structuredClone(g)}:{})});
+    const raw=pvasCanonicalEnabled(client)?pvasGiftMetadata(g._canonicalGift).gift:null;
+    setF({amount:raw?raw.amount:String(Number(g.amount)),kind:g.kind,date:isoToUs(raw?raw.date:g.gift_date),note:raw?raw.note??"":g.note??"",reason:""});
+  };
   const base = (g: PortalGift) => ({ id: Number(g.id) > 0 ? Number(g.id) : undefined, key: Number(g.id) > 0 ? undefined : g.key, cptid: g.cptid, donorName: g.donor_name,
     original: { amount: Number(g.amount), kind: g.kind, date: g.gift_date, name: g.donor_name, cptid: g.cptid } });
   const save = async (g: PortalGift) => {
     if (!by.trim()) { setMsg("Enter your name below so we can record who made this change."); editorName.current?.focus(); return; }
     setBusy(true); setMsg("");
     try {
+      if(pvasCanonicalEnabled(client)){
+        const meta=pvasGiftMetadata(g._canonicalGift);
+        const command={cptid:meta.gift.cptid,actor:by,target:pvasGiftTarget(meta)};
+        if(mode?.kind==="void"){
+          if(!f.reason.trim())throw new Error("Enter a reason for voiding");
+          await post(client,{op:"pvasGift",by,command:{...command,action:"void",reason:f.reason}});
+        }else{
+          const date=f.date===isoToUs(meta.gift.date)?meta.gift.date:parseUsDateClient(f.date);
+          if(date===null&&f.date!=="")throw new Error("Use MM/DD/YYYY or blank for an unknown date");
+          await post(client,{op:"pvasGift",by,command:{...command,action:"edit",gift:{...pvasGiftValues(meta),amount:moneyInput(f.amount),date:date===""?null:date,
+            kind:f.kind,status:f.kind==="pledge"?"pledged":"received",note:f.note===(meta.gift.note??"")?meta.gift.note:f.note}}});
+        }
+        await reload();setMode(null);setMsg("Saved against the original canonical gift version.");return;
+      }
       if (mode?.kind === "void") {
         if (!f.reason.trim()) { setMsg("Enter a reason for voiding."); voidReason.current?.focus(); return; }
         await post(client, { op: "voidGift", by, reason: f.reason, gift: base(g) });
@@ -217,21 +241,21 @@ function AllGifts() {
   };
   const voided = state.voidedGifts ?? [];
   const dbVoids = (state.giftOverrides ?? []).filter((o) => o.voided);
-  const activeGift = state.gifts.find((g) => giftId(g) === mode?.id);
+  const activeGift = mode?.original??state.gifts.find((g) => giftId(g) === mode?.id);
   return (
     <div className={card}>
       <div className="flex flex-wrap items-end justify-between gap-2">
         <h3 className="font-display text-lg text-[rgb(var(--navy))]">All campaign gifts and pledges</h3>
         <label className="text-xs">Your name (required to edit or void)<input className={`${input} mt-1 w-56`} value={by} onChange={(e) => setBy(e.target.value)} /></label>
       </div>
-      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh.</p>
+      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. {pvasCanonicalEnabled(client)?"Changes write the canonical gift, preserving its source identity, expected version and audit. No weekly import is required.":"Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh."}</p>
       {msg && !mode && <p role="status" aria-live="polite" className="mt-2 rounded border border-[rgb(var(--brass))] p-3 text-sm">{msg}</p>}
       <div className="mt-3 max-h-[560px] overflow-auto">
         <table className="w-full"><thead><tr className="border-b border-[rgb(var(--line))]"><SortTh s={gso} k="gift_date" label="Date" className={th} /><SortTh s={gso} k="donor_name" label="Donor" className={th} /><SortTh s={gso} k="kind" label="Type" className={th} /><SortTh s={gso} k="amount" label="Amount" className={`${th} text-right`} /><SortTh s={gso} k="src" label="Source" className={th} /><SortTh s={gso} k="note" label="Note" className={th} /><th className={th} /></tr></thead>
           <tbody>{gso.sorted.map((g) => (
             <Fragment key={giftId(g)}>
               <tr className="border-b border-[rgb(var(--line))]"><td className={td}>{isoToUs(g.gift_date)}</td><td className={td}><NameLink name={g.donor_name} cptid={g.cptid} />{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
-                <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{usd(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usd(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
+                <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{g.amountExact?usdExact(g.amountExact):usd(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usd(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
                 <td className={td}>{g.source === "database" ? (g.created_by || "Client database") : g.source === "upload" ? "Client file" : "Portal entry"}</td><td className={td}>{g.note ?? ""}</td>
                 <td className={`${td} whitespace-nowrap text-right`}>{(Number(g.id) > 0 || g.key) && <>
                   <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline" onClick={() => start(g, "edit")}>Edit</button>
@@ -240,6 +264,7 @@ function AllGifts() {
           ))}</tbody></table>
         {!state.gifts.length && <p className="py-4 text-sm text-[rgb(var(--ink))]/60">No campaign gifts or pledges recorded yet.</p>}
       </div>
+      {!!state.otherCanonicalGifts?.length&&<details className="mt-3"><summary>Other canonical gift rows (not counted in USD hard-credit campaign totals)</summary><ul className="text-sm">{state.otherCanonicalGifts.map((row,i)=>{const g=pvasGiftMetadata(row._canonicalGift).gift;return <li key={g.giftId??i}>{g.donorName??`CPTID ${g.cptid}`} · {g.amount} {g.currency} · {g.scope} · {g.credit} · {g.kind} · {g.status}</li>;})}</ul></details>}
       <Dialog open={!!(mode && activeGift)} onOpenChange={(open) => { if (!open && !busy) { setMode(null); setMsg(""); } }}>
         {mode && activeGift && <DialogContent className="z-[100] max-h-[85vh] max-w-2xl overflow-y-auto bg-white text-[rgb(var(--navy))]">
           <DialogTitle>{mode.kind === "edit" ? "Edit" : "Void"} {activeGift.donor_name}&rsquo;s {activeGift.kind}</DialogTitle>
@@ -284,7 +309,21 @@ function GiftForm() {
     if (parseUsDateClient(gift.date) === null) { setMsg("Use MM/DD/YYYY for the date."); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await post(client, { op: "addGift", by, gift, confirmNew });
+      let r;
+      if(pvasCanonicalEnabled(client)){
+        if(!by.trim())throw new Error("Enter your name before saving");
+        if(!gift.cptid){
+          const matched=await post(client,{op:"matchDonor",name:gift.donorName});
+          setMatches(matched.matches??[]);setMsg("Select an existing donor, or add a prospect first. Canonical gifts require an exact CPTID.");return;
+        }
+        const cptid=/^[1-9]\d*$/.test(gift.cptid)?Number(gift.cptid):NaN;
+        if(!Number.isInteger(cptid)||cptid>2147483647)throw new Error("Enter an exact valid CPTID");
+        const date=parseUsDateClient(gift.date);
+        if(date===null)throw new Error("Use MM/DD/YYYY or leave the unknown date blank");
+        r=await post(client,{op:"pvasGift",by,command:{cptid,actor:by,action:"create",source:{system:"manual",key:"@new-manual-action"},
+          gift:{amount:moneyInput(gift.amount),currency:"USD",date:date===""?null:date,year:null,kind:gift.kind,status:gift.kind==="pledge"?"pledged":"received",
+            scope:"campaign",credit:"hard",campaign:null,fund:null,type:null,note:gift.note,donorName:gift.donorName}}});
+      }else r=await post(client, { op: "addGift", by, gift, confirmNew });
       if (r.matches) { setMatches(r.matches); setMsg(""); return; }
       setMatches(null); setF({ donorName: "", cptid: "", kind: f.kind, amount: "", date: "", note: "" }); setMsg("Saved."); await reload();
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
@@ -310,7 +349,7 @@ function GiftForm() {
               <button className={btn2} disabled={busy} onClick={() => { const g = { ...f, cptid: String(m.cptid), donorName: m.name }; setF(g); void save(true, g); }}>Use this record</button>
               <span><strong>{m.name}</strong> · CPTID {m.cptid}{m.address ? ` · ${m.address}` : ""}{m.exact ? " · exact name match" : ""}</span>
             </li>))}</ul>
-          <div className="mt-3 flex gap-2"><button className={btn2} onClick={() => setMatches(null)}>Cancel</button><button className={btn} disabled={busy} onClick={() => save(true)}>None of these, save as a new donor</button></div>
+          <div className="mt-3 flex gap-2"><button className={btn2} onClick={() => setMatches(null)}>Cancel</button>{!pvasCanonicalEnabled(client)&&<button className={btn} disabled={busy} onClick={() => save(true)}>None of these, save as a new donor</button>}</div>
         </div>
       )}
       {msg && <p className="mt-2 text-sm">{msg}</p>}
@@ -328,10 +367,21 @@ export function AddProspect() {
   const save = async (force = false) => {
     setBusy(true); setMsg("");
     try {
-      const r = await post(client, { op: "addProspect", by, force, prospect: p });
+      let r;
+      if(pvasCanonicalEnabled(client)){
+        const fullName=p.orgName.trim()||`${p.firstName} ${p.lastName}`.trim();
+        if(!fullName||!by.trim())throw new Error("Enter a prospect name and your name");
+        if(!force){
+          const matches=await post(client,{op:"matchDonor",name:fullName});
+          if(matches.matches?.length){setDups(matches.matches);return;}
+        }
+        r=await post(client,{op:"pvasContact",by,command:{operation:"contact-create",actor:by,clientId:p.clientId===""?null:p.clientId,
+          fields:{fullName,firstName:p.firstName,lastName:p.lastName,street:p.address1,city:p.city,state:p.state,zip:p.zip,email:p.email,phone:p.phone},
+          extras:{orgName:p.orgName,note:p.note}}});
+      }else r=await post(client, { op: "addProspect", by, force, prospect: p });
       if (r.duplicates) { setDups(r.duplicates); return; }
-      const screened = !p.orgName && !!p.state.trim() && !!(p.firstName.trim() && p.lastName.trim());
-      setDups(null); setP(EMPTY_P); setMsg(`Added with CPTID ${r.cptid}.${screened ? " A DonorSearch wealth screening was requested and will appear on the record within about 15 minutes." : " Add a first name, last name and state to run a DonorSearch wealth screening from the record."}`); await reload(); refreshCrmIndex();
+      const screened = !pvasCanonicalEnabled(client) && !p.orgName && !!p.state.trim() && !!(p.firstName.trim() && p.lastName.trim());
+      setDups(null); setP(EMPTY_P); setMsg(`Added with CPTID ${r.cptid}.${pvasCanonicalEnabled(client)?" Live wealth-screening submission is held until the canonical request consumer is accepted.":screened ? " A DonorSearch wealth screening was requested and will appear on the record within about 15 minutes." : " Add a first name, last name and state to run a DonorSearch wealth screening from the record."}`); await reload(); refreshCrmIndex();
     } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
   };
   const fld = (k: keyof typeof EMPTY_P, ph: string, cls = "") => <input className={`${input} ${cls}`} placeholder={ph} value={p[k]} onChange={(e) => { setP({ ...p, [k]: e.target.value }); setDups(null); }} />;
@@ -419,7 +469,7 @@ export function AuditLog() {
   const undo = async (id: number) => {
     if (!confirm(`Undo batch ${id}? Every record, change and gift it added will be removed from the portal (kept in the audit log).`)) return;
     setBusy(id); setMsg("");
-    try { await post(client, { op: "undo", batchId: id, by }); await reload(); } catch (e) { setMsg((e as Error).message); } finally { setBusy(null); }
+    try { await post(client, pvasCanonicalEnabled(client)?{op:"pvasBatchUndo",by,command:{actor:by,batchId:id}}:{ op: "undo", batchId: id, by }); await reload(); } catch (e) { setMsg((e as Error).message); } finally { setBusy(null); }
   };
   if (!state) return null;
   return (
@@ -446,6 +496,7 @@ function EditPortalProspect({ p, onDone }: { p: PortalState["prospects"][number]
   const { client, reload } = useV2();
   const [by] = useBy();
   const [f, setF] = useState<Record<string, string>>(() => Object.fromEntries(EDIT_FIELDS.map(([k, col]) => [k, String((p as unknown as Record<string, unknown>)[col] ?? "")])));
+  const [original]=useState(()=>({values:Object.fromEntries(EDIT_FIELDS.map(([k,col])=>[k,String((p as unknown as Record<string,unknown>)[col]??"")])),profile:structuredClone(p._canonicalContact)}));
   const [busy, setBusy] = useState(false), [err, setErr] = useState("");
   const set = (k: string, v: string) => setF((o) => {
     const n = { ...o, [k]: v };
@@ -455,7 +506,13 @@ function EditPortalProspect({ p, onDone }: { p: PortalState["prospects"][number]
   });
   const save = async () => {
     setBusy(true); setErr("");
-    try { await post(client, { op: "editProspect", cptid: p.cptid, prospect: f, by: by || "Catapult portal" }); await reload(); onDone(); }
+    try {
+      const actor=by||"Catapult portal";
+      if(pvasCanonicalEnabled(client)){
+        const profile=pvasContactProfile(original.profile,p.cptid),changed=Object.fromEntries(Object.entries(f).filter(([k,v])=>v!==original.values[k]));
+        await post(client,{op:"pvasContact",by:actor,command:{...pvasProspectChanges(profile,changed),actor}});
+      }else await post(client, { op: "editProspect", cptid: p.cptid, prospect: f, by: actor });
+      await reload(); onDone(); }
     catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   };
   return (

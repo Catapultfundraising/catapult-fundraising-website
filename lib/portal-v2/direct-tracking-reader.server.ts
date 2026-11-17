@@ -1,11 +1,21 @@
 /** Server-only adapter. Never imported from a client component. No default-on integration. */
 import "server-only";
+import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { get } from "@vercel/blob";
 import { open } from "node:fs/promises";
-import { readStrictTracking, projectTrackingManual, type DirectClient, type RawRead } from "./direct-tracking-state";
+import { readStrictTracking, projectTrackingManual, type DirectClient, type RawRead, type StrictTracking, type TrackingDocument } from "./direct-tracking-state";
 
 const LIMIT = 4 * 1024 * 1024;
 export async function strictTrackingFor(client: DirectClient) {
+  if (pvasCanonicalEnabled(client)) {
+    // Canonical SQL tracking also owns direct-file conflict checks; never read
+    // the retired PVAS tracking blob, even if an import callback asks directly.
+    try {
+      const { getPvasTracking } = await import("../pvas-tracking");
+      const state = await getPvasTracking();
+      return { kind: "present", revision: state.revision!, document: state as unknown as TrackingDocument } as StrictTracking;
+    } catch { return { kind: "unavailable", reason: "read-failed" } as StrictTracking; }
+  }
   return readStrictTracking(client, async (path): Promise<RawRead> => {
     const dir = process.env[`${client.toUpperCase()}_LOCAL_DIR`];
     if (dir) {
