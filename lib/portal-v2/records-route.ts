@@ -9,6 +9,7 @@ import type { PortalClient } from "@/lib/portal-v2/clients";
 import {pvasCanonicalEnabled}from"./pvas-canonical";
 import {pvasContactProfile}from"./pvas-contact-wire";
 import {readOutcome}from"./outcome";
+import { createViewMemo } from "./records-memo";
 
 export type Idx = { cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number; last: string; years: number; band: string; capMin: number };
 export type Data = { asOf?: string; index: Idx[]; records: Record<string, unknown> } | null;
@@ -168,19 +169,33 @@ export function overlaidIndex(base: Idx[], prospects: Prospect[], campaign: Retu
 // GET ?id=<CPTID> -> one full donor record; no id -> the lookup index. Prospects added on the dashboard (Engage SQL)
 // are included so every name on every screen opens a record, even before the next refresh picks them up.
 // Dashboard edits (contact, wealth, merges, deletes) are applied on read; merged/deleted records leave the index.
-export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, load: () => Promise<Data>, getTracking: () => Promise<AssignmentTracking> = async () => ({ prospects: {} }), getState = portalCampaignStateSafe) {
+class RecordsNotLoaded extends Error {}
+export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, load: () => Promise<Data>, getTracking: () => Promise<AssignmentTracking> = async () => ({ prospects: {} }), getState = portalCampaignStateSafe, viewKey?: () => Promise<object | null>) {
+  const memo = createViewMemo<object, { data: NonNullable<Data>; projection: ReturnType<typeof currentRecordProjection> }>();
+  async function view() {
+    return memo(viewKey ? await viewKey() : null, async () => {
+      const data = await load();
+      if (!data) throw new RecordsNotLoaded();
+      const [state, tracking] = await Promise.all([
+        getState(client, pvasCanonicalEnabled(client) ? { pvasRecords: data.records } : undefined),
+        currentTracking(client, getTracking),
+      ]);
+      requireCurrentSql(client, state);
+      return { data, projection: currentRecordProjection(client, data, state, tracking) };
+    });
+  }
   async function GET(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    const data = await load();
-    if (!data) return NextResponse.json({ error: "records not loaded" }, { status: 503 });
     const drill = req.nextUrl.searchParams.get("drill");
-    if (drill) return NextResponse.json({ cptids: drillIds(client, data.records as Record<string, Rec>, drill, req.nextUrl.searchParams.get("v") ?? "") });
-    const [state, tracking] = await Promise.all([
-      getState(client, pvasCanonicalEnabled(client) ? { pvasRecords: data.records } : undefined),
-      currentTracking(client, getTracking),
-    ]);
-    requireCurrentSql(client, state);
-    const projection = currentRecordProjection(client,data,state,tracking);
+    if (drill) {
+      const data = await load();
+      if (!data) return NextResponse.json({ error: "records not loaded" }, { status: 503 });
+      return NextResponse.json({ cptids: drillIds(client, data.records as Record<string, Rec>, drill, req.nextUrl.searchParams.get("v") ?? "") });
+    }
+    let current: Awaited<ReturnType<typeof view>>;
+    try { current = await view(); }
+    catch (e) { if (e instanceof RecordsNotLoaded) return NextResponse.json({ error: "records not loaded" }, { status: 503 }); throw e; }
+    const { data, projection } = current;
     const id=req.nextUrl.searchParams.get("id");
     if(id) { const out=projection.record(Number(id)); return out?NextResponse.json(out,{headers:{"Cache-Control":"no-store"}}):NextResponse.json({error:"not found"},{status:404}); }
     return NextResponse.json({asOf:data.asOf,index:projection.index,directSourceRevision:(data as unknown as {directSourceRevision?:string}).directSourceRevision},{headers:{"Cache-Control":"no-store"}});

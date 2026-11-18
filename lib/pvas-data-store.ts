@@ -103,6 +103,11 @@ export async function invalidatePvasDataCache(): Promise<void> {
   try { await sharedCache.invalidate(); } catch (e) { console.warn(`pvas cache invalidation marker failed: ${String(e)}`); }
 }
 async function currentPvas(): Promise<Built> { return sharedCache.get(); }
+/** Identity of the current shared build (same freshness rules), for reusing per-build read views. */
+export async function pvasBuildIdentity(): Promise<object | null> {
+  if (!pvasCanonicalEnabled("pvas")) return null;
+  try { return (await currentPvas()) as object; } catch { return null; }
+}
 export async function getPvasRecords(): Promise<PvasRecords | null> {
   if (!pvasCanonicalEnabled("pvas")) return legacy.getPvasRecords();
   try {
