@@ -1,7 +1,8 @@
 import { get as blobGet } from "@vercel/blob";
 import { directData } from "./portal-v2/direct-source-state.server";
+import { liveBuild, liveLocalDir } from "./client-live-data.server";
 
-// Local QA only: CSNF_LOCAL_DIR points at a folder holding snapshot.json and
+// Local QA only (dashboards otherwise read live SQL, see client-live-data.server.ts): CSNF_LOCAL_DIR points at a folder holding snapshot.json and
 // records.json so the portal can run without the blob store.
 async function get(path: string, opts: Parameters<typeof blobGet>[1]) {
   const dir = process.env.CSNF_LOCAL_DIR;
@@ -41,6 +42,11 @@ export interface CsnfSnapshot {
 }
 
 export async function getCsnfSnapshot(): Promise<CsnfSnapshot | null> {
+  // Live SQL (2-minute shared build). The old weekly snapshot file is only used for local QA.
+  if (!liveLocalDir("csnf")) {
+    try { return structuredClone((await liveBuild("csnf")).snapshot) as unknown as CsnfSnapshot; }
+    catch (e) { console.error(`csnf live SQL snapshot unavailable: ${String(e)}`); return null; }
+  }
   try {
     const r = await get(CSNF_DATA_PATH, { access: "private", useCache: false });
     if (!r || !r.stream) return null;
@@ -77,6 +83,10 @@ export interface CsnfRecords { asOf: string; index: IndexRow[]; records: Record<
 
 let cache: { at: number; data: CsnfRecords } | null = null;
 async function getCsnfRawRecords(): Promise<CsnfRecords | null> {
+  if (!liveLocalDir("csnf")) {
+    try { return (await liveBuild("csnf")).records as unknown as CsnfRecords; }
+    catch (e) { console.error(`csnf live SQL records unavailable: ${String(e)}`); return null; }
+  }
   if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   try {
     const r = await get(CSNF_RECORDS_PATH, { access: "private", useCache: false });

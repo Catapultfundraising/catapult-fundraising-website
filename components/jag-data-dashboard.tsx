@@ -654,6 +654,7 @@ function JagDashboardBody({ data: snapshot }: { data: JagSnapshot }) {
             <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
             <p className="mt-1 text-sm text-white/70">{dates.refreshed}</p>
             <p className="text-xs text-white/60">{dates.source}</p>
+            <div className="mt-2 text-xs text-white/80"><p>Shows SQL as of the last 2 minutes. Your edits here and this Reload link always pull current SQL.</p><button type="button" onClick={()=>{void fetch("/api/jag-data-cache",{method:"POST"}).catch(()=>{}).finally(()=>window.location.reload());}} className="mt-1 underline">Reload current SQL view</button></div>
           </div>
           <DonorSearch dark />
         </div>

@@ -2,6 +2,7 @@
 import "server-only";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { get } from "@vercel/blob";
+import { LIVE_CLIENTS, sqlTracking, type LiveClient } from "../client-live-data.server";
 import { open } from "node:fs/promises";
 import { readStrictTracking, projectTrackingManual, type DirectClient, type RawRead, type StrictTracking, type TrackingDocument } from "./direct-tracking-state";
 
@@ -15,6 +16,15 @@ export async function strictTrackingFor(client: DirectClient) {
       const state = await getPvasTracking();
       return { kind: "present", revision: state.revision!, document: state as unknown as TrackingDocument } as StrictTracking;
     } catch { return { kind: "unavailable", reason: "read-failed" } as StrictTracking; }
+  }
+  if ((LIVE_CLIENTS as readonly string[]).includes(client)) {
+    // After the client's switch its tracking lives in its own SQL schema; same strict validation and revision.
+    let fromSql;
+    try { fromSql = await sqlTracking(client as LiveClient); } catch { return { kind: "unavailable", reason: "read-failed" } as StrictTracking; }
+    if (fromSql) {
+      const bytes = new TextEncoder().encode(JSON.stringify({ prospects: fromSql.prospects, activity: fromSql.activity, removed: fromSql.removed }));
+      return readStrictTracking(client, async () => ({ kind: "bytes", bytes }));
+    }
   }
   return readStrictTracking(client, async (path): Promise<RawRead> => {
     const dir = process.env[`${client.toUpperCase()}_LOCAL_DIR`];

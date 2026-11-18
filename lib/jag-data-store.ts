@@ -1,7 +1,8 @@
 import { get as blobGet } from "@vercel/blob";
 import { directData } from "./portal-v2/direct-source-state.server";
+import { liveBuild, liveLocalDir } from "./client-live-data.server";
 
-// Local QA only: JAG_LOCAL_DIR points at a folder holding snapshot.json and
+// Local QA only (dashboards otherwise read live SQL, see client-live-data.server.ts): JAG_LOCAL_DIR points at a folder holding snapshot.json and
 // records.json so the portal can run without the blob store.
 async function get(path: string, opts: Parameters<typeof blobGet>[1]) {
   const dir = process.env.JAG_LOCAL_DIR;
@@ -41,6 +42,11 @@ export interface JagSnapshot {
 }
 
 export async function getJagSnapshot(): Promise<JagSnapshot | null> {
+  // Live SQL (2-minute shared build). The old weekly snapshot file is only used for local QA.
+  if (!liveLocalDir("jag")) {
+    try { return structuredClone((await liveBuild("jag")).snapshot) as unknown as JagSnapshot; }
+    catch (e) { console.error(`jag live SQL snapshot unavailable: ${String(e)}`); return null; }
+  }
   try {
     const r = await get(JAG_DATA_PATH, { access: "private", useCache: false });
     if (!r || !r.stream) return null;
@@ -77,6 +83,10 @@ export interface JagRecords { asOf: string; index: IndexRow[]; records: Record<s
 
 let cache: { at: number; data: JagRecords } | null = null;
 async function getJagRawRecords(): Promise<JagRecords | null> {
+  if (!liveLocalDir("jag")) {
+    try { return (await liveBuild("jag")).records as unknown as JagRecords; }
+    catch (e) { console.error(`jag live SQL records unavailable: ${String(e)}`); return null; }
+  }
   if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   try {
     const r = await get(JAG_RECORDS_PATH, { access: "private", useCache: false });

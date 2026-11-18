@@ -1,4 +1,5 @@
 import { get, put } from "@vercel/blob";
+import { liveBuild, sqlTracking, saveSqlTracking } from "@/lib/client-live-data.server";
 import { EMPTY_TRACKING, type JagTracking } from "@/lib/jag-tracking-types";
 
 // Committee updates + activity history (written by portal users) and the PIR
@@ -32,9 +33,14 @@ export async function writeJson(path: string, data: unknown) {
 }
 
 export async function getJagTracking(): Promise<JagTracking> {
+  // After this client's switch, tracking lives in jag.dashboard_prospect_status / jag.dashboard_activity (SQL)
+  // and PIR links come from jag.pir_links. Before it, the blob below is still the source.
+  const fromSql = await sqlTracking("jag");
+  if (fromSql) return { ...fromSql, pirs: (await liveBuild("jag")).pirs } as unknown as JagTracking;
   const [t, pirs] = await Promise.all([readJson<Omit<JagTracking, "pirs">>(JAG_TRACKING_PATH), readJson<JagTracking["pirs"]>(JAG_PIRS_PATH)]);
   return { prospects: t?.prospects ?? EMPTY_TRACKING.prospects, activity: t?.activity ?? [], removed: t?.removed ?? [], pirs: pirs ?? {} };
 }
 export async function saveJagTracking(t: JagTracking) {
+  if (await saveSqlTracking("jag", t)) return;
   await writeJson(JAG_TRACKING_PATH, { prospects: t.prospects, activity: t.activity, removed: t.removed ?? [] });
 }

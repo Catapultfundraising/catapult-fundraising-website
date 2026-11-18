@@ -1,7 +1,8 @@
 import { get as blobGet } from "@vercel/blob";
 import { directData } from "./portal-v2/direct-source-state.server";
+import { liveBuild, liveLocalDir } from "./client-live-data.server";
 
-// Local QA only: WCBHC_LOCAL_DIR points at a folder holding snapshot.json and
+// Local QA only (dashboards otherwise read live SQL, see client-live-data.server.ts): WCBHC_LOCAL_DIR points at a folder holding snapshot.json and
 // records.json so the portal can run without the blob store.
 async function get(path: string, opts: Parameters<typeof blobGet>[1]) {
   const dir = process.env.WCBHC_LOCAL_DIR;
@@ -51,6 +52,11 @@ export interface WcbhcSnapshot {
 }
 
 export async function getWcbhcSnapshot(): Promise<WcbhcSnapshot | null> {
+  // Live SQL (2-minute shared build). The old weekly snapshot file is only used for local QA.
+  if (!liveLocalDir("wcbhc")) {
+    try { return structuredClone((await liveBuild("wcbhc")).snapshot) as unknown as WcbhcSnapshot; }
+    catch (e) { console.error(`wcbhc live SQL snapshot unavailable: ${String(e)}`); return null; }
+  }
   try {
     const r = await get(WCBHC_DATA_PATH, { access: "private", useCache: false });
     if (!r || !r.stream) return null;
@@ -90,6 +96,10 @@ export interface WcbhcRecords { asOf: string; index: IndexRow[]; records: Record
 
 let cache: { at: number; data: WcbhcRecords } | null = null;
 async function getWcbhcRawRecords(): Promise<WcbhcRecords | null> {
+  if (!liveLocalDir("wcbhc")) {
+    try { return (await liveBuild("wcbhc")).records as unknown as WcbhcRecords; }
+    catch (e) { console.error(`wcbhc live SQL records unavailable: ${String(e)}`); return null; }
+  }
   if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
   try {
     const r = await get(WCBHC_RECORDS_PATH, { access: "private", useCache: false });

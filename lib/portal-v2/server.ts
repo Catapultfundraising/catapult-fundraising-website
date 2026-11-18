@@ -21,6 +21,7 @@ import { isJagDataAuthed } from "@/lib/jag-data-auth";
 import { isWcbhcDataAuthed } from "@/lib/wcbhc-data-auth";
 import { isBaqDataAuthed } from "@/lib/baq-data-auth";
 import { getPvasRecords, invalidatePvasDataCache } from "@/lib/pvas-data-store";
+import { LIVE_CLIENTS, liveBuild, liveLocalDir, type LiveClient } from "@/lib/client-live-data.server";
 import { getCsnfRecords } from "@/lib/csnf-data-store";
 import { getJagRecords } from "@/lib/jag-data-store";
 import { getWcbhcRecords } from "@/lib/wcbhc-data-store";
@@ -118,6 +119,10 @@ export async function readIds(client: PortalClient): Promise<Known[] | null> {
       const c = data.records[String(row.cptid)]?.contact ?? {};
       return { cptid: row.cptid, clientId: c.clientId ?? "", name: row.name, address: c.street ?? "", city: c.city ?? "", zip: c.zip ?? "", email: c.email ?? "", phone: c.phone ?? "" };
     });
+  }
+  // CSNF/JAG/WCBHC/BAQ: the id index comes from the same live SQL build as the dashboard.
+  if ((LIVE_CLIENTS as readonly string[]).includes(client) && !liveLocalDir(client as LiveClient)) {
+    try { return (await liveBuild(client as LiveClient)).ids as unknown as Known[]; } catch { return null; }
   }
   try {
     const dir = process.env[`${client.toUpperCase()}_LOCAL_DIR`];

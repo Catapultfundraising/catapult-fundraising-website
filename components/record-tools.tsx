@@ -6,7 +6,7 @@ import { pvasContactChanges,pvasIdentityCommand,pvasContactProfile,pvasMergeStat
 // Shared record tools for every client data dashboard (JAG, CSNF, PVAS, WCBHC, BAQ):
 // editable contact info with old-contact history, wealth screening (DonorSearch + PIR + staff edits),
 // giving grouped by year with each gift in a dropdown, and duplicate merge / delete.
-// Every change is saved in Azure SQL through /api/{client}-data-v2 (Engage portal_updates); the Monday refresh never overwrites it.
+// Every change is saved in Azure SQL through /api/{client}-data-v2 (<client>.portal_updates after the client-schema switch; PVAS uses its canonical tables).
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRecordNav } from "@/components/dashboard-shared";
@@ -201,7 +201,7 @@ export function ContactSection({ client, r, onSaved }: { client: string; r: AnyR
             ))}
             <div className="col-span-2 md:col-span-1"><NameBox by={by} setBy={setBy} /></div>
           </div>
-          <p className="text-[11px] text-[rgb(var(--ink))]/55">The values you replace are kept under Old contact information. The Monday refresh never overwrites these changes.</p>
+          <p className="text-[11px] text-[rgb(var(--ink))]/55">The values you replace are kept under Old contact information. Your changes are saved in the client's SQL tables.</p>
           <div className="flex gap-2">
             <button onClick={save} disabled={busy} className={navyBtn}>{busy ? "Saving..." : "Save contact"}</button>
             <button onClick={() => setEditing(false)} className="text-xs underline">Cancel</button>

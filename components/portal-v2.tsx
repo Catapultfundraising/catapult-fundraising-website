@@ -145,7 +145,7 @@ export function CampaignDonors() {
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="font-display text-xl text-[rgb(var(--navy))]">Campaign donors by gift-chart level</h2>
-            <p className="text-sm text-[rgb(var(--ink))]/65">Click a level to see every donor in it; click a name to open the record. {pvasCanonicalEnabled(client)?"Campaign gifts and pledges reflect current donor records; online activity is shown separately.":"Campaign gifts and pledges from the client database (weekly refresh), client uploads and portal entries."} Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
+            <p className="text-sm text-[rgb(var(--ink))]/65">Click a level to see every donor in it; click a name to open the record. {pvasCanonicalEnabled(client)?"Campaign gifts and pledges reflect current donor records; online activity is shown separately.":"Campaign gifts and pledges from the client database (live SQL), client uploads and portal entries."} Each donor sits at the highest level their commitment reaches (the larger of pledged or given, so pledge payments are not counted twice).</p>
           </div>
           <label className="text-xs uppercase tracking-wider text-[rgb(var(--ink))]/55">Campaign goal
             <input className={`${input} mt-1 w-40`} value={goalText} onChange={(e) => setGoalText(e.target.value)} />
@@ -283,7 +283,7 @@ function AllGifts() {
         <h3 className="font-display text-lg text-[rgb(var(--navy))]">All campaign gifts and pledges</h3>
         <label className="text-xs">Your name (required to edit or void)<input className={`${input} mt-1 w-56`} value={by} onChange={(e) => setBy(e.target.value)} /></label>
       </div>
-      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">{pvasCanonicalEnabled(client) ? state.databaseGiftEditsAvailable ? "Edit updates the existing gift or pledge. Void removes it from campaign totals and keeps the reason and history." : "Gift changes are currently unavailable." : "Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved on the dashboard and re-applied after every weekly refresh."}</p>
+      <p className="mt-1 text-xs text-[rgb(var(--ink))]/55">{pvasCanonicalEnabled(client) ? state.databaseGiftEditsAvailable ? "Edit updates the existing gift or pledge. Void removes it from campaign totals and keeps the reason and history." : "Gift changes are currently unavailable." : "Edit changes the existing gift or pledge (no second record). Void removes a duplicate or mistake from the totals; it asks for a reason and keeps who and when. Corrections to client-database rows are saved in the client's SQL tables and always applied."}</p>
       {pvasCanonicalEnabled(client)&&pendingChange&&<button className={`${btn2} mt-2`} disabled={busy} onClick={checkSaved}>Check saved change</button>}
       {msg && !mode && <p role="status" aria-live="polite" className="mt-2 rounded border border-[rgb(var(--brass))] p-3 text-sm">{msg}</p>}
       <div className="mt-3 max-h-[560px] overflow-auto">
