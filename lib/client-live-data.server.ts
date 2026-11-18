@@ -3,6 +3,7 @@ import { get, put } from "@vercel/blob";
 import { after } from "next/server";
 import { createPvasSharedCache, type CacheBlobStore } from "./pvas-shared-cache.server";
 import type { IdRow } from "./portal-refresh/ids";
+import { stampTrackingBases, recordBase } from "./portal-v2/sql-newer";
 
 // CSNF, JAG, WCBHC and BAQ dashboards read their client's SQL schema live (Anthony, 2026-11-18), the same way
 // PVAS does: one shared build per client, reused for at most 2 minutes (PVAS_CACHE_TTL_SECONDS, 0 disables),
@@ -86,4 +87,14 @@ export async function saveSqlTracking(client: LiveClient, t: { prospects: unknow
   if (status === 409 && body.code === "tracking-not-in-sql") return false;
   if (status !== 200 || body.ok !== true) throw new Error(String(body.error || `tracking save failed (${status})`));
   return true;
+}
+
+/** Saves tracking, recording beside each newly saved solicitor the SQL value it replaced (so a later SQL change wins). */
+export async function saveTrackingWithBases(client: LiveClient, t: { prospects: unknown; activity: unknown; removed?: unknown }): Promise<boolean> {
+  if (liveLocalDir(client)) return false;
+  const prev = await sqlTracking(client);
+  if (!prev) return false;
+  const records = (await liveBuild(client)).records.records;
+  const prospects = stampTrackingBases(t.prospects as Record<string, Record<string, unknown>>, prev.prospects as Record<string, Record<string, unknown>>, recordBase(client, records));
+  return saveSqlTracking(client, { ...t, prospects });
 }

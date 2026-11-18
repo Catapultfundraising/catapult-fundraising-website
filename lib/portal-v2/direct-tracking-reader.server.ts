@@ -2,7 +2,8 @@
 import "server-only";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { get } from "@vercel/blob";
-import { LIVE_CLIENTS, sqlTracking, type LiveClient } from "../client-live-data.server";
+import { LIVE_CLIENTS, liveBuild, sqlTracking, type LiveClient } from "../client-live-data.server";
+import { applyTrackingBases, recordBase } from "./sql-newer";
 import { open } from "node:fs/promises";
 import { readStrictTracking, projectTrackingManual, type DirectClient, type RawRead, type StrictTracking, type TrackingDocument } from "./direct-tracking-state";
 
@@ -22,7 +23,11 @@ export async function strictTrackingFor(client: DirectClient) {
     let fromSql;
     try { fromSql = await sqlTracking(client as LiveClient); } catch { return { kind: "unavailable", reason: "read-failed" } as StrictTracking; }
     if (fromSql) {
-      const bytes = new TextEncoder().encode(JSON.stringify({ prospects: fromSql.prospects, activity: fromSql.activity, removed: fromSql.removed }));
+      // Same newest-change-wins view as the tracking store (a solicitor changed in SQL after the edit wins).
+      let prospects;
+      try { prospects = applyTrackingBases(fromSql.prospects as Record<string, Record<string, unknown>>, recordBase(client, (await liveBuild(client as LiveClient)).records.records)); }
+      catch { return { kind: "unavailable", reason: "read-failed" } as StrictTracking; }
+      const bytes = new TextEncoder().encode(JSON.stringify({ prospects, activity: fromSql.activity, removed: fromSql.removed }));
       return readStrictTracking(client, async () => ({ kind: "bytes", bytes }));
     }
   }
