@@ -3,6 +3,8 @@ import { NextResponse } from "next/server";
 import { gunzipSync } from "node:zlib";
 import { PVAS_DATA_PATH, PVAS_RECORDS_PATH } from "@/lib/pvas-data-store";
 import { PVAS_PIRS_PATH } from "@/lib/pvas-tracking";
+import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
+import { PVAS_EXISTING_ONLY } from "@/lib/portal-v2/pvas-existing-only";
 
 export const runtime = "nodejs";
 
@@ -13,6 +15,9 @@ export async function POST(req: Request) {
   const secret = process.env.CRON_SECRET;
   if (!secret || req.headers.get("authorization") !== `Bearer ${secret}`) {
     return NextResponse.json({ error: "unauthorized" }, { status: 401 });
+  }
+  if (pvasCanonicalEnabled("pvas")) {
+    return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
   const k = new URL(req.url).searchParams.get("kind");
   const kind = k === "records" ? "records" : k === "pirs" ? "pirs" : "snapshot";
