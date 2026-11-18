@@ -20,6 +20,21 @@ export interface Post {
 
 export const POSTS: Post[] = [
 {
+  "slug": "mission-before-recognition",
+  "date": "2026-11-24",
+  "title": "Mission Before Recognition",
+  "description": "What donors need to hear before you talk about naming",
+  "readTime": "4 min read",
+  "image": "/blog/mission-before-recognition/mission-first.svg",
+  "alt": "Mission before recognition: who will benefit, what will the gift do, and why this decision?",
+  "pillars": [
+    "Major Gifts"
+  ],
+  "services": [
+    "capital-campaign"
+  ]
+},
+{
   "slug": "sustainable-fundraising-diversified-revenue",
   "date": "2026-11-17",
   "title": "Sustainable Fundraising Starts With a Broader Base of Support",
