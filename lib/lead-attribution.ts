@@ -4,7 +4,7 @@ export const ATTRIBUTION_FIELDS = ["utm_source", "utm_medium", "utm_campaign", "
 export type LeadAttribution = Partial<Record<(typeof ATTRIBUTION_FIELDS)[number], string>>;
 
 export function isMarketingPath(pathname: string): boolean {
-  return pathname === "/" || pathname === "/contact" || pathname === "/services" || pathname.startsWith("/services/");
+  return pathname === "/rnl-calling-program-alternative" || pathname === "/" || pathname === "/contact" || pathname === "/services" || pathname.startsWith("/services/");
 }
 
 export function sanitizeAttribution(value: unknown): LeadAttribution {
