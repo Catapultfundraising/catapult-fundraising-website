@@ -1,5 +1,8 @@
 import "server-only";
 import { buildPvas } from "./portal-refresh/pvas";
+import { get, put } from "@vercel/blob";
+import { after } from "next/server";
+import { createPvasSharedCache, type CacheBlobStore } from "./pvas-shared-cache.server";
 import { pvasCanonicalEnabled } from "./portal-v2/pvas-canonical";
 import * as legacy from "./pvas-data-store.legacy";
 import type{PvasGiftMetadata}from"./portal-v2/pvas-gift-wire";
@@ -79,18 +82,27 @@ export interface DonorRecord {
 }
 export interface PvasRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
-// Canonical PVAS never retains completed SQL data between requests. Concurrent
-// readers may share an in-flight build; after writes, detach that older job.
+// Canonical PVAS builds are shared for at most 2 minutes (PVAS_CACHE_TTL_SECONDS, 0 disables).
+// Confirmed edits and the dashboard Reload link invalidate it for every server instance.
 type Built = Awaited<ReturnType<typeof buildPvas>>;
-let pending: Promise<Built> | null = null;
-export function invalidatePvasDataCache(): void { pending = null; }
-async function currentPvas(): Promise<Built> {
-  if (!pending) {
-    const job = buildPvas().finally(() => { if (pending === job) pending = null; });
-    pending = job;
-  }
-  return pending;
+const blobStore: CacheBlobStore | null = process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID ? {
+  async read(path) {
+    const r = await get(path, { access: "private", useCache: false });
+    return r?.stream ? Buffer.from(await new Response(r.stream).arrayBuffer()) : null;
+  },
+  async write(path, body, contentType) {
+    await put(path, body, { access: "private", contentType, addRandomSuffix: false, allowOverwrite: true,
+      multipart: body.length > 50_000_000 });
+  },
+} : null;
+const sharedCache = createPvasSharedCache<Built>({
+  build: buildPvas, store: blobStore, log: m => console.warn(m),
+  background: p => { try { after(() => p); } catch { void p; } },
+});
+export async function invalidatePvasDataCache(): Promise<void> {
+  try { await sharedCache.invalidate(); } catch (e) { console.warn(`pvas cache invalidation marker failed: ${String(e)}`); }
 }
+async function currentPvas(): Promise<Built> { return sharedCache.get(); }
 export async function getPvasRecords(): Promise<PvasRecords | null> {
   if (!pvasCanonicalEnabled("pvas")) return legacy.getPvasRecords();
   try {

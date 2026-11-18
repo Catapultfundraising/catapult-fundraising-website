@@ -95,10 +95,11 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
       // Internal request-owned input only; never read this context from JSON.
       const records=readContext?.pvasRecords ?? (await getPvasRecords())?.records;
       if(!records)throw new Error("Canonical contact/financial state unavailable");
-      result=canonicalPvasState(normalizeManualUpdateRowIds(result),records,campaign.records);
+      try{result=canonicalPvasState(normalizeManualUpdateRowIds(result),records,campaign.records);}
+      catch(e){await invalidatePvasDataCache();throw e;}
       result.databaseGiftEditsAvailable = pvasNativeWriteAccepted();
     }
-    if (result.ok === true && typeof result.requestId === "string") invalidatePvasDataCache();
+    if (result.ok === true && typeof result.requestId === "string") await invalidatePvasDataCache();
   }
   return { status: r.status, body: result };
 }
@@ -503,7 +504,7 @@ export function portalV2Route(client: PortalClient) {
         }, { status: [400, 409].includes(result.status) ? result.status : 503 });
         try {
           const receipt = status ? await campaignStatus(result.body, original) : await campaignReceipt(result.body, original);
-          if (!status || receipt.status === "committed") invalidatePvasDataCache();
+          if (!status || receipt.status === "committed") await invalidatePvasDataCache();
           return NextResponse.json(receipt);
         } catch { return bad("Gift change could not be verified. Check its status before making another change.", 503); }
       }

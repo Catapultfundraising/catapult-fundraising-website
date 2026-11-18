@@ -654,7 +654,7 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
             <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
             <p className="mt-1 text-sm text-white/70">{dates.refreshed}</p>
             <p className="text-xs text-white/60">{dates.source}</p>
-            {pvasCanonicalEnabled("pvas")&&<div className="mt-2 text-xs text-white/80"><p>Loads current SQL on page load or Reload. Open pages do not update automatically.</p><button type="button" onClick={()=>window.location.reload()} className="mt-1 underline">Reload current SQL view</button></div>}
+            {pvasCanonicalEnabled("pvas")&&<div className="mt-2 text-xs text-white/80"><p>Shows SQL as of the last 2 minutes. Your edits here and this Reload link always pull current SQL.</p><button type="button" onClick={()=>{void fetch("/api/pvas-data-cache",{method:"POST"}).catch(()=>{}).finally(()=>window.location.reload());}} className="mt-1 underline">Reload current SQL view</button></div>}
           </div>
           <DonorSearch dark />
         </div>
