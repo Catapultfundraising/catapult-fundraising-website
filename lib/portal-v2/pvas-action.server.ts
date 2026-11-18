@@ -1,6 +1,7 @@
 import "server-only";
 import { AsyncLocalStorage } from "node:async_hooks";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
+import { PVAS_DOCUMENT_REPORT_OPS } from "./pvas-existing-only";
 
 const scope = new AsyncLocalStorage<{ requestId?: unknown }>();
 export const withPvasAction = <T,>(requestId: unknown, action: () => T): T => scope.run({ requestId }, action);
@@ -10,7 +11,7 @@ export class PvasActionIdentityError extends Error {
   constructor() { super("Canonical mutation requires the original requestId"); }
 }
 export function pvasActionBody(client: string, op: string, body: Record<string, unknown>): Record<string, unknown> {
-  if (!pvasCanonicalEnabled(client) || reads.has(op)) return body;
+  if (!pvasCanonicalEnabled(client) || reads.has(op) || PVAS_DOCUMENT_REPORT_OPS.has(op)) return body;
   // Native v3 owns original command identity and declared actor; never widen
   // this exact envelope with the unrelated generic mutation identity.
   if (op === "nativeCampaignMutationV3") return body;

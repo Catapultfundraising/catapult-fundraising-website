@@ -71,6 +71,9 @@ async function main(){
   assert.equal(policy.pvasExistingOperationAllowed("pvasContact",{command:{operation}}),false);
  for(const operation of ["contact-edit","contact-prospect-edit"])
   assert.equal(policy.pvasExistingOperationAllowed("pvasContact",{command:{operation}}),true);
+ for(const op of ["listDocuments","getDocument","documentByPath","addDocument","deleteDocument",
+  "listReportLists","createReportList","updateReportList","deleteReportList"])
+  assert.equal(policy.pvasExistingOperationAllowed(op,{}),true,op);
  let calls=[],invalidations=0;
  const gateway=compile("lib/portal-v2/server.ts",{
   "./pvas-action.server":action,"./pvas-native-write-acceptance.server":write,
