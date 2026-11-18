@@ -31,17 +31,23 @@ export async function buildPvas() {
 
 export async function buildCanonicalPvas() {
   const q = (t: string) => rows(`SELECT * FROM pvas.[${t}] ORDER BY row_id`);
-  const [ghoRows, cygRows, dsRows, phoneRows, noteRows, boardRows, commRows, portRows, gbIds, gbTx, gbPl, asOf] = await Promise.all([
-    q("giving_history_overview"), q("calendar_year_giving"), q("donorsearch_results"), q("phone_numbers"), [] as Row[],
-    q("board_info"), q("campaign_committee"), q("portfolio"), q("givebutter_id_numbers"), q("givebutter_transactions"),
-    q("givebutter_pledges"), loadedAsOf("pvas"),
+  // Table reads, paged gift history, paged contacts and PIR links are
+  // independent SQL reads, so they run concurrently. Any failure still fails
+  // the whole build; nothing falls back or is cached between requests.
+  const [tables, history, masterRows, pirs] = await Promise.all([
+    Promise.all([
+      q("giving_history_overview"), q("calendar_year_giving"), q("donorsearch_results"), q("phone_numbers"), [] as Row[],
+      q("board_info"), q("campaign_committee"), q("portfolio"), q("givebutter_id_numbers"), q("givebutter_transactions"),
+      q("givebutter_pledges"), loadedAsOf("pvas"),
+    ]),
+    // Canonical individual gifts are independent of the original aggregate presentations.
+    readPvasNativeGiftsV2("history", "current"),
+    // Canonical migrated contacts, served by Engage from PVAS SQL.
+    engageClientContacts("pvas"),
+    pirLinks("pvas"),
   ]);
-  // Canonical individual gifts are independent of the original aggregate
-  // presentations. Unavailable feeds fail the build, never silently fall back.
-  const history = await readPvasNativeGiftsV2("history", "current");
+  const [ghoRows, cygRows, dsRows, phoneRows, noteRows, boardRows, commRows, portRows, gbIds, gbTx, gbPl, asOf] = tables;
   const giftRows = nativeHistoryPresentationV2(history.records).inventory;
-  // Canonical migrated contacts, served by Engage from PVAS SQL.
-  const masterRows = await engageClientContacts("pvas");
   const master = new Map<number, (typeof masterRows)[number]>();
   for (const m of masterRows) if (m.cptid > 0) master.set(m.cptid, m);
   const giftsBy = new Map<number, NativeDonorHistory["records"]>();
@@ -320,5 +326,5 @@ export async function buildCanonicalPvas() {
   }
   index.sort((a, b) => (b.lifetime as number) - (a.lifetime as number));
   const records = { asOf: builtAt(), index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
-  return { snapshot, records, pirs: await pirLinks("pvas") };
+  return { snapshot, records, pirs };
 }

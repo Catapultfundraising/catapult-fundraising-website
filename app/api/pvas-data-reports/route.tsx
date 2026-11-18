@@ -22,7 +22,7 @@ import { buildBrandedXlsx } from "@/lib/pvas-brand-xlsx";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 // Two separate reports, matching Catapult's standing GC and GC2P tasks:
 //   ?report=gc&goal=&format=pdf|docx     one-page Suggested Gift Chart (PDF + editable Word)

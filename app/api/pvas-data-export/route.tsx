@@ -9,7 +9,7 @@ import { buildBrandedXlsx, type ExportCol, type ExportSection } from "@/lib/pvas
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 const CLIENT = "Palm Valley Animal Society";
 
