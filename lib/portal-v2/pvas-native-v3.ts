@@ -52,7 +52,7 @@ export function mixedPageRequest(input: unknown): MixedPageRequest {
   if (!object(input) || !["v", "lane", "view", "after", "limit"].every(k => Object.hasOwn(input, k)) ||
     Object.keys(input).some(k => !["v", "lane", "view", "after", "limit", "donor"].includes(k)) || input.v !== 3 ||
     (input.lane !== "history" && input.lane !== "campaign") || (input.view !== "current" && input.view !== "provenance") ||
-    typeof input.limit !== "number" || !Number.isInteger(input.limit) || input.limit < 1 || input.limit > 500 ||
+    typeof input.limit !== "number" || !Number.isInteger(input.limit) || input.limit < 1 || input.limit > (input.lane === "history" ? 5000 : 500) ||
     !(input.after === null || typeof input.after === "string") ||
     Object.hasOwn(input, "donor") && input.donor !== null && !positive(input.donor)) throw new NativeGiftWireHold("request");
   if (input.after !== null) nativeOrder(input.after);

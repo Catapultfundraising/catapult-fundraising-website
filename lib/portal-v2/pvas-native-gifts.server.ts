@@ -17,7 +17,7 @@ export async function readPvasNativeGiftsV2(lane: NativeLane, view: NativeView =
       body: JSON.stringify(body) });
     if (!response.ok) throw new Error("PVAS native gift read unavailable");
     return response.json();
-  }, { v: 3, lane, view, after: null, limit: 500 });
+  }, { v: 3, lane, view, after: null, limit: lane === "history" ? 5000 : 500 });
   // Existing history/detail/export representation remains v2; transport is
   // v3 and every element MUST be its unchanged history/admitted v2 envelope.
   if (lane !== "history" || result.records.some(r => r.representation === "native-campaign")) throw new NativeGiftWireHold("page");
