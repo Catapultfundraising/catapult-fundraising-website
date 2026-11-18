@@ -72,7 +72,8 @@ function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<str
 }
 
 /** Raw gateway call keeps HTTP status; invalid successful state row IDs also fail closed. */
-export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<{ status: number; body: Record<string, unknown> }> {
+export type PortalReadContext = { readonly pvasRecords: Record<string, unknown> };
+export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}, readContext?: PortalReadContext): Promise<{ status: number; body: Record<string, unknown> }> {
   if (pvasCanonicalEnabled(client) && !pvasExistingOperationAllowed(op, body))
     return { status: 403, body: { ...PVAS_EXISTING_ONLY } };
   if (pvasCanonicalEnabled(client) && op === "state") op = "nativeStateV3";
@@ -91,9 +92,10 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
         if (page.status !== 200) throw new Error("Native campaign read unavailable");
         return page.body;
       });
-      const data=await getPvasRecords();
-      if(!data)throw new Error("Canonical contact/financial state unavailable");
-      result=canonicalPvasState(normalizeManualUpdateRowIds(result),data.records,campaign.records);
+      // Internal request-owned input only; never read this context from JSON.
+      const records=readContext?.pvasRecords ?? (await getPvasRecords())?.records;
+      if(!records)throw new Error("Canonical contact/financial state unavailable");
+      result=canonicalPvasState(normalizeManualUpdateRowIds(result),records,campaign.records);
       result.databaseGiftEditsAvailable = pvasNativeWriteAccepted();
     }
     if (result.ok === true && typeof result.requestId === "string") invalidatePvasDataCache();
@@ -101,8 +103,8 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
   return { status: r.status, body: result };
 }
 
-export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
-  const { status, body: j } = await engageCall(client, op, body);
+export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}, readContext?: PortalReadContext): Promise<T> {
+  const { status, body: j } = await engageCall(client, op, body, readContext);
   if (status < 200 || status >= 300) throw new Error(String(j.error || `engage ${status}`));
   return j as T;
 }
@@ -151,8 +153,8 @@ async function knownRecords(client: PortalClient, state: PortalState) {
 }
 
 /** Full Portal v2 state (Engage SQL), or null when Engage is unreachable. */
-export async function portalStateSafe(client: PortalClient): Promise<PortalState | null> {
-  try { return await engage<PortalState>(client, "state"); } catch { return null; }
+export async function portalStateSafe(client: PortalClient, readContext?: PortalReadContext): Promise<PortalState | null> {
+  try { return await engage<PortalState>(client, "state", {}, readContext); } catch { return null; }
 }
 
 /** Prospects added through the portal (Engage SQL), for screens built on the records index. */
@@ -291,8 +293,8 @@ async function withDbGifts(client: PortalClient, state: PortalState, strict = fa
 }
 
 /** Current campaign rows plus refresh-safe overrides, for gift-only donor lookup records. */
-export async function portalCampaignStateSafe(client: PortalClient): Promise<PortalState | null> {
-  const state = await portalStateSafe(client);
+export async function portalCampaignStateSafe(client: PortalClient, readContext?: PortalReadContext): Promise<PortalState | null> {
+  const state = await portalStateSafe(client, readContext);
   return state ? withDbGifts(client, state) : null;
 }
 

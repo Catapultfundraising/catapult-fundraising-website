@@ -5,7 +5,7 @@ import { pvasCanonicalEnabled } from "./pvas-canonical";
 const scope = new AsyncLocalStorage<{ requestId?: unknown }>();
 export const withPvasAction = <T,>(requestId: unknown, action: () => T): T => scope.run({ requestId }, action);
 const commands = new Set(["pvasFields", "pvasContact", "pvasNote", "pvasGift", "pvasBatch", "pvasBatchUndo"]);
-const reads = new Set(["state", "nativeStateV3", "nativeGiftPageV3", "nativeCampaignStatusV3", "clientContacts", "clientGifts", "pvasFinancials", "getTracking", "monthlyPreview", "monthlyStatus", "pvasRequestStatus", "pvasHistoricalUploads", "nativeGiftPageV2"]);
+const reads = new Set(["state", "nativeStateV3", "nativeGiftPageV3", "nativeCampaignStatusV3", "clientContacts", "clientGifts", "pvasFinancials", "getTracking", "getTrackingCompactV1", "monthlyPreview", "monthlyStatus", "pvasRequestStatus", "pvasHistoricalUploads", "nativeGiftPageV2"]);
 export class PvasActionIdentityError extends Error {
   constructor() { super("Canonical mutation requires the original requestId"); }
 }

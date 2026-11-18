@@ -138,7 +138,7 @@ export async function engageClientContacts(client: string): Promise<ClientContac
   const pages=pvasCanonicalEnabled(client)?4096:40;
   for (let page = 0; page < pages; page++) {
     const r = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json", authorization: `Bearer ${secret}` },
-      body: JSON.stringify({ op: "clientContacts", client, afterId, limit: 10000 }) });
+      body: JSON.stringify({ op: "clientContacts", client, afterId, limit: pvasCanonicalEnabled(client) ? 1000 : 10000 }) });
     if (!r.ok) throw new Error(`Engage clientContacts ${r.status}`);
     const j = (await r.json()) as { rows: (ClientContact & { id: number })[]; next: number | null; done: boolean };
     if (pvasCanonicalEnabled(client) && (!Array.isArray(j.rows) || typeof j.done !== "boolean" || (!j.done && (!Number.isSafeInteger(j.next) || Number(j.next) <= afterId))))

@@ -175,7 +175,10 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
     if (!data) return NextResponse.json({ error: "records not loaded" }, { status: 503 });
     const drill = req.nextUrl.searchParams.get("drill");
     if (drill) return NextResponse.json({ cptids: drillIds(client, data.records as Record<string, Rec>, drill, req.nextUrl.searchParams.get("v") ?? "") });
-    const [state, tracking] = await Promise.all([getState(client), currentTracking(client, getTracking)]);
+    const [state, tracking] = await Promise.all([
+      getState(client, pvasCanonicalEnabled(client) ? { pvasRecords: data.records } : undefined),
+      currentTracking(client, getTracking),
+    ]);
     requireCurrentSql(client, state);
     const projection = currentRecordProjection(client,data,state,tracking);
     const id=req.nextUrl.searchParams.get("id");

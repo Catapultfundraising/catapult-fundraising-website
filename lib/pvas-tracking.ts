@@ -2,6 +2,7 @@ import "server-only";
 import type { PvasTracking } from "@/lib/pvas-tracking-types";
 import { pvasCanonicalEnabled } from "./portal-v2/pvas-canonical";
 import { validCanonicalTrackingProspect } from "./portal-v2/pvas-tracking-presence";
+import { decodePvasTrackingCompact, encodePvasTrackingCompact } from "./portal-v2/pvasTrackingCompact";
 import * as legacy from "./pvas-tracking.legacy";
 
 // Legacy refresh/upload destination only; dashboard PIR reads come from SQL.
@@ -36,9 +37,9 @@ function canonicalHistory(raw: unknown): boolean {
 export async function getPvasTracking(): Promise<PvasTracking> {
   if (!pvasCanonicalEnabled("pvas")) return legacy.getPvasTracking();
   const { engageCall } = await import("./portal-v2/server");
-  const r = await engageCall("pvas", "getTracking");
+  const r = await engageCall("pvas", "getTrackingCompactV1");
   if (r.status !== 200 || r.body.configured !== true || r.body.error || !object(r.body.state)) throw new Error("PVAS SQL tracking unavailable");
-  const state = r.body.state;
+  const state = decodePvasTrackingCompact(r.body.state);
   if (!object(state.prospects) || !Array.isArray(state.activity) || !Array.isArray(state.removed) ||
       !Object.entries(state.prospects).every(([key,p]) => /^[1-9]\d*$/.test(key) && int(Number(key),1) && validCanonicalTrackingProspect(p)) ||
       typeof state.revision !== "string" || !/^[a-f0-9]{64}$/.test(state.revision) || !object(state.pirs) ||
@@ -52,7 +53,7 @@ export async function savePvasTracking(state: PvasTracking, action?: { requestId
   if (!pvasCanonicalEnabled("pvas")) return legacy.savePvasTracking(state);
   if (!action || !/^[a-f0-9]{32}$/.test(action.requestId) || !action.by.trim() || !state.revision) throw new Error("PVAS canonical tracking requires action identity and revision");
   const { engageCall } = await import("./portal-v2/server");
-  const r = await engageCall("pvas", "setTracking", { data: state, ...action });
+  const r = await engageCall("pvas", "setTrackingCompactV1", { data: encodePvasTrackingCompact(state), ...action });
   if (r.status !== 200 || r.body.ok !== true || r.body.requestId !== action.requestId ||
       typeof r.body.revision!=="string" || !/^[a-f0-9]{64}$/.test(r.body.revision) || r.body.error) throw new PvasTrackingSaveError(r.status);
 }
