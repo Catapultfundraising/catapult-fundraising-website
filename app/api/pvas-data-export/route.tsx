@@ -1,4 +1,6 @@
 import {reconstructDashboardExport,ExportIntentError} from "@/lib/portal-v2/dashboard-export.server";
+import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
+import { directLaneEnabled } from "@/lib/portal-v2/direct-registration.server";
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, View, Text } from "@react-pdf/renderer";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
@@ -23,11 +25,10 @@ function fmt(v: string | number | null, kind?: string) {
 // Branded PDF/Excel for any table on the PVAS data portal.
 // Body: { format: "pdf"|"xlsx", title, subtitle?, cols: ExportCol[], sections: ExportSection[], notes?: string[] }
 export async function POST(req: NextRequest) {
-  const { directLaneEnabled } = await import("@/lib/portal-v2/direct-registration.server");
   if (!(await isPvasDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   let b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[]; intent?: unknown };
-  if (directLaneEnabled("pvas")) {
+  if (pvasCanonicalEnabled("pvas") || directLaneEnabled("pvas")) {
     try {
       if (!b || !["pdf","xlsx"].includes(b.format)) return NextResponse.json({error:"Choose PDF or Excel."},{status:400});
       b={...b,...await reconstructDashboardExport("pvas",b.intent,b)};

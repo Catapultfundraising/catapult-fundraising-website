@@ -18,6 +18,8 @@ import { buildIds } from "@/lib/portal-refresh/ids";
 import { idsPath } from "@/lib/portal-v2/clients";
 import { BAQ_DATA_PATH, BAQ_RECORDS_PATH } from "@/lib/baq-data-store";
 import { BAQ_PIRS_PATH } from "@/lib/baq-tracking";
+import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
+import { PVAS_EXISTING_ONLY } from "@/lib/portal-v2/pvas-existing-only";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -54,14 +56,22 @@ async function run(req: NextRequest) {
   const p = req.nextUrl.searchParams;
   const which = p.get("client") ?? "all";
   const dry = p.get("dry") === "1";
+  const pvasSql = pvasCanonicalEnabled("pvas");
+  if (pvasSql && which === "pvas") {
+    return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403, headers: { "Cache-Control": "no-store" } });
+  }
   const clients: Client[] = which === "all" ? ["csnf", "jag", "pvas", "wcbhc", "baq"] : which in TARGETS ? [which as Client] : [];
   if (!clients.length) return NextResponse.json({ error: "client must be all|csnf|jag|pvas|wcbhc|baq" }, { status: 400 });
 
   const NO_GIVING_CLIENTS = new Set<string>(["baq"]);
   const results: Record<string, unknown> = {};
+  if (pvasSql && which === "all") {
+    results.pvas = { skipped: true, saved: false, code: PVAS_EXISTING_ONLY.code };
+  }
   let failed = false;
   try {
     for (const c of clients) {
+      if (pvasSql && c === "pvas") continue;
       try {
         const { snapshot, records, pirs } = await TARGETS[c].build();
         const summary = {

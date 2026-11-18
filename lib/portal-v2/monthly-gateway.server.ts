@@ -1,4 +1,7 @@
 import "server-only";
+import { pvasCanonicalEnabled } from "./pvas-canonical";
+import { PVAS_EXISTING_ONLY } from "./pvas-existing-only";
+import {pvasImportPlan,pvasImportReceipt,pvasImportApproval}from"./pvas-import-wire";
 import { NextRequest, NextResponse } from "next/server";
 import type { PortalClient } from "./clients";
 import { dashboardDataAuthed } from "./direct-file-gateway.server";
@@ -13,6 +16,7 @@ const defaults: Deps = { call: engageCall, identities: readIds };
 export function monthlyGiftGateway(client: PortalClient, deps: Deps = defaults) {
   return async (req: NextRequest) => {
     if (!(await dashboardDataAuthed(client, req))) return NextResponse.json({ error: "Matching employee dashboard sign-in required", dashboardLogin: `/${client}/data-dashboard/login` }, { status: 401 });
+    if (pvasCanonicalEnabled(client)) return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
     if (req.headers.get("origin") !== req.nextUrl.origin || req.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ error: "Same origin required" }, { status: 403 });
     if (!req.headers.get("content-type")?.startsWith("application/json")) return NextResponse.json({ error: "Use bounded JSON" }, { status: 415 });
     let uncertain: string | null = null, localRequestId: string | null = null;
@@ -28,6 +32,10 @@ export function monthlyGiftGateway(client: PortalClient, deps: Deps = defaults) 
         const result = await deps.call(client, "monthlyStatus", { requestId: body.requestId });
         if (result.status !== 200) throw new Error("Monthly status unavailable");
         const value = result.body;
+        if(pvasCanonicalEnabled(client)){
+          if(value.v!==1||value.requestId!==body.requestId||!["committed","pending","legacy","not-found"].includes(String(value.status)))throw new Error("Invalid canonical status");
+          return NextResponse.json(value,{headers:{"Cache-Control":"no-store"}});
+        }
         if (value.status === "committed") return NextResponse.json(confirmedMonthlyReceipt(value, client, body.requestId), { headers: { "Cache-Control": "no-store" } });
         if (!monthlyExact(value, ["v", "status", "requestId", "client"]) || value.v !== 1 || value.status !== "not-found" || value.requestId !== body.requestId || value.client !== client) throw new Error("Invalid monthly status");
         return NextResponse.json(value, { headers: { "Cache-Control": "no-store" } });
@@ -37,21 +45,31 @@ export function monthlyGiftGateway(client: PortalClient, deps: Deps = defaults) 
       const file = parseMonthlyFile(body.file), identities = await deps.identities(client);
       if (!identities) throw new MonthlyFileError("Current exact client-ID crosswalk unavailable; nothing submitted.");
       const built = buildMonthlyRequest(client, file, identities);
+      // Original bytes are OUTSIDE the exact legacy request/hash domain.
+      // The canonical facade independently decodes and binds them to its plan.
+      const transport = { request: built.request, ...(body.op === "commit" ? { approval: body.approval } : {}),
+        ...(pvasCanonicalEnabled(client) ? { originalBytesBase64: file.bytes } : {}) };
+      if (pvasCanonicalEnabled(client) && Buffer.byteLength(JSON.stringify({ op: body.op === "commit" ? "monthlyCommit" : "monthlyPreview", client, ...transport }), "utf8") > 2_000_000)
+        throw new MonthlyFileError("Original bytes plus parsed rows exceed the canonical transport limit; split the source file. Nothing submitted.");
       if (body.op === "commit") {
-        if (!monthlyObject(body.approval) || !monthlyExact(body.approval, ["planHash", "expiresAt", "proof", "confirm"]) || !monthlyHex(body.approval.planHash) || !monthlyHex(body.approval.proof) || !Number.isSafeInteger(body.approval.expiresAt) || body.approval.confirm !== true) throw new Error("Explicit reviewed approval required");
+        if(pvasCanonicalEnabled(client)){
+          if(!pvasImportApproval(body.approval))throw new Error("Explicit canonical approval required");
+        }else if (!monthlyObject(body.approval) || !monthlyExact(body.approval, ["planHash", "expiresAt", "proof", "confirm"]) || !monthlyHex(body.approval.planHash) || !monthlyHex(body.approval.proof) || !Number.isSafeInteger(body.approval.expiresAt) || body.approval.confirm !== true) throw new Error("Explicit reviewed approval required");
         uncertain = file.requestId;
       }
-      const result = await deps.call(client, body.op === "commit" ? "monthlyCommit" : "monthlyPreview", { request: built.request, ...(body.op === "commit" ? { approval: body.approval } : {}) });
+      const result = await deps.call(client, body.op === "commit" ? "monthlyCommit" : "monthlyPreview", transport);
       if (result.status !== 200) {
         const code = typeof result.body.code === "string" && /^[a-z-]{1,80}$/.test(result.body.code) ? result.body.code : "monthly-unavailable";
         if (uncertain) throw new Error(code);
         return NextResponse.json({ error: code, code }, { status: result.status >= 400 && result.status < 500 ? result.status : 503 });
       }
       if (body.op === "preview") {
+        if(pvasCanonicalEnabled(client))return NextResponse.json(pvasImportPlan(result.body,file.requestId),{headers:{"Cache-Control":"no-store"}});
         if (result.body.status === "committed") return NextResponse.json({ receipt: confirmedMonthlyReceipt(result.body, client, file.requestId, built.payloadHash, built.request.rows.length) }, { headers: { "Cache-Control": "no-store" } });
         const plan = confirmedMonthlyPlan(result.body, file.requestId, built.payloadHash, built.request.rows);
         return NextResponse.json({ plan, review: { fileDigest: built.request.fileDigest, source: file.source, sourceDate: file.sourceDate, period: file.period, parseSettings: file.parseSettings, dateSystem: file.dateSystem, mapping: file.mapping, unmapped: built.unmapped, campaignOnly: true, basis: "received-cash", currency: "USD" } }, { headers: { "Cache-Control": "no-store" } });
       }
+      if(pvasCanonicalEnabled(client))return NextResponse.json(pvasImportReceipt(result.body,{requestId:file.requestId,payloadHash:String((body.approval as Record<string,unknown>).payloadHash),operation:"import-monthly"}),{headers:{"Cache-Control":"no-store"}});
       return NextResponse.json(confirmedMonthlyReceipt(result.body, client, file.requestId, built.payloadHash, built.request.rows.length), { headers: { "Cache-Control": "no-store" } });
     } catch (e) {
       if (uncertain) return NextResponse.json({ error: "UNCONFIRMED: keep the original request ID and check status. Do not resend.", code: "monthly-outcome-unconfirmed", requestId: uncertain, statusOp: "monthlyStatus", unconfirmed: true, retry: false }, { status: 503 });

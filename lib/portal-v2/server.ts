@@ -1,4 +1,14 @@
 import { readBoundedStream } from "./direct-source-transport.server";
+import { pvasCanonicalEnabled } from "./pvas-canonical";
+import { pvasExistingOperationAllowed, PVAS_EXISTING_ONLY } from "./pvas-existing-only";
+import { HISTORICAL_UPLOAD_READ_ONLY, historicalUploadRejection, historicalUploadsReadBody } from "./pvas-upload-history";
+import { pvasActionBody, withPvasAction, PvasActionIdentityError } from "./pvas-action.server";
+import { canonicalPvasState } from "./pvas-state-wire";
+import { consumeNativeStateCampaignV3 } from "./pvas-native-consumer";
+import { mixedPageRequest, mixedGiftPage } from "./pvas-native-v3";
+import { campaignBody, campaignReceipt, campaignStatus, campaignStatusBody } from "./pvas-native-mutation-v3";
+import { pvasNativeWriteAccepted } from "./pvas-native-write-acceptance.server";
+import { decodeNativePageRequestV2, decodeNativeGiftPageV2 } from "./pvas-native-gift-wire";
 import { askEdits, effectiveAsk } from "./effective-ask";
 import { observeDirect, directClientView } from "./direct-source-state.server";
 import { directLaneEnabled } from "./direct-registration.server";
@@ -10,7 +20,7 @@ import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
 import { isJagDataAuthed } from "@/lib/jag-data-auth";
 import { isWcbhcDataAuthed } from "@/lib/wcbhc-data-auth";
 import { isBaqDataAuthed } from "@/lib/baq-data-auth";
-import { getPvasRecords } from "@/lib/pvas-data-store";
+import { getPvasRecords, invalidatePvasDataCache } from "@/lib/pvas-data-store";
 import { getCsnfRecords } from "@/lib/csnf-data-store";
 import { getJagRecords } from "@/lib/jag-data-store";
 import { getWcbhcRecords } from "@/lib/wcbhc-data-store";
@@ -62,7 +72,12 @@ function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<str
 }
 
 /** Raw gateway call keeps HTTP status; invalid successful state row IDs also fail closed. */
-export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<{ status: number; body: Record<string, unknown> }> {
+export type PortalReadContext = { readonly pvasRecords: Record<string, unknown> };
+export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}, readContext?: PortalReadContext): Promise<{ status: number; body: Record<string, unknown> }> {
+  if (pvasCanonicalEnabled(client) && !pvasExistingOperationAllowed(op, body))
+    return { status: 403, body: { ...PVAS_EXISTING_ONLY } };
+  if (pvasCanonicalEnabled(client) && op === "state") op = "nativeStateV3";
+  body = pvasActionBody(client, op, body);
   const url = engageUrl(), secret = process.env.PORTAL_WRITE_SECRET;
   if (!url || !secret) throw new Error("Portal writes are not configured (ENGAGE_PORTAL_URL / PORTAL_WRITE_SECRET)");
   const monthly = ["monthlyPreview", "monthlyCommit", "monthlyStatus"].includes(op);
@@ -70,16 +85,39 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
   let result = (monthly ? JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await readBoundedStream(r.body, 2_000_000, 10_000))) : await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown>;
   if (op === "state" && r.status >= 200 && r.status < 300 && result && typeof result === "object" &&
       !Array.isArray(result) && !result.error && result.configured !== false) result = normalizeManualUpdateRowIds(result);
+  if (pvasCanonicalEnabled(client) && r.ok && !result.error && result.configured !== false) {
+    if (op === "nativeStateV3") {
+      const campaign = await consumeNativeStateCampaignV3(result, async body => {
+        const page = await engageCall(client, body.op, { request: body.request });
+        if (page.status !== 200) throw new Error("Native campaign read unavailable");
+        return page.body;
+      });
+      // Internal request-owned input only; never read this context from JSON.
+      const records=readContext?.pvasRecords ?? (await getPvasRecords())?.records;
+      if(!records)throw new Error("Canonical contact/financial state unavailable");
+      result=canonicalPvasState(normalizeManualUpdateRowIds(result),records,campaign.records);
+      result.databaseGiftEditsAvailable = pvasNativeWriteAccepted();
+    }
+    if (result.ok === true && typeof result.requestId === "string") invalidatePvasDataCache();
+  }
   return { status: r.status, body: result };
 }
 
-export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}): Promise<T> {
-  const { status, body: j } = await engageCall(client, op, body);
+export async function engage<T>(client: PortalClient, op: string, body: Record<string, unknown> = {}, readContext?: PortalReadContext): Promise<T> {
+  const { status, body: j } = await engageCall(client, op, body, readContext);
   if (status < 200 || status >= 300) throw new Error(String(j.error || `engage ${status}`));
   return j as T;
 }
 
 export async function readIds(client: PortalClient): Promise<Known[] | null> {
+  if (pvasCanonicalEnabled(client)) {
+    const data = await getPvasRecords();
+    if (!data) throw new Error("PVAS canonical records unavailable");
+    return data.index.map(row => {
+      const c = data.records[String(row.cptid)]?.contact ?? {};
+      return { cptid: row.cptid, clientId: c.clientId ?? "", name: row.name, address: c.street ?? "", city: c.city ?? "", zip: c.zip ?? "", email: c.email ?? "", phone: c.phone ?? "" };
+    });
+  }
   try {
     const dir = process.env[`${client.toUpperCase()}_LOCAL_DIR`];
     let text: string;
@@ -115,8 +153,8 @@ async function knownRecords(client: PortalClient, state: PortalState) {
 }
 
 /** Full Portal v2 state (Engage SQL), or null when Engage is unreachable. */
-export async function portalStateSafe(client: PortalClient): Promise<PortalState | null> {
-  try { return await engage<PortalState>(client, "state"); } catch { return null; }
+export async function portalStateSafe(client: PortalClient, readContext?: PortalReadContext): Promise<PortalState | null> {
+  try { return await engage<PortalState>(client, "state", {}, readContext); } catch { return null; }
 }
 
 /** Prospects added through the portal (Engage SQL), for screens built on the records index. */
@@ -159,10 +197,13 @@ const DB_CAMPAIGN: Partial<Record<PortalClient, { load: () => Promise<SnapLike>;
 const BAD_STATUS = /refund|disput|fail|cancel|void|declin/i;
 
 export async function dbCampaignGifts(client: PortalClient, strict = false): Promise<PortalGift[]> {
+  // Canonical state already owns counted campaign occurrences and source links.
+  // Provider-only Givebutter activity is never appended/counted a second time.
+  if (pvasCanonicalEnabled(client)) return [];
   const cfg = DB_CAMPAIGN[client];
   if (!cfg) return [];
   const snap = await cfg.load().catch(() => null);
-  if (strict && !snap) throw new Error("Campaign source unavailable");
+  if ((strict || pvasCanonicalEnabled(client)) && !snap) throw new Error("Campaign source unavailable");
   const gb = snap?.givebutter ?? { transactions: [], pledges: [] };
   // Proxy contacts ("City of McAllen Proxy") resolve to the org's own record when the name matches exactly.
   const byName = new Map<string, number>();
@@ -209,7 +250,9 @@ function stewardshipWins(client: PortalClient, snap: SnapLike, items: PortalGift
   };
   const mine = new Map<number, PortalGift[]>(), rest: PortalGift[] = [];
   for (const g of items) { const o = owner(g); if (o === undefined) rest.push(g); else mine.set(o, [...(mine.get(o) ?? []), g]); }
-  let id = Math.min(0, ...items.map((g) => g.id)) - 1;
+  // This private caller receives only synthetic numeric IDs constructed above
+  // by dbCampaignGifts. Type narrowing only: no runtime ID conversion/change.
+  let id = Math.min(0, ...items.map((g) => g.id as number)) - 1;
   const out: PortalGift[] = [];
   stew.forEach((p, i) => {
     const gs = mine.get(i) ?? [];
@@ -244,13 +287,14 @@ function applyOverrides(items: PortalGift[], overrides: PortalState["giftOverrid
   return out;
 }
 async function withDbGifts(client: PortalClient, state: PortalState, strict = false): Promise<PortalState> {
+  if (pvasCanonicalEnabled(client)) return state;
   const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client, strict)), state.giftOverrides);
   return { ...state, gifts: [...db, ...state.gifts] };
 }
 
 /** Current campaign rows plus refresh-safe overrides, for gift-only donor lookup records. */
-export async function portalCampaignStateSafe(client: PortalClient): Promise<PortalState | null> {
-  const state = await portalStateSafe(client);
+export async function portalCampaignStateSafe(client: PortalClient, readContext?: PortalReadContext): Promise<PortalState | null> {
+  const state = await portalStateSafe(client, readContext);
   return state ? withDbGifts(client, state) : null;
 }
 
@@ -284,6 +328,9 @@ export async function logHistoryAudit(client: PortalClient, a: { cptid: number; 
 
 /** Secondary solicitor: dashboard-origin data saved in Engage SQL (portal_updates field "solicitor2"); the refresh never writes it. */
 export async function secondarySolicitors(client: PortalClient): Promise<Record<string, string>> {
+  // Canonical PVAS assignments are returned by SQL getTracking; never reapply
+  // the retired secondary-solicitor portal_updates projection.
+  if (pvasCanonicalEnabled(client)) return {};
   try {
     const st = await engage<PortalState>(client, "state");
     const out: Record<string, string> = {};
@@ -386,9 +433,10 @@ export function portalV2Route(client: PortalClient) {
         return await campaignDownload(client, goal, state.gifts, format as "pdf" | "xlsx");
       }
       const direct = await observeDirect(client);
-      return NextResponse.json({ ...state, goal: cfg.goal, configured: true, ...(direct ? { directView: directClientView(direct), directSourceRevision: direct.state.revision } : {}) });
+      return NextResponse.json({ ...state, goal: cfg.goal, configured: true, ...(direct ? { directView: directClientView(direct), directSourceRevision: direct.state.revision } : {}) },
+        pvasCanonicalEnabled(client) ? { headers: { "Cache-Control": "no-store" } } : undefined);
     } catch (e) {
-      if (directLaneEnabled(client)) return bad("Complete current source/manual state unavailable. Retain the last good view.", 503);
+      if (pvasCanonicalEnabled(client) || directLaneEnabled(client)) return bad("Complete current source/manual state unavailable. Retain the last good view.", 503);
       // Never export an incomplete campaign total when SQL or rendering is unavailable.
       if (req.nextUrl.searchParams.get("report") === "campaign") {
         console.error("Campaign export failed", client, e);
@@ -425,6 +473,82 @@ export function portalV2Route(client: PortalClient) {
       const b = (await req.json().catch(() => null)) as Record<string, any> | null;
       if (!b) return bad("bad body");
       const by = txt(b.by, 200) || "Catapult portal";
+      if (pvasCanonicalEnabled(client) && b.op === "nativeGiftPageV3") {
+        let request: ReturnType<typeof mixedPageRequest>;
+        try {
+          if (Object.keys(b).some(k => !["op", "client", "request"].includes(k)) || b.client !== undefined && b.client !== client) throw new Error();
+          request = mixedPageRequest(b.request);
+        } catch { return bad("Invalid gift history request", 400); }
+        const page = await engageCall(client, b.op, { request });
+        if (page.status !== 200) return bad("Gift history is currently unavailable.", 503);
+        mixedGiftPage(page.body, request);
+        return NextResponse.json(page.body); // Preserve the strict snapshot envelopes on HTTP.
+      }
+      if (pvasCanonicalEnabled(client) && ["nativeCampaignMutationV3", "nativeCampaignStatusV3"].includes(b.op)) {
+        let original: ReturnType<typeof campaignBody>;
+        const status = b.op === "nativeCampaignStatusV3";
+        try {
+          const keys = status ? ["op", "client", "by", "operation", "command"] : ["op", "client", "by", "command"];
+          if (Object.keys(b).sort().join("|") !== keys.sort().join("|") || b.client !== client ||
+            status && b.operation !== "nativeCampaignMutationV3") throw new Error();
+          original = campaignBody({ op: "nativeCampaignMutationV3", client: b.client, by: b.by, command: b.command });
+        } catch { return bad("Invalid original gift-change request.", 400); }
+        if (!status && !pvasNativeWriteAccepted()) return bad("Gift changes are currently unavailable.", 503);
+        const envelope = status ? campaignStatusBody(original) : original;
+        const { op: forwardOp, client: _client, ...forward } = envelope;
+        const result = await engageCall(client, forwardOp, forward);
+        if (result.status !== 200) return NextResponse.json({
+          error: "This change is not yet confirmed. Check its status before making another change.",
+          requestId: original.command.requestId, retry: false, unconfirmed: true, statusOp: "nativeCampaignStatusV3",
+        }, { status: [400, 409].includes(result.status) ? result.status : 503 });
+        try {
+          const receipt = status ? await campaignStatus(result.body, original) : await campaignReceipt(result.body, original);
+          if (!status || receipt.status === "committed") invalidatePvasDataCache();
+          return NextResponse.json(receipt);
+        } catch { return bad("Gift change could not be verified. Check its status before making another change.", 503); }
+      }
+      if (pvasCanonicalEnabled(client) && b.op === "nativeGiftPageV2") {
+        let request: ReturnType<typeof decodeNativePageRequestV2>;
+        try {
+          if (Object.keys(b).some(key => !["op", "client", "request"].includes(key)) ||
+              b.client !== undefined && b.client !== client) throw new Error("Unexpected read key/client");
+          request = decodeNativePageRequestV2(b.request);
+        } catch { return bad("Invalid native gift page request", 400); }
+        const page = await engageCall(client, b.op, { request });
+        if (page.status !== 200) return bad("PVAS native gift read unavailable", 503);
+        return NextResponse.json(decodeNativeGiftPageV2(page.body, request));
+      }
+      if (pvasCanonicalEnabled(client) && b.op === "pvasHistoricalUploads") {
+        let page: ReturnType<typeof historicalUploadsReadBody>;
+        try { page = historicalUploadsReadBody(b); } catch { return bad("Invalid PVAS upload history page request", 400); }
+        const r = await engageCall(client, b.op, page);
+        return r.status === 200 ? NextResponse.json(r.body) : bad("PVAS upload history unavailable", 503);
+      }
+      // This operation names the legacy undoBatch namespace, never a new
+      // canonical upload. Reject before a numeric archive ID can be forwarded.
+      if (pvasCanonicalEnabled(client) && b.op === "undo")
+        return NextResponse.json(HISTORICAL_UPLOAD_READ_ONLY, { status: 410 });
+      if (pvasCanonicalEnabled(client) && ["addGift","addProspect","requestScreening","mergeRecords","unmerge","restoreRecord","deleteRecord","notDuplicate"].includes(b.op))
+        return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
+      if (pvasCanonicalEnabled(client) && ["setContact","setWealth","setOutcome","addGift","editGift","voidGift","addProspect","editProspect","requestScreening","mergeRecords","unmerge","restoreRecord","deleteRecord","notDuplicate","undo"].includes(b.op))
+        return bad("Use the canonical command with original expected values and source identity",503);
+      if (pvasCanonicalEnabled(client) && ["pvasFields","pvasContact","pvasNote","pvasGift","pvasBatch","pvasBatchUndo","pvasRequestStatus"].includes(b.op)) {
+        if (b.op === "pvasRequestStatus") {
+          if (typeof b.requestId !== "string" || !/^[a-f0-9]{32}$/.test(b.requestId)) return bad("Valid original requestId required",400);
+          const r = await engageCall(client,b.op,{requestId:b.requestId});
+          return NextResponse.json(r.status===200?r.body:{error:"Canonical receipt unavailable; retain the original requestId"},{status:r.status===200?200:503});
+        }
+        if (!b.command || typeof b.command !== "object" || Array.isArray(b.command) || typeof b.by !== "string" || !b.by.trim() ||
+            b.command.actor !== b.by || typeof b.requestId !== "string" || !/^[a-f0-9]{32}$/.test(b.requestId) ||
+            b.command.requestId !== undefined && b.command.requestId !== b.requestId) return bad("Canonical command requires matching actor and original requestId",400);
+        const r = await engageCall(client,b.op,{command:{...b.command,requestId:b.requestId}});
+        if (r.status === 403 && r.body.code === PVAS_EXISTING_ONLY.code)
+          return NextResponse.json({ ...PVAS_EXISTING_ONLY, requestId: b.requestId, unconfirmed: false }, { status: 403 });
+        const historicalRefusal = historicalUploadRejection(b.op, r.status, r.body);
+        if (historicalRefusal) return NextResponse.json({ ...historicalRefusal, requestId: b.requestId }, { status: 410 });
+        if (r.status!==200) return NextResponse.json({error:r.status===409?"Canonical values changed; reload before saving":"Canonical save unconfirmed; reconcile the same requestId",requestId:b.requestId,unconfirmed:r.status>=500},{status:[400,403,409,410].includes(r.status)?r.status:503});
+        return NextResponse.json(r.body);
+      }
       if (b.op === "addProspect") {
         const pr = b.prospect ?? {};
         const fullName = txt(pr.fullName) || `${txt(pr.firstName)} ${txt(pr.lastName)}`.trim() || txt(pr.orgName);
@@ -482,6 +606,15 @@ export function portalV2Route(client: PortalClient) {
         return NextResponse.json(await engage(client, "editGift", { by, gift: { id: id > 0 ? id : undefined, key, cptid, donorName: g.donorName === undefined ? undefined : txt(g.donorName), kind: g.kind, amount, date, note: g.note === undefined ? undefined : txt(g.note, 1000), original } }));
       }
       if (b.op === "getAsk" || b.op === "setAsk") {
+        if (pvasCanonicalEnabled(client)) {
+          if (typeof b.cptid !== "number" || !Number.isInteger(b.cptid) || b.cptid<=0) return bad("Valid cptid required",400);
+          if (b.op === "setAsk") return bad("Use pvasFields with the original raw expected ask",503);
+          const data = await getPvasRecords(), profile = (data?.records[String(b.cptid)] as unknown as { _canonicalContact?: {fields:Record<string,unknown>} })?._canonicalContact;
+          if (!profile || !Object.hasOwn(profile.fields,"ask")) return bad("Raw canonical ask unavailable",503);
+          const ask=profile.fields.ask;
+          if (ask!==null && (typeof ask!=="number" || !Number.isFinite(ask))) return bad("Invalid raw canonical ask",503);
+          return NextResponse.json({edited:true,ask,oldAsk:null,_canonicalExpected:ask});
+        }
         const cptid = Number(b.cptid);
         if (!(cptid > 0)) return bad("cptid required");
         const state = await engage<PortalState>(client, "state");
@@ -489,7 +622,7 @@ export function portalV2Route(client: PortalClient) {
         const target = finalId(overlay, cptid);
         const edits = askEdits(state.updates as unknown as UpdateRow[]);
         const data = await RECORDS[client]() as unknown as { records?: Record<string, { portfolio?: { ask?: number; directAskPresent?: boolean; directManualAskPresent?: boolean }; board?: { active?: boolean; ask?: number }[] }> } | null;
-        if (directLaneEnabled(client) && !data) return bad("Current source/manual ask unavailable", 503);
+        if ((pvasCanonicalEnabled(client) || directLaneEnabled(client)) && !data) return bad("Current source/manual ask unavailable", 503);
         const resolved = effectiveAsk(target, overlay, edits, (id) => {
           const record = data?.records?.[String(id)];
           if (record?.portfolio?.directAskPresent || record?.portfolio?.directManualAskPresent) return record.portfolio.ask;
@@ -500,7 +633,7 @@ export function portalV2Route(client: PortalClient) {
         if (target !== cptid || overlay.deleted.has(cptid)) return bad("This record was merged or deleted. Reopen the surviving record.", 409);
         const amount = Number(String(b.amount ?? "").replace(/[$,\s]/g, ""));
         if (!(amount >= 0) || !Number.isFinite(amount)) return bad("Enter a dollar amount");
-        const current = resolved.ask !== undefined ? resolved.ask ?? 0 : directLaneEnabled(client) ? 0 : Number(b.current) || 0;
+        const current = resolved.ask !== undefined ? resolved.ask ?? 0 : (pvasCanonicalEnabled(client) || directLaneEnabled(client)) ? 0 : Number(b.current) || 0;
         if (edits.has(target) && amount === current) return NextResponse.json({ edited: !!resolved.askEdited, ask: current, oldAsk: last?.oldValue ?? null, unchanged: true });
         await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Ask amount edit (CPTID ${cptid})`, by, newRows: [], gifts: [],
           updates: [{ cptid, field: "ask", oldValue: String(current), newValue: String(amount) }], summary: { askEdit: true, cptid, from: current, to: amount } });
@@ -616,7 +749,8 @@ export function portalV2Route(client: PortalClient) {
         const names = new Map(cands.map((c) => [c.cptid, c.name]));
         const log = ov.log.slice(-300).reverse().map((l) => ({ ...l, name: names.get(l.cptid) ?? data?.index.find((r) => r.cptid === l.cptid)?.name ?? `CPTID ${l.cptid}`, targetName: l.target ? names.get(l.target) ?? `CPTID ${l.target}` : undefined,
           current: l.action === "merged" ? ov.mergedInto.get(l.cptid) === l.target : l.action === "deleted" ? ov.deleted.has(l.cptid) : false }));
-        return NextResponse.json({ total: groups.length, groups: groups.slice(0, Math.min(Number(b.limit) || 300, 1000)), log });
+        const profile=(c:number)=>(data?.records?.[String(c)] as unknown as {_canonicalContact?:unknown})?._canonicalContact;
+        return NextResponse.json({ total: groups.length, groups: groups.slice(0, Math.min(Number(b.limit) || 300, 1000)).map(g=>pvasCanonicalEnabled(client)?{...g,members:g.members.map(m=>({...m,_canonicalContact:profile(m.cptid)}))}:g), log:log.map(l=>pvasCanonicalEnabled(client)?{...l,_canonicalContact:profile(l.cptid)}:l) });
       }
       if (b.op === "pirWealth") {
         const pir = txt(b.pirName, 300), name = txt(b.name, 300);
@@ -625,8 +759,17 @@ export function portalV2Route(client: PortalClient) {
       if (b.op === "undo") return NextResponse.json(await engage(client, "undoBatch", { batchId: Number(b.batchId), by }));
       return bad("unknown op");
     } catch (e) {
+      if (e instanceof PvasActionIdentityError) return bad(e.message, 400);
       return bad((e as Error).message || "error", 500);
     }
   }
-  return { GET, POST };
+  return { GET, POST: async (req: NextRequest) => {
+    if (!pvasCanonicalEnabled(client)) return POST(req);
+    if (!(await AUTH[client](req))) return bad("unauthorized", 401);
+    // Old spreadsheet mutation path has no canonical source-key/expected-value
+    // receipt contract. Hold rather than silently use its tuple-based adapter.
+    if (!req.headers.get("content-type")?.includes("application/json")) return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
+    const body = await req.clone().json().catch(() => null);
+    return withPvasAction(body?.requestId, () => POST(req));
+  } };
 }

@@ -1,0 +1,46 @@
+/** HELD strict stored/public successor. No pool, SQL or caller hash authority. */
+import type {Row} from "./sourceImport";
+import {campaignV3Hold as fail,objectV3 as obj,exactV3 as exact,
+ decodeCampaignSnapshotV3,encodeCampaignSnapshotV3} from "./pvasNativeCampaignSnapshotV3";
+import {hashCampaignMutationV3,parseCampaignMutationV3,planCampaignMutationV3} from "./pvasNativeCampaignMutationV3";
+import type {VerifiedCampaignBaseV3} from "./pvasNativeMigrationBaseV3";
+export const CAMPAIGN_OPERATION_V3="native-campaign-mutation-v3";
+const keys="v kind operation requestId rootCptid payloadHash actor giftId version order action changed private".split(" ");
+export const CAMPAIGN_LEDGER_KEYS_V3="request_id operation cptid payload_hash actor result_json createdAt".split(" ");
+const same=(a:unknown,b:unknown)=>JSON.stringify(a)===JSON.stringify(b);
+function requestClock(v:unknown):v is string{
+ if(typeof v!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{7}Z$/.test(v)||v.slice(0,4)==="0000")return false;
+ const d=new Date(v);return Number.isFinite(d.valueOf())&&d.toISOString().slice(0,19)===v.slice(0,19);
+}
+export function validateCampaignLedgerV3(row:Row,input:unknown,by:string){
+ const c=parseCampaignMutationV3(input),hash=hashCampaignMutationV3(c,by);
+ if(!exact(row,CAMPAIGN_LEDGER_KEYS_V3)||row.request_id!==c.requestId||
+  row.operation!==CAMPAIGN_OPERATION_V3||row.cptid!==c.rootCptid||row.payload_hash!==hash||
+  row.actor!==by||!requestClock(row.createdAt))return fail("request-conflict");
+ return{command:c,payloadHash:hash};
+}
+export function decodeCampaignStoredReceiptV3(row:Row,input:unknown,by:string,base?:VerifiedCampaignBaseV3){
+ const {command,payloadHash}=validateCampaignLedgerV3(row,input,by);
+ if(typeof row.result_json!=="string")return fail(row.result_json===null?"request-pending":"receipt");
+ let raw:unknown;try{raw=JSON.parse(row.result_json);}catch{return fail("receipt");}
+ if(!obj(raw)||!exact(raw,keys)||!obj(raw.private)||
+  !exact(raw.private,["command","before","after","requestAt","baseReceiptSha256"])||
+  raw.v!==3||raw.kind!=="native-campaign-mutation"||raw.operation!=="nativeCampaignMutationV3"||
+  raw.requestId!==command.requestId||raw.rootCptid!==command.rootCptid||raw.actor!==by||
+  raw.payloadHash!==payloadHash||raw.action!==command.action||
+  raw.private.requestAt!==row.createdAt||
+  hashCampaignMutationV3(raw.private.command,by)!==payloadHash)return fail("receipt");
+ const before=decodeCampaignSnapshotV3(raw.private.before),after=decodeCampaignSnapshotV3(raw.private.after),
+  plan=planCampaignMutationV3(command,by,before,{at:row.createdAt as string,base});
+ if(raw.giftId!==plan.after.giftId||raw.version!==plan.after.version||raw.order!==plan.after.order||
+  raw.changed!==plan.changed||raw.private.baseReceiptSha256!==plan.originalBaseReceiptSha256||
+  !same(JSON.parse(encodeCampaignSnapshotV3(after)),JSON.parse(plan.afterSnapshot)))return fail("receipt");
+ return{raw,plan};
+}
+export function publicCampaignReceiptV3(row:Row,input:unknown,by:string,base?:VerifiedCampaignBaseV3,replayed=false){
+ const {plan}=decodeCampaignStoredReceiptV3(row,input,by,base);
+ return{v:3 as const,kind:"gift" as const,operation:"nativeCampaignMutationV3" as const,
+  requestId:plan.command.requestId,rootCptid:plan.command.rootCptid,payloadHash:plan.payloadHash,
+  giftId:plan.after.giftId,version:plan.after.version,order:plan.after.order,
+  action:plan.command.action,changed:plan.changed,replayed};
+}

@@ -1,0 +1,167 @@
+/** HELD pure codecs only. No SQL/pool/auth/issuer/executor or creation-proof issuer.
+ * A valid receipt shape is not evidence of an actual durable database commit. */
+import {createHash} from "node:crypto";
+import {validatePvasGiftCommand,type PvasGiftCommand} from "./pvasCanonicalGifts";
+import {validateNativeCorrectionV2,planNativeCampaignCorrectionV2,type NativeCorrectionCommand} from "./pvasNativeCampaignCorrectionV2";
+import {validateNativeRetirementV2,planNativeCampaignRetirementV2,
+ type RetirementSourceBinding,type RetirementCommandV2} from "./pvasNativeCampaignRetirementV2";
+import {decodeNativeGiftSnapshotV2,projectNativeGiftV2,type NativeGiftRecordV2} from "./pvasNativeGiftReadV2";
+
+export class NativeReceiptHold extends Error{
+ constructor(readonly code:"invalid-receipt"|"request-conflict"|"unsupported-operation"|
+ "creation-evidence-unwired"|"retirement-binding-required"|"lane-change-unwired"){
+  super(`PVAS native receipt held: ${code}`);
+ }
+}
+function fail(c:NativeReceiptHold["code"]):never{throw new NativeReceiptHold(c);}
+type Obj=Record<string,unknown>;
+const obj=(v:unknown):v is Obj=>!!v&&typeof v==="object"&&!Array.isArray(v);
+const exact=(v:Obj,keys:string[])=>Object.keys(v).sort().join("|")===[...keys].sort().join("|");
+function jsonValue(v:unknown,depth=0):void{
+ if(depth>40)fail("invalid-receipt");
+ if(v===null||typeof v==="string"||typeof v==="boolean")return;
+ if(typeof v==="number"){if(!Number.isFinite(v)||Object.is(v,-0))fail("invalid-receipt");return;}
+ if(Array.isArray(v)){for(const x of v)jsonValue(x,depth+1);return;}
+ if(obj(v)&&Object.getPrototypeOf(v)===Object.prototype){for(const x of Object.values(v))jsonValue(x,depth+1);return;}
+ fail("invalid-receipt");
+}
+const stable=(v:unknown):unknown=>Array.isArray(v)?v.map(stable):obj(v)?
+ Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+const equal=(a:unknown,b:unknown)=>JSON.stringify(stable(a))===JSON.stringify(stable(b));
+const digest=(v:unknown)=>createHash("sha256").update(JSON.stringify(v),"utf8").digest("hex");
+export const NATIVE_RECEIPT_OPERATIONS=Object.freeze({
+ correction:"native-campaign-correction-v2",retirement:"native-campaign-retire-v2",admitted:"admitted-gift-v2",
+} as const);
+type Operation=typeof NATIVE_RECEIPT_OPERATIONS[keyof typeof NATIVE_RECEIPT_OPERATIONS];
+interface ReceiptBase{
+ v:2;kind:"gift";requestId:string;cptid:number;payloadHash:string;giftId:number;
+ version:number;order:string;changed:boolean;sourceReplayed:false;rootRequestId:string|null;replayed:false;
+}
+interface PrivateReceipt<C>{
+ command:C;before:{v:2;gift:NativeGiftRecordV2|null};after:{v:2;gift:NativeGiftRecordV2};
+ sourceCreateHash:string|null;cause:RetirementCommandV2["cause"]|null;
+}
+export type StoredNativeGiftReceiptV2=ReceiptBase&(
+ {operation:typeof NATIVE_RECEIPT_OPERATIONS.correction;representation:"native-campaign";action:"edit";private:PrivateReceipt<NativeCorrectionCommand>}|
+ {operation:typeof NATIVE_RECEIPT_OPERATIONS.retirement;representation:"native-campaign";action:"retire";private:PrivateReceipt<RetirementCommandV2>}|
+ {operation:typeof NATIVE_RECEIPT_OPERATIONS.admitted;representation:"admitted-event";action:"create"|"edit"|"void";private:PrivateReceipt<PvasGiftCommand>}
+);
+type PublicPart<T>=T extends unknown?Omit<T,"private"|"replayed">&{replayed:boolean}:never;
+export type PublicNativeGiftReceiptV2=PublicPart<StoredNativeGiftReceiptV2>;
+export interface ExpectedNativeMutationV2{operation:Operation;command:unknown}
+export function nativeMutationPayloadV2(input:ExpectedNativeMutationV2){
+ if(!obj(input)||!exact(input as unknown as Obj,["operation","command"]))fail("request-conflict");
+ jsonValue(input.command);
+ if(input.operation===NATIVE_RECEIPT_OPERATIONS.correction){
+  const command=validateNativeCorrectionV2(input.command);
+  return{operation:input.operation,command,payloadHash:digest({v:2,op:"nativeCampaignCorrection",command})};
+ }
+ if(input.operation===NATIVE_RECEIPT_OPERATIONS.retirement){
+  const command=validateNativeRetirementV2(input.command);
+  return{operation:input.operation,command,payloadHash:digest({v:2,op:"nativeCampaignRetire",command})};
+ }
+ if(input.operation===NATIVE_RECEIPT_OPERATIONS.admitted){
+  const command=validatePvasGiftCommand(input.command);
+  return{operation:input.operation,command,payloadHash:digest({v:2,op:"admittedGift",command})};
+ }
+ return fail("unsupported-operation");
+}
+/** Accept strict records or exact derived display records; exclude ONLY legacy,
+ * verifying any supplied display copy before discarding it. Null is not history. */
+export function encodeNativeGiftSnapshotV2(input:unknown):{v:2;gift:NativeGiftRecordV2}{
+ jsonValue(input);if(!obj(input))fail("invalid-receipt");
+ const {legacy,...gift}=input;
+ let decoded:NativeGiftRecordV2;
+ try{decoded=decodeNativeGiftSnapshotV2({v:2,gift});}catch{return fail("invalid-receipt");}
+ if(Object.hasOwn(input,"legacy")){
+  const projected=projectNativeGiftV2(decoded);
+  if(!Object.hasOwn(projected,"legacy")||!equal(legacy,(projected as unknown as Obj).legacy))fail("invalid-receipt");
+ }
+ // Strict decoder roundtrip; returns fresh schema-owned objects.
+ return{v:2,gift:decodeNativeGiftSnapshotV2({v:2,gift:decoded})};
+}
+function snapshot(v:unknown,allowNull=false):NativeGiftRecordV2|null{
+ if(!obj(v)||!exact(v,["v","gift"])||v.v!==2)fail("invalid-receipt");
+ if(allowNull&&obj(v)&&exact(v,["v","gift"])&&v.v===2&&v.gift===null)return null;
+ try{return decodeNativeGiftSnapshotV2(v);}catch{return fail("invalid-receipt");}
+}
+const publicKeys=["v","kind","operation","requestId","cptid","payloadHash","representation","action",
+ "giftId","version","order","changed","sourceReplayed","rootRequestId","replayed"];
+const privateKeys=["command","before","after","sourceCreateHash","cause"];
+export interface NativeReceiptContextV2{
+ /** Narrow source checks only; caller must independently prove full index/root. */
+ retirementBinding?:RetirementSourceBinding;
+}
+/** Pure validation of a finalized shared-ledger row and original ACTUAL command.
+ * Caller supplies exactly operation,cptid,payload_hash,actor,result_json.
+ * Does not authenticate source binding or certify that the row came from SQL. */
+export function decodeStoredNativeGiftReceiptV2(row:unknown,expected:ExpectedNativeMutationV2,
+ context:NativeReceiptContextV2={}):StoredNativeGiftReceiptV2{
+ const e=nativeMutationPayloadV2(expected);
+ if(!obj(row)||!exact(row,["operation","cptid","payload_hash","actor","result_json"])||
+  row.operation!==e.operation||row.cptid!==e.command.cptid||row.actor!==e.command.actor||
+  row.payload_hash!==e.payloadHash)fail("request-conflict");
+ let value:unknown;
+ try{value=typeof row.result_json==="string"?JSON.parse(row.result_json):row.result_json;}catch{return fail("invalid-receipt");}
+ jsonValue(value);
+ if(!obj(value)||!exact(value,[...publicKeys,"private"])||!obj(value.private)||
+  !exact(value.private,privateKeys))fail("invalid-receipt");
+ const r=value,p=r.private as Obj;
+ const stored=nativeMutationPayloadV2({operation:e.operation,command:p.command});
+ if(stored.payloadHash!==e.payloadHash||!equal(stored.command,e.command))fail("request-conflict");
+ if(r.v!==2||r.kind!=="gift"||r.operation!==e.operation||r.requestId!==e.command.requestId||
+  r.cptid!==e.command.cptid||r.payloadHash!==e.payloadHash||r.replayed!==false||
+  typeof r.changed!=="boolean"||typeof r.sourceReplayed!=="boolean")fail("invalid-receipt");
+ if(r.sourceReplayed){
+  // Deliberately no unverified "complete=true" proof or current-row inference.
+  if(e.operation!==NATIVE_RECEIPT_OPERATIONS.admitted||
+   !("action" in e.command)||e.command.action!=="create")fail("invalid-receipt");
+  return fail("creation-evidence-unwired");
+ }
+ const before=snapshot(p.before,true),after=snapshot(p.after);
+ if(!after||r.giftId!==after.giftId||r.cptid!==after.cptid||r.version!==after.version||
+  r.order!==after.order||r.representation!==after.representation)fail("invalid-receipt");
+ if(before&&(before.giftId!==after.giftId||before.cptid!==after.cptid||
+  before.order!==after.order||before.representation!==after.representation||
+  !equal(before.sources,after.sources)))fail("invalid-receipt");
+ if(e.operation===NATIVE_RECEIPT_OPERATIONS.correction){
+  if(!before||p.sourceCreateHash!==null||p.cause!==null||r.rootRequestId!==null||r.action!=="edit")fail("invalid-receipt");
+  const plan=planNativeCampaignCorrectionV2(e.command,before);
+  if(r.changed!==plan.changed||!equal(after,plan.after))fail("invalid-receipt");
+ }else if(e.operation===NATIVE_RECEIPT_OPERATIONS.retirement){
+  if(!before||p.sourceCreateHash!==null||r.action!=="retire"||r.changed!==true||
+   !("cause" in e.command)||r.rootRequestId!==e.command.cause.rootRequestId||
+   !equal(p.cause,e.command.cause))fail("invalid-receipt");
+  if(!context.retirementBinding)fail("retirement-binding-required");
+  const plan=planNativeCampaignRetirementV2(e.command,before,context.retirementBinding);
+  if(!equal(after,plan.after))fail("invalid-receipt");
+ }else{
+  const c=e.command as PvasGiftCommand;
+  if(after.representation!=="admitted-event"||r.action!==c.action||r.changed!==true||
+   p.cause!==null||!(r.rootRequestId===null||typeof r.rootRequestId==="string"&&/^[a-f0-9]{32}$/.test(r.rootRequestId))||
+   r.rootRequestId===c.requestId)fail("invalid-receipt");
+  if(c.action==="create"){
+   const sourceHash=digest({v:2,cptid:c.cptid,representation:"admitted-event",source:c.source,gift:c.gift});
+   if(before!==null||after.version!==1||after.voidReason!==null||!equal(after.event,c.gift)||
+    after.sources.length!==1||!equal(after.sources[0],c.source)||p.sourceCreateHash!==sourceHash)fail("invalid-receipt");
+  }else{
+   if(!before||before.representation!=="admitted-event"||p.sourceCreateHash!==null||
+    before.version!==c.target.expectedVersion||before.giftId!==c.target.giftId||
+    before.event.status==="void"||after.version!==before.version+1||after.version>2147483647||
+    !before.sources.some(s=>equal(s,c.target.source)))fail("invalid-receipt");
+   if(c.action==="edit"){
+    if(before.event.scope!==c.gift.scope)fail("lane-change-unwired");
+    if(after.voidReason!==null||!equal(after.event,c.gift))fail("invalid-receipt");
+   }else if(after.voidReason!==c.reason||!equal(after.event,{...before.event,status:"void"}))fail("invalid-receipt");
+  }
+ }
+ return JSON.parse(JSON.stringify(r)) as StoredNativeGiftReceiptV2;
+}
+/** Does not accept an already-public or unchecked receipt. Always validates the
+ * complete stored private evidence before projecting an exact public allowlist. */
+export function publicNativeGiftReceiptV2(row:unknown,expected:ExpectedNativeMutationV2,
+ context:NativeReceiptContextV2={},replayed=false):PublicNativeGiftReceiptV2{
+ if(typeof replayed!=="boolean")fail("invalid-receipt");
+ const r=decodeStoredNativeGiftReceiptV2(row,expected,context);
+ return Object.fromEntries(publicKeys.map(k=>[k,k==="replayed"?replayed:(r as unknown as Obj)[k]])) as unknown as PublicNativeGiftReceiptV2;
+}

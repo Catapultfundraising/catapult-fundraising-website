@@ -1,0 +1,32 @@
+/** Exact reviewed source identity, NOT an issuer or live catalog proof.
+ * Future compiler and capability verifier must consume this same contract and
+ * validate every physical column/key/check/index/default/computed/FK against it.
+ */
+export const PVAS_NATIVE_GIFT_SCHEMA_V2=Object.freeze({
+  v:2 as const,
+  revision:"native-v2-manual-retirement-1",
+  createSource:"db/review/007-pvas-native-gifts-v2.CREATE.REVIEW-ONLY.sql",
+  createSourceSha256:"e49b79215bb09642bc9b2df744b867ba2e4aaf5df67ba56e8679a25151189908",
+  descriptorSource:"db/review/pvas-native-gifts-v2.schema.json",
+  descriptorSourceSha256:"418f6c495025bdb445686ba6a15d42407fafdd898b71277e0e8e836b2b7b7244",
+  snapshotVersion:2 as const,
+  lifecycle:"manual-creation-batch-retirement-only",
+});
+export const NATIVE_GIFT_SCHEMA_TABLES=Object.freeze([
+  "pvas.legacy_batch_retirements","pvas.gifts","pvas.gift_source_links","pvas.gift_history",
+]);
+/** A source hash is necessary, never sufficient for runtime catalog acceptance. */
+export function requireNativeGiftSchemaV2(actual:unknown):void{
+  if(!actual||typeof actual!=="object"||Array.isArray(actual)||
+    Object.keys(actual).sort().join("|")!==Object.keys(PVAS_NATIVE_GIFT_SCHEMA_V2).sort().join("|")||
+    Object.entries(PVAS_NATIVE_GIFT_SCHEMA_V2).some(([k,v])=>(actual as Record<string,unknown>)[k]!==v))
+    throw new Error("PVAS native v2 held: schema-fingerprint-mismatch");
+}
+export const NATIVE_MIGRATION_PROVENANCE=Object.freeze({
+  operation:"gift-migration-v2",
+  requestNamespace:"pvas-native-migration-v2",
+  initialVersion:1,
+  claimsAtBaseline:0,
+  originalUndoneHeadersAreNotClaims:true,
+  historicalRequestsMustNotBeInvented:true,
+});

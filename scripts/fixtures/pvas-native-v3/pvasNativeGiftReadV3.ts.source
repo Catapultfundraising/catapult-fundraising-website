@@ -1,0 +1,82 @@
+/** HELD fixed mixed-wire reader. Caller owns one consistent PRIMARY scope.
+ * No issuer/pool/transport or implicit v2 fallback. */
+import type {Run,Row} from "./sourceImport";
+import {NATIVE_GIFT_ROW_SQL_FIELDS,decodeNativeGiftRowV2} from "./pvasNativeGiftReadV2";
+import {encodeNativeGiftSnapshotV2} from "./pvasNativeMutationReceiptsV2";
+import {PVAS_NATIVE_CAMPAIGN_SCHEMA_V3 as S,assertNativeCampaignV3Capability} from "./pvasNativeCampaignSchemaV3";
+import {campaignV3Hold as fail,objectV3 as obj,exactV3 as exact,positiveV3 as positive,
+ decodeCampaignSnapshotV3,encodeCampaignSnapshotV3} from "./pvasNativeCampaignSnapshotV3";
+import type {GiftSource} from "./pvasCanonicalGifts";
+export type CampaignCapabilityV3=(s:typeof S)=>void|Promise<void>;
+export const EXTRA_GIFT_COLUMNS_V3=["native_campaign_cptid","native_void_request_id","native_void_reason"] as const;
+export const GIFT_FIELDS_V3=NATIVE_GIFT_ROW_SQL_FIELDS+",g.native_campaign_cptid,g.native_void_request_id,g.native_void_reason";
+export const SOURCE_FIELDS_V3="source_system,source_key,gift_id,cptid,source_hash,creation_version,request_id";
+export function sourcesFromRowsV3(rows:Row[],giftId:number,cptid:number):GiftSource[]{
+ return rows.map(r=>{
+  if(!exact(r,SOURCE_FIELDS_V3.split(","))||r.gift_id!==giftId||r.cptid!==cptid||
+   typeof r.source_hash!=="string"||!/^[a-f0-9]{64}$/.test(r.source_hash)||
+   !positive(r.creation_version)||typeof r.request_id!=="string"||!/^[a-f0-9]{32}$/.test(r.request_id))fail("source-closure");
+  return{system:r.source_system,key:r.source_key} as GiftSource;
+ });
+}
+export function decodeGiftRowV3(raw:Row,sources:GiftSource[]){
+ if(EXTRA_GIFT_COLUMNS_V3.some(k=>!Object.hasOwn(raw,k)))return fail("row-version");
+ const old={...raw};for(const k of EXTRA_GIFT_COLUMNS_V3)delete old[k];
+ if(raw.representation!=="native-campaign"){
+  if(EXTRA_GIFT_COLUMNS_V3.some(k=>raw[k]!==null))return fail("row-version");
+  return encodeNativeGiftSnapshotV2(decodeNativeGiftRowV2(old,sources));
+ }
+ let membership:unknown;
+ if(raw.nativeLifecycle==="voided"){
+  if(raw.nativeRetiredRequestId!==null)return fail("row-version");
+  membership={state:"voided",requestId:raw.native_void_request_id,reason:raw.native_void_reason};
+  old.nativeLifecycle="active";old.nativeRetiredRequestId=null;
+ }else{
+  if(raw.native_void_request_id!==null||raw.native_void_reason!==null)return fail("row-version");
+  membership={state:raw.nativeLifecycle,retiredByRequestId:raw.nativeRetiredRequestId};
+ }
+ const surrogate=decodeNativeGiftRowV2(old,sources);
+ if(surrogate.representation!=="native-campaign")return fail("row-version");
+ return{v:3 as const,gift:decodeCampaignSnapshotV3({v:3,gift:{...surrogate,
+  native:{...surrogate.native,cptid:raw.native_campaign_cptid},membership}})};
+}
+const predicate=`g.presentation_lane=@lane AND (@after IS NULL OR g.presentation_order>CONVERT(bigint,@after))
+ AND (@view='provenance' OR g.representation<>'native-campaign' OR g.native_lifecycle='active')
+ AND (@filterDonor=0 OR (g.representation='native-campaign' AND
+  (g.native_campaign_cptid=@donor OR g.native_campaign_cptid IS NULL AND @donor IS NULL)) OR
+  (g.representation<>'native-campaign' AND g.cptid=@donor))`;
+export const GIFT_READ_SQL_V3=Object.freeze({
+ invalid:`SELECT TOP (1) gift_id FROM pvas.gifts WHERE presentation_lane=@lane AND (presentation_order IS NULL OR presentation_order<0)`,
+ page:`SELECT TOP (@limit) ${GIFT_FIELDS_V3} FROM pvas.gifts g WHERE ${predicate} ORDER BY g.presentation_order`,
+ sources:`WITH ids AS (SELECT TOP (@limit) g.gift_id FROM pvas.gifts g WHERE ${predicate} ORDER BY g.presentation_order)
+ SELECT ${SOURCE_FIELDS_V3.split(",").map(k=>"l."+k).join(",")} FROM ids p JOIN pvas.gift_source_links l ON l.gift_id=p.gift_id
+ ORDER BY l.gift_id,l.source_system,l.source_key`,
+});
+export async function readNativeGiftPageV3(run:Run,raw:unknown,cap?:CampaignCapabilityV3){
+ if(!obj(raw)||!["v","lane","view","after","limit"].every(k=>Object.hasOwn(raw,k))||
+  Object.keys(raw).some(k=>!["v","lane","view","after","limit","donor"].includes(k))||raw.v!==3||
+  typeof raw.lane!=="string"||!["history","campaign"].includes(raw.lane)||
+  typeof raw.view!=="string"||!["current","provenance"].includes(raw.view)||
+  typeof raw.limit!=="number"||!Number.isInteger(raw.limit)||raw.limit<1||raw.limit>500||
+  !(raw.after===null||typeof raw.after==="string"&&/^(0|[1-9]\d{0,18})$/.test(raw.after)&&BigInt(raw.after)<=BigInt("9223372036854775807"))||
+  (Object.hasOwn(raw,"donor")&&raw.donor!==null&&!positive(raw.donor)))return fail("page");
+ await assertNativeCampaignV3Capability(S,cap);
+ const p={...raw,filterDonor:Object.hasOwn(raw,"donor")?1:0,donor:raw.donor??null};
+ if((await run(GIFT_READ_SQL_V3.invalid,p)).rows.length)fail("read-drift");
+ const rows=(await run(GIFT_READ_SQL_V3.page,p)).rows,links=(await run(GIFT_READ_SQL_V3.sources,p)).rows;
+ if(rows.length>raw.limit||new Set(rows.map(r=>r.giftId)).size!==rows.length||
+  links.some(l=>!rows.some(r=>r.giftId===l.gift_id)))fail("source-closure");
+ let previous=raw.after===null?-BigInt("1"):BigInt(raw.after);
+ const records=rows.map(r=>{
+  const s=decodeGiftRowV3(r,sourcesFromRowsV3(links.filter(l=>l.gift_id===r.giftId),r.giftId as number,r.cptid as number)),g=s.gift;
+  if(BigInt(g.order)<=previous)fail("read-drift");previous=BigInt(g.order);
+  if((raw.lane==="history"&&g.representation==="native-campaign")||
+   (raw.lane==="campaign"&&g.representation==="native-history")||
+   (g.representation==="admitted-event"&&g.event.scope!==(raw.lane==="history"?"historical":"campaign"))||
+   (raw.view==="current"&&g.representation==="native-campaign"&&g.membership.state!=="active"))fail("read-drift");
+  const donor=g.representation==="native-campaign"?g.native.cptid:g.cptid;
+  if(p.filterDonor&&donor!==p.donor)fail("read-drift");
+  return s.v===3?JSON.parse(encodeCampaignSnapshotV3(s.gift)):s;
+ });
+ return{v:3 as const,lane:raw.lane,view:raw.view,records,next:rows.length===raw.limit?String(previous):null,done:rows.length<raw.limit};
+}

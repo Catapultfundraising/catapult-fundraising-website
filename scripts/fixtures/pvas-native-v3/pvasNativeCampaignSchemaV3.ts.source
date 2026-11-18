@@ -1,0 +1,26 @@
+/** Exact source fingerprint only, never a runtime issuer/catalog proof. */
+export const PVAS_NATIVE_CAMPAIGN_SCHEMA_V3=Object.freeze({
+  "v": 3,
+  "revision": "native-v2-campaign-parity-2",
+  "createSource": "db/review/009-pvas-native-campaign-v3.CREATE.REVIEW-ONLY.sql",
+  "createSourceSha256": "906ae741ebb129e7e272c1979dccb239aa681b56eade9e527933ad288ce5aa80",
+  "descriptorSource": "db/review/pvas-native-campaign-v3.schema.json",
+  "descriptorSourceSha256": "761449a602a18edfaa3d15f10251c6e869e09b0105120d2db7f06033ee05d372",
+  "campaignSnapshotVersion": 3,
+  "otherSnapshotVersion": 2,
+  "lifecycle": "manual-retirement-and-native-standalone-void"
+} as const);
+export function requireNativeCampaignSchemaV3(actual:unknown):void {
+  if(!actual||typeof actual!=="object"||Array.isArray(actual)||
+    JSON.stringify(Object.keys(actual).sort())!==JSON.stringify(Object.keys(PVAS_NATIVE_CAMPAIGN_SCHEMA_V3).sort())||
+    Object.entries(PVAS_NATIVE_CAMPAIGN_SCHEMA_V3).some(([k,v])=>(actual as Record<string,unknown>)[k]!==v))
+    throw new Error("PVAS campaign v3 held: schema-fingerprint-mismatch");
+}
+/** No installer or issuer: trusted verifier is REQUIRED before any future SQL. */
+export async function assertNativeCampaignV3Capability(actual:unknown,
+  assertTrusted:(contract:typeof PVAS_NATIVE_CAMPAIGN_SCHEMA_V3)=>void|Promise<void>=()=>{
+    throw new Error("PVAS campaign v3 held: runtime-unwired");
+  }):Promise<void>{
+  requireNativeCampaignSchemaV3(actual);
+  await assertTrusted(PVAS_NATIVE_CAMPAIGN_SCHEMA_V3);
+}

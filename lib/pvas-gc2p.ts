@@ -50,7 +50,7 @@ export function extrasFromIndex(index: IndexRow[] | null | undefined, t: PvasTra
   const inPool = new Set(pool.map((p) => p.cptid));
   const byId = new Map(index.map((r) => [r.cptid, r]));
   return Object.entries(t.prospects)
-    .filter(([id, s]) => s.level && !OFF.has(s.status) && !inPool.has(Number(id)) && byId.has(Number(id)))
+    .filter(([id, s]) => s.level && !OFF.has(s.status??"") && !inPool.has(Number(id)) && byId.has(Number(id)))
     .map(([id, s]) => {
       const r = byId.get(Number(id)) as IndexRow;
       return { cptid: r.cptid, name: r.name, lifetime: r.lifetime, gifts: r.gifts, first: "", last: r.last, largest: r.largest, years: r.years, ds: r.ds ?? "", capacity: r.capacity ?? "", capMin: r.capMin, qs: "",

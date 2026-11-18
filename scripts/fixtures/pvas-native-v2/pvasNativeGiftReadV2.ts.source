@@ -1,0 +1,230 @@
+/**
+ * HELD isolated v2 SQL reader/projector. No pool/auth/capability issuer/routes.
+ * Caller must provide ONE consistent read transaction and a trusted capability
+ * assertion bound to v2 compiler/schema fingerprint + paired acceptance.
+ */
+import type { Run } from "./sourceImport";
+import { validatePvasGiftSource, validatePvasGiftValue, type GiftSource, type PvasGiftValue } from "./pvasCanonicalGifts";
+import { assertNativeGiftRuntimeCapability, nativeColumns, type NativeHistory, type NativeCampaign,
+  type CampaignRow } from "./pvasNativeGiftFoundation";
+import {PVAS_NATIVE_GIFT_SCHEMA_V2} from "./pvasNativeGiftSchemaV2";
+export class NativeWireHold extends Error {
+  constructor(readonly code:"version-mismatch"|"invalid-page"|"invalid-row"|"source-closure"|"read-drift"|"invalid-snapshot"){
+    super(`PVAS native v2 held: ${code}`);
+  }
+}
+function fail(code:NativeWireHold["code"]):never{throw new NativeWireHold(code);}
+const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
+const exact=(v:object,ks:string[])=>Object.keys(v).sort().join("|")===[...ks].sort().join("|");
+const positive=(v:unknown):v is number=>typeof v==="number"&&Number.isInteger(v)&&v>0&&v<=2147483647;
+const own=(v:object,k:string)=>Object.prototype.hasOwnProperty.call(v,k);
+const str=(v:unknown,n=1000000):v is string=>typeof v==="string"&&v.length<=n;
+const nullable=(v:unknown,n=1000000)=>v===null||str(v,n);
+const finite=(v:unknown):v is number=>typeof v==="number"&&Number.isFinite(v);
+function bigint(v:unknown):string{
+  if(typeof v!=="string"||!/^(?:0|[1-9]\d{0,18})$/.test(v)||BigInt(v)>9223372036854775807n)fail("invalid-row");
+  return v as string;
+}
+function day(v:unknown){
+  if(v===null)return true;
+  if(typeof v!=="string"||!/^\d{4}-\d\d-\d\d$/.test(v)||v<"0001-01-01")return false;
+  const d=new Date(`${v}T00:00:00Z`);return Number.isFinite(d.valueOf())&&d.toISOString().slice(0,10)===v;
+}
+export const CAMPAIGN_PROPERTIES="id cptid donor_name kind amount gift_date client_id note source batch_id created_by created_at key status corrected".split(" ");
+export const NATIVE_SQL_COLUMNS=("native_amount native_event_date native_calendar_year native_status native_campaign native_fund "+
+ "native_gift_type native_record_type native_note native_loaded_at native_original_id native_original_id_type "+
+ "native_number_amount native_date_text native_kind native_donor_name native_client_id native_source native_batch_id "+
+ "native_batch_id_type native_created_by native_created_at native_alias native_campaign_status native_corrected_by "+
+ "native_corrected_at native_corrected_from native_presence_mask").split(" ");
+const eventKeys="amount currency date year kind status scope credit campaign fund type note donorName voidReason".split(" ");
+const rootKeys=["giftId","cptid","version","order","representation"];
+const lifecycleKeys=["nativeLifecycle","nativeRetiredRequestId"];
+export const NATIVE_GIFT_ROW_SQL_FIELDS=`g.gift_id AS giftId,g.cptid,g.version,CONVERT(varchar(20),g.presentation_order) AS [order],g.representation,
+g.native_lifecycle AS nativeLifecycle,g.native_retired_request_id AS nativeRetiredRequestId,
+CONVERT(varchar(30),g.amount) AS amount,g.currency,CONVERT(varchar(10),g.event_date,23) AS date,
+g.calendar_year AS year,g.kind,g.status,g.scope,g.credit,g.campaign,g.fund,g.gift_type AS type,g.note,g.donor_name AS donorName,g.void_reason AS voidReason,
+${NATIVE_SQL_COLUMNS.map(k=>k==="native_amount"?`CONVERT(varchar(30),g.${k}) AS ${k}`:
+ k==="native_event_date"?`CONVERT(varchar(10),g.${k},23) AS ${k}`:
+ k==="native_loaded_at"?`CASE WHEN g.native_loaded_at IS NULL THEN NULL ELSE
+ CONVERT(char(19),g.native_loaded_at,126)+'.'+RIGHT('0000000'+CONVERT(varchar(7),DATEPART(NANOSECOND,g.native_loaded_at)/100),7) END AS native_loaded_at`:
+ `g.${k}`).join(",")}`;
+const predicate=`g.presentation_lane=@lane AND (@after IS NULL OR g.presentation_order>CONVERT(bigint,@after))
+ AND (@view='provenance' OR g.representation<>'native-campaign' OR g.native_lifecycle='active')`;
+export const NATIVE_GIFT_READ_SQL=Object.freeze({
+  invalidOrder:`SELECT TOP (1) gift_id FROM pvas.gifts
+    WHERE presentation_lane=@lane AND (presentation_order IS NULL OR presentation_order<0)`,
+  page:`SELECT TOP (@limit) ${NATIVE_GIFT_ROW_SQL_FIELDS} FROM pvas.gifts g
+    WHERE ${predicate} ORDER BY g.presentation_order`,
+  links:`WITH ids AS (SELECT TOP (@limit) g.gift_id FROM pvas.gifts g WHERE ${predicate} ORDER BY g.presentation_order)
+    SELECT l.gift_id AS giftId,l.cptid,l.source_system AS system,l.source_key AS [key]
+    FROM ids p JOIN pvas.gift_source_links l ON l.gift_id=p.gift_id
+    ORDER BY l.gift_id,l.source_system,l.source_key`,
+});
+export interface RecordBase{giftId:number;cptid:number;version:number;order:string;sources:GiftSource[]}
+export interface NativeCampaignMembership{state:"active"|"retired";retiredByRequestId:string|null}
+export type NativeGiftRecordV2=RecordBase&(NativeHistory|(NativeCampaign&{membership:NativeCampaignMembership})|
+  {representation:"admitted-event";event:PvasGiftValue;voidReason:string|null});
+export type PresentationLane="history"|"campaign";
+export interface NativePageRequest{v:2;lane:PresentationLane;view:"current"|"provenance";after:string|null;limit:number}
+export function requireGiftWireVersion(requested:unknown,schemaVersion:unknown){
+  if(requested!==2||schemaVersion!==2)fail("version-mismatch");
+}
+function numericIdentity(v:unknown,type:unknown):number|string{
+  if(typeof v!=="string"||!/^[-]?(?:0|[1-9]\d*)$/.test(v)||v.length>20)fail("invalid-row");
+  if(type==="s")return v as string;
+  if(type!=="n")return fail("invalid-row");
+  const n=Number(v);if(!Number.isSafeInteger(n)||String(n)!==v)fail("invalid-row");return n;
+}
+export function decodeNativeGiftRowV2(raw:unknown,sources:GiftSource[]):NativeGiftRecordV2{
+  if(!obj(raw)||!exact(raw,[...rootKeys,...eventKeys,...NATIVE_SQL_COLUMNS,...lifecycleKeys])||
+    !positive(raw.giftId)||!positive(raw.cptid)||!positive(raw.version)||!Array.isArray(sources)||!sources.length)fail("invalid-row");
+  const r=raw as Record<string,unknown>, aliases:GiftSource[]=[],seen=new Set<string>();
+  for(const s of sources){let v:GiftSource;try{v=validatePvasGiftSource(s);}catch{return fail("source-closure");}
+    const k=JSON.stringify(v);if(seen.has(k))fail("source-closure");seen.add(k);aliases.push(v);}
+  const base:RecordBase={giftId:r.giftId as number,cptid:r.cptid as number,version:r.version as number,order:bigint(r.order),sources:aliases};
+  if(r.representation==="admitted-event"){
+    if([...NATIVE_SQL_COLUMNS,...lifecycleKeys].some(k=>r[k]!==null))fail("invalid-row");
+    let event:PvasGiftValue;
+    try{event=validatePvasGiftValue(Object.fromEntries(eventKeys.filter(k=>k!=="voidReason").map(k=>[k,r[k]])));}
+    catch{return fail("invalid-row");}
+    if(event.amount!==r.amount||(event.status==="void")!==(r.voidReason!==null)||
+      !(r.voidReason===null||str(r.voidReason,400)&&r.voidReason.trim().length>0))fail("invalid-row");
+    return{...base,representation:"admitted-event",event,voidReason:r.voidReason as string|null};
+  }
+  if(eventKeys.some(k=>r[k]!==null))fail("invalid-row");
+  let record:NativeHistory|NativeCampaign;
+  if(r.representation==="native-history"){
+    if(lifecycleKeys.some(k=>r[k]!==null))fail("invalid-row");
+    if(typeof r.native_amount!=="string"||!/^-(?:0|[1-9]\d{0,15})\.\d{2}$|^(?:0|[1-9]\d{0,15})\.\d{2}$/.test(r.native_amount)||
+      !day(r.native_event_date)||!(r.native_calendar_year===null||typeof r.native_calendar_year==="number"&&
+        Number.isInteger(r.native_calendar_year)&&r.native_calendar_year>=-2147483648&&r.native_calendar_year<=2147483647)||
+      !nullable(r.native_status,40)||!nullable(r.native_campaign,200)||!nullable(r.native_fund,200)||
+      !nullable(r.native_gift_type,60)||!nullable(r.native_record_type,60)||!nullable(r.native_note,500)||
+      typeof r.native_loaded_at!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d\.\d{7}$/.test(r.native_loaded_at))fail("invalid-row");
+    const clock=new Date(`${(r.native_loaded_at as string).slice(0,23)}Z`);
+    if(!Number.isFinite(clock.valueOf())||clock.toISOString().slice(0,23)!==(r.native_loaded_at as string).slice(0,23))fail("invalid-row");
+    const ids=aliases.filter(s=>s.system==="client_gift_history");
+    if(ids.length!==1||!/^[1-9]\d{0,18}$/.test(ids[0].key)||BigInt(ids[0].key)>9223372036854775807n)fail("source-closure");
+    record={representation:"native-history",source:ids[0] as NativeHistory["source"],cptid:base.cptid,
+      native:{amount:r.native_amount,date:r.native_event_date as string|null,year:r.native_calendar_year as number|null,
+        status:r.native_status as string|null,campaign:r.native_campaign as string|null,fund:r.native_fund as string|null,
+        type:r.native_gift_type as string|null,recordType:r.native_record_type as string|null,note:r.native_note as string|null,
+        loadedAt:r.native_loaded_at}};
+  }else if(r.representation==="native-campaign"){
+    const mask=r.native_presence_mask;
+    if(typeof mask!=="number"||!Number.isInteger(mask)||mask<0||mask>32767||(mask&63)!==63||
+      !finite(r.native_number_amount)||!["gift","pledge"].includes(String(r.native_kind))||
+      !str(r.native_donor_name)||!nullable(r.native_date_text))fail("invalid-row");
+    const n:Record<string,unknown>={id:numericIdentity(r.native_original_id,r.native_original_id_type),
+      cptid:base.cptid,donor_name:r.native_donor_name,kind:r.native_kind,amount:r.native_number_amount,gift_date:r.native_date_text};
+    const mapping:Record<string,string>={client_id:"native_client_id",note:"native_note",source:"native_source",
+      created_by:"native_created_by",created_at:"native_created_at",key:"native_alias",status:"native_campaign_status"};
+    for(const [k,col]of Object.entries(mapping))if(mask&(1<<CAMPAIGN_PROPERTIES.indexOf(k))){
+      if(!nullable(r[col])||(k==="key"&&(typeof r[col]!=="string"||!(r[col] as string).startsWith("db|"))))fail("invalid-row");n[k]=r[col];
+    }
+    if(mask&512)n.batch_id=r.native_batch_id===null?null:numericIdentity(r.native_batch_id,r.native_batch_id_type);
+    if(mask&16384){
+      if(!str(r.native_corrected_by)||!str(r.native_corrected_at)||!finite(r.native_corrected_from))fail("invalid-row");
+      n.corrected={by:r.native_corrected_by,at:r.native_corrected_at,from:r.native_corrected_from};
+    }
+    let source:NativeCampaign["source"];
+    if(own(n,"key")){
+      if(typeof n.id!=="number"||n.id>=0)fail("invalid-row");
+      source={system:"website_db",key:n.key as string};
+    }else{
+      const key=String(n.id);
+      if(!/^[1-9]\d{0,18}$/.test(key)||BigInt(key)>9223372036854775807n)fail("invalid-row");
+      source={system:"portal_gifts",key};
+    }
+    if(!aliases.some(s=>s.system===source.system&&s.key===source.key))fail("source-closure");
+    record={representation:"native-campaign",source,cptid:base.cptid,native:n as unknown as CampaignRow};
+  }else return fail("invalid-row");
+  const columns=nativeColumns(record);
+  if(NATIVE_SQL_COLUMNS.some(k=>r[k]!== (own(columns,k)?columns[k]:null)))fail("invalid-row");
+  if(record.representation==="native-campaign"){
+    if(r.nativeLifecycle==="active"){
+      if(r.nativeRetiredRequestId!==null)fail("invalid-row");
+    }else if(r.nativeLifecycle==="retired"){
+      if(record.source.system!=="portal_gifts"||typeof r.nativeRetiredRequestId!=="string"||
+        !/^[a-f0-9]{32}$/.test(r.nativeRetiredRequestId))fail("invalid-row");
+      const batch=String(record.native.batch_id??"");
+      if(!/^[1-9]\d{0,18}$/.test(batch)||BigInt(batch)>9223372036854775807n)fail("invalid-row");
+    }else fail("invalid-row");
+    return{...base,...record,membership:{state:r.nativeLifecycle,retiredByRequestId:r.nativeRetiredRequestId as string|null}};
+  }
+  return{...base,...record};
+}
+export function projectNativeGiftV2(r:NativeGiftRecordV2){
+  if(r.representation==="native-campaign")return{...r,legacy:JSON.parse(JSON.stringify(r.native)) as CampaignRow};
+  if(r.representation==="native-history")return{...r,legacy:{
+    id:r.source.key,cptid:r.cptid,date:r.native.date,amount:r.native.amount,status:r.native.status,
+    campaign:r.native.campaign,fund:r.native.fund,type:r.native.type,year:r.native.year,note:r.native.note,record_type:r.native.recordType}};
+  return{...r}; // No money conversion, legacy shape/default status or cross-lane aggregation.
+}
+/** Versioned immutable history snapshot, no legacy presentation copies.
+ * Reuses the exact SQL decoder/column codec; rejects unknown fields/presence
+ * contradictions instead of accepting an event-v1 snapshot under version2.
+ * Original-value authenticity still needs source/audit proof, not shape alone. */
+export function decodeNativeGiftSnapshotV2(input:unknown):NativeGiftRecordV2{
+  try{
+    const value=typeof input==="string"?JSON.parse(input):input;
+    if(!obj(value)||!exact(value,["v","gift"])||value.v!==2||!obj(value.gift))fail("invalid-snapshot");
+    const g=value.gift,common=["giftId","cptid","version","order","sources","representation"];
+    const keys=g.representation==="admitted-event"?[...common,"event","voidReason"]:
+      g.representation==="native-campaign"?[...common,"source","native","membership"]:[...common,"source","native"];
+    if(!exact(g,keys))fail("invalid-snapshot");
+    const sql:Record<string,unknown>=Object.fromEntries([...eventKeys,...NATIVE_SQL_COLUMNS,...lifecycleKeys].map(k=>[k,null]));
+    for(const k of rootKeys)sql[k]=g[k];
+    if(g.representation==="admitted-event"){
+      if(!obj(g.event))fail("invalid-snapshot");
+      Object.assign(sql,g.event,{voidReason:g.voidReason});
+    }else{
+      Object.assign(sql,nativeColumns(g as unknown as NativeHistory|NativeCampaign));
+      if(g.representation==="native-campaign"){
+        if(!obj(g.membership)||!exact(g.membership,["state","retiredByRequestId"]))fail("invalid-snapshot");
+        sql.nativeLifecycle=g.membership.state;sql.nativeRetiredRequestId=g.membership.retiredByRequestId;
+      }
+    }
+    const decoded=decodeNativeGiftRowV2(sql,g.sources as GiftSource[]);
+    const stable=(v:unknown):unknown=>Array.isArray(v)?v.map(stable):obj(v)?
+      Object.fromEntries(Object.keys(v).sort().map(k=>[k,stable(v[k])])):v;
+    if(JSON.stringify(stable(decoded))!==JSON.stringify(stable(g)))fail("invalid-snapshot");
+    return decoded;
+  }catch{return fail("invalid-snapshot");}
+}
+/** Trusted assertion is dependency injection, never request data. No issuer is
+ * supplied in this package; default refuses before any SQL. */
+export type AssertNativeReadCapability=(contract:typeof PVAS_NATIVE_GIFT_SCHEMA_V2)=>void|Promise<void>;
+export async function readNativeGiftPageV2(run:Run,input:unknown,
+  assertCapability:AssertNativeReadCapability=assertNativeGiftRuntimeCapability){
+  if(!obj(input)||!exact(input,["v","lane","view","after","limit"])||input.v!==2||
+    !["history","campaign"].includes(String(input.lane))||typeof input.limit!=="number"||
+    !["current","provenance"].includes(String(input.view))||
+    !Number.isInteger(input.limit)||input.limit<1||input.limit>500||
+    !(input.after===null||typeof input.after==="string"))fail("invalid-page");
+  if(input.after!==null)bigint(input.after);
+  const b=input as unknown as NativePageRequest;
+  await assertCapability(PVAS_NATIVE_GIFT_SCHEMA_V2);requireGiftWireVersion(b.v,2);
+  const p={lane:b.lane,view:b.view,after:b.after,limit:b.limit};
+  if((await run(NATIVE_GIFT_READ_SQL.invalidOrder,p)).rows.length)fail("read-drift");
+  const rows=(await run(NATIVE_GIFT_READ_SQL.page,p)).rows;
+  const links=(await run(NATIVE_GIFT_READ_SQL.links,p)).rows;
+  if(rows.length>b.limit)fail("read-drift");
+  const ids=new Set(rows.map(r=>r.giftId)),byId=new Map<number,GiftSource[]>();
+  for(const l of links){
+    if(!exact(l,["giftId","cptid","system","key"])||!positive(l.giftId)||!positive(l.cptid)||!ids.has(l.giftId)||
+      rows.find(r=>r.giftId===l.giftId)?.cptid!==l.cptid)fail("source-closure");
+    const list=byId.get(l.giftId)??[];list.push({system:l.system,key:l.key} as GiftSource);byId.set(l.giftId,list);
+  }
+  let previous=b.after===null?-1n:BigInt(b.after);
+  const records=rows.map(row=>{
+    const r=decodeNativeGiftRowV2(row,byId.get(row.giftId as number)??[]);
+    if(BigInt(r.order)<=previous)fail("read-drift");previous=BigInt(r.order);
+    if((b.lane==="history"&&r.representation==="native-campaign")||
+      (b.lane==="campaign"&&r.representation==="native-history")||
+      (r.representation==="admitted-event"&&r.event.scope!==(b.lane==="history"?"historical":"campaign")))fail("read-drift");
+    if(b.view==="current"&&r.representation==="native-campaign"&&r.membership.state!=="active")fail("read-drift");
+    return projectNativeGiftV2(r);
+  });
+  return{v:2 as const,lane:b.lane,view:b.view,records,next:rows.length===b.limit?String(previous):null,done:rows.length<b.limit};
+}

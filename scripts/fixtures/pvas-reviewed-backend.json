@@ -1,0 +1,10 @@
+{
+  "backendCommit": "a1f128f7fe396b18bbda0b11dfb25bfff7f50ad2",
+  "archiveSha256": "8318ec1cb386125c081eb75b9a8d463d4bee70944fb1971beb3f4761096a9a74",
+  "sourceSha256": {
+    "pvasCanonicalPortal.ts": "f05d79f149934ecbb7da26f3f6590a16c993cdbb8b68e602f3e7974e625affdc",
+    "pvasCanonicalTracking.ts": "ef0ca5cb73bff288f716a0aba499c3acf444c6782401daea29627888e9fac1ec"
+  },
+  "envelope": "function envelope(b:Obj,keys:string[],optional:string[]=[]){\n  if(keys.some(k=>!Object.hasOwn(b,k))||Object.keys(b).some(k=>!keys.includes(k)&&!optional.includes(k)))fail();\n}",
+  "displayDate": "function displayDate(raw:string|null):{date:string;sourceDate?:string}{\n  if(raw===null||raw===\"\")return {date:\"\"};\n  let m=raw.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/),iso:string;\n  if(m)iso=`${m[1]}-${m[2]}-${m[3]}`;\n  else{m=raw.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})$/);if(!m)return {date:\"\",sourceDate:raw};\n    iso=`${m[3]}-${m[1].padStart(2,\"0\")}-${m[2].padStart(2,\"0\")}`;}\n  const d=new Date(`${iso}T00:00:00Z`);\n  return Number.isFinite(d.valueOf())&&d.toISOString().slice(0,10)===iso?{date:iso}:{date:\"\",sourceDate:raw};\n}"
+}

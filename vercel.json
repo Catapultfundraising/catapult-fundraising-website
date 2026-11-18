@@ -1,6 +1,7 @@
 {
   "git": {
     "deploymentEnabled": {
+      "fix/pvas-held-aggregate-ownership": false,
       "feat/jag-direct-dashboard-release-nov15": false,
       "feat/monthly-gift-imports-nov15": false,
       "feat/direct-solicitors-capacity-nov15": false

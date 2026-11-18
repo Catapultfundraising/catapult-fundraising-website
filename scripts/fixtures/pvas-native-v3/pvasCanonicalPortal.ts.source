@@ -1,0 +1,320 @@
+/** PVAS-only gateway dispatcher. Pools/auth/transactions remain existing owners.
+ * This module never queries engage/source_import current state or Blob.
+ */
+import {SourceImportError,type Run,type TxFactory} from "./sourceImport";
+import {applyPvasFieldsTx,validatePvasFieldsCommand} from "./pvasCanonicalFieldsWrite";
+import {applyPvasNoteTx,validatePvasNoteCommand} from "./pvasCanonicalNotes";
+import {applyPvasContactTx,validatePvasContactCommand,readPvasContacts,readPvasProspects,readPvasDuplicateExclusions,
+  pvasProspectCreateCommand,pvasProspectEditCommand,PVAS_CONTACT_SOURCE_SQL,projectPvasContact} from "./pvasCanonicalContacts";
+import {readNativeGiftPageV2,type AssertNativeReadCapability} from "./pvasNativeGiftReadV2";
+import {assertNativeGiftRuntimeCapability} from "./pvasNativeGiftFoundation";
+import {PVAS_NATIVE_GIFT_SCHEMA_V2} from "./pvasNativeGiftSchemaV2";
+import {validateNativeCorrectionV2,NativeCorrectionHold} from "./pvasNativeCampaignCorrectionV2";
+import {validatePvasGiftCommand} from "./pvasCanonicalGifts";
+import {updateNativeCampaignCorrectionV2,readNativeCampaignCorrectionStatusV2,NativeCorrectionTxHold} from "./pvasNativeCampaignCorrectionTxV2";
+import {updateNativeAdmittedGiftV2,NativeAdmittedTxHold} from "./pvasNativeAdmittedGiftTxV2";
+import {readNativeAdmittedGiftStatusV2,NativeAdmittedStatusHold} from "./pvasNativeAdmittedGiftStatusV2";
+import {NativeReceiptHold} from "./pvasNativeMutationReceiptsV2";
+import {readNativeGiftPageV3,type CampaignCapabilityV3} from "./pvasNativeGiftReadV3";
+import {updateNativeCampaignV3,nativeCampaignStatusV3,type OriginalEntryProviderV3} from "./pvasNativeCampaignTxV3";
+import {PVAS_NATIVE_CAMPAIGN_SCHEMA_V3,assertNativeCampaignV3Capability} from "./pvasNativeCampaignSchemaV3";
+import {readPvasCanonicalTracking,applyPvasTrackingTx,validatePvasTrackingCommand} from "./pvasCanonicalTracking";
+import {applyPvasImportBatchTx,validatePvasImportBatch,pvasLegacyBatchCommand,
+  pvasImportStatusTx,type PvasImportOptions} from "./pvasCanonicalImports";
+import {readPvasHistoricalUploads,refusePvasHistoricalUploadUndo} from "./pvasHistoricalUploads";
+type Obj=Record<string,unknown>;
+const obj=(x:unknown):x is Obj=>!!x&&typeof x==="object"&&!Array.isArray(x);
+const id=(x:unknown):x is number=>typeof x==="number"&&Number.isInteger(x)&&x>0&&x<=2147483647;
+const requestId=(x:unknown):x is string=>typeof x==="string"&&/^[a-f0-9]{32}$/.test(x);
+function fail(code="invalid-command",status=400):never{throw new SourceImportError(status,code,"PVAS canonical operation refused");}
+function envelope(b:Obj,keys:string[],optional:string[]=[]){
+  if(keys.some(k=>!Object.hasOwn(b,k))||Object.keys(b).some(k=>!keys.includes(k)&&!optional.includes(k)))fail();
+}
+export interface PvasPortalDeps {read:Run;txf:TxFactory;monthlyOptions?:PvasImportOptions;
+  /** Trusted server-only assertion; absent denies before TxFactory/SQL. Never request data. */
+  assertNativeReadCapability?:AssertNativeReadCapability;
+  /** Separate mutation acceptance, NOT implied by read acceptance. No runtime issuer exists. */
+  assertNativeWriteCapability?:AssertNativeReadCapability;
+  assertNativeReadCapabilityV3?:CampaignCapabilityV3;
+  assertNativeWriteCapabilityV3?:CampaignCapabilityV3;
+  /** Trusted final manifest provider only; no production installer exists. */
+  originalMigrationEntryV3?:OriginalEntryProviderV3}
+type NativePublicOperation="nativeCampaignCorrectionV2"|"admittedGiftV2";
+/** Existing authenticated server caller supplies a validated DECLARATION.
+ * Shared-password dashboard auth does not establish a human user identity.
+ * Keep exact by bytes for original-command replay/status; no trim/default. */
+function nativePublicCommand(operation:NativePublicOperation,by:unknown,input:unknown){
+  if(typeof by!=="string"||!by.trim()||by.length>200||/[\x00-\x1f\x7f]/.test(by)||!obj(input))fail();
+  if(operation==="nativeCampaignCorrectionV2"){
+    envelope(input,["requestId","cptid","target","patch"]);
+    return validateNativeCorrectionV2({...input,actor:by});
+  }
+  if(input.action==="create")envelope(input,["requestId","cptid","action","gift","source"]);
+  else if(input.action==="edit")envelope(input,["requestId","cptid","action","target","gift"]);
+  else if(input.action==="void")envelope(input,["requestId","cptid","action","target","reason"]);
+  else fail();
+  const c=validatePvasGiftCommand({...input,actor:by});
+  // Standalone portal surface only. Import roots remain held; permissive
+  // internal source enums are not public authority for provider/history writes.
+  if(c.action==="create"){
+    if(c.source.system!=="manual"||c.gift.scope!=="campaign")fail("pvas-native-standalone-source-unavailable",409);
+  }else{
+    if(!["manual","monthly_import"].includes(c.target.source.system)||
+      (c.action==="edit"&&c.gift.scope!=="campaign"))fail("pvas-native-standalone-source-unavailable",409);
+  }
+  return c;
+}
+/** Unknown-COMMIT recovery must retain actual command+by for this operation. */
+export function pvasCanonicalStatusOperation(op:unknown){
+  if(op==="nativeCampaignMutationV3")return "nativeCampaignStatusV3";
+  return op==="nativeCampaignCorrectionV2"||op==="admittedGiftV2"?"nativeGiftStatusV2":"pvasRequestStatus";
+}
+/** Keep private undo/source payloads in SQL, not browser receipts. */
+export function publicPvasReceipt(input:unknown,depth=0):Obj {
+  if(!obj(input)||depth>2)fail("corrupt-ledger",503);
+  const out:Obj={};
+  const keys=["v","operation","requestId","cptid","payloadHash","changed","replayed","sourceReplayed","action","giftId","version","noteId","batchId",
+    "newRows","changedRows","giftRows","revision","ok","status","committed","unconfirmed"];
+  for(const k of keys)if(Object.hasOwn(input,k)){
+    const x=input[k];if(x!==null&&typeof x!=="string"&&typeof x!=="number"&&typeof x!=="boolean")fail("corrupt-ledger",503);
+    out[k]=x;
+  }
+  if(Array.isArray(input.results)){if(input.results.length>1000)fail("corrupt-ledger",503);out.results=input.results.map(r=>publicPvasReceipt(r,depth+1));}
+  if(Array.isArray(input.ids)){if(input.ids.length>10000||!input.ids.every(id))fail("corrupt-ledger",503);out.ids=[...input.ids];}
+  if(Array.isArray(input.assigned)){if(input.assigned.length>500||!input.assigned.every(id))fail("corrupt-ledger",503);out.assigned=[...input.assigned];}
+  if(Array.isArray(input.children)){if(input.children.length>500)fail("corrupt-ledger",503);out.children=input.children.map(r=>publicPvasReceipt(r,depth+1));}
+  return out;
+}
+/** Convert ONLY known code-owned static errors to safe post-rollback refusals.
+ * Original SQL errors never become response text/detail.
+ */
+export function canonicalRefusal(error:unknown):SourceImportError|null {
+  if(error instanceof SourceImportError)return new SourceImportError(error.status,error.code,"PVAS canonical operation refused");
+  if(!(error instanceof Error))return null;
+  if(error instanceof NativeCorrectionHold||error instanceof NativeCorrectionTxHold||
+    error instanceof NativeAdmittedTxHold||error instanceof NativeAdmittedStatusHold||error instanceof NativeReceiptHold){
+    const c=error.code;
+    const conflict=/conflict|stale|pending|not-native-campaign|not-admitted-event|retired-membership|lane-change-unwired/.test(c);
+    return new SourceImportError(c==="invalid-command"?400:c==="not-found"?404:conflict?409:503,
+      `pvas-native-${c}`,"PVAS canonical operation refused");
+  }
+  if(error.constructor.name==="NativeWireHold"&&typeof (error as Error&{code?:unknown}).code==="string"){
+    const c=(error as Error&{code:string}).code;
+    return new SourceImportError(c==="invalid-page"?400:503,`pvas-native-${c}`,"PVAS canonical operation refused");
+  }
+  let code:string|null=null;
+  if(["PvasGiftError","PvasCanonicalReadError","PvasCanonicalWriteError","NativeGiftHold","NativeWireHold"].includes(error.constructor.name)&&
+    typeof (error as Error&{code?:unknown}).code==="string")code=(error as Error&{code:string}).code;
+  if(error.constructor===Error){
+    const v3=error.message.match(/^PVAS campaign v3 held: ([a-z0-9-]+)$/);
+    if(v3){
+      const c=v3[1],invalid=["command","actor","intent","amount","date","page"].includes(c);
+      return new SourceImportError(invalid?400:/conflict|stale|pending|inactive/.test(c)?409:503,
+        `pvas-campaign-v3-${c}`,"PVAS canonical operation refused");
+    }
+    const m=error.message.match(/^PVAS (?:canonical (?:fields|note)|contacts|tracking|imports) held: ([a-z0-9-]+)$/);
+    if(m)code=m[1];
+    if(error.message==="PVAS canonical financial projection held"||error.message==="PVAS financial currency mapping required")code="financial-reconciliation-required";
+    if(error.message==="PVAS canonical projection invariant")code="source-invariant";
+  }
+  if(!code)return null;
+  const invalid=/^invalid|^non-json$|^owned-extension-key$|^document-too-large$/.test(code);
+  const conflict=/stale|conflict|identity|ambiguous|cycle|orphan|pending|already|immutable|removal|tombstone/.test(code);
+  return new SourceImportError(invalid?400:conflict?409:503,`pvas-${code}`,"PVAS canonical operation refused");
+}
+export const PVAS_PORTAL_SQL=Object.freeze({
+  receipt:"SELECT operation,payload_hash,result_json FROM pvas.write_requests WHERE request_id=@requestId",
+  identities:"SELECT cptid,deleted,delete_reason,merged_into FROM pvas.contacts WHERE deleted=1 OR merged_into IS NOT NULL ORDER BY cptid",
+  batches:`SELECT TOP (200) id,kind,file_name,created_by,CONVERT(varchar(33),created_at,127) AS created_at,
+new_rows,changed_rows,gift_rows,CONVERT(varchar(33),undone_at,127) AS undone_at,undone_by FROM pvas.portal_batches ORDER BY id DESC`,
+  audit:`SELECT TOP (1000) CONVERT(varchar(30),id) AS id,cptid,source_table,source_column,before_json,after_json,actor,
+CONVERT(varchar(33),created_at,127) AS created_at FROM pvas.write_audit ORDER BY id DESC`,
+});
+async function portalState(run:Run,assertCapability:AssertNativeReadCapability,
+  pageV3?:Awaited<ReturnType<typeof readNativeGiftPageV3>>){
+  // Version2 requires a paired consumer. No fake empty gifts/financial fallback.
+  const nativeCampaignPage=pageV3??await readNativeGiftPageV2(run,
+    {v:2,lane:"campaign",view:"current",after:null,limit:500},assertCapability);
+  const prospects=await readPvasProspects(run);
+  // Current identity compatibility rows, never migrated value history overlays.
+  const updates:Obj[]=[];let sequence=0;
+  for(const r of (await run(PVAS_PORTAL_SQL.identities,{})).rows){
+    if(!id(r.cptid)||(r.deleted!==true&&r.deleted!==false&&r.deleted!==0&&r.deleted!==1)||
+      (r.merged_into!==null&&!id(r.merged_into))||(r.delete_reason!==null&&typeof r.delete_reason!=="string"))fail("source-invariant",503);
+    if(r.deleted)updates.push({id:++sequence,cptid:r.cptid,field:"deleted",old_value:null,new_value:r.delete_reason??"Deleted",created_by:null,created_at:null});
+    if(r.merged_into!==null)updates.push({id:++sequence,cptid:r.cptid,field:"merged_into",old_value:null,new_value:String(r.merged_into),created_by:null,created_at:null});
+  }
+  for(const key of await readPvasDuplicateExclusions(run))updates.push({id:++sequence,cptid:Number(key.split("|")[0]),field:"notdup",old_value:null,new_value:key,created_by:null,created_at:null});
+  const currentBatches=(await run(PVAS_PORTAL_SQL.batches,{})).rows;
+  const historical=await readPvasHistoricalUploads(run,null,200);
+  const batches=[...currentBatches.map(r=>({...r,_undo:{kind:"unverified",namespace:"canonical-pvas"}})),...historical.rows];
+  const audit=(await run(PVAS_PORTAL_SQL.audit,{})).rows;
+  // Audit stays separate; never feed these rows into effective-value overlays.
+  return {v:pageV3?3:2,...(pageV3?{stateVersion:3}:{}),giftWireVersion:pageV3?3:2,nativeCampaignPage,prospects,updates,batches,
+    databaseGiftEditsAvailable:false,canonicalAudit:audit,historicalBatchPage:{next:historical.next,done:historical.done}};
+}
+/** Called only after existing auth + server-owned acceptance guard. */
+export async function dispatchPvasCanonicalPortal(body:unknown,deps:PvasPortalDeps):Promise<unknown>{
+  if(!obj(body)||body.client!=="pvas"||typeof body.op!=="string"||JSON.stringify(body).length>4_000_000)fail();
+  const b=JSON.parse(JSON.stringify(body)) as Obj;
+  const capability=deps.assertNativeReadCapability??assertNativeGiftRuntimeCapability;
+  const writeCapability=deps.assertNativeWriteCapability??assertNativeGiftRuntimeCapability;
+  switch(b.op){
+    case "nativeCampaignMutationV3":{
+      envelope(b,["op","client","by","command"]);
+      return updateNativeCampaignV3(deps.txf,b.command,{actor:b.by as string,
+        assertCapability:deps.assertNativeWriteCapabilityV3,originalEntry:deps.originalMigrationEntryV3});
+    }
+    case "nativeCampaignStatusV3":{
+      envelope(b,["op","client","by","operation","command"]);
+      if(b.operation!=="nativeCampaignMutationV3")fail();
+      return nativeCampaignStatusV3(deps.txf,b.command,{actor:b.by as string,
+        assertCapability:deps.assertNativeWriteCapabilityV3,originalEntry:deps.originalMigrationEntryV3});
+    }
+    case "nativeGiftPageV3":{
+      envelope(b,["op","client","request"]);
+      await assertNativeCampaignV3Capability(PVAS_NATIVE_CAMPAIGN_SCHEMA_V3,deps.assertNativeReadCapabilityV3);
+      return deps.txf(run=>readNativeGiftPageV3(run,b.request,deps.assertNativeReadCapabilityV3));
+    }
+    case "nativeStateV3":{
+      envelope(b,["op","client"]);
+      await assertNativeCampaignV3Capability(PVAS_NATIVE_CAMPAIGN_SCHEMA_V3,deps.assertNativeReadCapabilityV3);
+      return deps.txf(async run=>{
+        const page=await readNativeGiftPageV3(run,{v:3,lane:"campaign",view:"current",after:null,limit:500},
+          deps.assertNativeReadCapabilityV3);
+        return portalState(run,capability,page);
+      });
+    }
+    case "nativeCampaignCorrectionV2":case "admittedGiftV2":{
+      envelope(b,["op","client","by","command"]);
+      const command=nativePublicCommand(b.op,b.by,b.command);
+      const context={actor:b.by as string,assertCapability:writeCapability};
+      // Both accepted wrappers preflight capability before TxFactory BEGIN,
+      // then revalidate inside the same caller-owned SERIALIZABLE transaction.
+      return b.op==="nativeCampaignCorrectionV2"?
+        updateNativeCampaignCorrectionV2(deps.txf,command,context):
+        updateNativeAdmittedGiftV2(deps.txf,command,context);
+    }
+    case "nativeGiftStatusV2":{
+      envelope(b,["op","client","by","operation","command"]);
+      if(b.operation!=="nativeCampaignCorrectionV2"&&b.operation!=="admittedGiftV2")fail();
+      const command=nativePublicCommand(b.operation,b.by,b.command);
+      const context={actor:b.by as string,assertCapability:writeCapability};
+      await writeCapability(PVAS_NATIVE_GIFT_SCHEMA_V2);
+      // Fresh PRIMARY, one SERIALIZABLE proof scope from EXISTING pool owner;
+      // never cached deps.read or independently racing source/ledger/history.
+      return b.operation==="nativeCampaignCorrectionV2"?
+        deps.txf(run=>readNativeCampaignCorrectionStatusV2(run,command,context)):
+        deps.txf(run=>readNativeAdmittedGiftStatusV2(run,command,context));
+    }
+    case "nativeGiftPageV2":{
+      envelope(b,["op","client","request"]);
+      await capability(PVAS_NATIVE_GIFT_SCHEMA_V2);
+      return deps.txf(run=>readNativeGiftPageV2(run,b.request,capability));
+    }
+    case "undoBatch":case "pvasHistoricalBatchUndo":case "legacyBatchUndoV2":refusePvasHistoricalUploadUndo();
+    case "pvasHistoricalUploads":{
+      envelope(b,["op","client"],["before","limit"]);
+      return readPvasHistoricalUploads(deps.read,b.before===undefined?null:b.before,b.limit===undefined?100:b.limit);
+    }
+    case "pvasFields":{
+      envelope(b,["op","client","command"]);const c=validatePvasFieldsCommand(b.command);
+      return {ok:true,...await deps.txf(run=>applyPvasFieldsTx(run,c))};
+    }
+    case "pvasContact":{
+      envelope(b,["op","client","command"]);const c=validatePvasContactCommand(b.command);
+      return {ok:true,...await deps.txf(run=>applyPvasContactTx(run,c))};
+    }
+    case "pvasNote":{
+      envelope(b,["op","client","command"]);const c=validatePvasNoteCommand(b.command);
+      return {ok:true,...await deps.txf(run=>applyPvasNoteTx(run,c))};
+    }
+    case "pvasGift":case "addGift":case "editGift":case "voidGift":
+      fail("pvas-native-gift-write-unwired",503);
+    case "pvasRequestStatus":{
+      envelope(b,["op","client","requestId"]);if(!requestId(b.requestId))fail();
+      const rows=(await deps.read(PVAS_PORTAL_SQL.receipt,{requestId:b.requestId})).rows;
+      if(rows.length>1)fail("corrupt-ledger",503);
+      if(!rows.length){
+        const old=await pvasImportStatusTx(deps.read,b.requestId);
+        if(old.status==="legacy"&&old.legacy)return {found:true,legacy:true,requestId:b.requestId,status:old.legacy.status,receipt:old.receipt};
+        return {found:false,requestId:b.requestId};
+      }
+      if(["native-campaign-mutation-v3","gift-migration-v3","native-campaign-correction-v2","native-campaign-retire-v2","admitted-gift-v2","legacy-batch-undo-v2"].includes(String(rows[0].operation)))
+        fail("pvas-native-status-protocol-required",410);
+      if(rows[0].result_json===null)return {found:true,pending:true,requestId:b.requestId};
+      let receipt:unknown;try{receipt=JSON.parse(String(rows[0].result_json));}catch{fail("corrupt-ledger",503);}
+      if(!obj(receipt)||receipt.requestId!==b.requestId)fail("corrupt-ledger",503);
+      if(receipt.v===2||receipt.v===3)fail("pvas-native-status-protocol-required",410);
+      return {found:true,requestId:b.requestId,receipt:publicPvasReceipt(receipt)};
+    }
+    case "clientContacts":{
+      envelope(b,["op","client"],["afterId","limit"]);
+      const after=b.afterId??0,limit=b.limit??2000;
+      if(typeof after!=="number"||!Number.isInteger(after)||after<0||after>2147483647||typeof limit!=="number"||!Number.isInteger(limit)||limit<1)fail();
+      return readPvasContacts(deps.read,after,Math.min(2000,limit));
+    }
+    case "clientGifts":case "pvasGiftRead":case "pvasGiftHistory":
+      fail("pvas-native-gift-read-protocol-required",410);
+    case "pvasFinancials":fail("pvas-existing-aggregate-owner-required",410);
+    case "pvasBatch":{
+      envelope(b,["op","client","command"]);const c=validatePvasImportBatch(b.command);
+      if(c.gifts.length)fail("pvas-native-import-gifts-unwired",503);
+      return {ok:true,...await deps.txf(run=>applyPvasImportBatchTx(run,c))};
+    }
+    case "pvasBatchUndo":{
+      envelope(b,["op","client","command"]);
+      if(!obj(b.command))fail();envelope(b.command,["requestId","actor","batchId","batchNamespace"]);
+      if(b.command.batchNamespace==="legacy-engage")refusePvasHistoricalUploadUndo();
+      if(b.command.batchNamespace!=="canonical-pvas")fail();
+      if(!requestId(b.command.requestId)||!id(b.command.batchId)||typeof b.command.actor!=="string"||
+        !b.command.actor.trim()||b.command.actor.length>200||b.command.actor.includes("\0"))fail();
+      // No partial inverse: receipt may contain gifts. Native-aware root is not wired.
+      fail("pvas-native-import-undo-unwired",503);
+    }
+    case "applyBatch":{
+      envelope(b,["op","client","requestId","by","fileName","summary","newRows","updates","gifts"]);
+      // Explicit protocol hold before the legacy adapter, which also rejects gifts.
+      if(Array.isArray(b.gifts)&&b.gifts.length)fail("pvas-native-import-gifts-unwired",503);
+      const c=pvasLegacyBatchCommand({requestId:b.requestId,actor:b.by,fileName:b.fileName,summary:b.summary,
+        newRows:b.newRows,updates:b.updates,gifts:b.gifts});
+      if(c.gifts.length)fail("pvas-native-import-gifts-unwired",503);
+      return {ok:true,...await deps.txf(run=>applyPvasImportBatchTx(run,c))};
+    }
+    case "monthlyPreview":case "monthlyCommit":fail("pvas-native-import-gifts-unwired",503);
+    case "monthlyStatus":{
+      envelope(b,["op","client","requestId"]);if(!requestId(b.requestId))fail();
+      return deps.txf(run=>pvasImportStatusTx(run,b.requestId));
+    }
+    case "getTracking":envelope(b,["op","client"]);return {configured:true,state:await deps.txf(readPvasCanonicalTracking)};
+    case "setTracking":{
+      envelope(b,["op","client","requestId","by","data"]);
+      const command=validatePvasTrackingCommand({requestId:b.requestId,actor:b.by,data:b.data});
+      return deps.txf(run=>applyPvasTrackingTx(run,command));
+    }
+    case "state":{
+      envelope(b,["op","client"]);await capability(PVAS_NATIVE_GIFT_SCHEMA_V2);
+      return deps.txf(run=>portalState(run,capability));
+    }
+    case "addProspect":{
+      envelope(b,["op","client","requestId","by","prospect"],["floor","skip"]);
+      if(!requestId(b.requestId)||typeof b.by!=="string")fail();
+      const c=pvasProspectCreateCommand(b.requestId,b.by,b.prospect);
+      return deps.txf(async run=>{const r=await applyPvasContactTx(run,c);return {...r,cptid:r.cptid};});
+    }
+    case "editProspect":{
+      envelope(b,["op","client","requestId","by","cptid","prospect"]);if(!id(b.cptid)||!requestId(b.requestId)||typeof b.by!=="string")fail();
+      return deps.txf(async run=>{
+        const rows=(await run(PVAS_CONTACT_SOURCE_SQL,{cptid:b.cptid})).rows;if(rows.length!==1)fail("not-found",404);
+        const p=projectPvasContact(rows[0]);
+        // Legacy whole-prospect saves must carry their original raw profile.
+        if(!obj(b.prospect)||!obj(b.prospect._canonicalContact)||
+          JSON.stringify(b.prospect._canonicalContact)!==JSON.stringify(p._canonicalContact))fail("stale",409);
+        const { _canonicalContact,...input }=b.prospect;
+        return applyPvasContactTx(run,pvasProspectEditCommand(String(b.requestId),String(b.by),p._canonicalContact,input));
+      });
+    }
+    case "loadClientContacts":case "loadClientGifts":fail("legacy-replace-retired",410);
+    default:fail("unsupported-canonical-operation",400);
+  }
+}

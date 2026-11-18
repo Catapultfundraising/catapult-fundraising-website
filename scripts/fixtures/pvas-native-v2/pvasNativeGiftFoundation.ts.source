@@ -1,0 +1,245 @@
+/**
+ * HELD, pure v2 foundation. NOT a manifest/compiler or runtime repository.
+ * No pools, environment, allocation, DDL execution, authority inference or cash
+ * policy. Existing overview/calendar tables retain their existing active roles.
+ */
+import { createHash } from "node:crypto";
+import { validatePvasGiftValue, type PvasGiftValue } from "./pvasCanonicalGifts";
+
+export type GiftRepresentation = "native-history" | "native-campaign" | "admitted-event";
+export class NativeGiftHold extends Error {
+  constructor(readonly code: "source-binding" | "native-shape" | "duplicate-source" |
+    "projection-binding" | "correction-binding" | "native-runtime-unwired" | "not-admitted") {
+    super(`PVAS native foundation held: ${code}`);
+  }
+}
+const hold = (code: NativeGiftHold["code"]): never => { throw new NativeGiftHold(code); };
+const hash = (s: string, encoding: BufferEncoding = "utf8") =>
+  createHash("sha256").update(s, encoding).digest("hex");
+const hex = (s: unknown): s is string => typeof s === "string" && /^[a-f0-9]{64}$/.test(s);
+const obj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+const own = (v: object, k: string) => Object.prototype.hasOwnProperty.call(v, k);
+const int = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v) && v >= -2147483648 && v <= 2147483647;
+const donor = (v: unknown): v is number => int(v) && v > 0;
+const text = (v: unknown, n: number): v is string => typeof v === "string" && v.length <= n;
+const nullable = (v: unknown, n: number) => v === null || text(v, n);
+const exact = (v: object, keys: string[]) => Object.keys(v).sort().join("|") === [...keys].sort().join("|");
+const clone = <T>(v: T): T => JSON.parse(JSON.stringify(v)) as T;
+function id(v: unknown): string {
+  if (typeof v === "number" && (!Number.isSafeInteger(v) || v <= 0)) return hold("native-shape");
+  const s = typeof v === "string" || typeof v === "number" ? String(v) : "";
+  if (!/^[1-9]\d{0,18}$/.test(s) || BigInt(s) > 9223372036854775807n) return hold("native-shape");
+  return s;
+}
+function decimal(s: unknown): string {
+  if (typeof s !== "string" || !/^-?(?:0|[1-9]\d{0,15})\.\d{2}$/.test(s)) return hold("native-shape");
+  return s; // Signed/zero is a source fact, NOT an admitted refund/received event.
+}
+function token(w: string, name: "id" | "amount"): string {
+  const hits = [...w.matchAll(new RegExp(String.raw`(?:^|[,{])"${name}":(-?(?:0|[1-9]\d*)(?:\.\d+)?)(?=[,}])`, "g"))];
+  if (hits.length !== 1) return hold("source-binding"); return hits[0][1];
+}
+function date(v: unknown): boolean {
+  if (v === null) return true;
+  if (typeof v !== "string" || !/^\d{4}-\d\d-\d\d$/.test(v) || v < "0001-01-01") return false;
+  const d = new Date(`${v}T00:00:00Z`);
+  return Number.isFinite(d.valueOf()) && d.toISOString().slice(0, 10) === v;
+}
+export interface RawSource {
+  table: "engage.client_gift_history" | "engage.portal_gift_overrides" |
+    "pvas.givebutter_transactions" | "pvas.givebutter_pledges";
+  value: Record<string, unknown>; wire: string; wireSha256: string;
+}
+function wire(r: RawSource) {
+  if (!obj(r) || !obj(r.value) || typeof r.wire !== "string" || !hex(r.wireSha256) ||
+    hash(r.wire, "utf16le") !== r.wireSha256) return hold("source-binding");
+  let parsed: unknown; try { parsed = JSON.parse(r.wire); } catch { return hold("source-binding"); }
+  if (!obj(parsed)) return hold("source-binding");
+  return parsed;
+}
+export interface RawCoverage {
+  table: RawSource["table"]; key: string; rawWireSha256: string;
+  disposition: "archive-only" | "native-representation" | "correction";
+  nativeSource: { system: "client_gift_history" | "website_db"; key: string } | null;
+}
+export interface NativeHistory {
+  representation: "native-history";
+  source: { system: "client_gift_history"; key: string };
+  cptid: number;
+  native: {
+    amount: string; date: string | null; year: number | null; status: string | null;
+    campaign: string | null; fund: string | null; type: string | null;
+    recordType: string | null; note: string | null; loadedAt: string;
+  };
+}
+const historyColumns = "id client cptid gift_date amount status campaign fund gift_type record_type cal_year note loaded_at".split(" ");
+export function planNativeHistory(sources: RawSource[]) {
+  const rows: NativeHistory[] = [], coverage: RawCoverage[] = [], seen = new Set<string>();
+  for (const r of sources) {
+    const parsed = wire(r), v = r.value;
+    if (r.table !== "engage.client_gift_history" || !exact(v, historyColumns) ||
+      !exact(parsed, historyColumns) || v.client !== "pvas" || !donor(v.cptid)) return hold("native-shape");
+    const key = id(v.id);
+    if (seen.has(key)) return hold("duplicate-source"); seen.add(key);
+    const amount = decimal(v.amount);
+    // SQL catalog source is a flat object. Compare exact ID/amount tokens, not
+    // unsafe JS Number values; every other source scalar must match unchanged.
+    if (token(r.wire,"id") !== key || token(r.wire,"amount") !== amount ||
+      historyColumns.some(k => k !== "id" && k !== "amount" && parsed[k] !== v[k])) return hold("source-binding");
+    if (!date(v.gift_date) || !(v.cal_year === null || int(v.cal_year)) ||
+      !nullable(v.status, 40) || !nullable(v.campaign, 200) || !nullable(v.fund, 200) ||
+      !nullable(v.gift_type, 60) || !nullable(v.record_type, 60) || !nullable(v.note, 500) ||
+      typeof v.loaded_at !== "string" || !/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,7})?$/.test(v.loaded_at)) return hold("native-shape");
+    rows.push({ representation: "native-history", source: {system: "client_gift_history", key}, cptid: v.cptid,
+      native: { amount, date: v.gift_date as string|null, year: v.cal_year as number|null, status: v.status as string|null,
+        campaign: v.campaign as string|null, fund: v.fund as string|null, type: v.gift_type as string|null,
+        recordType: v.record_type as string|null, note: v.note as string|null, loadedAt: v.loaded_at } });
+    coverage.push({table:r.table,key,rawWireSha256:r.wireSha256,disposition:"native-representation",
+      nativeSource:{system:"client_gift_history",key}});
+  }
+  return {held:true as const,accepted:false as const,rows,coverage};
+}
+
+export interface CampaignRow {
+  id: number | string; cptid: number; donor_name: string; kind: "gift" | "pledge";
+  amount: number; gift_date: string | null;
+  client_id?: string | null; note?: string | null; source?: string | null;
+  batch_id?: number | string | null; created_by?: string | null; created_at?: string | null;
+  key?: string; status?: string | null;
+  corrected?: {by: string; at: string; from: number};
+}
+export interface NativeCampaign {
+  representation: "native-campaign";
+  source: {system:"website_db"|"portal_gifts";key:string};
+  cptid: number;
+  /** Typed native fields. Property presence itself is data, not a null default. */
+  native: CampaignRow;
+}
+export interface CampaignBinding {
+  /** Exact already-composed legacy PortalState bytes, NOT a new projection. */
+  portalStateBytes: string; portalStateSha256: string;
+  originalOwnerCommit: string; snapshotSha256: string;
+  rawStateSha256: string; replayProofSha256: string; replayProofBytes: string;
+  expected: { database: number; manual: number; corrections: number };
+  corrections: RawSource[];
+}
+const campaignKeys = "id cptid donor_name kind amount gift_date client_id note source batch_id created_by created_at key status corrected".split(" ");
+export function planNativeCampaign(b: CampaignBinding) {
+  if (!obj(b.expected) || !Array.isArray(b.corrections) ||
+    !hex(b.portalStateSha256) || hash(b.portalStateBytes) !== b.portalStateSha256 ||
+    !/^[a-f0-9]{40}$/.test(b.originalOwnerCommit) ||
+    ![b.snapshotSha256,b.rawStateSha256,b.replayProofSha256].every(hex) ||
+    typeof b.replayProofBytes!=="string" || hash(b.replayProofBytes)!==b.replayProofSha256) return hold("projection-binding");
+  let proof:unknown;try{proof=JSON.parse(b.replayProofBytes);}catch{return hold("projection-binding");}
+  if(!obj(proof)||proof.sourceCommit!==b.originalOwnerCommit ||
+    proof.composedStateSha256!==b.portalStateSha256 ||
+    proof.originalSnapshotSha256!==b.snapshotSha256 ||
+    proof.reconstructedStateInputSha256!==b.rawStateSha256 ||
+    !obj(proof.rows)||proof.rows.databaseAfterOverrides!==b.expected.database ||
+    proof.rows.rawManual!==b.expected.manual ||
+    proof.rows.composed!==b.expected.database+b.expected.manual ||
+    !obj(proof.corrections)||proof.corrections.total!==b.expected.corrections)return hold("projection-binding");
+  let state: unknown; try { state = JSON.parse(b.portalStateBytes); } catch { return hold("projection-binding"); }
+  if (!obj(state) || !Array.isArray(state.gifts) ||
+    Object.values(b.expected).some(n => !Number.isSafeInteger(n) || n < 0) ||
+    !exact(b.expected,["database","manual","corrections"])) return hold("projection-binding");
+  const rows: NativeCampaign[] = [], seen = new Set<string>();
+  let db = 0, manual = 0;
+  for (const g of state.gifts) {
+    if (!obj(g) || Object.keys(g).some(k=>!campaignKeys.includes(k)) ||
+      !["id","cptid","donor_name","kind","amount","gift_date"].every(k=>own(g,k)) ||
+      !donor(g.cptid) || !text(g.donor_name,1000000) ||
+      !["gift","pledge"].includes(String(g.kind)) || typeof g.amount !== "number" || !Number.isFinite(g.amount) ||
+      !nullable(g.gift_date,1000000) ||
+      ["client_id","note","source","created_by","created_at","status"].some(k=>own(g,k)&&!nullable(g[k],1000000)) ||
+      (own(g,"batch_id") && g.batch_id!==null && typeof g.batch_id!=="string" &&
+        !(typeof g.batch_id==="number"&&Number.isSafeInteger(g.batch_id))) ||
+      (own(g,"corrected") && (!obj(g.corrected)||!exact(g.corrected,["by","at","from"])||
+        !text(g.corrected.by,1000000)||!text(g.corrected.at,1000000)||
+        typeof g.corrected.from!=="number"||!Number.isFinite(g.corrected.from)))) return hold("native-shape");
+    let source: NativeCampaign["source"];
+    if (own(g,"key")) {
+      if (typeof g.key!=="string"||!g.key.startsWith("db|")||g.key.length>400 ||
+        typeof g.id!=="number"||!Number.isSafeInteger(g.id)||g.id>=0) return hold("native-shape");
+      source={system:"website_db",key:g.key}; db++;
+    } else { source={system:"portal_gifts",key:id(g.id)}; manual++; }
+    const sk=JSON.stringify(source);
+    if(seen.has(sk))return hold("duplicate-source");seen.add(sk);
+    rows.push({representation:"native-campaign",source,cptid:g.cptid,native:clone(g) as unknown as CampaignRow});
+  }
+  const coverage:RawCoverage[]=[], aliases=new Set<string>(), corrected=new Set<string>();
+  for(const r of b.corrections){
+    const v=wire(r),key=id(r.value.id);
+    // Correction scalar binding must be exact. These are provenance only:
+    // do not run an override again or promote the correction into an event.
+    if(r.table!=="engage.portal_gift_overrides" || v.client!=="pvas" ||
+      token(r.wire,"id")!==key ||
+      Object.keys(v).some(k=>k!=="id"&&k!=="amount"&&v[k]!==r.value[k]) ||
+      (v.amount!==null && token(r.wire,"amount")!==decimal(r.value.amount)) ||
+      (v.amount===null && r.value.amount!==null) ||
+      Object.keys(v).length!==Object.keys(r.value).length ||
+      typeof v.gift_key!=="string" || v.voided!==false) return hold("correction-binding");
+    const target=rows.filter(x=>x.source.system==="website_db"&&x.source.key===v.gift_key);
+    if(target.length!==1||!target[0].native.corrected||aliases.has(v.gift_key))return hold("correction-binding");
+    aliases.add(v.gift_key);corrected.add(key);
+    coverage.push({table:r.table,key,rawWireSha256:r.wireSha256,disposition:"correction",
+      nativeSource:{system:"website_db",key:v.gift_key}});
+  }
+  if(db!==b.expected.database||manual!==b.expected.manual||b.corrections.length!==b.expected.corrections ||
+    corrected.size!==b.corrections.length ||
+    rows.filter(r=>own(r.native,"corrected")).length!==aliases.size) return hold("correction-binding");
+  return {held:true as const,accepted:false as const,rows,coverage,
+    binding:{portalStateSha256:b.portalStateSha256,originalOwnerCommit:b.originalOwnerCommit,
+      snapshotSha256:b.snapshotSha256,rawStateSha256:b.rawStateSha256,replayProofSha256:b.replayProofSha256}};
+}
+export function archiveOnlyProvider(r:RawSource):RawCoverage{
+  const parsed=wire(r);
+  if(!["pvas.givebutter_transactions","pvas.givebutter_pledges"].includes(r.table))return hold("native-shape");
+  // Native provider row_id can be signed/zero; no donor or financial policy.
+  if(!int(r.value.row_id)||parsed.row_id!==r.value.row_id ||
+    Object.keys(parsed).length!==Object.keys(r.value).length ||
+    Object.keys(parsed).some(k=>parsed[k]!==r.value[k]))return hold("source-binding");
+  return {table:r.table,key:String(r.value.row_id),rawWireSha256:r.wireSha256,
+    disposition:"archive-only",nativeSource:null};
+}
+export type FinancialRecord = NativeHistory | NativeCampaign |
+  {representation:"admitted-event";gift:PvasGiftValue};
+/** Explicit boundary: an old event consumer must not reinterpret a native row. */
+export function requireAdmittedEvent(record:FinancialRecord):PvasGiftValue{
+  if(record.representation!=="admitted-event")return hold("not-admitted");
+  return validatePvasGiftValue(record.gift);
+}
+/** There is intentionally no issuer of a native runtime capability yet.
+ * Does not change or disable unchanged event-v1 runtime functions. */
+export function assertNativeGiftRuntimeCapability():never{
+  return hold("native-runtime-unwired");
+}
+export const PVAS_FINANCIAL_OWNERS=Object.freeze({
+  overview:"pvas.giving_history_overview",calendar:"pvas.calendar_year_giving",
+  individual:"pvas.gifts",providerTransactions:"pvas.givebutter_transactions",
+  providerPledges:"pvas.givebutter_pledges",
+});
+/** Fixed column codec, not SQL generation or a write entrypoint. No event fields
+ * are populated for native records. Caller must still allocate/reconcile IDs,
+ * link sources, audit and validate full v2 schema in one reviewed transaction. */
+export function nativeColumns(row:NativeHistory|NativeCampaign):Record<string,string|number|null>{
+  if(row.representation==="native-history"){
+    const n=row.native;
+    return {representation:row.representation,native_amount:n.amount,native_event_date:n.date,
+      native_calendar_year:n.year,native_status:n.status,native_campaign:n.campaign,native_fund:n.fund,
+      native_gift_type:n.type,native_record_type:n.recordType,native_note:n.note,native_loaded_at:n.loadedAt};
+  }
+  const n=row.native, fields=campaignKeys;
+  let mask=0;fields.forEach((f,i)=>{if(own(n,f))mask|=1<<i;});
+  const batch=n.batch_id??null;
+  return {representation:row.representation,native_original_id:String(n.id),
+    native_original_id_type:typeof n.id==="number"?"n":"s",
+    native_number_amount:n.amount,native_date_text:n.gift_date,native_kind:n.kind,
+    native_donor_name:n.donor_name,native_client_id:n.client_id??null,native_note:n.note??null,
+    native_source:n.source??null,native_batch_id:batch===null?null:String(batch),
+    native_batch_id_type:batch===null?null:typeof batch==="number"?"n":"s",
+    native_created_by:n.created_by??null,native_created_at:n.created_at??null,
+    native_alias:n.key??null,native_campaign_status:n.status??null,
+    native_corrected_by:n.corrected?.by??null,native_corrected_at:n.corrected?.at??null,
+    native_corrected_from:n.corrected?.from??null,native_presence_mask:mask};
+}

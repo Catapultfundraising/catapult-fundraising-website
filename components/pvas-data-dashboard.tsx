@@ -1,4 +1,5 @@
 "use client";
+import {pvasCanonicalEnabled}from"@/lib/portal-v2/pvas-canonical";
 import {buildDashboardExportModel,type TableSource} from "@/lib/portal-v2/dashboard-export-types";
 
 import { dashboardDateLabels } from "@/lib/dashboard-dates";
@@ -653,6 +654,7 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
             <h1 className="font-display mt-1 text-3xl">{data.client}</h1>
             <p className="mt-1 text-sm text-white/70">{dates.refreshed}</p>
             <p className="text-xs text-white/60">{dates.source}</p>
+            {pvasCanonicalEnabled("pvas")&&<div className="mt-2 text-xs text-white/80"><p>Loads current SQL on page load or Reload. Open pages do not update automatically.</p><button type="button" onClick={()=>window.location.reload()} className="mt-1 underline">Reload current SQL view</button></div>}
           </div>
           <DonorSearch dark />
         </div>

@@ -1,4 +1,7 @@
 import "server-only";
+import { pvasCanonicalEnabled } from "./pvas-canonical";
+import { PVAS_EXISTING_ONLY } from "./pvas-existing-only";
+import {pvasImportPlan,pvasImportReceipt,pvasImportApproval}from"./pvas-import-wire";
 import type { PortalClient } from "./clients";
 import { isJagDataAuthed } from "../jag-data-auth";
 import { isCsnfDataAuthed } from "../csnf-data-auth";
@@ -239,6 +242,7 @@ export const dashboardDataAuthed = (client: PortalClient, req: NextRequest) => D
 export function directFileGateway(client: PortalClient, deps: GatewayDeps = defaults) {
   return async (req: NextRequest) => {
     if (!(await dashboardDataAuthed(client, req))) return NextResponse.json({ error: "Dashboard sign-in required", dashboardLogin: `/${client}/data-dashboard/login`, code: "dashboard-auth-required" }, { status: 401 });
+    if (pvasCanonicalEnabled(client)) return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
     if (req.headers.get("origin") !== req.nextUrl.origin || req.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ code: "same-origin-required" }, { status: 403 });
     if (!req.headers.get("content-type")?.startsWith("application/json") || Number(req.headers.get("content-length") ?? 0) > 2_900_000) return NextResponse.json({ code: "invalid-request-envelope" }, { status: 413 });
     let commitAttempt: string | null = null;
@@ -249,6 +253,11 @@ export function directFileGateway(client: PortalClient, deps: GatewayDeps = defa
       if (body.op === "capabilities" && exact(body, ["op"])) result = await gatewayCapabilities(client, deps);
       else if ((body.op === "status" || body.op === "verifyView") && exact(body, ["op", "requestId"]) && requestId(body.requestId)) {
         const stored = await call(deps, client, "directFileStatus", { requestId: body.requestId });
+        if(pvasCanonicalEnabled(client)){
+          if(body.op==="verifyView")throw new GatewayError("refresh-canonical-dashboard-separately",503);
+          if(stored.v!==1||stored.requestId!==body.requestId||!["committed","pending","legacy","not-found"].includes(String(stored.status)))throw new GatewayError("invalid-canonical-status",503);
+          return NextResponse.json(stored,{headers:{"Cache-Control":"no-store"}});
+        }
         if (stored.status === "committed") result = publicReceipt(stored, client, body.requestId);
         else if (stored.protocol === "direct-file-v1" && stored.status === "not-found" && stored.client === client && stored.requestId === body.requestId && typeof stored.note === "string")
           result = { protocol: stored.protocol, status: stored.status, client, requestId: body.requestId, note: stored.note };
@@ -266,13 +275,24 @@ export function directFileGateway(client: PortalClient, deps: GatewayDeps = defa
       } else if ((body.op === "preview" && exact(body, ["op", "file"])) || (body.op === "commit" && exact(body, ["op", "file", "approval"]))) {
         const input = parseFileInput(body.file), built = await buildGatewayBatch(client, input, deps);
         const manual = await manualContext(client, body.op, built, deps);
+        // Do not change DirectFileBatch/file-context hash domains. Canonical
+        // source-import independently binds these original bytes to its plan.
+        const transport = { batch: built.batch, fileContext: built.fileContext, manualContext: manual,
+          ...(body.op === "commit" ? { approval: body.approval } : {}),
+          ...(pvasCanonicalEnabled(client) ? { originalBytesBase64: input.bytes } : {}) };
+        if (pvasCanonicalEnabled(client) && Buffer.byteLength(JSON.stringify({ op: body.op === "commit" ? "directFileCommit" : "directFilePreview", ...transport }), "utf8") > 2_000_000)
+          throw new GatewayError("original-bytes-and-batch-too-large", 413);
         if (body.op === "commit") {
-          if (!object(body.approval) || !exact(body.approval, ["previewHash", "expiresAt", "proof"]) || !hex(body.approval.previewHash) || !hex(body.approval.proof) || !Number.isSafeInteger(body.approval.expiresAt)) throw new GatewayError("invalid-approval");
+          if(pvasCanonicalEnabled(client)){
+            if(!pvasImportApproval(body.approval))throw new GatewayError("invalid-canonical-approval");
+          }else if (!object(body.approval) || !exact(body.approval, ["previewHash", "expiresAt", "proof"]) || !hex(body.approval.previewHash) || !hex(body.approval.proof) || !Number.isSafeInteger(body.approval.expiresAt)) throw new GatewayError("invalid-approval");
           commitAttempt = input.requestId;
-          result = await call(deps, client, "directFileCommit", { batch: built.batch, fileContext: built.fileContext, manualContext: manual, approval: body.approval as unknown as DirectFileApproval });
-          result = publicReceipt(result as Record<string, unknown>, client, input.requestId, { payloadHash: directFileHash(built.batch), previewHash: String(body.approval.previewHash), cells: built.batch.cells.length });
+          result = await call(deps, client, "directFileCommit", transport);
+          if(pvasCanonicalEnabled(client))return NextResponse.json(pvasImportReceipt(result,{requestId:input.requestId,payloadHash:String((body.approval as Record<string,unknown>).payloadHash),operation:"import-direct"}),{headers:{"Cache-Control":"no-store"}});
+          result = publicReceipt(result as Record<string, unknown>, client, input.requestId, { payloadHash: directFileHash(built.batch), previewHash: String((body.approval as Record<string,unknown>).previewHash), cells: built.batch.cells.length });
         } else {
-          const preview = await call(deps, client, "directFilePreview", { batch: built.batch, fileContext: built.fileContext, manualContext: manual });
+          const preview = await call(deps, client, "directFilePreview", transport);
+          if(pvasCanonicalEnabled(client))return NextResponse.json(pvasImportPlan(preview,input.requestId),{headers:{"Cache-Control":"no-store"}});
           const p = preview.plan;
           if (!exact(preview, ["protocol", "status", "plan"]) || preview.protocol !== "direct-file-v1" || preview.status !== "previewed" || !object(p) ||
               !exact(p, ["payloadHash", "previewHash", "decisions", "expiresAt", "proof"]) || p.payloadHash !== directFileHash(built.batch) ||

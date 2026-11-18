@@ -1,4 +1,5 @@
 import "server-only";
+import { pvasCanonicalEnabled } from "./pvas-canonical";
 import type { PortalClient } from "./clients";
 import { portalCampaignStateSafe } from "./server";
 import { currentTracking, directTrackingView, directData, requireCurrentSql } from "./direct-source-state.server";
@@ -62,7 +63,7 @@ export async function reconstructDashboardExport(client: PortalClient, rawIntent
   requireCurrentSql(client, state);
   if (!data || !state || !tracking) throw new Error("Current complete records/manual/source view unavailable");
   const revision = (data as unknown as {directSourceRevision?:string}).directSourceRevision;
-  if (!revision || revision !== (tracking as unknown as {directSourceRevision?:string}).directSourceRevision) throw new Error("Source changed while preparing export; reload and retry");
+  if (!pvasCanonicalEnabled(client) && (!revision || revision !== (tracking as unknown as {directSourceRevision?:string}).directSourceRevision)) throw new Error("Source changed while preparing export; reload and retry");
   const projection = currentRecordProjection(client, data, state, tracking);
   const title = typeof presentation.title === "string" ? presentation.title.slice(0, 120) : "Current dashboard report";
   const subtitle = typeof presentation.subtitle === "string" ? presentation.subtitle.slice(0, 500) : "";

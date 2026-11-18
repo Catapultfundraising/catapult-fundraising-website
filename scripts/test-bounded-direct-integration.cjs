@@ -5,10 +5,11 @@ const assert = require("node:assert/strict"), crypto = require("node:crypto"), M
 const original = Module._load, root = process.cwd();
 for (const ext of [".ts", ".tsx"]) require.extensions[ext] = (m, filename) => m._compile(ts.transpileModule(fs.readFileSync(filename, "utf8"), { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022, esModuleInterop: true, jsx: ts.JsxEmit.ReactJSX } }).outputText, filename);
 let renderedXlsx, renderedPdf;
-let enabled = false, sql = { updates: [], prospects: [] }, source, transport;
+let enabled = false, sql = { updates: [], prospects: [] }, source, transport,canonical=false;
 const server = { portalCampaignStateSafe:async()=>sql, portalStateSafe:async()=>sql, engageCall: async () => ({ status: 200, body: sql }), secondarySolicitors: async () => ({}), saveSecondarySolicitor: async () => {}, logHistoryAudit: async () => {}, parseUsDate: s => s };
 Module._load = function(name, parent, main) {
   if (name === "server-only") return {};
+  if(name==="./pvas-canonical")return {pvasCanonicalEnabled:c=>c==="pvas"&&canonical};
   if (name === "@react-pdf/renderer") return {Document:"Document",Page:"Page",View:"View",Text:"Text",renderToBuffer:async tree=>{renderedPdf=tree;return Buffer.from("mock PDF renderer");}};
   if (name.startsWith("@/")) name = path.join(root, name.slice(2));
   const file = name.startsWith(".") ? path.resolve(path.dirname(parent.filename), name) : name;
@@ -422,11 +423,13 @@ async function check(name, run) { if(process.env.DIRECT_SOLICITORS_CAPACITY_ONLY
       for(const c of clients){
         assert.equal(actual.directLaneEnabled(c),true);
         const read=f=>fs.readFileSync(path.join(root,f),"utf8");
-        assert.ok(read(`lib/${c}-data-store.ts`).includes(`directData("${c}", raw, "records")`));
+        if(c==="pvas")assert.ok(read(`lib/${c}-data-store.legacy.ts`).includes(`directData("${c}", raw, "records")`));
+        else assert.ok(read(`lib/${c}-data-store.ts`).includes(`directData("${c}", raw, "records")`));
         assert.ok(read(`app/api/${c}-data-direct-import/route.ts`).includes(`directFileGateway("${c}")`));
         assert.ok(read(`app/api/${c}-data-tracking/route.ts`).includes(`trackingRoute("${c}",`));
         assert.ok(read(`app/api/${c}-data-reports/route.tsx`).includes(`directData("${c}", raw, "snapshot")`));
-        assert.ok(read(`app/api/${c}-data-export/route.tsx`).includes(`directLaneEnabled("${c}")`));
+        if(c==="pvas")assert.ok(read(`app/api/${c}-data-export/route.tsx`).includes('reconstructDashboardExport("pvas",'));
+        else assert.ok(read(`app/api/${c}-data-export/route.tsx`).includes(`directLaneEnabled("${c}")`));
         assert.ok(read(`components/${c}-data-dashboard.tsx`).includes(`<PortalV2Provider client="${c}">`));
         assert.ok(read(`components/${c}-data-dashboard.tsx`).includes('<AddAndUpload />'));
       }
@@ -675,6 +678,48 @@ async function check(name, run) { if(process.env.DIRECT_SOLICITORS_CAPACITY_ONLY
     assert.equal((await update(manualAssignmentPatch("", "", true, true))).status, 200);
     assert.equal(stored.prospects[900001].solicitor, ""); assert.equal(stored.prospects[900001].solicitorEdited, true);
     enabled = false; transport = null; delete process.env.PVAS_LOCAL_DIR; fs.rmSync(dir, { recursive: true, force: true });
+  });
+  await check("PVAS canonical direct raw plan/approval/receipt: original bytes OUTSIDE unchanged batch hash",async()=>{
+    canonical=true;
+    try{
+      const f=fixtureDeps(),input=file(),hash=hex("e"),planHash=hex("f");
+      const receipt={v:1,operation:"import-direct",requestId:ID,payloadHash:hash,batchId:1,assigned:[],children:[],replayed:false};
+      f.mutate((_client,op,body)=>{
+        if(!["directFilePreview","directFileCommit","directFileStatus"].includes(op))return;
+        if(op==="directFileStatus")return {status:200,body:{v:1,status:"committed",requestId:ID,receipt}};
+        assert.equal(body.originalBytesBase64,input.bytes);
+        assert.equal(Object.hasOwn(body.batch,"originalBytesBase64"),false);
+        assert.equal(body.manualContext.payload.batchHash,wire.directFileHash(body.batch));
+        if(op==="directFileCommit"){assert.deepEqual(body.approval,{confirm:true,payloadHash:hash,planHash});return {status:200,body:receipt};}
+        return {status:200,body:{v:1,status:"preview",requestId:ID,payloadHash:hash,planHash,batch:{requestId:ID,newRows:[],updates:[],notes:[],gifts:[]},held:[],metadata:[],links:[]}};
+      });
+      const route=gateway.directFileGateway("pvas",f.deps);
+      assert.equal((await route(request({op:"preview",file:input}))).status,200);
+      assert.equal((await route(request({op:"commit",file:input,approval:{confirm:true,payloadHash:hash,planHash}}))).status,200);
+      assert.equal((await (await route(request({op:"status",requestId:ID}))).json()).receipt.requestId,ID);
+      assert.equal((await route(request({op:"commit",file:input,approval:{previewHash:hash,expiresAt:1,proof:hash}}))).status,400,"legacy signed approval not canonical approval");
+      const oversized={...input,bytes:encode("Client_ID,CPTID,Campaign Ask,Unused\n"+Array.from({length:400},(_,i)=>`${String(i+1).padStart(4,"0")},${900001+i},1.00,${"x".repeat(4000)}`).join("\n")),mapping:{Client_ID:"clientId","Campaign Ask":"ask"}};
+      const before=f.calls.filter(c=>c.op==="directFilePreview").length;
+      assert.equal((await route(request({op:"preview",file:oversized}))).status,413);
+      assert.equal(f.calls.filter(c=>c.op==="directFilePreview").length,before,"never drop bytes when combined body exceeds budget");
+    }finally{canonical=false;}
+  });
+  await check("PVAS canonical monthly raw plan/approval/receipt and original bytes retain owning request shape",async()=>{
+    canonical=true;
+    try{
+      const {monthlyGiftGateway}=require("../lib/portal-v2/monthly-gateway.server.ts");
+      const bytes=encode("Client_ID,Transaction_ID,Amount,Date,Type,Status,Currency\n0001,T1,0.10,2026-11-10,gift,received,USD\n");
+      const input={bytes,fileName:"fictional.csv",requestId:ID,source:"fictional",sourceDate:"2026-11-16",period:"2026-11",actor:"Fictional",campaignOnly:true,receivedUsdCash:true,parseSettings:{format:"csv"},dateSystem:"iso",mapping:{Client_ID:"clientId",Transaction_ID:"transactionId",Amount:"amount",Date:"date",Type:"kind",Status:"status",Currency:"currency"}};
+      const hash=hex("e"),planHash=hex("f"),receipt={v:1,operation:"import-monthly",requestId:ID,payloadHash:hash,batchId:2,assigned:[],children:[],replayed:false},calls=[];
+      const route=monthlyGiftGateway("pvas",{identities:async()=>[{clientId:"0001",cptid:900001,name:"Fictional"}],call:async(_c,op,body)=>{
+        calls.push({op,body});assert.equal(body.originalBytesBase64,bytes);assert.equal(Object.hasOwn(body.request,"originalBytesBase64"),false);
+        if(op==="monthlyCommit"){assert.deepEqual(body.approval,{confirm:true,payloadHash:hash,planHash});return {status:200,body:receipt};}
+        return {status:200,body:{v:1,status:"preview",requestId:ID,payloadHash:hash,planHash,batch:{requestId:ID,newRows:[],updates:[],notes:[],gifts:[]},held:[],metadata:[],links:[]}};
+      }});
+      assert.equal((await route(request({op:"preview",file:input}))).status,200);
+      assert.equal((await route(request({op:"commit",file:input,approval:{confirm:true,payloadHash:hash,planHash}}))).status,200);
+      assert.deepEqual(calls.map(c=>c.op),["monthlyPreview","monthlyCommit"]);assert.deepEqual(calls[0].body.request,calls[1].body.request);
+    }finally{canonical=false;}
   });
   console.log(`1..${checks}`);
 })().catch(e => { console.error(e); process.exitCode = 1; });

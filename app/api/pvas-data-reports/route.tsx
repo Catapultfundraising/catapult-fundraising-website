@@ -1,4 +1,7 @@
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
+import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
+import { currentDashboardSnapshot } from "@/lib/portal-v2/current-dashboard-snapshot";
+import { currentRecordProjection } from "@/lib/portal-v2/records-route";
 import { directData, currentTracking, directTrackingView, requireCurrentSql, sourceNoteReport, sourceAssignmentReport } from "@/lib/portal-v2/direct-source-state.server";
 import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
 import { buildOverlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
@@ -61,12 +64,18 @@ async function currentGET(req: NextRequest) {
   const base = raw ? await directData("pvas", raw, "snapshot") : null;
   const state = await portalStateSafe("pvas"); requireCurrentSql("pvas", state);
   const updates = (state?.updates ?? []) as UpdateRow[];
-  const snap = base ? overlayCampaignAsks(base, buildOverlay(updates), askEdits(updates), true) : null;
-  if (!snap) return NextResponse.json({ error: "no data" }, { status: 503 });
+  const canonical=pvasCanonicalEnabled("pvas");
   const tracking = report === "gc2p" ? await directTrackingView("pvas", await currentTracking("pvas", getPvasTracking)) : null;
   if (base && tracking && (base as unknown as { directSourceRevision?: string }).directSourceRevision !== (tracking as unknown as { directSourceRevision?: string }).directSourceRevision) throw new Error("Source changed during report");
-  const recs = report === "gc2p" && tracking && Object.keys(tracking.prospects).length ? await getPvasRecords() : null;
-  const { chart, seated, notShown, removed, below, belowLevel } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recs?.index, tracking, snap.pool));
+  const recs = report === "gc2p" && tracking && (canonical || Object.keys(tracking.prospects).length) ? await getPvasRecords() : null;
+  if (canonical && report==="gc2p" && (!recs || !tracking)) throw new Error("Current canonical ask records/tracking unavailable");
+  const recordIndex = canonical && report==="gc2p" ?
+    currentRecordProjection("pvas",recs!,state,tracking!).index as NonNullable<typeof recs>["index"] : recs?.index;
+  const snap = base ? canonical ? report==="gc2p" ?
+    currentDashboardSnapshot("pvas",base,recordIndex!,tracking!,updates) : base :
+    overlayCampaignAsks(base, buildOverlay(updates), askEdits(updates), true) : null;
+  if (!snap) return NextResponse.json({ error: "no data" }, { status: 503 });
+  const { chart, seated, notShown, removed, below, belowLevel } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recordIndex, tracking, snap.pool));
   const stOf = (id: number) => tracking?.prospects[String(id)];
   const lastAct = (id: number) => (tracking?.activity ?? []).filter((a) => a.cptid === id && a.kind !== "Committee update").sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at))[0];
   // Exact compact goal ($1.75M, not the shared helper's rounded $1.8M).

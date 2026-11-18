@@ -1,14 +1,20 @@
 import {
-  band, builtAt, dsField, capmin, cid, counter, engageClientContacts, engageClientGifts, fmtPhone, loadedAsOf, money, mostCommon, pdate, Per,
+  band, builtAt, dsField, capmin, cid, counter, engageClientContacts, fmtPhone, loadedAsOf, money, mostCommon, pdate, Per,
   pirLinks, pyramid, round2, Row, rows, s, sortedItems, yearsAgo,
 } from "./common";
+import { pvasCanonicalEnabled } from "../portal-v2/pvas-canonical";
+import { buildPvas as buildLegacyPvas } from "./pvas.legacy";
+import { readPvasNativeGiftsV2 } from "../portal-v2/pvas-native-gifts.server";
+import { nativeHistoryPresentationV2 } from "../portal-v2/pvas-native-gift-presentation";
+import type { NativeDonorHistory } from "../portal-v2/pvas-native-consumer";
+import { pvasContactProfile, type PvasContactProfile } from "../portal-v2/pvas-contact-wire";
 
 // PVAS (Palm Valley Animal Society) builder. Reads Azure schema `pvas`.
-// The Access MASTER / Master_Giving_History tables are scrambled and were not
-// loaded, so per-donor totals come from giving_history_overview, yearly giving
-// from calendar_year_giving (calendar years), and contacts from the campaign
-// portfolio, then the Access MASTER table (loaded by Viktor into Engage
-// engage.client_contacts), then phone_numbers and Givebutter. Givebutter transactions and pledges are kept
+// Per-donor totals come from giving_history_overview, yearly giving
+// from calendar_year_giving (calendar years). Engage's clientContacts and
+// nativeGiftPageV2 PVAS feeds own migrated canonical contact/individual-gift rows.
+// Present canonical contact keys override portfolio/phone/Givebutter fields.
+// Givebutter transactions and pledges are kept
 // in their own "Recent Givebutter Activity" section and are NOT counted in any
 // campaign / lifetime total.
 
@@ -18,31 +24,51 @@ const DS_KEYS: [string, string][] = [
   ["SEC Stock Value", "SEC_Stock_Value"], ["Date Searched", "Date_Searched"],
 ];
 
-// Corrections Jeff made on 9/1 that did not survive the Access update (gc2p/clients/pvas/data.py).
-const ASK_OVERRIDES: Record<number, number> = { 12984: 50_000 };
-
 export async function buildPvas() {
+  if (!pvasCanonicalEnabled("pvas")) return buildLegacyPvas();
+  return buildCanonicalPvas();
+}
+
+export async function buildCanonicalPvas() {
   const q = (t: string) => rows(`SELECT * FROM pvas.[${t}] ORDER BY row_id`);
   const [ghoRows, cygRows, dsRows, phoneRows, noteRows, boardRows, commRows, portRows, gbIds, gbTx, gbPl, asOf] = await Promise.all([
-    q("giving_history_overview"), q("calendar_year_giving"), q("donorsearch_results"), q("phone_numbers"), q("notes"),
+    q("giving_history_overview"), q("calendar_year_giving"), q("donorsearch_results"), q("phone_numbers"), [] as Row[],
     q("board_info"), q("campaign_committee"), q("portfolio"), q("givebutter_id_numbers"), q("givebutter_transactions"),
     q("givebutter_pledges"), loadedAsOf("pvas"),
   ]);
-  // Individual gifts (Access Master_Giving_History, loaded into Engage by Viktor). Falls back to calendar-year totals when absent.
-  const giftRows = await engageClientGifts("pvas").catch(() => []);
-  // Access MASTER (31k constituents with addresses, phones, emails), loaded by Viktor into Engage.
-  const masterRows = await engageClientContacts("pvas").catch(() => []);
+  // Canonical individual gifts are independent of the original aggregate
+  // presentations. Unavailable feeds fail the build, never silently fall back.
+  const history = await readPvasNativeGiftsV2("history", "current");
+  const giftRows = nativeHistoryPresentationV2(history.records).inventory;
+  // Canonical migrated contacts, served by Engage from PVAS SQL.
+  const masterRows = await engageClientContacts("pvas");
   const master = new Map<number, (typeof masterRows)[number]>();
   for (const m of masterRows) if (m.cptid > 0) master.set(m.cptid, m);
-  const giftsBy = new Map<number, Record<string, unknown>[]>();
-  for (const g of giftRows) (giftsBy.get(g.cptid) ?? giftsBy.set(g.cptid, []).get(g.cptid)!).push(Object.fromEntries(Object.entries({ date: g.date ?? (g.year ? String(g.year) : ""), amount: round2(g.amount), type: g.type, campaign: g.campaign, fund: g.fund, status: g.status === "Succeeded" ? "" : g.status }).filter(([k, v]) => k === "amount" || k === "date" || !!v)));
+  const giftsBy = new Map<number, NativeDonorHistory["records"]>();
+  for (const g of giftRows) {
+    if (!master.has(g.cptid)) throw new Error("Native history donor missing from canonical contacts");
+    (giftsBy.get(g.cptid) ?? giftsBy.set(g.cptid, []).get(g.cptid)!).push(g);
+  }
   const byC = (rr: Row[]) => { const m = new Map<number, Row>(); for (const r of rr) { const c = cid(r.CPTID); if (c !== null) m.set(c, r); } return m; };
   const gho = byC(ghoRows), ds = byC(dsRows), port = byC(portRows), phones = byC(phoneRows);
+  for (const [c,m] of master) {
+    const fields = pvasContactProfile(m._canonicalContact,c).fields;
+    if (!Object.hasOwn(fields,"ask") || fields.ask !== null && (typeof fields.ask !== "number" || !Number.isFinite(fields.ask)))
+      throw new Error("Invalid raw canonical ask");
+    if(ds.has(c)||["dsRating","wealthCapacity","majorGiftScore","realEstate","stock"].some(k=>fields[k]!==null&&fields[k]!==""))
+      ds.set(c,{...ds.get(c),CPTID:c,DS_Rating:fields.dsRating,Wealth_Based_Capacity:fields.wealthCapacity,
+        Major_Gift_Score:fields.majorGiftScore,Real_Estate_Est:fields.realEstate,SEC_Stock_Value:fields.stock});
+    if(port.has(c))port.set(c,{...port.get(c),Campaign_Ask:fields.ask,Primary_Solicitor:fields.primarySolicitor,
+      Secondary_Solicitor:fields.secondarySolicitor,DS_Rating:fields.dsRating,Wealth_Capacity:fields.wealthCapacity});
+  }
   const fullName = (r: Row) => [s(r.First_Name), s(r.Last_Name)].filter(Boolean).join(" ");
   const name = new Map<number, string>();
   for (const [c, r] of port) name.set(c, s(r.Account_Name) || fullName(r));
   for (const [c, r] of gho) if (!name.get(c)) name.set(c, s(r.Account_Name));
-  for (const [c, m] of master) if (!name.get(c)) name.set(c, s(m.name) || [s(m.first), s(m.last)].filter(Boolean).join(" "));
+  for (const [c, m] of master) {
+    if (Object.prototype.hasOwnProperty.call(m, "name")) name.set(c, s(m.name));
+    else if (!name.get(c)) name.set(c, [s(m.first), s(m.last)].filter(Boolean).join(" "));
+  }
   for (const [c, r] of ds) if (!name.get(c)) name.set(c, fullName(r));
 
   // Calendar-year giving per donor.
@@ -152,15 +178,15 @@ export async function buildPvas() {
     return { cptid: c, name: (c !== null && name.get(c)) || gbName(r), date: pdate(r.Transaction_Date_UTC) ?? "", amount: round2(money(r.Amount)),
       campaign: s(r.Campaign_Title), fund: s(r.Fund_Name), status: s(r.Status_Friendly) || "Succeeded", dedication: s(r.Dedication_Name) };
   }).sort((a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : b.amount - a.amount));
-  // Access MASTER last: it fills every blank but never replaces a contact the dashboard already showed. When its
-  // address is a different place (other house number or ZIP), it is kept as "Other address on file".
-  const houseZip = (st: string, zip: string) => `${(st.match(/\d+/) ?? [""])[0]}|${zip.slice(0, 5)}`;
+  // Engage's PVAS clientContacts feed now owns canonical migrated contact fields.
+  // Present keys win over old portfolio/phone/Givebutter data, including clears;
+  // absent keys retain the source fallback. Never shift a canonical phone slot.
   for (const [c, m] of master) {
-    const before = contact.get(c)?.street ? { ...contact.get(c)! } : null;
-    addc(c, { street: m.street, city: m.city, state: m.state, zip: m.zip, phone: m.phone, phone2: m.phone2, phone3: m.phone3,
-      email: m.email, email2: m.email2, email3: m.email3, title: m.title, org: m.org, spouse: m.spouse, birthdate: m.birthdate, primaryContact: m.contact2 });
-    if (before && s(m.street) && houseZip(before.street, s(before.zip)) !== houseZip(s(m.street), s(m.zip)))
-      contact.get(c)!.altAddress = [s(m.street), s(m.city), s(m.state), s(m.zip)].filter(Boolean).join(", ");
+    const ct = contact.get(c) ?? {}; contact.set(c, ct);
+    for (const key of [...ADDR, ...PHONES, ...EMAILS, "mobile", "workEmail", "title", "org", "spouse", "birthdate", "altAddress", "primaryContact"]) {
+      const sourceKey = key === "primaryContact" && !Object.prototype.hasOwnProperty.call(m, key) ? "contact2" : key;
+      if (Object.prototype.hasOwnProperty.call(m, sourceKey)) ct[key] = PHONES.includes(key) || key === "mobile" ? fmtPhone(m[sourceKey]) : s(m[sourceKey]);
+    }
   }
   const pledges = gbPl.map((r) => {
     const c = gb2c.get(s(cid(r.Givebutter_Contact_ID))) ?? null;
@@ -181,7 +207,7 @@ export async function buildPvas() {
 
   // Campaign portfolio -> GC2P pool (seated by Campaign Ask, Primary Solicitor only).
   const portfolio = [...port].map(([c, r]) => {
-    const ask = ASK_OVERRIDES[c] ?? money(r.Campaign_Ask);
+    const ask = money(r.Campaign_Ask);
     return { cptid: c, name: name.get(c) ?? "", solicitor: s(r.Primary_Solicitor) || "Unassigned", solicitor2: s(r.Secondary_Solicitor), ask, type: s(r.Record_Type),
       donorType: s(r.Donor_Type) || (pd.has(c) ? "" : "Non-Donor"), priority: s(r["2026_Solicitation_Priority"]), task: s(r.Task),
       lifetime: round2(pd.get(c)?.total ?? money(r.Total_Gift_Amount)), prevAsk: money(r.Previous_Campaign_Ask), capacity: capOf(c), ds: person(c).ds };
@@ -217,7 +243,7 @@ export async function buildPvas() {
   });
 
   const snapshot = {
-    pool, client: "Palm Valley Animal Society", asOf, builtAt: builtAt(), source: "",
+    pool, client: "Palm Valley Animal Society", asOf, builtAt: builtAt(), source: "Canonical PVAS SQL",
     kpi: { total: round2(tot), gifts: giftCount, donors: pd.size, avg: round2(tot / Math.max(1, giftCount)), gho: round2(tot), cash: round2(tot), inkind: 0 },
     stages: [...stagesM].map(([k, v]) => ({ stage: k, gifts: v[0], total: round2(v[1]) })).sort((a, b) => b.total - a.total), fys, retention,
     pyramid: pyramid(pd), dsRating: sortedItems(dsr), capacity: [...capc.entries()].sort((a, b) => capmin(b[0]) - capmin(a[0])),
@@ -230,23 +256,23 @@ export async function buildPvas() {
 
   // ---------------- records ----------------
   type Rec = { cptid: number; name: string; kind: string; contact: Record<string, string>; flags: string[]; ds: Record<string, string>;
-    gifts: Record<string, unknown>[]; board: Record<string, unknown>[]; committees: string[]; calling: Record<string, unknown>[];
-    calls: Record<string, unknown>[]; notes: string[]; summary: Record<string, unknown>; years?: { year: number; amount: number }[];
+    nativeGiftHistory: NativeDonorHistory; board: Record<string, unknown>[]; committees: string[]; calling: Record<string, unknown>[];
+    calls: Record<string, unknown>[]; notes: string[]; summary: Record<string, unknown>; otherGiftRows?:unknown[]; _canonicalContact?: PvasContactProfile; sourceHistory?: Record<string, unknown>; years?: { year: number; amount: number }[];
     givebutter?: Record<string, unknown>[]; portfolio?: Record<string, unknown> };
   const R = new Map<number, Rec>();
   const rec = (c: number): Rec => {
     let x = R.get(c);
-    if (!x) R.set(c, (x = { cptid: c, name: name.get(c) ?? "", kind: "", contact: {}, flags: [], ds: {}, gifts: [], board: [], committees: [], calling: [], calls: [], notes: [], summary: {} }));
+    if (!x) R.set(c, (x = { cptid: c, name: name.get(c) ?? "", kind: "", contact: {}, flags: [], ds: {}, nativeGiftHistory: { v:2, lane:"history", view:history.view, records:giftsBy.get(c)??[] }, board: [], committees: [], calling: [], calls: [], notes: [], summary: {} }));
     return x;
   };
   for (const c of allc) rec(c);
+  for (const [c,m] of master) rec(c)._canonicalContact = pvasContactProfile(m._canonicalContact,c);
   for (const [c, ct] of contact) if (R.has(c)) R.get(c)!.contact = ct;
   for (const [c, d] of ds) { const x = rec(c); x.ds = Object.fromEntries(DS_KEYS.map(([k, col]) => [k, dsField(col, d[col])])); x.kind = "Individual"; }
   for (const [c, m] of cyg) {
     const x = rec(c); x.years = [...m].sort((a, b) => b[0] - a[0]).map(([year, amount]) => ({ year, amount: round2(amount) }));
-    x.gifts = x.years.map((y) => ({ date: String(y.year), amount: y.amount, stage: "Calendar year total", type: "", campaign: "" }));
+    // No synthetic calendar-year "gift" rows in the canonical detail ledger.
   }
-  for (const [c, list] of giftsBy) if (R.has(c)) R.get(c)!.gifts = list.sort((a, b) => String(b.date).localeCompare(String(a.date)));
   for (const b of board) if (b.cptid !== undefined) rec(b.cptid).board.push({ board: b.board, title: b.title, term: b.term, active: b.active, ask: b.ask, get: 0 });
   for (const m of committee) if (m.cptid !== null) rec(m.cptid).committees.push(`Campaign committee${m.title ? ` (${m.title})` : ""}`);
   for (const p of portfolio) {
@@ -254,9 +280,20 @@ export async function buildPvas() {
     x.portfolio = { solicitor: p.solicitor, secondary: s(r.Secondary_Solicitor), ask: p.ask, prevAsk: p.prevAsk, priority: p.priority, task: p.task,
       due: pdate(r.Due_Date) ?? "", relationship: s(r.Relationship), naming: s(r.Naming_Opportunity), donorType: p.donorType };
     x.calling.push({ batch: "Campaign portfolio", tier: p.priority, interviewer: p.solicitor, appt: "" });
-    for (const k of ["New_Notes", "Historical_Notes"]) if (s(r[k])) x.notes.push(s(r[k]));
+    // Preserve raw provenance but render canonical notes ONLY through tracking.
+    // Release requires the frozen occurrence aliases to cover both source fields.
+    x.sourceHistory = { New_Notes: r.New_Notes, Historical_Notes: r.Historical_Notes };
   }
-  for (const [c, m] of master) { const x = rec(c); if (!x.kind || x.kind === "Individual") x.kind = kindOf(c).replace(/^Foundaiton$/, "Foundation") || x.kind; if (s(m.notes)) x.notes.push(`Client file note: ${s(m.notes)}`); }
+  for (const [c, m] of master) { const x = rec(c); if (!x.kind || x.kind === "Individual") x.kind = kindOf(c).replace(/^Foundaiton$/, "Foundation") || x.kind; if (Object.prototype.hasOwnProperty.call(m, "notes")) x.sourceHistory = { ...x.sourceHistory, clientNotes: m.notes }; }
+  for (const [c,m] of master) {
+    const fields=pvasContactProfile(m._canonicalContact,c).fields;
+    const x=rec(c);
+    // A campaign-state owner is valid even without portfolio membership.
+    if(!x.portfolio)x.portfolio={solicitor:fields.primarySolicitor,secondary:fields.secondarySolicitor};
+    // Snapshot amount cells are numeric presentation; the full record retains
+    // the actual current owner, including NULL distinct from literal zero.
+    x.portfolio.ask=fields.ask;
+  }
   for (const r of [...noteRows].sort((a, b) => money(a.Note_Order_Newest_to_Oldest) - money(b.Note_Order_Newest_to_Oldest))) {
     const c = cid(r.CPTID); if (c === null || !s(r.Note)) continue;
     const d = pdate(r.Date); rec(c).notes.push(d ? `${d}: ${s(r.Note)}` : s(r.Note));
@@ -278,7 +315,7 @@ export async function buildPvas() {
       years: p?.fys.size ?? 0, band: p ? band(p.total) : "No gifts", ghoTotal: p ? round2(p.total) : null };
     x.summary = sm;
     if (!x.name) x.name = `CPTID ${c}`;
-    index.push({ cptid: c, name: x.name, kind: x.kind, city: x.contact.city ?? "", lifetime: sm.lifetime, gifts: sm.gifts, largest: sm.largest,
+    index.push({ _canonicalContact:x._canonicalContact,cptid: c, name: x.name, kind: x.kind, city: x.contact.city ?? "", lifetime: sm.lifetime, gifts: sm.gifts, largest: sm.largest,
       last: sm.last, years: sm.years, band: sm.band, ds: d["DS Rating"] || s(port.get(c)?.DS_Rating), capacity: cap || (Object.keys(d).length ? "Unrated" : ""), capMin: capmin(cap) });
   }
   index.sort((a, b) => (b.lifetime as number) - (a.lifetime as number));

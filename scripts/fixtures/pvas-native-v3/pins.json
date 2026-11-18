@@ -1,0 +1,57 @@
+{
+  "kind": "offline-fictional-v3-receiver-source-only",
+  "backendRuntime": "7ec9c0b086bec734959111a251c05d5b40f3456b",
+  "backendReader": "38eb5c9dd221753fde444d68b3681b361bdf1d63",
+  "files": {
+    "pvasNativeGiftReadV3.ts.source": {
+      "sha256": "630f2ab417e5a721ff16389260dd24420f4658b4e7d49d8c9342a6f9758e4d2b",
+      "bytes": 6019,
+      "source": "native-v3-page-enum-correction-evidence/pvasNativeGiftReadV3.ts"
+    },
+    "pvasNativeCampaignSchemaV3.ts.source": {
+      "sha256": "d34c15ba57480a943c5cea18c3c47f41f224e0dcc5c27e50d3fed06f1d6980d2",
+      "bytes": 1531,
+      "source": "native-campaign-v3-foundation-evidence/pvasNativeCampaignSchemaV3.ts"
+    },
+    "pvasNativeCampaignSnapshotV3.ts.source": {
+      "sha256": "ea1590f3a3eb4c4450fa2987174308a69a652f2b9aebf58b29f28c362eb206ae",
+      "bytes": 5148,
+      "source": "native-campaign-v3-foundation-evidence/pvasNativeCampaignSnapshotV3.ts"
+    },
+    "pvasNativeCampaignMutationV3.ts.source": {
+      "sha256": "887fea5a6d4452530c7bf8f96cd6520e1ef91bd5be713ada05f3596230408e28",
+      "bytes": 10151,
+      "source": "native-campaign-v3-foundation-evidence/pvasNativeCampaignMutationV3.ts"
+    },
+    "pvasNativeMigrationBaseV3.ts.source": {
+      "sha256": "5c8f92b83644dcf3a04719c37fe060cdfd9df4adeb688e73133dfe32a77e4ce9",
+      "bytes": 11081,
+      "source": "native-campaign-v3-foundation-evidence/pvasNativeMigrationBaseV3.ts"
+    },
+    "pvasCanonicalPortal.ts.source": {
+      "sha256": "7c47fa00e0daeeb4c10da1ce52b34659e6517a31967cc4080f1ea725e9c724f5",
+      "bytes": 21873,
+      "source": "native-campaign-v3-runtime-evidence/pvasCanonicalPortal.ts"
+    },
+    "pvasNativeCampaignReceiptsV3.ts.source": {
+      "sha256": "ace7c596237a6d22110540284f7d0001b6a78ded0aff717f9fe8b39aaceead35",
+      "bytes": 3462,
+      "source": "native-campaign-v3-runtime-evidence/pvasNativeCampaignReceiptsV3.ts"
+    },
+    "pvasNativeCampaignCorrectionV2.ts.source": {
+      "sha256": "42a086bb60ff623d279945faa2514b40894286119bc14d04177dac622fed787e",
+      "bytes": 7400,
+      "source": "native-schema-v2-evidence/pvasNativeCampaignCorrectionV2.ts"
+    },
+    "pvasNativeCampaignRetirementV2.ts.source": {
+      "sha256": "1fbb994f27b20fab6dac5f954090378b91fc501adfbd11847a565f2dffa2772a",
+      "bytes": 9545,
+      "source": "native-schema-v2-evidence/pvasNativeCampaignRetirementV2.ts"
+    },
+    "pvasNativeMutationReceiptsV2.ts.source": {
+      "sha256": "b590bdb586a710067247c415ec3664d9bac7fbf5dc4a8cbeccb6cc33922d7cc9",
+      "bytes": 10973,
+      "source": "native-receipts-evidence/lib/pvasNativeMutationReceiptsV2.ts"
+    }
+  }
+}

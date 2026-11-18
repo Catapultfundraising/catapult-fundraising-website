@@ -1,4 +1,7 @@
 "use client";
+import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
+import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
+import { pvasContactChanges,pvasIdentityCommand,pvasContactProfile,pvasMergeStates, type PvasContactProfile } from "@/lib/portal-v2/pvas-contact-wire";
 
 // Shared record tools for every client data dashboard (JAG, CSNF, PVAS, WCBHC, BAQ):
 // editable contact info with old-contact history, wealth screening (DonorSearch + PIR + staff edits),
@@ -12,12 +15,13 @@ import { ChevronDown, ChevronRight, GitMerge, Pencil, RotateCcw, Search, Trash2,
 import { OUTCOME_NOTE_LIMIT, OUTCOME_OPTIONS, validateOutcome, type Outcome } from "@/lib/portal-v2/outcome";
 
 type AnyRec = {
+  _canonicalContact?: PvasContactProfile;
   outcome?: Outcome & { by?: string; at?: string };
   cptid: number; name: string; kind?: string; contact?: Record<string, string | undefined>; ds?: Record<string, string> | null;
   summary?: { lifetime?: number }; gifts?: GiftRow[];
   contactHistory?: { key: string; label: string; from: string; to: string; by: string; at: string }[];
   wealth?: { edits?: { capacity?: Edit; rating?: Edit }; screening?: Screening | null; pending?: boolean; requested?: { at: string; by: string } | null; original?: Record<string, string> | null };
-  mergedFrom?: { cptid: number; name: string; contact: Record<string, string>; lifetime: number }[];
+  mergedFrom?: { cptid: number; name: string; contact: Record<string, string>; lifetime: number;_canonicalContact?:PvasContactProfile }[];
   redirectedFrom?: { cptid: number; name: string };
   deleted?: { reason: string; by: string; at: string };
   dsFromScreening?: boolean; dsFromCptid?: number;
@@ -25,7 +29,7 @@ type AnyRec = {
 type Edit = { value: string; from: string; by: string; at: string };
 type Screening = { status: "matched" | "no_match" | "error"; fields?: Record<string, string>; quality?: number; message?: string; note?: string; by: string; at: string };
 export type GiftRow = { date?: string; amount: number; stage?: string; type?: string; campaign?: string; allocation?: string; status?: string; fund?: string; fromCptid?: number };
-type IdxRow = { cptid: number; name: string; city?: string; lifetime?: number; kind?: string };
+type IdxRow = { cptid: number; name: string; city?: string; lifetime?: number; kind?: string;_canonicalContact?:PvasContactProfile };
 
 const usd = (n: number, d = 0) => (n || 0).toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: d, minimumFractionDigits: d });
 const day = (iso?: string) => { if (!iso) return ""; const d = new Date(iso); return isNaN(+d) ? String(iso).slice(0, 10) : d.toLocaleDateString("en-US"); };
@@ -42,10 +46,30 @@ function useBy(client: string) {
   return [by, (v: string) => { setBy(v); localStorage.setItem(`${client}-by`, v); }] as const;
 }
 async function v2(client: string, body: Record<string, unknown>) {
-  const r = await fetch(`/api/${client}-data-v2`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  if(pvasCanonicalEnabled(client)){
+    const op=String(body.op),actor=body.by;
+    if(["deleteRecord","restoreRecord","unmerge"].includes(op)){
+      const profile=pvasContactProfile((body._canonicalProfiles as Record<string,unknown>)?.[String(body.cptid)],Number(body.cptid));
+      body={op:"pvasContact",by:actor,command:{...pvasIdentityCommand(profile,op as "deleteRecord"|"restoreRecord"|"unmerge",body.reason),actor}};
+    }else if(op==="mergeRecords"){
+      const keep=Number(body.keep),merge=body.merge as number[];
+      body={op:"pvasBatch",by:actor,command:{actor,fileName:`Merge into CPTID ${keep}`,summary:{mergeRecords:true,keep,merged:merge},newRows:[],updates:[],notes:[],gifts:[],contactStates:pvasMergeStates(body._canonicalProfiles as Record<string,unknown>,keep,merge)}};
+    }else if(op==="notDuplicate"){
+      const parts=String(body.key).split("|").map(Number).sort((a,b)=>a-b);
+      if(parts.length<2||new Set(parts).size!==parts.length||!parts.every(n=>Number.isInteger(n)&&n>0&&n<=2147483647))throw new Error("Invalid canonical duplicate group");
+      body={op:"pvasContact",by:actor,command:{operation:"contact-notdup",cptid:parts[0],key:parts.join("|"),expected:false,actor}};
+    }
+  }
+  const r = await pvasActionFetch(client, `/api/${client}-data-v2`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
   const j = await r.json().catch(() => ({}));
   if (!r.ok) throw new Error(j.error || `Could not save (error ${r.status})`);
   return j;
+}
+async function canonicalEdit(client: string, r: AnyRec, by: string, values: Record<string, unknown>, operation: "pvasFields"|"pvasContact") {
+  if (!r._canonicalContact) throw new Error("Raw canonical profile unavailable; reload before saving");
+  const changes = pvasContactChanges(r._canonicalContact, values);
+  if (!changes.length) return {ok:true,unchanged:true};
+  return v2(client,{op:operation,by,command:{cptid:r.cptid,actor:by,...(operation==="pvasContact"?{operation:"contact-edit"}:{}),changes}});
 }
 /** Tell the dashboard's record index to reload (after a merge, delete or restore). */
 export const refreshCrmIndex = () => window.dispatchEvent(new Event("crm-index-refresh"));
@@ -104,7 +128,8 @@ function OutcomeEditor({ client, r, onSaved }: { client: string; r: AnyRec; onSa
     } catch (e) { setMessage((e as Error).message); return; }
     setBusy(true);
     try {
-      await v2(client, { op: "setOutcome", cptid: r.cptid, ...outcome, by });
+      if (pvasCanonicalEnabled(client)) await canonicalEdit(client,r,by,{outcome:JSON.stringify(outcome)},"pvasFields");
+      else await v2(client, { op: "setOutcome", cptid: r.cptid, ...outcome, by });
       if (!alive.current) return;
       setSaved(outcome); setValue(outcome.value); setNote(outcome.note); setMessage("Outcome saved."); onSaved();
     } catch { if (alive.current) setMessage("Save not confirmed. Reload the record before retrying."); }
@@ -147,14 +172,19 @@ export function ContactSection({ client, r, onSaved }: { client: string; r: AnyR
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [showOld, setShowOld] = useState(false);
+  const original=useRef<{record:AnyRec;display:Record<string,string>}|null>(null);
   const street = c.street || c.address || "";
-  const start = () => { setVals(Object.fromEntries(EDIT_FIELDS.map((f) => [f.key, String((f.key === "street" ? street : c[f.key]) ?? "")]))); setErr(""); setEditing(true); };
+  const start = () => { const display=Object.fromEntries(EDIT_FIELDS.map((f) => [f.key, String((f.key === "street" ? street : c[f.key]) ?? "")]));original.current={record:structuredClone(r),display};setVals(display); setErr(""); setEditing(true); };
   async function save() {
     if (!by.trim()) { setErr("Enter your name so the change is credited to you"); return; }
     setBusy(true); setErr("");
     try {
       const current = Object.fromEntries(EDIT_FIELDS.map((f) => [f.key, String((f.key === "street" ? street : c[f.key]) ?? "")]));
-      await v2(client, { op: "setContact", cptid: r.cptid, changes: vals, current, by });
+      if (pvasCanonicalEnabled(client)) {
+        if(!original.current||original.current.record.cptid!==r.cptid)throw new Error("Reload this contact editor");
+        await canonicalEdit(client,original.current.record,by,Object.fromEntries(Object.entries(vals).filter(([k,v])=>v!==original.current!.display[k])),"pvasContact");
+      }
+      else await v2(client, { op: "setContact", cptid: r.cptid, changes: vals, current, by });
       setEditing(false); onSaved();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
@@ -227,14 +257,31 @@ export function ContactSection({ client, r, onSaved }: { client: string; r: AnyR
 const CAP_KEYS = ["Wealth-Based Capacity", "Capacity", "Estimated Capacity", "Wealth Capacity"];
 const RATING_KEYS = ["DS Rating", "DS_Rating", "Rating"];
 const pick = (o: Record<string, string> | null | undefined, keys: string[]) => { for (const k of keys) if (o?.[k]) return String(o[k]); return ""; };
+type PirWealth = { found: boolean; capacity?: string; rating?: string; profile?: string; updatedAt?: string; status?: string };
+
+/** Canonical PVAS SQL owns the main values, including NULL/blank/zero.
+ * Other clients retain their original staff -> PIR -> DS display precedence. */
+export function wealthDisplayValues(client: string, r: AnyRec, pir: PirWealth | null) {
+  if (pvasCanonicalEnabled(client)) {
+    const fields = pvasContactProfile(r._canonicalContact, r.cptid).fields;
+    return { canonical: true, capacity: fields.wealthCapacity, rating: fields.dsRating, capSrc: "PVAS SQL", ratingSrc: "PVAS SQL" };
+  }
+  const dsCap = pick(r.ds, CAP_KEYS), dsRating = pick(r.ds, RATING_KEYS);
+  const capEdit = r.wealth?.edits?.capacity, ratingEdit = r.wealth?.edits?.rating;
+  const pirCap = pir?.found ? pir.capacity ?? "" : "", pirRating = pir?.found ? pir.rating ?? "" : "";
+  return { canonical: false,
+    capacity: capEdit?.value || pirCap || dsCap, rating: ratingEdit?.value || pirRating || dsRating,
+    capSrc: capEdit ? "Edited" : pirCap ? "From PIR" : dsCap ? "DonorSearch" : "",
+    ratingSrc: ratingEdit ? "Edited" : pirRating ? "From PIR" : dsRating ? "DonorSearch" : "" };
+}
 
 export function WealthSection({ client, r, pirName, onSaved }: { client: string; r: AnyRec; pirName?: string; onSaved: () => void }) {
   const w = r.wealth ?? {};
   const ds = r.ds && Object.keys(r.ds).length ? r.ds : null;
-  const dsCap = pick(ds, CAP_KEYS), dsRating = pick(ds, RATING_KEYS);
-  const [pir, setPir] = useState<{ found: boolean; capacity?: string; rating?: string; profile?: string; updatedAt?: string; status?: string } | null>(null);
+  const [pir, setPir] = useState<PirWealth | null>(null);
   const [edit, setEdit] = useState<"capacity" | "rating" | null>(null);
   const [val, setVal] = useState("");
+  const editOriginal=useRef<AnyRec|null>(null);
   const [by, setBy] = useBy(client);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
@@ -244,17 +291,18 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
     if (!pirName) return;
     v2(client, { op: "pirWealth", pirName, name: r.name }).then(setPir).catch(() => setPir({ found: false }));
   }, [client, pirName, r.name]);
-  const pirCap = pir?.found ? pir.capacity ?? "" : "", pirRating = pir?.found ? pir.rating ?? "" : "";
   const capEdit = w.edits?.capacity, ratingEdit = w.edits?.rating;
-  // What the dashboard uses: staff edit, then the PIR, then DonorSearch.
-  const capacity = capEdit?.value || pirCap || dsCap, capSrc = capEdit ? "Edited" : pirCap ? "From PIR" : dsCap ? "DonorSearch" : "";
-  const rating = ratingEdit?.value || pirRating || dsRating, ratingSrc = ratingEdit ? "Edited" : pirRating ? "From PIR" : dsRating ? "DonorSearch" : "";
+  const { canonical, capacity, rating, capSrc, ratingSrc } = wealthDisplayValues(client, r, pir);
 
   async function saveEdit() {
     if (!by.trim()) { setErr("Enter your name so the change is credited to you"); return; }
     setBusy(true); setErr("");
     try {
-      await v2(client, { op: "setWealth", cptid: r.cptid, field: edit, value: val, current: edit === "capacity" ? capacity : rating, by });
+      if (pvasCanonicalEnabled(client)) {
+        if(!editOriginal.current||editOriginal.current.cptid!==r.cptid)throw new Error("Reload this wealth editor");
+        await canonicalEdit(client,editOriginal.current,by,{[edit==="capacity"?"wealthCapacity":"dsRating"]:val},"pvasFields");
+      }
+      else await v2(client, { op: "setWealth", cptid: r.cptid, field: edit, value: val, current: edit === "capacity" ? capacity : rating, by });
       setEdit(null); onSaved();
     } catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
@@ -275,9 +323,9 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
   const scr = w.screening;
   const org = (r.kind ?? "").toLowerCase().includes("org") || (r.kind ?? "").toLowerCase().includes("found") || (r.kind ?? "").toLowerCase().includes("corp") || (r.kind ?? "").toLowerCase().includes("business");
   return (
-    <Sec title="Wealth screening" right={!edit && !screenForm && !w.pending && !org && <button onClick={openScreen} className={lineBtn}><Search className="h-3.5 w-3.5" />{ds || scr ? "Re-run screening" : "Run wealth screening"}</button>}>
+    <Sec title="Wealth screening" right={!pvasCanonicalEnabled(client) && !edit && !screenForm && !w.pending && !org && <button onClick={openScreen} className={lineBtn}><Search className="h-3.5 w-3.5" />{ds || scr ? "Re-run screening" : "Run wealth screening"}</button>}>
       <div className="mb-3 grid grid-cols-2 gap-2">
-        {([["capacity", "Wealth capacity", capacity, capSrc, capEdit], ["rating", "Wealth rating", rating, ratingSrc, ratingEdit]] as const).map(([k, label, v, src, ed]) => (
+        {([["capacity", "Wealth capacity", capacity, capSrc, canonical ? undefined : capEdit], ["rating", "Wealth rating", rating, ratingSrc, canonical ? undefined : ratingEdit]] as const).map(([k, label, v, src, ed]) => (
           <div key={k} className="rounded-lg border border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5 p-2.5">
             <p className="text-[11px] uppercase tracking-wider text-[rgb(var(--ink))]/55">{label}</p>
             {edit === k ? (
@@ -289,12 +337,12 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
               </div>
             ) : (
               <>
-                <p className="mt-0.5 font-display text-lg text-[rgb(var(--navy))]">{v || "Not screened"}</p>
+                <p className="mt-0.5 font-display text-lg text-[rgb(var(--navy))]">{canonical ? v === null ? "SQL NULL" : v === "" ? "(blank)" : String(v) : v || "Not screened"}</p>
                 <div className="flex flex-wrap items-center gap-2 text-[11px] text-[rgb(var(--ink))]/60">
-                  {src && <span className="rounded-full bg-white px-2 py-0.5">{src}</span>}
+                  {src && <span className="rounded-full bg-white px-2 py-0.5" title={canonical ? k === "capacity" ? "PVAS SQL owner by row presence: pvas.portfolio.Wealth_Capacity → pvas.donorsearch_results.Wealth_Based_Capacity → pvas.wealth_extensions.wealth_capacity" : "PVAS SQL owner by row presence: pvas.portfolio.DS_Rating → pvas.donorsearch_results.DS_Rating → pvas.wealth_extensions.ds_rating" : undefined}>{src}</span>}
                   {ed && <span>by {ed.by} · {day(ed.at)}{ed.from ? ` · was ${ed.from}` : ""}</span>}
-                  <button onClick={() => { setVal(v); setEdit(k); setErr(""); }} className="underline">Edit</button>
-                  {ed && <button onClick={async () => { setBusy(true); try { await v2(client, { op: "setWealth", cptid: r.cptid, field: k, value: "", current: ed.value, by: by || "dashboard" }); onSaved(); } finally { setBusy(false); } }} className="underline">Undo edit</button>}
+                  <button onClick={() => { editOriginal.current=structuredClone(r);setVal(v === null ? "" : String(v)); setEdit(k); setErr(""); }} className="underline">Edit</button>
+                  {ed && !pvasCanonicalEnabled(client) && <button onClick={async () => { setBusy(true); try { await v2(client, { op: "setWealth", cptid: r.cptid, field: k, value: "", current: ed.value, by: by || "dashboard" }); onSaved(); } finally { setBusy(false); } }} className="underline">Undo edit</button>}
                 </div>
               </>
             )}
@@ -302,6 +350,7 @@ export function WealthSection({ client, r, pirName, onSaved }: { client: string;
         ))}
       </div>
       {pir?.found && (
+        canonical ? <p className="mb-2 rounded-md bg-[rgb(var(--paper))] px-2.5 py-1.5 text-xs">PIR reference ({pir.profile || "profile not provided"}; status {pir.status || "not provided"}{pir.updatedAt ? `, updated ${day(pir.updatedAt)}` : ""}): capacity {pir.capacity || "not stated"}, rating {pir.rating || "not stated"}. Separate reference only; does not replace PVAS SQL values.</p> :
         <p className="mb-2 rounded-md bg-[rgb(var(--paper))] px-2.5 py-1.5 text-xs">PIR ({pir.profile}{pir.updatedAt ? `, updated ${day(pir.updatedAt)}` : ""}): capacity {pir.capacity || "not stated"}, rating {pir.rating || "not stated"}. The PIR wins over DonorSearch unless someone edits the value.</p>
       )}
       {w.pending && <p className="mb-2 rounded-md bg-[rgb(var(--brass))]/15 px-2.5 py-1.5 text-xs text-[rgb(var(--navy))]">DonorSearch screening requested{w.requested ? ` by ${w.requested.by} on ${day(w.requested.at)}` : ""}. Results usually land here within 15 minutes.</p>}
@@ -389,13 +438,13 @@ export function GiftsByYear({ gifts, title = "Giving by calendar year", showDeta
 export function RecordBanners({ client, r, onChanged, openRecord }: { client: string; r: AnyRec; onChanged: () => void; openRecord?: (c: number) => void }) {
   const [busy, setBusy] = useState(false);
   const [by] = useBy(client);
-  const act = async (body: Record<string, unknown>) => { setBusy(true); try { await v2(client, { ...body, by: by || "dashboard" }); refreshCrmIndex(); onChanged(); } catch (e) { alert((e as Error).message); } finally { setBusy(false); } };
+  const act = async (body: Record<string, unknown>) => { setBusy(true); try { await v2(client, { ...body, by: by || "dashboard",...(pvasCanonicalEnabled(client)?{_canonicalProfiles:Object.fromEntries([r,...r.mergedFrom??[]].map(x=>[x.cptid,x._canonicalContact]))}:{}) }); refreshCrmIndex(); onChanged(); } catch (e) { alert((e as Error).message); } finally { setBusy(false); } };
   return (
     <>
       {r.deleted && (
         <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg border-2 border-red-300 bg-red-50 px-3 py-2 text-sm">
           <Trash2 className="h-4 w-4 text-red-700" /><span>Deleted by {r.deleted.by} on {day(r.deleted.at)}: {r.deleted.reason}. It no longer shows in searches or lists.</span>
-          <button disabled={busy} onClick={() => act({ op: "restoreRecord", cptid: r.cptid })} className={`${lineBtn} ml-auto`}><RotateCcw className="h-3.5 w-3.5" />Restore record</button>
+          <button disabled={busy || pvasCanonicalEnabled(client)} onClick={() => act({ op: "restoreRecord", cptid: r.cptid })} className={`${lineBtn} ml-auto`}><RotateCcw className="h-3.5 w-3.5" />Restore record</button>
         </div>
       )}
       {r.redirectedFrom && (
@@ -407,7 +456,7 @@ export function RecordBanners({ client, r, onChanged, openRecord }: { client: st
         <div className="mb-3 rounded-lg bg-[rgb(var(--paper))] px-3 py-2 text-xs">
           <span className="font-semibold">Merged into this record: </span>
           {(r.mergedFrom ?? []).map((m, i) => (
-            <span key={m.cptid}>{i ? "; " : ""}{m.name} (CPTID {m.cptid}{m.lifetime ? `, ${usd(m.lifetime)}` : ""}) <button disabled={busy} onClick={() => { if (confirm(`Unmerge ${m.name} (CPTID ${m.cptid})? It becomes its own record again.`)) act({ op: "unmerge", cptid: m.cptid }); }} className="underline">Unmerge</button>
+            <span key={m.cptid}>{i ? "; " : ""}{m.name} (CPTID {m.cptid}{m.lifetime ? `, ${usd(m.lifetime)}` : ""}) <button disabled={busy || pvasCanonicalEnabled(client)} onClick={() => { if (confirm(`Unmerge ${m.name} (CPTID ${m.cptid})? It becomes its own record again.`)) act({ op: "unmerge", cptid: m.cptid }); }} className="underline">Unmerge</button>
               {openRecord && <> </>}</span>
           ))}
           <span className="text-[rgb(var(--ink))]/55"> · Giving, notes and contacts from these records are combined here.</span>
@@ -419,7 +468,7 @@ export function RecordBanners({ client, r, onChanged, openRecord }: { client: st
 
 export function MergeDeleteButtons({ client, r, index, onChanged }: { client: string; r: AnyRec; index: IdxRow[] | null; onChanged: () => void }) {
   const [mode, setMode] = useState<"merge" | "delete" | null>(null);
-  if (r.deleted) return null;
+  if (r.deleted || pvasCanonicalEnabled(client)) return null;
   return (
     <>
       <button onClick={() => setMode("merge")} className={lineBtn} title="Merge a duplicate record into this one"><GitMerge className="h-3.5 w-3.5" />Merge duplicate</button>
@@ -461,7 +510,7 @@ function MergeModal({ client, keep, index, onClose, onDone, preselect = [] }: { 
     if (!by.trim()) { setErr("Enter your name so the merge is credited to you"); return; }
     if (!sel.length) { setErr("Pick at least one duplicate to merge"); return; }
     setBusy(true); setErr("");
-    try { await v2(client, { op: "mergeRecords", keep: keep.cptid, merge: sel.map((s) => s.cptid), by }); onDone(); }
+    try { await v2(client, { op: "mergeRecords", keep: keep.cptid, merge: sel.map((s) => s.cptid), by,...(pvasCanonicalEnabled(client)?{_canonicalProfiles:Object.fromEntries([keep,...sel].map(x=>[x.cptid,x._canonicalContact]))}:{}) }); onDone(); }
     catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
   return (
@@ -502,7 +551,7 @@ function DeleteModal({ client, r, onClose, onDone }: { client: string; r: AnyRec
     if (!by.trim()) { setErr("Enter your name so the delete is credited to you"); return; }
     if (!reason.trim()) { setErr("Enter a reason"); return; }
     setBusy(true); setErr("");
-    try { await v2(client, { op: "deleteRecord", cptid: r.cptid, reason, by }); onDone(); }
+    try { await v2(client, { op: "deleteRecord", cptid: r.cptid, reason, by,...(pvasCanonicalEnabled(client)?{_canonicalProfiles:{[r.cptid]:r._canonicalContact}}:{}) }); onDone(); }
     catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
   return (
@@ -518,8 +567,8 @@ function DeleteModal({ client, r, onClose, onDone }: { client: string; r: AnyRec
 }
 
 // ---------------------------------------------------------------- Duplicates manager (Add + Upload tab)
-type DupGroup = { key: string; reason: string; strength: number; members: IdxRow[] & { street?: string }[] };
-type LogRow = { cptid: number; name: string; action: string; target?: number; targetName?: string; reason?: string; by: string; at: string; current: boolean };
+type DupGroup = { key: string; reason: string; strength: number; members: (IdxRow & { street?: string })[] };
+type LogRow = { cptid: number; name: string; action: string; target?: number; targetName?: string; reason?: string; by: string; at: string; current: boolean;_canonicalContact?:PvasContactProfile };
 export function DuplicatesPanel({ client, openRecord: openProp }: { client: string; openRecord?: (c: number) => void }) {
   const nav = useRecordNav();
   const openRecord = openProp ?? nav?.open;
@@ -536,10 +585,11 @@ export function DuplicatesPanel({ client, openRecord: openProp }: { client: stri
   const load = () => { setErr(""); v2(client, { op: "duplicates", minStrength, q: qd, limit: 300 }).then(setData).catch((e) => setErr((e as Error).message)); };
   useEffect(load, [client, minStrength, qd]); // eslint-disable-line react-hooks/exhaustive-deps
   const groups = data?.groups ?? [];
+  if (pvasCanonicalEnabled(client)) return null;
   async function act(key: string, body: Record<string, unknown>) {
     if (!by.trim()) { setErr("Enter your name first"); return; }
     setBusy(key); setErr("");
-    try { await v2(client, { ...body, by }); refreshCrmIndex(); load(); } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
+    try { await v2(client, { ...body, by,...(pvasCanonicalEnabled(client)?{_canonicalProfiles:Object.fromEntries([...(data?.groups.flatMap(g=>g.members)??[]),...data?.log??[]].map(x=>[x.cptid,x._canonicalContact]))}:{}) }); refreshCrmIndex(); load(); } catch (e) { setErr((e as Error).message); } finally { setBusy(null); }
   }
   return (
     <div className="space-y-3">

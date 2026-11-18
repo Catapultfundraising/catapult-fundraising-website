@@ -1,0 +1,98 @@
+/** HELD command/audit plan, NOT a transaction executor or receipt protocol.
+ * Source/caller authorization, request replay/reservation/finalization and v2
+ * history readback remain integration hooks. Never call SQL from this module. */
+import {createHash} from "node:crypto";
+import {validatePvasGiftSource, type GiftSource} from "./pvasCanonicalGifts";
+import {nativeColumns} from "./pvasNativeGiftFoundation";
+import {NATIVE_GIFT_ROW_SQL_FIELDS,type NativeGiftRecordV2} from "./pvasNativeGiftReadV2";
+export class NativeCorrectionHold extends Error{
+  constructor(readonly code:"invalid-command"|"stale"|"source-conflict"|"not-native-campaign"|"id-exhausted"|"retired-membership"){
+    super(`PVAS native correction held: ${code}`);
+  }
+}
+function fail(c:NativeCorrectionHold["code"]):never{throw new NativeCorrectionHold(c);}
+const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
+const exact=(v:object,k:string[])=>Object.keys(v).sort().join("|")===[...k].sort().join("|");
+const positive=(v:unknown):v is number=>typeof v==="number"&&Number.isInteger(v)&&v>0&&v<=2147483647;
+const own=(v:object,k:string)=>Object.prototype.hasOwnProperty.call(v,k);
+export interface NativeCorrectionCommand{
+  requestId:string;cptid:number;actor:string;
+  target:{giftId:number;expectedVersion:number;source:GiftSource};
+  patch:{amount?:number;note?:string|null};
+}
+export function validateNativeCorrectionV2(input:unknown):NativeCorrectionCommand{
+  if(!obj(input)||!exact(input,["requestId","cptid","actor","target","patch"])||
+    typeof input.requestId!=="string"||!/^[a-f0-9]{32}$/.test(input.requestId)||!positive(input.cptid)||
+    typeof input.actor!=="string"||!input.actor.trim()||input.actor.length>200||/[\x00-\x1f\x7f]/.test(input.actor)||
+    !obj(input.target)||!exact(input.target,["giftId","expectedVersion","source"])||
+    !positive(input.target.giftId)||!positive(input.target.expectedVersion)||
+    !obj(input.patch)||!Object.keys(input.patch).length||Object.keys(input.patch).some(k=>!["amount","note"].includes(k)))fail("invalid-command");
+  let source:GiftSource;try{source=validatePvasGiftSource(input.target.source);}catch{return fail("invalid-command");}
+  if(!["website_db","portal_gifts"].includes(source.system))fail("invalid-command");
+  const patch:NativeCorrectionCommand["patch"]={};
+  if(own(input.patch,"amount")){
+    if(typeof input.patch.amount!=="number"||!Number.isFinite(input.patch.amount)||!(input.patch.amount>0)||
+      !Number.isFinite(Math.round(input.patch.amount*100)/100))fail("invalid-command");
+    patch.amount=input.patch.amount; // Hash ACTUAL validated command before legacy rounding.
+  }
+  if(own(input.patch,"note")){
+    const n=input.patch.note;
+    if(!(n===null||typeof n==="string"&&n.length<=1000000&&!/[\x00-\x08\x0b\x0c\x0e-\x1f\x7f]/.test(n)))fail("invalid-command");
+    patch.note=n as string|null;
+  }
+  return{requestId:input.requestId,cptid:input.cptid,actor:input.actor,
+    target:{giftId:input.target.giftId,expectedVersion:input.target.expectedVersion,source},patch};
+}
+export const NATIVE_CORRECTION_SQL=Object.freeze({
+  request:`SELECT operation,cptid,payload_hash,result_json FROM pvas.write_requests WITH(UPDLOCK,HOLDLOCK)
+    WHERE request_id=@requestId`,
+  source:`SELECT gift_id AS giftId,cptid FROM pvas.gift_source_links WITH(UPDLOCK,HOLDLOCK)
+    WHERE source_system=@system AND source_key=@key`,
+  current:`SELECT ${NATIVE_GIFT_ROW_SQL_FIELDS} FROM pvas.gifts g WITH(UPDLOCK,HOLDLOCK)
+    WHERE g.gift_id=@giftId AND g.cptid=@cptid`,
+  update:`UPDATE g SET native_number_amount=@amount,native_note=@note,native_presence_mask=@mask,version=@version
+    FROM pvas.gifts g WHERE g.gift_id=@giftId AND g.cptid=@cptid AND g.version=@expectedVersion
+    AND g.representation='native-campaign' AND g.native_number_amount=@beforeAmount
+    AND (g.native_note=@beforeNote OR g.native_note IS NULL AND @beforeNote IS NULL)
+    AND g.native_presence_mask=@beforeMask
+    AND EXISTS(SELECT 1 FROM pvas.gift_source_links l WITH(UPDLOCK,HOLDLOCK)
+      WHERE l.gift_id=g.gift_id AND l.cptid=g.cptid AND l.source_system=@system AND l.source_key=@key)`,
+  audit:`INSERT INTO pvas.write_audit(request_id,sequence_no,cptid,source_table,source_column,before_json,after_json,actor)
+    VALUES(@requestId,1,@cptid,N'pvas.gifts',N'native_campaign',@before,@after,@actor)`,
+  history:`INSERT INTO pvas.gift_history(gift_id,version,cptid,representation,presentation_order,wire_version,request_id,action,snapshot_json,actor)
+    VALUES(@giftId,@version,@cptid,'native-campaign',@presentationOrder,2,@requestId,'edit',@after,@actor)`,
+});
+/** current must be strict-decoded SQL state read under source+gift UPDLOCK/
+ * HOLDLOCK in the SAME serializable transaction as eventual ledger/write/audit.
+ * This function cannot reserve a request or decide replay from a caller hash. */
+export function planNativeCampaignCorrectionV2(input:unknown,current:NativeGiftRecordV2){
+  const command=validateNativeCorrectionV2(input);
+  const payloadHash=createHash("sha256").update(JSON.stringify({v:2,op:"nativeCampaignCorrection",command})).digest("hex");
+  if(current.representation!=="native-campaign")fail("not-native-campaign");
+  if(current.membership.state!=="active")fail("retired-membership");
+  if(current.cptid!==command.cptid||current.giftId!==command.target.giftId||
+    current.version!==command.target.expectedVersion)fail("stale");
+  if(!current.sources.some(s=>s.system===command.target.source.system&&s.key===command.target.source.key))fail("source-conflict");
+  const before=JSON.parse(JSON.stringify(current)) as typeof current,after=JSON.parse(JSON.stringify(current)) as typeof current;
+  if(own(command.patch,"amount"))after.native.amount=Math.round(command.patch.amount!*100)/100;
+  if(own(command.patch,"note"))after.native.note=current.source.system==="portal_gifts"?
+    command.patch.note||null:command.patch.note!;
+  const changed=JSON.stringify(before.native)!==JSON.stringify(after.native);
+  if(changed){
+    if(current.version===2147483647)fail("id-exhausted");
+    after.version++;
+  }
+  const prior=nativeColumns(before),next=nativeColumns(after);
+  return{held:true as const,executable:false as const,accepted:false as const,v:2 as const,
+    operation:"nativeCampaignCorrection" as const,command,payloadHash,changed,before,after,
+    parameters:{requestId:command.requestId,cptid:command.cptid,actor:command.actor,giftId:current.giftId,
+      expectedVersion:current.version,version:after.version,presentationOrder:current.order,system:command.target.source.system,key:command.target.source.key,
+      amount:after.native.amount,note:next.native_note,mask:next.native_presence_mask,
+      beforeAmount:before.native.amount,beforeNote:prior.native_note,beforeMask:prior.native_presence_mask,
+      before:JSON.stringify({v:2,gift:before}),after:JSON.stringify({v:2,gift:after})},
+    hooksRequired:["trusted-native-v2-capability-and-existing-auth","single-serializable-transaction",
+      "lookup-request-and-validate-actual-payload-replay","source-and-current-locked-read",
+      "reserve-existing-request-ledger-with-reviewed-v2-receipt-contract","apply-exactly-one-update-if-changed",
+      "strict-SQL-readback-and-v2-snapshot-revalidation","append-native-history-and-audit",
+      "finalize-existing-request-receipt-and-commit","uncertain-commit-read-only-reconciliation"]};
+}

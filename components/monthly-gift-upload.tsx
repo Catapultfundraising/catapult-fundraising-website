@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { confirmedMonthlyPlan, confirmedMonthlyReceipt, monthlyId, type MonthlyPlan, type MonthlyReceipt } from "@/lib/portal-v2/monthly-wire";
 import type { MonthlyFile } from "@/lib/portal-v2/monthly-file.server";
 import type { ParseSettings } from "@/lib/portal-v2/source-file-preview";
+import {usePvasImportReview}from"./pvas-canonical-import-review";
 const input = "rounded border border-[rgb(var(--line))] px-3 py-2 text-sm";
 const button = "rounded bg-[rgb(var(--navy))] px-4 py-2 text-sm font-medium text-white disabled:opacity-50";
 const options = ["clientId", "transactionId", "amount", "date", "donorName", "note", "cptid", "kind", "status", "currency"];
@@ -19,10 +20,11 @@ export function MonthlyGiftUpload({ client, refresh }: { client: string; refresh
   const [plan, setPlan] = useState<MonthlyPlan | null>(null), [review, setReview] = useState<Record<string, unknown> | null>(null), [pending, setPending] = useState<Pending | null>(null), [receipt, setReceipt] = useState<MonthlyReceipt | null>(null);
   const [message, setMessage] = useState(""), [exceptions, setExceptions] = useState<{ row: number; reason: string }[]>([]), [busy, setBusy] = useState(false), [login, setLogin] = useState(false);
   const generation = useRef(0), requestId = useRef<string | null>(null), api = `/api/${client}-data-monthly-import`;
-  const locked = busy || !!pending;
+  const canonical=usePvasImportReview(client,"monthly",call,refresh,()=>{requestId.current=null;setPlan(null);});
+  const locked = busy || !!pending || canonical.locked;
   const settings: ParseSettings = format === "csv" ? { format: "csv" } : { format: "xlsx", sheet, headerRow, clientIdFormat: integerId ? "integer" : "text" };
   const storage = `monthly-campaign-pending:${client}`;
-  function invalidate() { generation.current++; requestId.current = null; setPlan(null); setReview(null); setApprove(false); setExceptions([]); }
+  function invalidate() { generation.current++; requestId.current = null; setPlan(null); setReview(null); setApprove(false); setExceptions([]);canonical.invalidate(); }
   async function call(body: unknown) {
     const response = await fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const data = await response.json();
@@ -72,6 +74,7 @@ export function MonthlyGiftUpload({ client, refresh }: { client: string; refresh
     try {
       const f = file(), result = await call({ op: "preview", file: f });
       if (token !== generation.current) return;
+      if(canonical.enabled){canonical.preview(result,f);setMessage("");return;}
       if (result.receipt) {
         const r = confirmedMonthlyReceipt(result.receipt, client, f.requestId), p = { requestId: f.requestId, payloadHash: r.payloadHash, rows: r.counts.new + r.counts.held + r.counts.unchanged };
         localStorage.setItem(storage, JSON.stringify(p)); setPending(p); setPlan(null); await accepted(r, p); return;
@@ -123,6 +126,7 @@ export function MonthlyGiftUpload({ client, refresh }: { client: string; refresh
       <label className="block text-sm"><input type="checkbox" checked={cash} onChange={e => { invalidate(); setCash(e.target.checked); }} /> I verified every row is received USD cash, not a pledge, refund, failed/pending payment or other currency. Unmapped kind/status/currency rely on this whole-file attestation.</label>
       <button className={button} disabled={!upload || !headers.length || !campaignOnly || !cash} onClick={() => void preview()}>Preview campaign cash transactions</button>
     </fieldset>
+    {canonical.panel}
     {plan && <div className="space-y-3 border-t border-[rgb(var(--line))] pt-3"><p className="text-sm">New {plan.counts.new} (${plan.totals.new}) · Unchanged {plan.counts.unchanged} (${plan.totals.unchanged}) · Held {plan.counts.held} (${plan.totals.held}). Held rows will not be inserted.</p><details><summary className="text-sm">File, mappings and exact review binding</summary><pre className="text-xs whitespace-pre-wrap break-all">{JSON.stringify(review, null, 2)}</pre></details><div className="max-h-60 overflow-auto"><table className="w-full text-sm"><thead><tr><th className="text-left">File row</th><th className="text-left">Decision</th><th className="text-left">Reason</th></tr></thead><tbody>{plan.rows.map(r => <tr key={r.row}><td>{r.row}</td><td>{r.action}</td><td>{r.reason ?? "None"}</td></tr>)}</tbody></table></div><label className="block text-sm"><input type="checkbox" disabled={locked} checked={approve} onChange={e => setApprove(e.target.checked)} /> I reviewed these exact totals and exceptions and approve this campaign-cash import.</label><button className={button} disabled={locked || !approve} onClick={() => void commit()}>Confirm reviewed import once</button></div>}
     {exceptions.length > 0 && <ul className="max-h-52 overflow-auto text-sm">{exceptions.map((e, i) => <li key={i}>Row {e.row}: {e.reason}</li>)}</ul>}
     {pending && <div className="text-sm space-y-2"><p className="break-all">Original request: {pending.requestId}</p><button className={button} disabled={busy} onClick={() => void status()}>Check original request status</button>{receipt && <><button className={`${button} ml-2`} onClick={download}>Download receipt</button><button className={`${input} ml-2`} disabled={busy} onClick={() => { localStorage.removeItem(storage); setPending(null); setReceipt(null); setUpload(null); setHeaders([]); setMapping({}); invalidate(); }}>Start a different file after confirmed result</button></>}</div>}

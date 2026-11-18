@@ -1,0 +1,126 @@
+/**
+ * HELD pure child plan for original manual gift creation-batch suppression.
+ * Not a legacy489 index/projector, claim issuer, executor, redo or receipt.
+ */
+import {createHash} from "node:crypto";
+import type {NativeGiftRecordV2} from "./pvasNativeGiftReadV2";
+import {NATIVE_CORRECTION_SQL} from "./pvasNativeCampaignCorrectionV2";
+const hash=(s:string,e:BufferEncoding="utf8")=>createHash("sha256").update(s,e).digest("hex");
+export class NativeRetirementHold extends Error{
+  constructor(readonly code:"invalid-command"|"source-proof"|"stale"|"not-manual-membership"|"already-retired"|"id-exhausted"){
+    super(`PVAS native retirement held: ${code}`);
+  }
+}
+function fail(c:NativeRetirementHold["code"]):never{throw new NativeRetirementHold(c);}
+const obj=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==="object"&&!Array.isArray(v);
+const exact=(v:object,ks:string[])=>Object.keys(v).sort().join("|")===[...ks].sort().join("|");
+const positive=(v:unknown):v is number=>typeof v==="number"&&Number.isInteger(v)&&v>0&&v<=2147483647;
+const hex=(v:unknown,n:number):v is string=>typeof v==="string"&&new RegExp(`^[a-f0-9]{${n}}$`).test(v);
+function sourceId(v:unknown):string{
+ if(typeof v!=="string"||!/^[1-9]\d{0,18}$/.test(v)||BigInt(v)>9223372036854775807n)fail("invalid-command");
+ return v;
+}
+export interface RetirementCommandV2{
+ v:2;requestId:string;cptid:number;actor:string;
+ target:{giftId:number;expectedVersion:number;source:{system:"portal_gifts";key:string}};
+ cause:{kind:"legacy-batch-undo";batchRef:{kind:"legacy-engage";id:string};
+  rootRequestId:string;indexDigest:string;undoRevision:string};
+}
+export interface RetirementSourceBinding{
+ /** Exact source bytes selected from the complete immutable verified index.
+  * The enclosing owner must verify index/bundle proof and all contributor chains;
+  * this child does not promote these caller-owned fields to approval. */
+ indexDigest:string;undoRevision:string;
+ originalGiftWire:string;originalGiftWireSha256:string;
+ originalBatchWire:string;originalBatchWireSha256:string;
+ rootOperation:"legacy-batch-undo-v2";
+}
+export function validateNativeRetirementV2(input:unknown):RetirementCommandV2{
+ if(!obj(input)||!exact(input,["v","requestId","cptid","actor","target","cause"])||input.v!==2||
+  !hex(input.requestId,32)||!positive(input.cptid)||typeof input.actor!=="string"||!input.actor.trim()||
+  input.actor.length>200||/[\x00-\x1f\x7f]/.test(input.actor)||
+  !obj(input.target)||!exact(input.target,["giftId","expectedVersion","source"])||
+  !positive(input.target.giftId)||!positive(input.target.expectedVersion)||!obj(input.target.source)||
+  !exact(input.target.source,["system","key"])||input.target.source.system!=="portal_gifts"||
+  !obj(input.cause)||!exact(input.cause,["kind","batchRef","rootRequestId","indexDigest","undoRevision"])||
+  input.cause.kind!=="legacy-batch-undo"||!obj(input.cause.batchRef)||
+  !exact(input.cause.batchRef,["kind","id"])||input.cause.batchRef.kind!=="legacy-engage"||
+  !hex(input.cause.rootRequestId,32)||input.cause.rootRequestId===input.requestId||
+  !hex(input.cause.indexDigest,64)||!hex(input.cause.undoRevision,64))fail("invalid-command");
+ return{v:2,requestId:input.requestId,cptid:input.cptid,actor:input.actor,
+  target:{giftId:input.target.giftId,expectedVersion:input.target.expectedVersion,
+   source:{system:"portal_gifts",key:sourceId(input.target.source.key)}},
+  cause:{kind:"legacy-batch-undo",batchRef:{kind:"legacy-engage",id:sourceId(input.cause.batchRef.id)},
+   rootRequestId:input.cause.rootRequestId,indexDigest:input.cause.indexDigest,undoRevision:input.cause.undoRevision}};
+}
+function original(wire:string,digest:string){
+ if(typeof wire!=="string"||!hex(digest,64)||hash(wire,"utf16le")!==digest)fail("source-proof");
+ let v:unknown;try{v=JSON.parse(wire);}catch{return fail("source-proof");}
+ if(!obj(v)||v.client!=="pvas")fail("source-proof");
+ return v;
+}
+function integerToken(wire:string,key:"id"|"batch_id"):string{
+ const hits=[...wire.matchAll(new RegExp(String.raw`(?:^|[,{])"${key}":([1-9]\d*)(?=[,}])`,"g"))];
+ if(hits.length!==1)fail("source-proof");
+ const n=hits[0][1];if(n.length>19||BigInt(n)>9223372036854775807n)fail("source-proof");return n;
+}
+export const NATIVE_RETIREMENT_SQL=Object.freeze({
+ claimLock:`SELECT undo_request_id,index_digest,undo_revision,original_batch_wire_hash
+   FROM pvas.legacy_batch_retirements WITH(UPDLOCK,HOLDLOCK)
+   WHERE batch_namespace='legacy-engage' AND legacy_batch_id=CONVERT(bigint,@batchId)`,
+ /** Root owner inserts ONCE, including metadata-only undo, in the same tx.
+  * Native child plans depend on this claim; they must not each insert it. */
+ claimInsert:`INSERT INTO pvas.legacy_batch_retirements
+   (batch_namespace,legacy_batch_id,undo_request_id,index_digest,undo_revision,original_batch_wire_hash)
+   VALUES('legacy-engage',CONVERT(bigint,@batchId),@rootRequestId,@indexDigest,@undoRevision,@originalBatchWireHash)`,
+ update:`UPDATE g SET native_lifecycle='retired',native_retired_request_id=@rootRequestId,version=@version
+   FROM pvas.gifts g WHERE g.gift_id=@giftId AND g.cptid=@cptid AND g.version=@expectedVersion
+   AND g.representation='native-campaign' AND g.native_lifecycle='active' AND g.native_retired_request_id IS NULL
+   AND g.native_alias IS NULL AND (g.native_presence_mask & 4096)=0 AND g.presentation_order=CONVERT(bigint,@presentationOrder)
+   AND g.native_batch_id=@nativeBatchId AND g.native_batch_id_type=@nativeBatchIdType
+   AND EXISTS(SELECT 1 FROM pvas.gift_source_links l WITH(UPDLOCK,HOLDLOCK)
+     WHERE l.gift_id=g.gift_id AND l.cptid=g.cptid AND l.source_system='portal_gifts' AND l.source_key=@sourceKey)
+   AND EXISTS(SELECT 1 FROM pvas.legacy_batch_retirements b WITH(UPDLOCK,HOLDLOCK)
+     WHERE b.batch_namespace='legacy-engage' AND b.legacy_batch_id=CONVERT(bigint,@batchId)
+     AND b.undo_request_id=@rootRequestId AND b.index_digest=@indexDigest AND b.undo_revision=@undoRevision
+     AND b.original_batch_wire_hash=@originalBatchWireHash)`,
+ audit:`INSERT INTO pvas.write_audit(request_id,sequence_no,cptid,source_table,source_column,before_json,after_json,actor)
+   VALUES(@requestId,1,@cptid,N'pvas.gifts',N'native_membership',@before,@after,@actor)`,
+ history:`INSERT INTO pvas.gift_history(gift_id,version,cptid,representation,presentation_order,wire_version,request_id,action,snapshot_json,actor)
+   VALUES(@giftId,@version,@cptid,'native-campaign',CONVERT(bigint,@presentationOrder),2,@requestId,'retire',@after,@actor)`,
+});
+export function planNativeCampaignRetirementV2(input:unknown,current:NativeGiftRecordV2,binding:RetirementSourceBinding){
+ const b=validateNativeRetirementV2(input);
+ if(current.representation!=="native-campaign"||current.source.system!=="portal_gifts"||
+  current.source.key!==b.target.source.key||!current.sources.some(s=>s.system==="portal_gifts"&&s.key===b.target.source.key))
+  fail("not-manual-membership");
+ if(current.membership.state!=="active")fail("already-retired");
+ if(current.cptid!==b.cptid||current.giftId!==b.target.giftId||current.version!==b.target.expectedVersion)fail("stale");
+ if(current.version===2147483647)fail("id-exhausted");
+ if(binding.rootOperation!=="legacy-batch-undo-v2"||binding.indexDigest!==b.cause.indexDigest||
+  binding.undoRevision!==b.cause.undoRevision)fail("source-proof");
+ const gift=original(binding.originalGiftWire,binding.originalGiftWireSha256);
+ const header=original(binding.originalBatchWire,binding.originalBatchWireSha256);
+ if(gift.voided!==false||header.undone_at!==null||gift.cptid!==current.cptid||
+  integerToken(binding.originalGiftWire,"id")!==b.target.source.key||
+  integerToken(binding.originalGiftWire,"batch_id")!==b.cause.batchRef.id||
+  integerToken(binding.originalBatchWire,"id")!==b.cause.batchRef.id)fail("source-proof");
+ const batch=current.native.batch_id;
+ if((typeof batch!=="string"&&!(typeof batch==="number"&&Number.isSafeInteger(batch)))||
+  String(batch)!==b.cause.batchRef.id)fail("source-proof");
+ const before=JSON.parse(JSON.stringify(current)) as typeof current,after=JSON.parse(JSON.stringify(current)) as typeof current;
+ after.membership={state:"retired",retiredByRequestId:b.cause.rootRequestId};after.version++;
+ const payloadHash=hash(JSON.stringify({v:2,op:"nativeCampaignRetire",command:b}));
+ return{held:true as const,executable:false as const,accepted:false as const,operation:"nativeCampaignRetire" as const,
+  command:b,payloadHash,before,after,
+  parameters:{requestId:b.requestId,rootRequestId:b.cause.rootRequestId,cptid:b.cptid,actor:b.actor,
+   giftId:current.giftId,expectedVersion:current.version,version:after.version,presentationOrder:current.order,
+   sourceKey:b.target.source.key,batchId:b.cause.batchRef.id,nativeBatchId:String(batch),nativeBatchIdType:typeof batch==="number"?"n":"s",
+   indexDigest:b.cause.indexDigest,undoRevision:b.cause.undoRevision,originalBatchWireHash:binding.originalBatchWireSha256,
+   before:JSON.stringify({v:2,gift:before}),after:JSON.stringify({v:2,gift:after})},
+  claimDependency:{batchRef:b.cause.batchRef,rootRequestId:b.cause.rootRequestId},
+  hooksRequired:["verified-complete-489-index-and-P(R)-projector","trusted-fresh-schema-capability-and-existing-auth",
+   "truthful-new-root-and-child-request-replay-ledgers","serializable-root-claim-source-current-lineage-locks",
+   "root-unique-claim-once-even-for-effectless-retirements","exactly-one-child-update-and-strict-readback",
+   "append-v2-history-audit-finalize-root-and-child-receipts","atomic-commit-or-rollback-no-auto-retry"]};
+}

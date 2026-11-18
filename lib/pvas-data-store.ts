@@ -1,21 +1,12 @@
-import { get as blobGet } from "@vercel/blob";
-import { directData } from "./portal-v2/direct-source-state.server";
+import "server-only";
+import { buildPvas } from "./portal-refresh/pvas";
+import { pvasCanonicalEnabled } from "./portal-v2/pvas-canonical";
+import * as legacy from "./pvas-data-store.legacy";
+import type{PvasGiftMetadata}from"./portal-v2/pvas-gift-wire";
+import type{PvasContactProfile}from"./portal-v2/pvas-contact-wire";
+import type { NativeDonorHistory } from "./portal-v2/pvas-native-consumer";
 
-// Local QA only: PVAS_LOCAL_DIR points at a folder holding snapshot.json and
-// records.json so the portal can run without the blob store.
-async function get(path: string, opts: Parameters<typeof blobGet>[1]) {
-  const dir = process.env.PVAS_LOCAL_DIR;
-  if (dir) {
-    const { readFile } = await import("node:fs/promises");
-    const text = await readFile(`${dir}/${path.split("/").pop()}`, "utf8");
-    return { stream: new Response(text).body } as Awaited<ReturnType<typeof blobGet>>;
-  }
-  return blobGet(path, opts);
-}
-
-// Internal PVAS donor-data dashboard snapshot. Built from the PVAS database
-// (Azure SQL schema `pvas`) by Viktor and written
-// as one private JSON blob. Never commit donor data to the repo.
+// Legacy refresh/upload destinations only. Dashboard readers never read these blobs.
 export const PVAS_DATA_PATH = "pvas-data/snapshot.json";
 
 export interface Person {
@@ -50,17 +41,15 @@ export interface PvasSnapshot {
 }
 
 export async function getPvasSnapshot(): Promise<PvasSnapshot | null> {
+  if (!pvasCanonicalEnabled("pvas")) return legacy.getPvasSnapshot();
   try {
-    const r = await get(PVAS_DATA_PATH, { access: "private", useCache: false });
-    if (!r || !r.stream) return null;
-    return JSON.parse(await new Response(r.stream).text()) as PvasSnapshot;
+    return structuredClone((await currentPvas()).snapshot) as unknown as PvasSnapshot;
   } catch {
     return null;
   }
 }
 
-// Per-constituent records (CRM lookup and chart drilldowns). Separate blob
-// because it is ~9MB; only read server-side and cached briefly per instance.
+// Retained for legacy refresh/upload compatibility, not a read source.
 export const PVAS_RECORDS_PATH = "pvas-data/records.json";
 
 export interface IndexRow {
@@ -69,11 +58,14 @@ export interface IndexRow {
   last: string; years: number; band: string; ds?: string; capacity?: string; capMin: number;
 }
 export interface DonorRecord {
+  nativeGiftHistory?: NativeDonorHistory;
+  _canonicalContact?:PvasContactProfile;
+  otherGiftRows?:Record<string,unknown>[];
   assignment?: { solicitor: string; solicitor2: string; assignmentConflict?: boolean };
   cptid: number; name: string; kind?: string;
   contact?: Record<string, string>; flags?: string[]; ds?: Record<string, string>;
   softCredits?: Record<string, string>;
-  gifts?: { date?: string; amount: number; stage?: string; type?: string; campaign?: string; allocation?: string; tribute?: string }[];
+  gifts?: { date?: string; amount: number; amountExact?:string;_canonicalGift?:PvasGiftMetadata; stage?: string; type?: string; campaign?: string; allocation?: string; tribute?: string }[];
   board?: { board?: string; title?: string; term?: string; active?: boolean; ask?: number; get?: number }[];
   committees?: string[];
   calling?: { batch: string; tier?: string; interviewer?: string; appt?: string }[];
@@ -87,21 +79,21 @@ export interface DonorRecord {
 }
 export interface PvasRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
-let cache: { at: number; data: PvasRecords } | null = null;
-async function getPvasRawRecords(): Promise<PvasRecords | null> {
-  if (cache && Date.now() - cache.at < 5 * 60_000) return cache.data;
-  try {
-    const r = await get(PVAS_RECORDS_PATH, { access: "private", useCache: false });
-    if (!r || !r.stream) return null;
-    const data = JSON.parse(await new Response(r.stream).text()) as PvasRecords;
-    cache = { at: Date.now(), data };
-    return data;
-  } catch {
-    return null;
+// Canonical PVAS never retains completed SQL data between requests. Concurrent
+// readers may share an in-flight build; after writes, detach that older job.
+type Built = Awaited<ReturnType<typeof buildPvas>>;
+let pending: Promise<Built> | null = null;
+export function invalidatePvasDataCache(): void { pending = null; }
+async function currentPvas(): Promise<Built> {
+  if (!pending) {
+    const job = buildPvas().finally(() => { if (pending === job) pending = null; });
+    pending = job;
   }
+  return pending;
 }
 export async function getPvasRecords(): Promise<PvasRecords | null> {
-  const raw = await getPvasRawRecords();
-  if (!raw) return null;
-  try { return await directData("pvas", raw, "records"); } catch { return null; }
+  if (!pvasCanonicalEnabled("pvas")) return legacy.getPvasRecords();
+  try {
+    return structuredClone((await currentPvas()).records) as unknown as PvasRecords;
+  } catch { return null; }
 }

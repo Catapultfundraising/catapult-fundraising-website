@@ -1,0 +1,177 @@
+/** HELD pure original edit/void planning only; no SQL, Tx, receipt finalization,
+ * routing, root/import caller or issuer. Finalized replay MUST precede planner.
+ */
+import {createHash} from "node:crypto";
+import {validatePvasGiftSource,type GiftSource} from "./pvasCanonicalGifts";
+import {campaignV3Hold as fail,objectV3 as obj,exactV3 as exact,ownV3 as own,
+  positiveV3 as positive,hexV3 as hex,decodeCampaignSnapshotV3,encodeCampaignSnapshotV3,
+  campaignColumnsV3,type CampaignRecordV3,type CampaignValueV3} from "./pvasNativeCampaignSnapshotV3";
+import {originalCampaignBaseForV3,type VerifiedCampaignBaseV3} from "./pvasNativeMigrationBaseV3";
+type Scalar=string|number|boolean|null;
+export interface CampaignEditValuesV3{
+  donorCptid?:Scalar;donorName?:Scalar;kind?:"gift"|"pledge";
+  amount?:string|number;date?:Scalar;note?:Scalar;
+}
+interface Target{giftId:number;expectedVersion:number;source:GiftSource}
+type Common={v:3;requestId:string;rootCptid:number;target:Target};
+export type CampaignMutationV3=Common&(
+  {action:"edit";values:CampaignEditValuesV3}|{action:"void";reason:string});
+const fields=["donorCptid","donorName","kind","amount","date","note"] as const;
+const scalar=(v:unknown):v is Scalar=>v===null||typeof v==="boolean"||
+  typeof v==="number"&&Number.isFinite(v)||typeof v==="string"&&v.length<=1000000;
+const text=(v:unknown,n=300)=>v===null?"":String(v).trim().slice(0,n);
+export function parseCampaignMutationV3(raw:unknown):CampaignMutationV3{
+  if(!obj(raw)||!["edit","void"].includes(String(raw.action))||
+    !exact(raw,["v","requestId","rootCptid","target","action",raw.action==="edit"?"values":"reason"])||
+    raw.v!==3||!hex(raw.requestId,32)||!positive(raw.rootCptid)||!obj(raw.target)||
+    !exact(raw.target,["giftId","expectedVersion","source"])||
+    !positive(raw.target.giftId)||!positive(raw.target.expectedVersion))return fail("command");
+  let source:GiftSource;try{source=validatePvasGiftSource(raw.target.source);}catch{return fail("command");}
+  if(!["portal_gifts","website_db"].includes(source.system))return fail("command");
+  const common:Common={v:3,requestId:raw.requestId,rootCptid:raw.rootCptid,
+    target:{giftId:raw.target.giftId,expectedVersion:raw.target.expectedVersion,source}};
+  if(raw.action==="void"){
+    if(typeof raw.reason!=="string"||raw.reason.length>1000000||!raw.reason.trim())return fail("command");
+    return{...common,action:"void",reason:raw.reason};
+  }
+  if(!obj(raw.values)||Object.keys(raw.values).some(k=>!fields.includes(k as typeof fields[number])))
+    return fail("command");
+  const values:Record<string,Scalar>={};
+  for(const k of fields)if(own(raw.values,k)){
+    const v=raw.values[k];
+    if(k==="kind"?!["gift","pledge"].includes(String(v))||typeof v!=="string":
+      k==="amount"?!((typeof v==="string"||typeof v==="number")&&scalar(v)):!scalar(v))
+        return fail("command");
+    values[k]=v as Scalar;
+  }
+  const command={...common,action:"edit" as const,values:values as CampaignEditValuesV3};
+  normalizeOriginalCampaignIntent(command.values); // reject invalid intent now, but hash ORIGINAL values
+  return command;
+}
+export function hashCampaignMutationV3(raw:unknown,declaredBy:string):string{
+  if(typeof declaredBy!=="string"||!declaredBy.trim()||declaredBy.length>200||
+    /[\x00-\x1f\x7f]/.test(declaredBy))return fail("actor");
+  const command=parseCampaignMutationV3(raw);
+  return createHash("sha256").update(JSON.stringify(["pvas-native-campaign-mutation-v3/command/v1",
+    {operation:"nativeCampaignMutationV3",actor:declaredBy,command}])).digest("hex");
+}
+/** EXACT original date parser. Never apply to untouched source date strings. */
+function originalDate(raw:unknown):string|null{
+  const t=String(raw??"").trim();
+  let y:number,m:number,d:number,x=/^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  if(x){y=+x[1];m=+x[2];d=+x[3];}
+  else{x=/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(t);if(!x)return null;m=+x[1];d=+x[2];y=+x[3];}
+  if(y<1900||y>2100||m<1||m>12||d<1)return null;
+  const dt=new Date(Date.UTC(y,m-1,d));
+  if(dt.getUTCMonth()!==m-1||dt.getUTCDate()!==d)return null;
+  return`${y}-${String(m).padStart(2,"0")}-${String(d).padStart(2,"0")}`;
+}
+export interface NormalizedOriginalIntentV3{
+  cptid?:number|null;donorName?:string;kind?:"gift"|"pledge";amount?:number;date?:string|null;note?:string;
+}
+/** Public for deterministic fixtures; production calls receive parsed values. */
+export function normalizeOriginalCampaignIntent(values:CampaignEditValuesV3):NormalizedOriginalIntentV3{
+  if(!obj(values)||Object.keys(values).some(k=>!fields.includes(k as typeof fields[number]))||
+    Object.values(values).some(v=>!scalar(v)))return fail("intent");
+  const e:NormalizedOriginalIntentV3={};
+  if(own(values,"donorCptid")&&values.donorCptid!==""){
+    const n=Number(values.donorCptid)||null;
+    if(n!==null&&!positive(n))return fail("donor-admission");
+    e.cptid=n;
+  }
+  if(own(values,"donorName"))e.donorName=text(values.donorName!);
+  if(own(values,"kind")){
+    if(values.kind!=="gift"&&values.kind!=="pledge")return fail("intent");
+    e.kind=values.kind;
+  }
+  if(own(values,"amount")){
+    if(typeof values.amount!=="string"&&typeof values.amount!=="number")return fail("intent");
+    const n=Number(String(values.amount).replace(/[$,\s]/g,""));
+    if(!(n>0)||!Number.isFinite(n)||!Number.isFinite(Math.round(n*100)/100))return fail("amount");
+    e.amount=n;
+  }
+  if(own(values,"date")){
+    const date=text(values.date!,20)?originalDate(values.date!):null;
+    if(text(values.date!,20)&&!date)return fail("date");
+    e.date=date;
+  }
+  if(own(values,"note"))e.note=text(values.note!,1000);
+  return e;
+}
+/** DB replaces ALL six fields using immutable B; manual patches current C.
+ * Base authenticity is checked in planner via opaque full-proof token. This
+ * low-level pure resolver itself confers no base/source authority.
+ */
+export function resolveOriginalCampaignEdit(mode:"portal_gifts"|"website_db",
+  current:CampaignValueV3,e:NormalizedOriginalIntentV3,base?:CampaignValueV3):CampaignValueV3{
+  const n={...current},amount=own(e,"amount")?Math.round(e.amount!*100)/100:undefined;
+  if(mode==="website_db"){
+    if(!base)return fail("unverified-keyed-base");
+    n.cptid=(Number(e.cptid)||null)??base.cptid;
+    n.donor_name=e.donorName||base.donor_name;n.kind=e.kind||base.kind;
+    n.amount=amount!==undefined?amount:base.amount;
+    n.gift_date=(e.date||null)??base.gift_date;
+    const note=e.note??base.note;
+    if(note===undefined)delete n.note;else n.note=note;
+  }else if(mode==="portal_gifts"){
+    if(own(e,"cptid"))n.cptid=e.cptid!;
+    if(own(e,"donorName"))n.donor_name=e.donorName!;
+    if(own(e,"kind"))n.kind=e.kind!;
+    if(amount!==undefined)n.amount=amount;
+    if(own(e,"date"))n.gift_date=e.date||null;
+    if(own(e,"note"))n.note=e.note||null;
+  }else return fail("source");
+  return n;
+}
+function knownUtc(v:unknown):v is string{
+  if(typeof v!=="string"||!/^\d{4}-\d\d-\d\dT\d\d:\d\d:\d\d(?:\.\d{1,7})?Z$/.test(v))return false;
+  const d=new Date(v);return Number.isFinite(d.valueOf())&&d.toISOString().slice(0,19)===v.slice(0,19);
+}
+/** at is actual NEW request timestamp, not caller/historical metadata.
+ * Source replay, ledger reservation/finalization and contact membership remain
+ * caller-owned integration requirements; this return never permits execution.
+ */
+export function planCampaignMutationV3(input:unknown,declaredBy:string,currentInput:unknown,
+  context:{at:string;base?:VerifiedCampaignBaseV3}){
+  const command=parseCampaignMutationV3(input),payloadHash=hashCampaignMutationV3(command,declaredBy),
+    before=decodeCampaignSnapshotV3({v:3,gift:currentInput});
+  if(before.cptid!==command.rootCptid||before.giftId!==command.target.giftId||
+    before.version!==command.target.expectedVersion)return fail("stale");
+  if(before.source.system!==command.target.source.system||before.source.key!==command.target.source.key)
+    return fail("source");
+  if(before.membership.state!=="active")return fail("inactive");
+  if(!knownUtc(context.at))return fail("request-clock");
+  let base:CampaignValueV3|undefined,evidenceSha256:string|null=null;
+  if(before.source.system==="website_db"){
+    if(!context.base)return fail("unverified-keyed-base");
+    const b=originalCampaignBaseForV3(context.base,before);base=b.base;evidenceSha256=b.evidenceSha256;
+  }
+  let after=decodeCampaignSnapshotV3({v:3,gift:before}),changed=true;
+  if(command.action==="void"){
+    after.membership={state:"voided",requestId:command.requestId,reason:command.reason.trim().slice(0,500)};
+  }else{
+    after.native=resolveOriginalCampaignEdit(before.source.system,before.native,
+      normalizeOriginalCampaignIntent(command.values),base);
+    if(before.source.system==="website_db"){
+      after.native.corrected={by:declaredBy,at:context.at,from:base!.amount};
+    }else{
+      const norm=(x:unknown)=>x==null?"":String(x);
+      changed=["cptid","donor_name","kind","amount","gift_date","note"].some(k=>
+        k==="amount"?Number(before.native.amount)!==Number(after.native.amount):
+          norm(before.native[k as keyof CampaignValueV3])!==norm(after.native[k as keyof CampaignValueV3]));
+      if(!changed)after=decodeCampaignSnapshotV3({v:3,gift:before});
+    }
+  }
+  if(changed){
+    if(before.version===2147483647)return fail("version-exhausted");
+    after.version++;
+  }
+  after=decodeCampaignSnapshotV3({v:3,gift:after});
+  return{v:3 as const,held:true as const,accepted:false as const,executable:false as const,
+    operation:"nativeCampaignMutationV3" as const,command,payloadHash,actor:declaredBy,changed,
+    before,after,beforeSnapshot:encodeCampaignSnapshotV3(before),afterSnapshot:encodeCampaignSnapshotV3(after),
+    columns:campaignColumnsV3(after),originalBaseReceiptSha256:evidenceSha256,
+    required:["trusted-v3-capability","finalized-replay-before-current","samepool-serializable-locked-source-and-raw",
+      "actual-request-timestamp","current-business-contact-admission","full-before-guards-and-actual-readback",
+      "one-audit-and-changed-only-history","strict-v3-private-public-receipt-and-status","uncertain-commit-reconciliation"]};
+}
