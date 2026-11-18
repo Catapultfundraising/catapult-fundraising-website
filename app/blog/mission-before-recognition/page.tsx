@@ -1,4 +1,3 @@
-import Link from "next/link";
 import Image from "next/image";
 import type { ReactNode } from "react";
 import { PageHero } from "@/components/page-hero";
@@ -26,13 +25,13 @@ export const metadata = {
     publishedTime: DATE,
     modifiedTime: DATE,
     authors: ["Jeff Grandy"],
-    images: [{ url: `${SITE_URL}${IMG}/social-card.png`, width: 1200, height: 630, alt: "Mission Before Recognition. By Jeff Grandy, Catapult Fundraising." }],
+    images: [{ url: `${SITE_URL}${IMG}/social-card-v2.png`, width: 1200, height: 630, alt: "Mission Before Recognition. By Jeff Grandy, Catapult Fundraising." }],
   },
   twitter: {
     card: "summary_large_image",
     title: HEADLINE,
     description: DESCRIPTION,
-    images: [`${SITE_URL}${IMG}/social-card.png`],
+    images: [`${SITE_URL}${IMG}/social-card-v2.png`],
   },
 };
 
@@ -43,8 +42,8 @@ const jsonLd = {
   description: DESCRIPTION,
   datePublished: DATE,
   dateModified: DATE,
-  image: `${SITE_URL}${IMG}/social-card.png`,
-  author: { "@type": "Person", name: "Jeff Grandy", url: `${SITE_URL}/our-team`, worksFor: { "@id": `${SITE_URL}/#organization` } },
+  image: `${SITE_URL}${IMG}/social-card-v2.png`,
+  author: { "@type": "Person", name: "Jeff Grandy", jobTitle: "Vice President for Client Development", url: `${SITE_URL}/our-team`, worksFor: { "@id": `${SITE_URL}/#organization` } },
   publisher: { "@id": `${SITE_URL}/#organization` },
   mainEntityOfPage: `${SITE_URL}/blog/${SLUG}`,
 };
@@ -71,7 +70,11 @@ export default function MissionBeforeRecognitionPage() {
       <article className="mx-auto max-w-4xl px-6 py-14 lg:px-10 lg:py-16">
         <ShareButtons url={`/blog/${SLUG}`} title={HEADLINE} />
         <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">BY JEFF GRANDY, CATAPULT FUNDRAISING</p>
+        <p className="mt-1 text-sm text-[rgb(var(--ink))]/70">Vice President for Client Development</p>
         <p className="mt-2 text-sm text-[rgb(var(--ink))]/60"><time dateTime={DATE}>November 24, 2026</time> · 4 min read</p>
+        <figure className="mb-8 mt-6 overflow-hidden rounded-2xl">
+          <Image src={`${IMG}/hero-building-plans.jpg`} alt="People reviewing building plans together around a table" width={1568} height={1176} priority className="h-auto w-full" sizes="(min-width: 1024px) 816px, 100vw" />
+        </figure>
         <Figure src="mission-first.svg" alt="Mission before recognition: who will benefit, what will the gift do, and why this decision?" priority />
         <P>{"I have sat in a lot of board rooms where the naming conversation starts before anyone has said what the building is for. Whose name goes on the lobby. How big the sign should be. I understand why. Recognition is easy to picture. The mission takes more work to explain."}</P>
         <P>{"Donors who give because of the mission rarely ask about recognition first. They ask what will change because they gave. The donors who lead with wanting their name in flashing lights tend to be the ones who are gone after the ribbon cutting."}</P>
@@ -113,7 +116,10 @@ export default function MissionBeforeRecognitionPage() {
           </ul>
         </aside>
         <aside aria-label="Work with Catapult" className="mt-10 border-t border-[rgb(var(--line))] pt-8">
-          <p className="text-lg text-[rgb(var(--ink))]/70">Preparing your next major gift conversation? <Link className="font-semibold underline underline-offset-4" href="/contact">Talk with Catapult</Link> about your case for support.</p>
+          <h2 className="font-display text-2xl text-[rgb(var(--navy))]">Book a 30-minute call with Jeff</h2>
+          <p className="mt-3 text-lg text-[rgb(var(--ink))]/70">Talk with Jeff Grandy, Vice President for Client Development, about your case for support and next major gift conversation.</p>
+          <a className="mt-5 inline-flex rounded-full bg-[rgb(var(--brass))] px-6 py-3 font-semibold text-[rgb(var(--navy))]" href="https://go.catapultfr.com/meetings/jeff-grandy">Book a 30-minute call with Jeff</a>
+          <p className="mt-3 text-sm text-[rgb(var(--ink))]/60">Select “30 mins” on Jeff’s calendar.</p>
         </aside>
       </article>
       <CtaBand />

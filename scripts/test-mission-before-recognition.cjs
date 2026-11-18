@@ -29,5 +29,9 @@ for (const name of ["mission-first.svg", "listen-before-asking.svg", "keep-the-p
 const social = fs.readFileSync(`public/blog/${slug}/social-card.svg`, "utf8");
 assert(social.includes("BY JEFF GRANDY, CATAPULT FUNDRAISING"), "Social image wrong byline");
 assert(!/Anthony|Alonso/i.test(social), "Social image wrong author");
-assert(page.includes('href="/contact"'), "Closing contact link missing");
+assert(page.includes('href="https://go.catapultfr.com/meetings/jeff-grandy"'), "Jeff booking link missing");
+assert(page.includes("Vice President for Client Development"), "Jeff title missing");
+assert(page.includes("Book a 30-minute call with Jeff"), "Jeff CTA missing");
+assert(page.includes("hero-building-plans.jpg"), "Photographic hero missing");
+assert(page.includes("social-card-v2.png"), "Revised social image missing");
 console.log("PASS: Jeff byline, release date, sections, AFP links, shared index, sitemap and graphics.");
