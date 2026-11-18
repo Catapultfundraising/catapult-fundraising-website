@@ -22,6 +22,8 @@ import { isWcbhcDataAuthed } from "@/lib/wcbhc-data-auth";
 import { isBaqDataAuthed } from "@/lib/baq-data-auth";
 import { getPvasRecords, invalidatePvasDataCache } from "@/lib/pvas-data-store";
 import { LIVE_CLIENTS, liveBuild, liveLocalDir, type LiveClient } from "@/lib/client-live-data.server";
+import { supersededEdits, withoutSuperseded, recordBase } from "@/lib/portal-v2/sql-newer";
+import { directSourceCall } from "@/lib/portal-v2/direct-source-transport.server";
 import { getCsnfRecords } from "@/lib/csnf-data-store";
 import { getJagRecords } from "@/lib/jag-data-store";
 import { getWcbhcRecords } from "@/lib/wcbhc-data-store";
@@ -85,7 +87,11 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
   const r = await fetch(url, { method: "POST", cache: "no-store", ...(monthly ? { redirect: "error" as const, signal: AbortSignal.timeout(120_000) } : {}), headers: { "content-type": "application/json", authorization: `Bearer ${secret}` }, body: JSON.stringify({ ...body, op, client }) });
   let result = (monthly ? JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(await readBoundedStream(r.body, 2_000_000, 10_000))) : await r.json().catch(() => ({ error: `engage ${r.status}` }))) as Record<string, unknown>;
   if (op === "state" && r.status >= 200 && r.status < 300 && result && typeof result === "object" &&
-      !Array.isArray(result) && !result.error && result.configured !== false) result = normalizeManualUpdateRowIds(result);
+      !Array.isArray(result) && !result.error && result.configured !== false) {
+    result = normalizeManualUpdateRowIds(result);
+    // CSNF/JAG/WCBHC/BAQ: a SQL value changed after a dashboard edit wins over that edit.
+    if ((LIVE_CLIENTS as readonly string[]).includes(client)) result = await withoutSupersededEdits(client as LiveClient, result);
+  }
   if (pvasCanonicalEnabled(client) && r.ok && !result.error && result.configured !== false) {
     if (op === "nativeStateV3") {
       const campaign = await consumeNativeStateCampaignV3(result, async body => {
@@ -109,6 +115,30 @@ export async function engage<T>(client: PortalClient, op: string, body: Record<s
   const { status, body: j } = await engageCall(client, op, body, readContext);
   if (status < 200 || status >= 300) throw new Error(String(j.error || `engage ${status}`));
   return j as T;
+}
+
+/** View-only: drops dashboard edits whose SQL value changed after them (newest change wins; see sql-newer.ts).
+ * If the live SQL build is unavailable, nothing is dropped. */
+async function withoutSupersededEdits(client: LiveClient, state: Record<string, unknown>): Promise<Record<string, unknown>> {
+  if (liveLocalDir(client) || !Array.isArray(state.updates)) return state;
+  // Deployed builds only (offline harnesses have no SQL); set PORTAL_SQL_NEWER=1 to exercise it locally.
+  if (process.env.NODE_ENV !== "production" && !process.env.PORTAL_SQL_NEWER) return state;
+  let records: Record<string, unknown>;
+  // Never let a cold or failing SQL build slow the edit ledger: wait at most 5 seconds, else drop nothing.
+  const timeout = new Promise<null>((res) => { const t = setTimeout(() => res(null), 5000); (t as { unref?: () => void }).unref?.(); });
+  try { const b = await Promise.race([liveBuild(client), timeout]); if (!b) return state; records = b.records.records; } catch { return state; }
+  const drop = supersededEdits(state.updates as UpdateRow[], recordBase(client, records));
+  if (!drop.size) return state;
+  // Asks / secondary solicitors from an uploaded file display that value as "current": never treat it as SQL changing.
+  if ([...drop].some((k) => k.endsWith("|ask") || k.endsWith("|solicitor2"))) {
+    try {
+      const r = await directSourceCall(client, "directFileState");
+      const values = r.status === 200 && Array.isArray(r.body.values) ? r.body.values as { cptid: number; field: string }[] : null;
+      if (!values) return state;
+      for (const v of values) { const f = v.field === "ask" ? "ask" : v.field === "secondarySolicitor" ? "solicitor2" : ""; if (f) drop.delete(`${Number(v.cptid)}|${f}`); }
+    } catch { return state; }
+  }
+  return withoutSuperseded(state, drop);
 }
 
 export async function readIds(client: PortalClient): Promise<Known[] | null> {

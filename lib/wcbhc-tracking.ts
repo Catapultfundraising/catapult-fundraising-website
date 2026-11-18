@@ -1,5 +1,6 @@
 import { get, put } from "@vercel/blob";
-import { liveBuild, sqlTracking, saveSqlTracking } from "@/lib/client-live-data.server";
+import { liveBuild, sqlTracking, saveTrackingWithBases } from "@/lib/client-live-data.server";
+import { applyTrackingBases, recordBase } from "@/lib/portal-v2/sql-newer";
 import { EMPTY_TRACKING, type WcbhcTracking } from "@/lib/wcbhc-tracking-types";
 
 // Committee updates + activity history (written by portal users) and the PIR
@@ -36,11 +37,15 @@ export async function getWcbhcTracking(): Promise<WcbhcTracking> {
   // After this client's switch, tracking lives in wcbhc.dashboard_prospect_status / wcbhc.dashboard_activity (SQL)
   // and PIR links come from wcbhc.pir_links. Before it, the blob below is still the source.
   const fromSql = await sqlTracking("wcbhc");
-  if (fromSql) return { ...fromSql, pirs: (await liveBuild("wcbhc")).pirs } as unknown as WcbhcTracking;
+  if (fromSql) {
+    const build = await liveBuild("wcbhc");
+    // Newest change wins: a solicitor changed in SQL after the dashboard edit shows instead of it.
+    return { ...fromSql, prospects: applyTrackingBases(fromSql.prospects as Record<string, Record<string, unknown>>, recordBase("wcbhc", build.records.records)), pirs: build.pirs } as unknown as WcbhcTracking;
+  }
   const [t, pirs] = await Promise.all([readJson<Omit<WcbhcTracking, "pirs">>(WCBHC_TRACKING_PATH), readJson<WcbhcTracking["pirs"]>(WCBHC_PIRS_PATH)]);
   return { prospects: t?.prospects ?? EMPTY_TRACKING.prospects, activity: t?.activity ?? [], removed: t?.removed ?? [], pirs: pirs ?? {} };
 }
 export async function saveWcbhcTracking(t: WcbhcTracking) {
-  if (await saveSqlTracking("wcbhc", t)) return;
+  if (await saveTrackingWithBases("wcbhc", t)) return;
   await writeJson(WCBHC_TRACKING_PATH, { prospects: t.prospects, activity: t.activity, removed: t.removed ?? [] });
 }

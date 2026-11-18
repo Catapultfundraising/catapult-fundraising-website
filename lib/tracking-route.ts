@@ -25,9 +25,17 @@ export function trackingRoute<T extends Tracking>(client: PortalClient, auth: (r
     }
     return t;
   }
+  // PIR links live in <client>.pir_links and arrive with the live SQL build. The direct-source
+  // tracking document has no pirs, so re-attach them to every response (View PIR + PIR wealth).
+  async function withPirs<V>(view: V): Promise<V> {
+    if (client !== "csnf" && client !== "jag" && client !== "wcbhc" && client !== "baq") return view;
+    const { liveBuild } = await import("@/lib/client-live-data.server");
+    const pirs = (await liveBuild(client)).pirs ?? {};
+    return { ...(view as object), pirs } as V;
+  }
   async function GET(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
-    return NextResponse.json(await directTrackingView(client, await withSecondary(await currentTracking(client, get))), { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json(await withPirs(await directTrackingView(client, await withSecondary(await currentTracking(client, get)))), { headers: { "Cache-Control": "no-store" } });
   }
   async function POST(req: NextRequest) {
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
@@ -122,7 +130,7 @@ export function trackingRoute<T extends Tracking>(client: PortalClient, auth: (r
     }
     await save(t, canonical ? { requestId: b.requestId, by } : undefined);
     if (audit && !canonical) await logHistoryAudit(client, { cptid, by, ...audit });
-    const view=await directTrackingView(client, await withSecondary(canonical ? await get() : t));
+    const view=await withPirs(await directTrackingView(client, await withSecondary(canonical ? await get() : t)));
     return NextResponse.json(canonical?{...view,ok:true,requestId:b.requestId}:view);
   }
   const guarded = (run: (req: NextRequest) => Promise<NextResponse>) => async (req: NextRequest) => { try { return await run(req); } catch (e) { return NextResponse.json({ error: "Current tracking/source view unavailable; no success asserted" }, { status: e instanceof PvasTrackingSaveError && e.status === 409 ? 409 : 503 }); } };
