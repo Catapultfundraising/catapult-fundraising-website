@@ -24,6 +24,8 @@ export interface CacheDeps<T> {
   deployment?: string;
   background?: (p: Promise<unknown>) => void;
   log?: (msg: string) => void;
+  /** Blob paths for this cache (defaults to PVAS). Other dashboards pass their own pair. */
+  paths?: { data: string; marker: string };
 }
 interface Entry<T> { startedAt: number; built: T }
 
@@ -42,20 +44,21 @@ export function createPvasSharedCache<T>(deps: CacheDeps<T>) {
   let mem: Entry<T> | null = null;
   let pending: Promise<T> | null = null;
   let localInvalidatedAt = 0;
+  const DATA_PATH = deps.paths?.data ?? PVAS_CACHE_PATH, MARKER_PATH = deps.paths?.marker ?? PVAS_CACHE_MARKER_PATH;
 
   const fresh = (e: Entry<T> | null, inv: number): e is Entry<T> =>
     !!e && e.startedAt > inv && now() - e.startedAt < ttl;
 
   async function marker(): Promise<number> {
     if (!deps.store) throw new Error("no store");
-    const b = await deps.store.read(PVAS_CACHE_MARKER_PATH);
+    const b = await deps.store.read(MARKER_PATH);
     if (!b) return 0;
     const at = Number(JSON.parse(b.toString("utf8")).at);
     if (!Number.isFinite(at)) throw new Error("bad marker");
     return at;
   }
   async function readShared(): Promise<Entry<T> | null> {
-    const b = await deps.store!.read(PVAS_CACHE_PATH);
+    const b = await deps.store!.read(DATA_PATH);
     if (!b) return null;
     const v = deserialize(gunzipSync(b)) as { deployment?: string; startedAt?: number; built?: T };
     if (v.deployment !== deployment || typeof v.startedAt !== "number" || v.built === undefined) return null;
@@ -63,7 +66,7 @@ export function createPvasSharedCache<T>(deps: CacheDeps<T>) {
   }
   async function writeShared(e: Entry<T>): Promise<void> {
     const body = gzipSync(serialize({ deployment, startedAt: e.startedAt, built: e.built }), { level: 1 });
-    await deps.store!.write(PVAS_CACHE_PATH, body, "application/octet-stream");
+    await deps.store!.write(DATA_PATH, body, "application/octet-stream");
   }
   async function buildFresh(share: boolean): Promise<T> {
     const startedAt = now();
@@ -103,7 +106,7 @@ export function createPvasSharedCache<T>(deps: CacheDeps<T>) {
     localInvalidatedAt = Math.max(localInvalidatedAt, at);
     mem = null; pending = null;
     if (!deps.store || ttl <= 0) return;
-    await deps.store.write(PVAS_CACHE_MARKER_PATH, Buffer.from(JSON.stringify({ at })), "application/json");
+    await deps.store.write(MARKER_PATH, Buffer.from(JSON.stringify({ at })), "application/json");
   }
 
   return { get, invalidate };

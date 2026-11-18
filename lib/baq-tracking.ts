@@ -1,4 +1,5 @@
 import { get, put } from "@vercel/blob";
+import { liveBuild, sqlTracking, saveSqlTracking } from "@/lib/client-live-data.server";
 import { EMPTY_TRACKING, type BaqTracking } from "@/lib/baq-tracking-types";
 
 // Committee updates + activity history (written by portal users) and the PIR
@@ -32,9 +33,14 @@ export async function writeJson(path: string, data: unknown) {
 }
 
 export async function getBaqTracking(): Promise<BaqTracking> {
+  // After this client's switch, tracking lives in baq.dashboard_prospect_status / baq.dashboard_activity (SQL)
+  // and PIR links come from baq.pir_links. Before it, the blob below is still the source.
+  const fromSql = await sqlTracking("baq");
+  if (fromSql) return { ...fromSql, pirs: (await liveBuild("baq")).pirs } as unknown as BaqTracking;
   const [t, pirs] = await Promise.all([readJson<Omit<BaqTracking, "pirs">>(BAQ_TRACKING_PATH), readJson<BaqTracking["pirs"]>(BAQ_PIRS_PATH)]);
   return { prospects: t?.prospects ?? EMPTY_TRACKING.prospects, activity: t?.activity ?? [], removed: t?.removed ?? [], pirs: pirs ?? {} };
 }
 export async function saveBaqTracking(t: BaqTracking) {
+  if (await saveSqlTracking("baq", t)) return;
   await writeJson(BAQ_TRACKING_PATH, { prospects: t.prospects, activity: t.activity, removed: t.removed ?? [] });
 }

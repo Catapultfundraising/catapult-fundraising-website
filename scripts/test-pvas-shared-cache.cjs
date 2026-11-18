@@ -28,6 +28,13 @@ async function main(){
  // other deployment's copy is ignored
  const other=createPvasSharedCache({build:async()=>({n:"d2"}),store,now:()=>t,ttlMs:120000,deployment:"d2",background:()=>{}});
  assert.equal((await other.get()).n,"d2");
+ // per-client paths: another dashboard's cache and marker never touch PVAS's
+ const pv=new Map(),ps={read:async p=>pv.get(p)??null,write:async(p,b)=>{pv.set(p,b);}};
+ let nb=0;const baq=createPvasSharedCache({build:async()=>({n:++nb}),store:ps,now:()=>t,ttlMs:120000,deployment:"d1",background:p=>bg.push(p),paths:{data:"baq-cache/live-build-v1.bin.gz",marker:"baq-cache/invalidated-v1.json"}});
+ assert.equal((await baq.get()).n,1);await Promise.all(bg);
+ assert.ok(pv.has("baq-cache/live-build-v1.bin.gz")&&!pv.has("pvas-cache/canonical-build-v1.bin.gz"),"client data path");
+ t+=10;await baq.invalidate();assert.ok(pv.has("baq-cache/invalidated-v1.json")&&!pv.has("pvas-cache/invalidated-v1.json"),"client marker path");
+ t+=10;assert.equal((await baq.get()).n,2,"client Reload forces fresh SQL");
  console.log("pvas shared cache: PASS");
 }
 main().catch(e=>{console.error(e);process.exit(1);});

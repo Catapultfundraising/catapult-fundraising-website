@@ -12,6 +12,7 @@ import { getWcbhcTracking } from "@/lib/wcbhc-tracking";
 import { getBaqTracking } from "@/lib/baq-tracking";
 import { portalProspects } from "@/lib/portal-v2/server";
 import { idsPath } from "@/lib/portal-v2/clients";
+import { LIVE_CLIENTS, liveBuild, liveLocalDir, type LiveClient } from "@/lib/client-live-data.server";
 import { lastNameKey, type BrClient, type BrEntry, type BrFilters, type BrPoolRow } from "@/lib/board-review/config";
 
 // Prospect pool for the Catapult setup screen: the dashboard's records blob
@@ -83,6 +84,9 @@ const key = (n: string) => n.toLowerCase().replace(/\b(mr|mrs|ms|dr|jr|sr|ii|iii
 const str = (v: unknown) => (v === null || v === undefined ? "" : String(v).trim());
 
 async function readIds(c: BrClient): Promise<{ cptid: number; clientId: string }[]> {
+  if ((LIVE_CLIENTS as readonly string[]).includes(c) && !liveLocalDir(c as LiveClient)) {
+    try { return (await liveBuild(c as LiveClient)).ids; } catch { return []; }
+  }
   try {
     const r = await blobGet(idsPath(c), { access: "private", useCache: false });
     if (!r?.stream) return [];
