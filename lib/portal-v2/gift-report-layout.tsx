@@ -1,5 +1,5 @@
-import type { ReactNode } from "react";
-import { View, Text } from "@react-pdf/renderer";
+import { cloneElement, isValidElement, type ReactNode } from "react";
+import { View, Text, type ViewProps } from "@react-pdf/renderer";
 
 /** builtAt is a Pacific wall-clock timestamp (YYYY-MM-DD HH:mm), not UTC. */
 export function reportDataAsOf(builtAt: string): string {
@@ -25,15 +25,20 @@ export function committeeInsight(tracking: Tracking, removed: { committed: numbe
     : "No committee updates entered yet; statuses and solicitors fill in as the committee updates the portal.";
 }
 
-/** Keep band/labels together and reserve the start of the first donor. A note
- * can exceed an entire page, so never trap the whole first row in wrap={false}. */
+/** Page-flow siblings matter: a near-page-height band container can move
+ * wholesale after the section title, leaving a title-only page. Keep only
+ * labels unbreakable; full donor notes remain independently splittable. */
 export function GiftLevelRows({ heading, columns, rows, empty }: {
   heading: ReactNode; columns: ReactNode; rows: ReactNode[]; empty: ReactNode;
 }) {
-  return <View style={{ marginBottom: 10 }}>
+  return <>
     <View wrap={false} minPresenceAhead={24}>{heading}{columns}</View>
-    {rows.length ? rows : empty}
-  </View>;
+    {rows.length ? rows.map((row, i) =>
+      i === rows.length - 1 && isValidElement<ViewProps>(row)
+        ? cloneElement(row, { style: [row.props.style ?? {}, { marginBottom: 10 }].flat() })
+        : row
+    ) : <View style={{ marginBottom: 10 }}>{empty}</View>}
+  </>;
 }
 
 /** Fixed labels repeat only on the pages spanned by this table. The explicit
