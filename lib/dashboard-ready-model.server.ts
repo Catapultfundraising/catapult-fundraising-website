@@ -18,7 +18,7 @@ type BaseBuild = { snapshot: unknown; records: NonNullable<Data>; pirs?: unknown
 export async function prepareDashboardRead(client: PortalClient, built: BaseBuild): Promise<PreparedRead> {
   const server = await import("./portal-v2/server");
   const direct = await import("./portal-v2/direct-source-state.server");
-  let state = await server.portalCampaignStateSafe(client, { pvasRecords: built.records.records, buildRecords: built.records.records, buildingReady: true }, true);
+  let state = await server.portalCampaignStateSafe(client, { pvasRecords: built.records.records, buildRecords: built.records.records, buildingReady: true, buildSnapshot: built.snapshot }, true);
   direct.requireCurrentSql(client, state);
   if (!state) throw Error("Complete ready campaign state unavailable");
   let tracking: PvasTracking;
@@ -41,7 +41,7 @@ export async function prepareDashboardRead(client: PortalClient, built: BaseBuil
     tracking = { ...raw, prospects: applyTrackingBases(raw.prospects as Record<string, Record<string, unknown>>,
       recordBase(client as LiveClient, built.records.records)), pirs: (built as LiveBuild).pirs } as unknown as PvasTracking;
   }
-  const observed = await direct.observeDirectForReady(client, state);
+  const observed = await direct.observeDirectForReady(client, state, tracking);
   const records = observed ? direct.composeDirectData(built.records, "records", observed) : built.records;
   const pairedTracking = { ...(observed ? direct.composeDirectTracking(tracking, observed) : tracking), pirs: tracking.pirs };
   const pairedState = { ...state, ...(observed ? {

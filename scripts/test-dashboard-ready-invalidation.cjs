@@ -44,6 +44,8 @@ async function main(){
     assert.equal((await route.POST(req({op:"setContact",cptid:101,by:"Fictional",changes:{city:"Other"},current:{city:""}}))).status,500);
     assert.equal(invalidations.length,before,"failed transport does not assert successful edit invalidation");
     fail=false;
+    assert.equal((await route.POST(req({op:"setContact",cptid:101,by:"Fictional",changes:{city:"Example"},current:{city:"Example"}}))).status,200);
+    assert.equal(invalidations.length,before,"actual explicit no-op must not cause a full rebuild");
     assert.equal((await route.POST(req({op:"invalid-read"}))).status,400);
     assert.equal(invalidations.length,before,"invalid operation does not invalidate");
   }

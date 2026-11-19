@@ -75,7 +75,7 @@ function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<str
 }
 
 /** Raw gateway call keeps HTTP status; invalid successful state row IDs also fail closed. */
-export type PortalReadContext = { readonly pvasRecords: Record<string, unknown>; readonly buildRecords?: Record<string, unknown>; readonly buildingReady?: boolean };
+export type PortalReadContext = { readonly pvasRecords: Record<string, unknown>; readonly buildRecords?: Record<string, unknown>; readonly buildingReady?: boolean; readonly buildSnapshot?: unknown };
 export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}, readContext?: PortalReadContext): Promise<{ status: number; body: Record<string, unknown> }> {
   if (pvasCanonicalEnabled(client) && !pvasExistingOperationAllowed(op, body))
     return { status: 403, body: { ...PVAS_EXISTING_ONLY } };
@@ -232,13 +232,15 @@ const DB_CAMPAIGN: Partial<Record<PortalClient, { load: () => Promise<SnapLike>;
 };
 const BAD_STATUS = /refund|disput|fail|cancel|void|declin/i;
 
-export async function dbCampaignGifts(client: PortalClient, strict = false): Promise<PortalGift[]> {
+export async function dbCampaignGifts(client: PortalClient, strict = false, buildSnapshot?: unknown): Promise<PortalGift[]> {
   // Canonical state already owns counted campaign occurrences and source links.
   // Provider-only Givebutter activity is never appended/counted a second time.
   if (pvasCanonicalEnabled(client)) return [];
   const cfg = DB_CAMPAIGN[client];
   if (!cfg) return [];
-  const snap = await cfg.load().catch(() => null);
+  // Internal ready preparation already owns this immutable base snapshot.
+  // Never re-enter the live cache while its build is awaiting this read.
+  const snap = buildSnapshot === undefined ? await cfg.load().catch(() => null) : buildSnapshot as SnapLike;
   if ((strict || pvasCanonicalEnabled(client)) && !snap) throw new Error("Campaign source unavailable");
   const gb = snap?.givebutter ?? { transactions: [], pledges: [] };
   // Proxy contacts ("City of McAllen Proxy") resolve to the org's own record when the name matches exactly.
@@ -322,16 +324,16 @@ function applyOverrides(items: PortalGift[], overrides: PortalState["giftOverrid
   }
   return out;
 }
-async function withDbGifts(client: PortalClient, state: PortalState, strict = false): Promise<PortalState> {
+async function withDbGifts(client: PortalClient, state: PortalState, strict = false, buildSnapshot?: unknown): Promise<PortalState> {
   if (pvasCanonicalEnabled(client)) return state;
-  const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client, strict)), state.giftOverrides);
+  const db = applyOverrides(keyDbGifts(await dbCampaignGifts(client, strict, buildSnapshot)), state.giftOverrides);
   return { ...state, gifts: [...db, ...state.gifts] };
 }
 
 /** Current campaign rows plus refresh-safe overrides, for gift-only donor lookup records. */
 export async function portalCampaignStateSafe(client: PortalClient, readContext?: PortalReadContext, strict = false): Promise<PortalState | null> {
   const state = await portalStateSafe(client, readContext);
-  return state ? withDbGifts(client, state, strict) : null;
+  return state ? withDbGifts(client, state, strict, readContext?.buildSnapshot) : null;
 }
 
 /** Name match against everything on file (records index, ids.json, portal prospects): exact name key first, then
@@ -806,8 +808,9 @@ export function portalV2Route(client: PortalClient) {
       const response = await POST(req);
       const mutations = new Set(["setAsk","setContact","setWealth","setOutcome","addGift","editGift","voidGift",
         "addProspect","editProspect","requestScreening","mergeRecords","unmerge","restoreRecord","deleteRecord","notDuplicate","undo"]);
-      const result = !json && response.ok ? await response.clone().json().catch(() => null) : null;
-      if (response.ok && (json ? mutations.has(body?.op) : result?.applied === true))
+      const result = response.ok ? await response.clone().json().catch(() => null) : null;
+      const changed = result && !result.error && result.unchanged !== true && !Array.isArray(result.duplicates) && !Array.isArray(result.matches);
+      if (response.ok && (json ? mutations.has(body?.op) && changed : result?.applied === true))
         await (await import("@/lib/client-live-data.server")).invalidateLive(client as LiveClient);
       return response;
     }

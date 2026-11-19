@@ -41,19 +41,21 @@ const td = "px-3 py-2 text-sm";
 export function PortalV2Provider({ client, children }: { client: PortalClient; children: React.ReactNode }) {
   const [state, setState] = useState<V2State | null>(null);
   const [loading, setLoading] = useState(true);
-  const reload = useCallback(async () => {
+  const load = useCallback(async () => {
     try {
       await loadDashboardReady(client);
     } catch { setState(previous => previous ? { ...previous, configured: false, error: "Current state unavailable; retained last good data, not current success" } : null); }
     finally { setLoading(false); }
   }, [client]);
+  // Imperative reload is a post-save boundary: supersede every earlier read.
+  const reload = useCallback(async () => { invalidateDashboardReady(client); await load(); }, [client, load]);
   useEffect(() => {
     const unsubscribe = subscribeDashboardReady(client, bundle => { setState(bundle.state as unknown as V2State); setLoading(false); });
-    const refresh = () => { invalidateDashboardReady(client); void reload(); };
-    const timer = window.setInterval(() => { void reload(); }, 120_000);
-    void reload(); window.addEventListener("campaign-ask-refresh", refresh);
+    const refresh = () => { void reload(); };
+    const timer = window.setInterval(() => { void load(); }, 120_000);
+    void load(); window.addEventListener("campaign-ask-refresh", refresh);
     return () => { window.clearInterval(timer); unsubscribe(); window.removeEventListener("campaign-ask-refresh", refresh); };
-  }, [client, reload]);
+  }, [client, load, reload]);
   const freshness = state?.dashboardFreshness;
   return <V2.Provider value={{ client, state, loading, reload }}>
     {freshness && <div role="status" className={`px-6 py-2 text-sm ${freshness.stale || freshness.failedAt ? "bg-amber-50 text-amber-950" : "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"}`}>

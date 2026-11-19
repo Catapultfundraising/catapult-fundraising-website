@@ -281,8 +281,10 @@ return out;
 export function httpIndex(client: PortalClient, index: Idx[]) {
   return index.map(row => {
       const slim = { ...row } as Idx & { _canonicalContact?: unknown; _canonicalAsk?: PvasCanonicalAsk };
-      if (pvasCanonicalEnabled(client)) slim._canonicalAsk = pvasCanonicalAsk(slim._canonicalContact, row.cptid);
-      delete slim._canonicalContact;
+      if (pvasCanonicalEnabled(client)) {
+        slim._canonicalAsk = pvasCanonicalAsk(slim._canonicalContact, row.cptid);
+        delete slim._canonicalContact;
+      }
       return slim;
     });
 }

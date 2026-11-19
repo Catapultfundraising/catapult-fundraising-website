@@ -93,7 +93,7 @@ type Built = Awaited<ReturnType<typeof buildPvas>> & { readyRead: PreparedRead }
 const sharedCache = createDashboardReadyCache<Built>({
   compatibility: DASHBOARD_READY_COMPATIBILITY, prefix: "dashboard-ready/pvas",
   markerPath: "pvas-cache/invalidated-v1.json", store: readyBlobStore,
-  enabled: cacheTtlMs() > 0, canPublish: process.env.VERCEL_ENV !== "preview",
+  enabled: cacheTtlMs() > 0, canPublish: process.env.VERCEL_ENV === "production",
   fingerprint: () => clientFingerprint("pvas", true),
   build: async () => { const built = await buildPvas(); return { ...built, readyRead: await prepareDashboardRead("pvas", built as never) }; },
   validate: validateReadyBuild as (value: unknown) => asserts value is Built,

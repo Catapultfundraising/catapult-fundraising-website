@@ -38,7 +38,7 @@ function cacheFor(client: LiveClient) {
     c = createDashboardReadyCache<LiveBuild>({
       compatibility: DASHBOARD_READY_COMPATIBILITY, prefix: `dashboard-ready/${client}`,
       markerPath: `${client}-cache/invalidated-v1.json`, store: readyBlobStore,
-      enabled: cacheTtlMs() > 0, canPublish: process.env.VERCEL_ENV !== "preview",
+      enabled: cacheTtlMs() > 0, canPublish: process.env.VERCEL_ENV === "production",
       fingerprint: () => clientFingerprint(client, true), build: () => buildClient(client),
       validate: validateReadyBuild as (value: unknown) => asserts value is LiveBuild,
       background: p => { try { after(() => p); } catch { void p; } },

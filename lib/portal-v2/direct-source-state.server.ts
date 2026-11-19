@@ -4,7 +4,7 @@ import type { PortalClient } from "./clients";
 import { DIRECT_STATE_MAX_IDS, DIRECT_STATE_MAX_NOTES, DIRECT_STATE_MAX_BYTES } from "./directFileProtocol";
 import { directLaneEnabled } from "./direct-registration.server";
 import { strictTrackingFor } from "./direct-tracking-reader.server";
-import type { StrictTracking } from "./direct-tracking-state";
+import { readStrictTracking, type StrictTracking } from "./direct-tracking-state";
 import type { DirectState, DirectValueView } from "./direct-wire";
 import { DirectReadUnavailable, sourceNoteEntries } from "./direct-effective-state";
 import { directSnapshot } from "./direct-snapshot";
@@ -141,8 +141,12 @@ export async function directTrackingView<T>(client: PortalClient, legacy: T, dep
   const observed = await observeDirect(client, deps);
   return observed ? composeDirectTracking(legacy, observed) : legacy;
 }
-export async function observeDirectForReady(client: PortalClient, state: unknown) {
-  return observeDirect(client, { ...defaults, sql: async () => state });
+export async function observeDirectForReady(client: PortalClient, state: unknown, tracking: unknown) {
+  // Validate exactly the already observed adjusted tracking; no second SQL/base
+  // read and no recursive liveBuild access inside the fingerprint fence.
+  const bytes = new TextEncoder().encode(JSON.stringify(tracking));
+  return observeDirect(client, { ...defaults, sql: async () => state,
+    tracking: () => readStrictTracking(client, async () => ({ kind: "bytes", bytes })) });
 }
 export function composeDirectTracking<T>(_legacy: T, observed: DirectObservation): T {
   const document = structuredClone(observed.tracking.document);

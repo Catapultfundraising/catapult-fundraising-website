@@ -12,7 +12,7 @@ export const readyBlobStore: ReadyStore | null = process.env.BLOB_READ_WRITE_TOK
   async put(path, body, expected) {
     const result = await put(path, body, {
       access: "private", addRandomSuffix: false,
-      ...(expected === null ? { allowOverwrite: false } : { ifMatch: expected }),
+      ...(expected === null ? { allowOverwrite: false } : { allowOverwrite: true, ifMatch: expected }),
       contentType: path.endsWith(".json") ? "application/json" : "application/octet-stream",
       multipart: body.length > 50_000_000,
     });
