@@ -25,8 +25,8 @@ export const POSTS: Post[] = [
   "title": "Mission Before Recognition",
   "description": "What donors need to hear before you talk about naming",
   "readTime": "4 min read",
-  "image": "/blog/mission-before-recognition/hero-donor-conversation-v2.jpg",
-  "alt": "A nonprofit professional listening to an older couple during a conversation about their support",
+  "image": "/blog/mission-before-recognition/hero-building-plans.jpg",
+  "alt": "People reviewing building plans together around a table",
   "pillars": [
     "Major Gifts"
   ],
