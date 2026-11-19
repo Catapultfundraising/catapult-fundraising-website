@@ -257,7 +257,7 @@ function Sec({ title, children }: { title: string; children: React.ReactNode }) 
 export function recordPayload(r:DonorRecord,t?:PvasTracking):ExportPayload { return {...currentRecordPayload(r,t),intent:{kind:"record",id:r.cptid}}; }
 
 function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
-  const { tracking, index } = useCrm();
+  const { tracking, index, loading } = useCrm();
   const [r, setR] = useState<DonorRecord | null>(null);
   const [err, setErr] = useState(false);
   const [ver, setVer] = useState(0);
@@ -271,7 +271,10 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
     return () => { active = false; };
   }, [cptid, ver]);
   if (err) return <Modal title="Record not found" onClose={onClose}><p>No record for CPTID {cptid}.</p></Modal>;
-  if (!r) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
+  // URL-selected modals are siblings of the dashboard body, outside its ready
+  // gate. A memoized detail can arrive before the paired index/tracking read.
+  if (!r || loading) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
+  if (!index) return <Modal title="Current records unavailable" onClose={onClose}><p role="alert" className="text-sm">Donor records and assignments are unavailable. Reload to try again.</p></Modal>;
   const c = r.contact ?? {};
   const s = r.summary;
   const byYear = new Map<string, number>();
