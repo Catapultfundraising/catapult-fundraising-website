@@ -7,6 +7,17 @@ export function readyFailureStage(error: unknown): string | undefined {
   const stage = error && typeof error === "object" && "readyStage" in error ? error.readyStage : undefined;
   return typeof stage === "string" && (READY_REFRESH_STAGES as readonly string[]).includes(stage) ? stage : undefined;
 }
+export function readyFailureDetails(error: unknown) {
+  const d = error && typeof error === "object" && "readyBlobFailure" in error ? error.readyBlobFailure : undefined;
+  if (!d || typeof d !== "object") return undefined;
+  const v = d as Record<string, unknown>;
+  if (typeof v.operation !== "string" || !["read", "write"].includes(v.operation) ||
+      typeof v.providerError !== "string" || !["precondition", "access", "unavailable", "rate-limited", "not-found", "provider", "representation", "unknown"].includes(v.providerError) ||
+      typeof v.etagQuoted !== "boolean" || typeof v.etagWeak !== "boolean" ||
+      typeof v.contentEncoded !== "boolean") return undefined;
+  return { operation: v.operation, providerError: v.providerError,
+    etagQuoted: v.etagQuoted, etagWeak: v.etagWeak, contentEncoded: v.contentEncoded };
+}
 export interface ReadyStore {
   read(path: string): Promise<{ body: Buffer; etag: string } | null>;
   /** null creates only; a string replaces only that exact ETag. */
@@ -89,7 +100,7 @@ export function createDashboardReadyCache<T>(o: Options<T>) {
     }
     if (!publish) throw Error("Ready publication not authorized");
     let stage: typeof READY_REFRESH_STAGES[number] = "lease-read";
-    const oldLease = await o.store.read(leasePath).catch(() => { throw Object.assign(Error("Ready lease unavailable"), { readyStage: stage }); });
+    const oldLease = await o.store.read(leasePath).catch(e => { throw Object.assign(Error("Ready lease unavailable"), { readyStage: stage, readyBlobFailure: readyFailureDetails(e) }); });
     if (oldLease) {
       const l: unknown = JSON.parse(oldLease.body.toString());
       if (!obj(l) || typeof l.expiresAt !== "number") throw Error("Ready lease unavailable");
@@ -97,7 +108,7 @@ export function createDashboardReadyCache<T>(o: Options<T>) {
     }
     const token = randomUUID();
     stage = "lease-acquire";
-    const leaseEtag = await o.store.put(leasePath, Buffer.from(JSON.stringify({ token, expiresAt: now() + leaseMs })), oldLease?.etag ?? null).catch(() => { throw Object.assign(Error("Ready lease unavailable"), { readyStage: stage }); });
+    const leaseEtag = await o.store.put(leasePath, Buffer.from(JSON.stringify({ token, expiresAt: now() + leaseMs })), oldLease?.etag ?? null).catch(e => { throw Object.assign(Error("Ready lease unavailable"), { readyStage: stage, readyBlobFailure: readyFailureDetails(e) }); });
     try {
       stage = "marker";
       const inv = await marker();
@@ -143,7 +154,8 @@ export function createDashboardReadyCache<T>(o: Options<T>) {
         const previous = await o.store.read(failurePath);
         await o.store.put(failurePath, Buffer.from(JSON.stringify({ at: now(), outcome: "refresh-failed", stage: readyFailureStage(e) ?? stage })), previous?.etag ?? null);
       } catch { /* diagnostic failure never overwrites the last-good pointer */ }
-      throw Object.assign(Error("Ready refresh unavailable"), { readyStage: readyFailureStage(e) ?? stage });
+      throw Object.assign(Error("Ready refresh unavailable"), { readyStage: readyFailureStage(e) ?? stage,
+        readyBlobFailure: readyFailureDetails(e) });
     } finally {
       try { await o.store.put(leasePath, Buffer.from(JSON.stringify({ token, expiresAt: 0 })), leaseEtag); }
       catch { /* a successor owns the lease, or expiry will release it */ }
