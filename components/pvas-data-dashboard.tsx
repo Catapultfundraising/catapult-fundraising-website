@@ -536,6 +536,44 @@ function Board({ d }: { d: PvasSnapshot }) {
   );
 }
 
+/** "38295-38297, 38301" style list of CPTIDs. */
+function cptidRanges(ids: number[]) {
+  const out: string[] = [];
+  for (let i = 0; i < ids.length; i++) {
+    let j = i; while (j + 1 < ids.length && ids[j + 1] === ids[j] + 1) j++;
+    out.push(j > i ? `${ids[i]}-${ids[j]}` : String(ids[i])); i = j;
+  }
+  return out.join(", ");
+}
+
+function unmatchedSummary(d: PvasSnapshot) {
+  const u = d.unmatchedSource;
+  if (!u || (!u.donorsearch.rows && !u.phones.rows)) return null;
+  const ids = [...new Set([...u.donorsearch.cptids, ...u.phones.cptids])].sort((a, b) => a - b);
+  return { ...u, ids };
+}
+
+function UnmatchedNotice({ d }: { d: PvasSnapshot }) {
+  const u = unmatchedSummary(d);
+  if (!u) return null;
+  return (
+    <Card>
+      <div role="status" className="space-y-2 text-sm">
+        <H>Rows waiting for a contact record</H>
+        <p>
+          {num(u.donorsearch.rows)} DonorSearch {u.donorsearch.rows === 1 ? "row" : "rows"} and {num(u.phones.rows)} phone {u.phones.rows === 1 ? "row" : "rows"} belong
+          to {num(u.ids.length)} {u.ids.length === 1 ? "CPTID" : "CPTIDs"} that have no row in pvas.contacts. They are set aside, not deleted:
+          they are not shown or counted until each CPTID gets its contact record (pvas.contacts first, then screening and phones).
+        </p>
+        <details>
+          <summary className="cursor-pointer text-[rgb(var(--navy))] underline">Show CPTIDs</summary>
+          <p className="mt-2 break-words text-xs text-[rgb(var(--ink))]/70">{cptidRanges(u.ids)}</p>
+        </details>
+      </div>
+    </Card>
+  );
+}
+
 function Health({ d }: { d: PvasSnapshot }) {
   const h = d.health;
   const nav = useRecordNav();
@@ -543,6 +581,7 @@ function Health({ d }: { d: PvasSnapshot }) {
   const has = (k: string) => () => nav?.drillQuery(`Records with ${k}`, `Constituents with a ${k} on file`, "has", k);
   return (
     <div className="space-y-6">
+      <UnmatchedNotice d={d} />
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Stat label="Individual records" value={num(h.records)} onClick={() => go("Individual records", "Individual constituents", (r) => !/org|foundation|corp|business|church|trust/i.test(r.kind ?? ""))} />
         <Stat label="With address" value={pct(h.address, h.records)} note={num(h.address)} onClick={has("address")} />
@@ -676,6 +715,12 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
         </div>
       </nav>
       <div className="mx-auto max-w-7xl px-6 py-8">
+        {unmatchedSummary(data) && tab !== "Database Health" && (
+          <p role="status" className="mb-6 border-l-4 border-[rgb(var(--brass))] bg-white px-4 py-2 text-sm">
+            {num(unmatchedSummary(data)!.ids.length)} CPTIDs have screening or phone rows but no contact record yet, so they are set aside.{" "}
+            <button type="button" className="underline" onClick={() => setTab("Database Health")}>See Database Health</button>
+          </p>
+        )}
         <SafeBoundary key={tab} label={`The ${tab} tab`}>
         {tab === "Donor Lookup" && <Lookup d={data} />}
         {tab === "Prospect Ratings" && (staff ? <BoardReviewAdmin client="pvas" /> : <StaffSignIn client="pvas" />)}

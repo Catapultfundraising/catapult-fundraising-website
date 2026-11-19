@@ -39,6 +39,8 @@ export interface PvasSnapshot {
     pledges: { cptid: number | null; name: string; pledged: string; amount: number; fulfilled: number; remaining: number; campaign: string; status: string; frequency: string; expected: string }[];
   };
   health: Record<string, number>; donorType: [string, number][]; flags: Record<string, number>; orgTypes: [string, number][];
+  /** Screening/phone rows set aside because their CPTID has no pvas.contacts row yet. */
+  unmatchedSource?: { donorsearch: { rows: number; cptids: number[] }; phones: { rows: number; cptids: number[] } };
   batches: { batch: string; count: number; tiers: Record<string, number>; people: { cptid?: number; name: string; tier: string; interviewer: string; lifetime: number; ds: string; ask?: number }[] }[];
   feasibility: { total: number; completed: number; declined: number; consider: number; multiYear: number; leadership: number; introduce: number; byTier: { tier: string; prospects: number; completed: number; consider: number }[]; people: { cptid?: number; name: string; tier: string; company: string; result: string; date: string; consider: boolean; multiYear: boolean; leadership: boolean; introduce: boolean }[] };
 }

@@ -57,6 +57,15 @@ export async function buildCanonicalPvas() {
   }
   const byC = (rr: Row[]) => { const m = new Map<number, Row>(); for (const r of rr) { const c = cid(r.CPTID); if (c !== null) m.set(c, r); } return m; };
   const gho = byC(ghoRows), ds = byC(dsRows), port = byC(portRows), phones = byC(phoneRows);
+  // Every record needs its canonical contact (pvas.contacts). Screening or phone rows
+  // whose CPTID has no contact yet are set aside and flagged on Database Health instead
+  // of failing the whole dashboard. They show up once the contact row exists.
+  const unmatchedSource = {
+    donorsearch: setAsideUnmatched(dsRows, ds, master),
+    phones: setAsideUnmatched(phoneRows, phones, master),
+  };
+  if (unmatchedSource.donorsearch.rows || unmatchedSource.phones.rows)
+    console.warn("PVAS rows set aside (no pvas.contacts row)", { donorsearch: unmatchedSource.donorsearch.rows, phones: unmatchedSource.phones.rows });
   for (const [c,m] of master) {
     const fields = pvasContactProfile(m._canonicalContact,c).fields;
     if (!Object.hasOwn(fields,"ask") || fields.ask !== null && (typeof fields.ask !== "number" || !Number.isFinite(fields.ask)))
@@ -256,7 +265,7 @@ export async function buildCanonicalPvas() {
     highWealth: hw.slice(0, 300), highWealthCount: hw.length, midLevel: mid.slice(0, 300), midLevelCount: mid.length,
     legacy: leg.slice(0, 300), legacyCount: leg.length, lapsed: lapsed.slice(0, 300), lapsedCount: lapsed.length, top,
     board, committee, health, donorType: mostCommon(dtype), flags, orgTypes: mostCommon(otype), batches,
-    portfolio, committed, givebutter,
+    portfolio, committed, givebutter, unmatchedSource,
     feasibility: { total: 0, completed: 0, declined: 0, consider: 0, multiYear: 0, leadership: 0, introduce: 0, byTier: [], people: [] },
   };
 
@@ -327,4 +336,12 @@ export async function buildCanonicalPvas() {
   index.sort((a, b) => (b.lifetime as number) - (a.lifetime as number));
   const records = { asOf: builtAt(), index, records: Object.fromEntries([...R].map(([k, v]) => [String(k), v])) };
   return { snapshot, records, pirs };
+}
+
+/** Rows whose CPTID is not a canonical contact: removed from the per-CPTID map, counted and listed. */
+export function setAsideUnmatched(source: Row[], byCptid: Map<number, Row>, contacts: Map<number, unknown>) {
+  const cptids = new Set<number>(); let rows = 0;
+  for (const r of source) { const c = cid(r.CPTID); if (c !== null && !contacts.has(c)) { rows++; cptids.add(c); } }
+  for (const c of cptids) byCptid.delete(c);
+  return { rows, cptids: [...cptids].sort((a, b) => a - b) };
 }
