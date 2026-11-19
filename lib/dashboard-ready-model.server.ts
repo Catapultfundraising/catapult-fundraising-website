@@ -12,36 +12,39 @@ export interface PreparedRead {
   records: NonNullable<Data>; state: PortalState & { directView?: unknown; directSourceRevision?: string };
   tracking: PvasTracking;
 }
+async function at<T>(readyStage: string, run: () => Promise<T>): Promise<T> {
+  try { return await run(); } catch { throw Object.assign(Error("Ready preparation unavailable"), { readyStage }); }
+}
 type BaseBuild = { snapshot: unknown; records: NonNullable<Data>; pirs?: unknown };
 /** Uses the actual full campaign gateway (native V3 stream/pagination and audit
  * validation for PVAS), NEVER snapshot.committed or history-only gifts. */
 export async function prepareDashboardRead(client: PortalClient, built: BaseBuild): Promise<PreparedRead> {
   const server = await import("./portal-v2/server");
   const direct = await import("./portal-v2/direct-source-state.server");
-  let state = await server.portalCampaignStateSafe(client, { pvasRecords: built.records.records, buildRecords: built.records.records, buildingReady: true, buildSnapshot: built.snapshot }, true);
+  let state = await at("prepare-state", () => server.portalCampaignStateSafe(client, { pvasRecords: built.records.records, buildRecords: built.records.records, buildingReady: true, buildSnapshot: built.snapshot }, true));
   direct.requireCurrentSql(client, state);
   if (!state) throw Error("Complete ready campaign state unavailable");
   let tracking: PvasTracking;
   if (pvasCanonicalEnabled(client)) {
     const { completePvasUploadHistory } = await import("./portal-v2/pvas-upload-history");
-    state = await completePvasUploadHistory(state, async before => {
+    state = await at("prepare-history", () => completePvasUploadHistory(state!, async before => {
       const page = await server.engageCall(client, "pvasHistoricalUploads", { before, limit: 200 });
       if (page.status !== 200) throw Error("Ready upload history unavailable");
       return page.body;
-    });
-    tracking = await (await import("./pvas-tracking")).getPvasTracking();
+    }));
+    tracking = await at("prepare-tracking", async () => (await import("./pvas-tracking")).getPvasTracking());
   }
   else {
     const { sqlTracking } = await import("./client-live-data.server");
     const { applyTrackingBases, recordBase } = await import("./portal-v2/sql-newer");
-    const raw = await sqlTracking(client as LiveClient);
+    const raw = await at("prepare-tracking", () => sqlTracking(client as LiveClient));
     // All four production dashboards have moved to SQL. No silent legacy
     // empty/blob fallback is suitable for a durable complete ready generation.
     if (!raw) throw Error("Ready SQL tracking unavailable");
     tracking = { ...raw, prospects: applyTrackingBases(raw.prospects as Record<string, Record<string, unknown>>,
       recordBase(client as LiveClient, built.records.records)), pirs: (built as LiveBuild).pirs } as unknown as PvasTracking;
   }
-  const observed = await direct.observeDirectForReady(client, state, tracking);
+  const observed = await at("prepare-direct", () => direct.observeDirectForReady(client, state, tracking));
   const records = observed ? direct.composeDirectData(built.records, "records", observed) : built.records;
   const pairedTracking = { ...(observed ? direct.composeDirectTracking(tracking, observed) : tracking), pirs: tracking.pirs };
   const pairedState = { ...state, ...(observed ? {

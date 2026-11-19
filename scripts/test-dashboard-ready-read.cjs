@@ -24,7 +24,7 @@ async function main() {
     refreshDashboardReady:async()=>{warms++;},
     readyPayload:async()=>{reads++;return {generation:"fictional",freshness:{stale:false}};},
   };
-  const deps={"@/lib/dashboard-ready.server":server,"@/lib/pvas-shared-cache.server":{cacheTtlMs:()=>ttl}};
+  const deps={"@/lib/dashboard-ready-cache.server":{readyFailureStage:()=>undefined},"@/lib/dashboard-ready.server":server,"@/lib/pvas-shared-cache.server":{cacheTtlMs:()=>ttl}};
   for(const c of server.READY_CLIENTS)deps[`@/lib/${c}-data-auth`]=new Proxy({},{get:()=>async()=>auth});
   const globals={process:{env},Response,Request,Headers};
   const read=compile("app/api/dashboard-ready/route.ts",deps,globals);

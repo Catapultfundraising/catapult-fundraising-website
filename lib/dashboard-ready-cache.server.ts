@@ -2,6 +2,11 @@ import { createHash, randomUUID } from "node:crypto";
 import { gunzipSync, gzipSync } from "node:zlib";
 import { deserialize, serialize } from "node:v8";
 
+export const READY_REFRESH_STAGES = ["lease-read", "lease-acquire", "marker", "current", "fingerprint-before", "build-base", "prepare-state", "prepare-history", "prepare-tracking", "prepare-direct", "validate", "fingerprint-after", "publish-data", "publish-metadata", "publish-fence", "publish-pointer"] as const;
+export function readyFailureStage(error: unknown): string | undefined {
+  const stage = error && typeof error === "object" && "readyStage" in error ? error.readyStage : undefined;
+  return typeof stage === "string" && (READY_REFRESH_STAGES as readonly string[]).includes(stage) ? stage : undefined;
+}
 export interface ReadyStore {
   read(path: string): Promise<{ body: Buffer; etag: string } | null>;
   /** null creates only; a string replaces only that exact ETag. */
@@ -83,38 +88,51 @@ export function createDashboardReadyCache<T>(o: Options<T>) {
         digest: "", startedAt, verifiedAt: startedAt, fingerprint: "uncached" } };
     }
     if (!publish) throw Error("Ready publication not authorized");
-    const oldLease = await o.store.read(leasePath);
+    let stage: typeof READY_REFRESH_STAGES[number] = "lease-read";
+    const oldLease = await o.store.read(leasePath).catch(() => { throw Object.assign(Error("Ready lease unavailable"), { readyStage: stage }); });
     if (oldLease) {
       const l: unknown = JSON.parse(oldLease.body.toString());
       if (!obj(l) || typeof l.expiresAt !== "number") throw Error("Ready lease unavailable");
       if (l.expiresAt > now()) throw Error("Ready refresh already running");
     }
     const token = randomUUID();
-    const leaseEtag = await o.store.put(leasePath, Buffer.from(JSON.stringify({ token, expiresAt: now() + leaseMs })), oldLease?.etag ?? null);
+    stage = "lease-acquire";
+    const leaseEtag = await o.store.put(leasePath, Buffer.from(JSON.stringify({ token, expiresAt: now() + leaseMs })), oldLease?.etag ?? null).catch(() => { throw Object.assign(Error("Ready lease unavailable"), { readyStage: stage }); });
     try {
-      const inv = await marker(), before = await current();
+      stage = "marker";
+      const inv = await marker();
+      stage = "current";
+      const before = await current();
+      stage = "fingerprint-before";
       const fp = await o.fingerprint();
       let entry = before.entry;
       if (!entry || entry.pointer.startedAt <= inv || entry.pointer.fingerprint !== fp) {
         const startedAt = Math.max(now(), inv + 1);
-        const built = await o.build(); o.validate(built);
+        stage = "build-base";
+        const built = await o.build();
+        stage = "validate"; o.validate(built);
         // Never publish a mixture collected across a concurrent SQL change.
+        stage = "fingerprint-after";
         if (await o.fingerprint() !== fp) throw Error("SQL changed during ready build");
         const generation = randomUUID(), path = `${root}/${generation}.bin.gz`;
         const body = gzipSync(serialize({ compatibility: o.compatibility, generation, built }), { level: 1 });
         if (await marker() >= startedAt) throw Error("Ready build invalidated");
+        stage = "publish-data";
         await o.store.put(path, body, null); // immutable, complete before pointer
         entry = { built, pointer: { compatibility: o.compatibility, generation, path, digest: sha(body),
           startedAt, verifiedAt: Math.max(now(), startedAt), fingerprint: fp } };
+        stage = "publish-metadata";
         await o.store.put(`${root}/${generation}.json`, Buffer.from(JSON.stringify(entry.pointer)), null);
       } else entry = { ...entry, pointer: { ...entry.pointer, verifiedAt: now() } };
       // Recheck BOTH fences immediately before the pointer CAS. An expired
       // worker must not publish after a replacement lease or newer edit.
+      stage = "publish-fence";
       const lease = await o.store.read(leasePath);
       const held: unknown = lease && JSON.parse(lease.body.toString());
       if (lease?.etag !== leaseEtag || !obj(held) || held.token !== token ||
           typeof held.expiresAt !== "number" || held.expiresAt <= now() ||
           await marker() >= entry.pointer.startedAt) throw Error("Ready publication superseded");
+      stage = "publish-pointer";
       await o.store.put(pointerPath, Buffer.from(JSON.stringify(entry.pointer)), before.raw?.etag ?? null);
       memory = entry;
       return entry;
@@ -123,9 +141,9 @@ export function createDashboardReadyCache<T>(o: Options<T>) {
       // integration messages, IDs, donor values, or credentials.
       try {
         const previous = await o.store.read(failurePath);
-        await o.store.put(failurePath, Buffer.from(JSON.stringify({ at: now(), outcome: "refresh-failed" })), previous?.etag ?? null);
+        await o.store.put(failurePath, Buffer.from(JSON.stringify({ at: now(), outcome: "refresh-failed", stage: readyFailureStage(e) ?? stage })), previous?.etag ?? null);
       } catch { /* diagnostic failure never overwrites the last-good pointer */ }
-      throw e;
+      throw Object.assign(Error("Ready refresh unavailable"), { readyStage: readyFailureStage(e) ?? stage });
     } finally {
       try { await o.store.put(leasePath, Buffer.from(JSON.stringify({ token, expiresAt: 0 })), leaseEtag); }
       catch { /* a successor owns the lease, or expiry will release it */ }

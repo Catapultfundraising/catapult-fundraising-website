@@ -80,13 +80,13 @@ async function main(){
   const old=d.make({build:async()=>{oldStarted();await new Promise(r=>{oldRelease=r;});return {n:99,map:new Map()};}});
   const stale=old.refresh();await oldReached;d.advance(101);
   const replacement=d.make();await replacement.refresh();oldRelease();
-  await assert.rejects(stale,/superseded/);
+  await assert.rejects(stale,e=>e.readyStage==="publish-fence");
   assert.equal((await replacement.inspect()).built.n,1,"late expired worker never downgrades successor");
 
   // Concurrent SQL mutation inside build is not published as a mixed bundle.
   const e=fixture();
   const changing=e.make({build:async()=>{e.setFp("after-change");return {n:1,map:new Map()};}});
-  await assert.rejects(changing.refresh(),/SQL changed/);
+  await assert.rejects(changing.refresh(),e=>e.readyStage==="fingerprint-after");
   assert.equal(e.blobs.has("ready/fictional/test-v1/ready.json"),false);
 
   // Edit during generation write (after post-hash) wins at the final marker fence.
@@ -97,7 +97,7 @@ async function main(){
       await g.store.put("invalidated.json",Buffer.from(JSON.stringify({at:1001})),null);
     }
   });
-  await assert.rejects(g.make().refresh(),/superseded/);
+  await assert.rejects(g.make().refresh(),e=>e.readyStage==="publish-fence");
   assert.equal(g.blobs.has("ready/fictional/test-v1/ready.json"),false);
 
   // A pointer changed independently between read and CAS cannot be overwritten.
@@ -108,7 +108,7 @@ async function main(){
       h.blobs.set(path,{etag:"other-writer",body:Buffer.from('{"compatibility":"other"}')});
     }
   });
-  await assert.rejects(h.make().refresh(),/CAS conflict/);
+  await assert.rejects(h.make().refresh(),e=>e.readyStage==="publish-pointer");
   assert.equal(h.blobs.get("ready/fictional/test-v1/ready.json").etag,"other-writer");
   console.log("PASS durable ready: compatibility/idle reuse, full fingerprint fence, last-good/failure warning, throttle, atomic CAS, leases/expiry, edit fencing, exact generations, preview and disabled guards");
 }
