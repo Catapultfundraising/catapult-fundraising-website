@@ -91,9 +91,9 @@ export interface PvasRecords { asOf: string; index: IndexRow[]; records: Record<
 // Confirmed edits and the dashboard Reload link invalidate it for every server instance.
 type Built = Awaited<ReturnType<typeof buildPvas>> & { readyRead: PreparedRead };
 const sharedCache = createDashboardReadyCache<Built>({
-  compatibility: DASHBOARD_READY_COMPATIBILITY, prefix: "dashboard-ready/pvas",
+  compatibility: `${DASHBOARD_READY_COMPATIBILITY}-${pvasCanonicalEnabled("pvas") ? "canonical" : "legacy"}`, prefix: "dashboard-ready/pvas",
   markerPath: "pvas-cache/invalidated-v1.json", store: readyBlobStore,
-  enabled: cacheTtlMs() > 0, canPublish: process.env.VERCEL_ENV === "production",
+  enabled: cacheTtlMs() > 0 && pvasCanonicalEnabled("pvas"), canPublish: process.env.VERCEL_ENV === "production",
   fingerprint: () => clientFingerprint("pvas", true),
   build: async () => { const built = await buildPvas(); return { ...built, readyRead: await prepareDashboardRead("pvas", built as never) }; },
   validate: validateReadyBuild as (value: unknown) => asserts value is Built,
@@ -102,7 +102,7 @@ const sharedCache = createDashboardReadyCache<Built>({
 export const inspectPvasReady = (generation?: string) => sharedCache.inspect(generation);
 export const refreshPvasReady = (allowPreview = false) => sharedCache.refresh({ allowPreview });
 export async function invalidatePvasDataCache(): Promise<void> {
-  try { await sharedCache.invalidate(); } catch (e) { console.warn(`pvas cache invalidation marker failed: ${String(e)}`); }
+  await sharedCache.invalidate();
 }
 async function currentPvas(): Promise<Built> { return sharedCache.get(); }
 /** Identity of the current shared build (same freshness rules), for reusing per-build read views. */

@@ -4,7 +4,8 @@ const m={exports:{}};
 new Function("module","exports","require",ts.transpileModule(fs.readFileSync("lib/dashboard-ready-cache.server.ts","utf8"),{
   compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2017},
 }).outputText)(m,m.exports,require);
-const {createDashboardReadyCache}=m.exports;
+const {createDashboardReadyCache,readyFailureStage}=m.exports;
+assert.equal(readyFailureStage({readyStage:"raw-private-message"}),undefined);
 const tick=()=>new Promise(resolve=>setImmediate(resolve));
 function fixture() {
   let time=1000,seq=0,builds=0,fp="initial",hashes=0,failBuild=false,failHash=false,failPath="",hook;
@@ -32,6 +33,11 @@ function fixture() {
     drain:async()=>{while(background.length)await Promise.all(background.splice(0));}};
 }
 async function main(){
+  const retry=fixture();let markerPuts=0;
+  const retried=retry.make();await retried.inspect();
+  retry.setHook(path=>{if(path==="invalidated.json"&&++markerPuts<3)throw Error("fictional CAS conflict");});
+  await retried.invalidate();await retry.drain();assert.equal(markerPuts,3,"marker retries are bounded fresh CAS attempts");
+
   const f=fixture(),a=f.make();
   const first=await a.inspect();assert.equal(first.built.n,1);assert.equal(f.hashes,2,"pre/post full fingerprint");
   const identity=first.built,generation=first.freshness.generation;
@@ -55,6 +61,7 @@ async function main(){
   assert.equal(f.blobs.get("ready/fictional/test-v1/ready.json").body.toString(),oldPointer,"failed publication keeps last good pointer");
   await a.invalidate();await f.drain();
   await assert.rejects(a.inspect(generation),/invalidated/,"confirmed edits forbid every pre-edit pinned generation");
+  f.setWriteFailure("invalidated.json");await assert.rejects(a.invalidate(),/unconfirmed/);f.setWriteFailure("");
   assert.ok((await a.inspect()).built.n>2,"edit warms replacement");
 
   const incompatible=f.make({compatibility:"different-v2",canPublish:false});

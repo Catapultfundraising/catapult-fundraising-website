@@ -27,15 +27,32 @@ export async function clientFingerprint(client: FingerprintClient, includeReadVi
   const tables = await rows(`SELECT t.name FROM sys.tables t JOIN sys.schemas s ON s.schema_id=t.schema_id WHERE s.name='${client}'`);
   const names = tables.map(t => String(t.name)).filter(n => !/^(legacy_|reconciliation_|_)/i.test(n) || includeReadView && client === "pvas" && n === "legacy_engage_portal_batches").sort();
   if (!names.length) throw new Error("No fingerprint tables");
-  const checks = await rows(fingerprintQuery(client, names));
+  // portal-read caps SQL text at 20KB. Schema growth must not break hashing.
+  const checks: Record<string, unknown>[] = [];
+  let batch: string[] = [];
+  for (const name of names) {
+    if (batch.length && fingerprintQuery(client, [...batch, name]).length > 19_000) {
+      checks.push(...await rows(fingerprintQuery(client, batch))); batch = [];
+    }
+    batch.push(name);
+  }
+  if (batch.length) checks.push(...await rows(fingerprintQuery(client, batch)));
   if (checks.length !== names.length || checks.some(r => !names.includes(String(r.t)) ||
       !/^\d+$/.test(String(r.c)) || !/^[a-f0-9]{64}$/i.test(String(r.k))) ||
       new Set(checks.map(r => r.t)).size !== names.length) throw new Error("Incomplete fingerprint");
   if (includeReadView && client !== "pvas") {
-    const extra = await rows(fingerprintQuery("source_import", ["requests"]));
-    if (extra.length !== 1 || extra[0].t !== "requests" || !/^\d+$/.test(String(extra[0].c)) || !/^[a-f0-9]{64}$/i.test(String(extra[0].k)))
-      throw new Error("Incomplete shared ready fingerprint");
-    checks.push({ ...extra[0], t: "source_import.requests" });
+    const { directLaneEnabled } = await import("../portal-v2/direct-registration.server");
+    if (directLaneEnabled(client)) {
+      // Existing authorized whole-client reader hashes registrations, values and
+      // complete attributed notes (including request actor/file/digest/authority).
+      // portal_reader cannot SELECT source_import.requests; no grants required.
+      const { directSourceCall } = await import("../portal-v2/direct-source-transport.server");
+      const { validateDirectState } = await import("../portal-v2/direct-source-state.server");
+      const response = await directSourceCall(client, "directFileState");
+      if (response.status !== 200) throw Error("Ready direct fingerprint unavailable");
+      const direct = validateDirectState(response.body, client);
+      checks.push({ t: "direct-file-state", c: "1", k: direct.revision });
+    }
   }
   return JSON.stringify(["sha256-json-v1", checks.map(r => [r.t, String(r.c), r.k]).sort((a, b) => String(a[0]).localeCompare(String(b[0])))]);
 }

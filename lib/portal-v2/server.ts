@@ -1,3 +1,4 @@
+import { invalidateCommittedDashboard, withDashboardMutationRefresh } from "../dashboard-ready-invalidation.server";
 import { readBoundedStream } from "./direct-source-transport.server";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { pvasExistingOperationAllowed, PVAS_EXISTING_ONLY } from "./pvas-existing-only";
@@ -106,7 +107,7 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
       catch(e){if(!readContext?.buildingReady)await invalidatePvasDataCache();throw e;}
       result.databaseGiftEditsAvailable = pvasNativeWriteAccepted();
     }
-    if (result.ok === true && typeof result.requestId === "string") await invalidatePvasDataCache();
+    if (result.ok === true && typeof result.requestId === "string") await invalidateCommittedDashboard(client);
   }
   return { status: r.status, body: result };
 }
@@ -379,6 +380,7 @@ export async function secondarySolicitors(client: PortalClient): Promise<Record<
 export async function saveSecondarySolicitor(client: PortalClient, cptid: number, oldValue: string, newValue: string, by: string) {
   await engage(client, "applyBatch", { floor: 0, skip: [], fileName: `Secondary solicitor (CPTID ${cptid})`, by, newRows: [], gifts: [],
     updates: [{ cptid, field: "solicitor2", oldValue: oldValue || null, newValue: newValue || "" }], summary: { solicitor2: true, cptid, from: oldValue, to: newValue } });
+  await invalidateCommittedDashboard(client);
 }
 
 /** MM/DD/YYYY or YYYY-MM-DD -> YYYY-MM-DD, or null when it is not a real calendar date. */
@@ -541,7 +543,7 @@ export function portalV2Route(client: PortalClient) {
         }, { status: [400, 409].includes(result.status) ? result.status : 503 });
         try {
           const receipt = status ? await campaignStatus(result.body, original) : await campaignReceipt(result.body, original);
-          if (!status || receipt.status === "committed") await invalidatePvasDataCache();
+          if (!status || receipt.status === "committed") await invalidateCommittedDashboard(client);
           return NextResponse.json(receipt);
         } catch { return bad("Gift change could not be verified. Check its status before making another change.", 503); }
       }
@@ -801,7 +803,7 @@ export function portalV2Route(client: PortalClient) {
       return bad((e as Error).message || "error", 500);
     }
   }
-  return { GET, POST: async (req: NextRequest) => {
+  return { GET, POST: withDashboardMutationRefresh(async (req: NextRequest) => {
     if (!pvasCanonicalEnabled(client)) {
       const json = req.headers.get("content-type")?.includes("application/json");
       const body = json ? await req.clone().json().catch(() => null) : null;
@@ -811,7 +813,7 @@ export function portalV2Route(client: PortalClient) {
       const result = response.ok ? await response.clone().json().catch(() => null) : null;
       const changed = result && !result.error && result.unchanged !== true && !Array.isArray(result.duplicates) && !Array.isArray(result.matches);
       if (response.ok && (json ? mutations.has(body?.op) && changed : result?.applied === true))
-        await (await import("@/lib/client-live-data.server")).invalidateLive(client as LiveClient);
+        await invalidateCommittedDashboard(client);
       return response;
     }
     if (!(await AUTH[client](req))) return bad("unauthorized", 401);
@@ -820,5 +822,5 @@ export function portalV2Route(client: PortalClient) {
     if (!req.headers.get("content-type")?.includes("application/json")) return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
     const body = await req.clone().json().catch(() => null);
     return withPvasAction(body?.requestId, () => POST(req));
-  } };
+  }) };
 }

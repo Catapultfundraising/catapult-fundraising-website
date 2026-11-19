@@ -1,3 +1,4 @@
+import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
 import { readyFailureStage } from "@/lib/dashboard-ready-cache.server";
 import { cacheTtlMs } from "@/lib/pvas-shared-cache.server";
 import { NextRequest, NextResponse } from "next/server";
@@ -16,6 +17,7 @@ async function refresh(req: NextRequest, manual: boolean) {
   if (selected && !readyClient(selected)) return NextResponse.json({ error: "Unknown dashboard" }, { status: 400 });
   const clients = selected ? [selected as typeof READY_CLIENTS[number]] : READY_CLIENTS;
   const outcomes = await Promise.all(clients.map(async client => {
+    if (client === "pvas" && !pvasCanonicalEnabled(client)) return { client, status: "owner-mode-disabled" };
     try { await refreshDashboardReady(client, preview && manual); return { client, status: "ready" }; }
     catch (error) { return { client, status: "refresh-failed", stage: readyFailureStage(error) ?? "unavailable" }; }
   }));

@@ -194,15 +194,22 @@ export function createDashboardReadyCache<T>(o: Options<T>) {
     let at = Math.max(now(), await marker() + 1, memory?.pointer.startedAt ?? 0);
     localMarker = at; memory = null;
     if (!o.store || o.enabled === false) return;
-    const old = await o.store.read(o.markerPath);
-    if (old) {
-      const prior: unknown = JSON.parse(old.body.toString());
-      if (!obj(prior) || !time(prior.at)) throw Error("Ready invalidation unavailable");
-      at = Math.max(at, prior.at + 1); localMarker = at;
+    let published = false;
+    // A conflicting concurrent edit is expected: reread and advance its marker.
+    // Bounded attempts, no sleep; storage outages remain explicitly unconfirmed.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const old = await o.store.read(o.markerPath);
+      if (old) {
+        const prior: unknown = JSON.parse(old.body.toString());
+        if (!obj(prior) || !time(prior.at)) throw Error("Ready invalidation unavailable");
+        at = Math.max(at, prior.at + 1); localMarker = at;
+      }
+      try {
+        await o.store.put(o.markerPath, Buffer.from(JSON.stringify({ at })), old?.etag ?? null);
+        published = true; break;
+      } catch { /* fresh read on the next bounded CAS attempt */ }
     }
-    // A concurrent edit's ETag must win, never roll its marker backwards.
-    try { await o.store.put(o.markerPath, Buffer.from(JSON.stringify({ at })), old?.etag ?? null); }
-    catch { localMarker = Math.max(localMarker, await marker()); throw Error("Ready invalidation raced; retry"); }
+    if (!published) throw Error("Ready invalidation unconfirmed");
     const active = pending;
     o.background((async () => { await active?.catch(() => {}); await refresh(); })().catch(() => {}));
   }

@@ -1,3 +1,4 @@
+import { noteDashboardRefreshResponse } from "../dashboard-ready.client";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 
 const inFlight = new Map<string, Promise<{id:string;at:string;existing:boolean}>>();
@@ -29,7 +30,7 @@ async function identity(scope: string, body: string): Promise<{ key: string; id:
 /** No automatic retry. Reconcile uncertain outcomes with the same requestId.
  * Existing monthly/direct uploads already own their own durable identities. */
 export async function pvasActionFetch(client: string, url: string, init: RequestInit): Promise<Response> {
-  if (!pvasCanonicalEnabled(client)) return fetch(url, init);
+  if (!pvasCanonicalEnabled(client)) { const response = await fetch(url, init); noteDashboardRefreshResponse(client, response); return response; }
   if (typeof init.body !== "string") throw new Error("Canonical action requires an exact JSON payload");
   const raw: unknown = JSON.parse(init.body);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid canonical action");
@@ -63,6 +64,7 @@ export async function pvasActionFetch(client: string, url: string, init: Request
         return Response.json({error:"Save is unconfirmed. Check the original requestId before retrying.",requestId:action.id,unconfirmed:true},{status:503});
       sessionStorage.removeItem(action.key);
     }
+    noteDashboardRefreshResponse(client, response);
     return response;
   }finally{inFlight.delete(action.key);}
 }

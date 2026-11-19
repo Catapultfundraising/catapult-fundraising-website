@@ -24,7 +24,7 @@ async function main() {
     refreshDashboardReady:async()=>{warms++;},
     readyPayload:async()=>{reads++;return {generation:"fictional",freshness:{stale:false}};},
   };
-  const deps={"@/lib/dashboard-ready-cache.server":{readyFailureStage:()=>undefined},"@/lib/dashboard-ready.server":server,"@/lib/pvas-shared-cache.server":{cacheTtlMs:()=>ttl}};
+  const deps={"@/lib/portal-v2/pvas-canonical":{pvasCanonicalEnabled:()=>true},"@/lib/dashboard-ready-cache.server":{readyFailureStage:()=>undefined},"@/lib/dashboard-ready.server":server,"@/lib/pvas-shared-cache.server":{cacheTtlMs:()=>ttl}};
   for(const c of server.READY_CLIENTS)deps[`@/lib/${c}-data-auth`]=new Proxy({},{get:()=>async()=>auth});
   const globals={process:{env},Response,Request,Headers};
   const read=compile("app/api/dashboard-ready/route.ts",deps,globals);
@@ -85,6 +85,14 @@ async function main() {
   assert.equal(seenA.at(-1),current);assert.equal(seenB.at(-1),current);
   assert.equal(seenA.length,2,"superseded response was not published");
 
+
+  const flagged=Response.json({ok:true},{headers:{"X-Dashboard-Refresh":"unconfirmed","X-Dashboard-Refresh-After":"5000"}});
+  assert.equal(client.noteDashboardRefreshResponse("jag",flagged),true);
+  next={...bundle(),state:{configured:true,dashboardGeneration:`generation-${counter}`,dashboardFreshness:{verifiedAt:4000}}};
+  assert.equal((await client.loadDashboardReady("jag")).state.dashboardRefreshUnconfirmed,true,"retained pre-save view is not relabelled current");
+  client.invalidateDashboardReady("jag");
+  next={...bundle(),state:{configured:true,dashboardGeneration:`generation-${counter}`,dashboardFreshness:{verifiedAt:6000}}};
+  assert.equal((await client.loadDashboardReady("jag")).state.dashboardRefreshUnconfirmed,false,"later verified ready read clears local barrier");
   client.invalidateDashboardReady("jag");mode="failed";
   await assert.rejects(client.loadDashboardReady("jag"),/unavailable/);
   assert.equal(calls.filter(c=>c.url.includes("-data-v2")).length,0,"transient ready failure never becomes permissive uncached fallback");

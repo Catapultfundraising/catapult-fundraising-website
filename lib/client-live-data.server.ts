@@ -1,3 +1,5 @@
+import { directLaneEnabled } from "./portal-v2/direct-registration.server";
+import { invalidateCommittedDashboard } from "./dashboard-ready-invalidation.server";
 import { clientFingerprint } from "./portal-refresh/fingerprint";
 import "server-only";
 import { after } from "next/server";
@@ -36,7 +38,7 @@ function cacheFor(client: LiveClient) {
   let c = caches.get(client);
   if (!c) {
     c = createDashboardReadyCache<LiveBuild>({
-      compatibility: DASHBOARD_READY_COMPATIBILITY, prefix: `dashboard-ready/${client}`,
+      compatibility: `${DASHBOARD_READY_COMPATIBILITY}-${directLaneEnabled(client) ? "direct-on" : "direct-off"}`, prefix: `dashboard-ready/${client}`,
       markerPath: `${client}-cache/invalidated-v1.json`, store: readyBlobStore,
       enabled: cacheTtlMs() > 0, canPublish: process.env.VERCEL_ENV === "production",
       fingerprint: () => clientFingerprint(client, true), build: () => buildClient(client),
@@ -52,7 +54,7 @@ export const liveBuild = (client: LiveClient) => cacheFor(client).get();
 export const inspectLiveReady = (client: LiveClient, generation?: string) => cacheFor(client).inspect(generation);
 export const refreshLiveReady = (client: LiveClient, allowPreview = false) => cacheFor(client).refresh({ allowPreview });
 export async function invalidateLive(client: LiveClient): Promise<void> {
-  try { await cacheFor(client).invalidate(); } catch (e) { console.warn(`${client} cache invalidation marker failed: ${String(e)}`); }
+  await cacheFor(client).invalidate();
 }
 /** Same build identity/freshness gate as PVAS; local JSON QA bypasses the memo. */
 export async function liveBuildIdentity(client: LiveClient, generation?: string): Promise<object | null> {
@@ -89,7 +91,7 @@ export async function saveSqlTracking(client: LiveClient, t: { prospects: unknow
   const { status, body } = await engageTracking(client, "saveClientTracking", { tracking: { prospects: t.prospects, activity: t.activity, removed: t.removed ?? [] } });
   if (status === 409 && body.code === "tracking-not-in-sql") return false;
   if (status !== 200 || body.ok !== true) throw new Error(String(body.error || `tracking save failed (${status})`));
-  await invalidateLive(client);
+  await invalidateCommittedDashboard(client);
   return true;
 }
 

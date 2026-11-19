@@ -1,4 +1,5 @@
 "use client";
+import { noteDashboardRefreshResponse } from "@/lib/dashboard-ready.client";
 import { fetchDashboardRecord, dashboardGeneration } from "@/lib/dashboard-ready.client";
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
@@ -392,6 +393,7 @@ export function TrackingPanel({ cptid, assignment }: { cptid: number; assignment
       const res = await pvasActionFetch("pvas", "/api/pvas-data-tracking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, cptid, by, ...(pvasCanonicalEnabled("pvas") ? { revision: tracking.revision } : {}) }) });
       const j = await res.json().catch(() => ({ error: `Could not save (error ${res.status})` }));
       if (!res.ok) { setMsg(j.error ?? "Could not save"); return false; }
+      if (noteDashboardRefreshResponse("pvas", res)) { setMsg("Saved to SQL. Dashboard refresh unconfirmed; do not resubmit."); return true; }
       setTracking(j); setMsg("Saved"); return true;
     } catch { setMsg("Could not save. Check your connection and try again."); return false; } finally { setBusy(null); }
   };

@@ -3,6 +3,18 @@ import { completePvasUploadHistory } from "./portal-v2/pvas-upload-history";
 import type { PortalClient } from "./portal-v2/clients";
 type Bundle = { mode?: "uncached"; generation?: string; index: unknown[]; tracking: unknown; state: Record<string, unknown>;
   directSourceRevision?: string };
+const refreshBarriers = new Map<string, number>();
+/** Receipt remains committed; this flag is ONLY cache delivery uncertainty.
+ * Never turn it into a write retry. Clear only on a later verified ready read. */
+export function noteDashboardRefreshResponse(client: string, response: Response): boolean {
+  if (response.headers.get("X-Dashboard-Refresh") !== "unconfirmed") return false;
+  const raw = response.headers.get("X-Dashboard-Refresh-After");
+  const at = raw && /^[1-9][0-9]{0,15}$/.test(raw) ? Number(raw) : Date.now();
+  refreshBarriers.set(client, Math.max(refreshBarriers.get(client) ?? 0, at));
+  invalidateDashboardReady(client);
+  if (typeof window !== "undefined") window.dispatchEvent(new Event("dashboard-refresh-unconfirmed"));
+  return true;
+}
 const pending = new Map<string, Promise<Bundle>>();
 const listeners = new Map<string, Set<(bundle: Bundle) => void>>();
 const epochs = new Map<string, number>();
@@ -53,6 +65,13 @@ export function loadDashboardReady(client: string): Promise<Bundle> {
     if (!bundle || bundle.mode !== "uncached" && typeof bundle.generation !== "string" || !Array.isArray(bundle.index) ||
         !bundle.tracking || !bundle.state || bundle.state.configured !== true ||
         bundle.mode !== "uncached" && bundle.state.dashboardGeneration !== bundle.generation) throw Error("Incomplete ready view");
+    const barrier = refreshBarriers.get(client);
+    if (barrier) {
+      const freshness = bundle.state.dashboardFreshness as { verifiedAt?: number } | undefined;
+      if (bundle.mode !== "uncached" && typeof freshness?.verifiedAt === "number" && freshness.verifiedAt > barrier)
+        { refreshBarriers.delete(client); bundle = { ...bundle, state: { ...bundle.state, dashboardRefreshUnconfirmed: false } }; }
+      else bundle = { ...bundle, state: { ...bundle.state, dashboardRefreshUnconfirmed: true } };
+    }
     if (bundle.mode !== "uncached") Object.defineProperty(bundle.index, "dashboardGeneration", { value: bundle.generation });
     if (bundle.directSourceRevision)
       Object.defineProperty(bundle.index, "directSourceRevision", { value: bundle.directSourceRevision });

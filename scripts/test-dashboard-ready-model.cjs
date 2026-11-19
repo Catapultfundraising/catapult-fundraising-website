@@ -76,6 +76,25 @@ async function main(){
   assert.equal(trackingReads,4,"one SQL tracking read per preparation");
   assert.equal(stateReads,4);assert.equal(directReads,4);
 
+
+  let directOn=true,queries=[];
+  const fingerprint=compile("lib/portal-refresh/fingerprint.ts",{
+    "./common":{rows:async sql=>{queries.push(sql);return sql.startsWith("SELECT t.name")
+      ? [...Array.from({length:65},(_,i)=>({name:`fictional_long_source_table_${i}`})),{name:"legacy_engage_portal_batches"},{name:"legacy_retired"}]
+      : Array.from(sql.matchAll(/SELECT '([^']+)' t/g),m=>({t:m[1],c:"1",k:"b".repeat(64)}));}},
+    "../portal-v2/direct-registration.server":{directLaneEnabled:()=>directOn},
+    "../portal-v2/direct-source-transport.server":{directSourceCall:source},
+    "../portal-v2/direct-source-state.server":direct,
+  });
+  const fp=await fingerprint.clientFingerprint("wcbhc",true);
+  assert.ok(fp.includes("direct-file-state"));assert.ok(fp.includes("a".repeat(64)));
+  assert.ok(queries.length>2,"large schema hashes are split under gateway SQL limit");
+  assert.ok(queries.every(sql=>sql.length<=19000));assert.ok(queries.every(sql=>!sql.includes("source_import.requests")));
+  queries=[];directOn=false;
+  assert.ok(!(await fingerprint.clientFingerprint("baq",true)).includes("direct-file-state"),"dependency mode matches actual direct owner");
+  queries=[];await fingerprint.clientFingerprint("pvas",true);
+  assert.ok(queries.some(sql=>sql.includes("pvas.[legacy_engage_portal_batches]")),"PVAS historical upload archive is fingerprinted");
+  assert.ok(queries.every(sql=>!sql.includes("[legacy_retired]")));
   let opts;
   const adapter=compile("lib/dashboard-ready-blob.server.ts",{"@vercel/blob":{
     put:async(_p,_b,o)=>{opts=o;return {etag:"fictional-next"};},
