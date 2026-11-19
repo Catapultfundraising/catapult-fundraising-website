@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="630" viewBox="0 0 1200 630">
+<rect width="1200" height="630" fill="#faf7f0"/>
+<g fill="#15212e" font-family="Arial, Helvetica, sans-serif" font-weight="800">
+<text x="70" y="140" font-size="80" letter-spacing="-3">MISSION BEFORE</text>
+<text x="70" y="230" font-size="80" letter-spacing="-3">RECOGNITION</text>
+<path d="M70 280H1130" stroke="#b28c46" stroke-width="3"/>
+<text x="70" y="360" font-size="37" font-weight="600">What donors need to hear</text>
+<text x="70" y="410" font-size="37" font-weight="600">before you talk about naming</text>
+<text x="70" y="540" font-size="28">BY JEFF GRANDY, CATAPULT FUNDRAISING</text>
+</g><g transform="translate(930 340)" fill="none" stroke="#b28c46" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"><path d="M60 111 13 66C-19 31 28-8 60 28c32-36 79 3 47 38z"/></g></svg>
