@@ -1,4 +1,5 @@
 "use client";
+import { fetchDashboardRecord, dashboardGeneration } from "@/lib/dashboard-ready.client";
 import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayload} from "@/lib/portal-v2/jag-export-model";
 import type {ExportIntent} from "@/lib/portal-v2/dashboard-export-types";
 
@@ -253,6 +254,7 @@ export function recordPayload(r:DonorRecord,t?:JagTracking):ExportPayload { retu
 
 function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
   const { tracking, index } = useCrm();
+  const readyGeneration = dashboardGeneration(index);
   const [r, setR] = useState<DonorRecord | null>(null);
   const [err, setErr] = useState(false);
   const [ver, setVer] = useState(0);
@@ -262,11 +264,11 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
     if (lastId.current !== cptid) { setR(null); lastId.current = cptid; }
     setErr(false);
     let active = true;
-    fetch(`/api/jag-data-records?id=${cptid}`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : Promise.reject())).then((record) => { if (active) setR(record); }).catch(() => { if (active) setErr(true); });
+    fetchDashboardRecord("jag", cptid).then((x) => (x.ok ? x.json() : Promise.reject())).then((record) => { if (active) setR(record); }).catch(() => { if (active) setErr(true); });
     return () => { active = false; };
-  }, [cptid, ver]);
+  }, [cptid, ver, readyGeneration]);
   if (err) return <Modal title="Record not found" onClose={onClose}><p>No record for CPTID {cptid}.</p></Modal>;
-  if (!r) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
+  if (!r || readyGeneration && (r as DonorRecord & {dashboardGeneration?: string}).dashboardGeneration !== readyGeneration) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
   const c = r.contact ?? {};
   const s = r.summary;
   const byYear = new Map<string, number>();

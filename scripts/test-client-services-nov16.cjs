@@ -39,7 +39,8 @@ const payload = { id: "00000000-0000-4000-8000-000000000001", writeToken: "a".re
   // Hash of JSON.stringify on origin/main (exporter's canonical JSON uses a different encoding).
   assert.equal(crypto.createHash("sha256").update(JSON.stringify(schema.SURVEY_QUESTIONS)).digest("hex"), "5f3e5a061c0d933b5edf4022b8bb1b431cc981640bb95f6e634cab444f341151");
   const config = JSON.parse(fs.readFileSync("vercel.json"));
-  assert.deepEqual(config.crons, [{ path: "/api/portal-sync?project=csnf", schedule: "0 15 * * *" }], "VanillaSoft preserved; all five Access schedules removed");
+  assert.deepEqual(config.crons.filter(cron=>cron.path!=="/api/dashboard-ready-refresh"), [{ path: "/api/portal-sync?project=csnf", schedule: "0 15 * * *" }], "VanillaSoft preserved; all five Access schedules removed");
+  assert.equal(config.crons.filter(cron=>cron.path==="/api/dashboard-ready-refresh"&&cron.schedule==="*/2 * * * *").length,1,"native SQL-ready cron, not an Access reload");
   const req = (client, auth = true, method = "GET") => new NextRequest(`https://fixture.invalid/api/portal-data-refresh?client=${client}`, { method, headers: auth ? { authorization: "Bearer fixture-cron" } : {} });
   process.env.CRON_SECRET = "fixture-cron";
   assert.equal((await refresh.GET(req("all", false))).status, 401);

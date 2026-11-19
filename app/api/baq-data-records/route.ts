@@ -8,4 +8,4 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // GET ?id=<CPTID> -> one donor record; no id -> lookup index (incl. dashboard-added prospects).
-export const { GET } = recordsRoute("baq", isBaqDataAuthed, getBaqRecords as never, getBaqTracking, undefined, () => liveBuildIdentity("baq"));
+export const { GET } = recordsRoute("baq", isBaqDataAuthed, getBaqRecords as never, getBaqTracking, undefined, (generation) => liveBuildIdentity("baq", generation));

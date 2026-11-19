@@ -1,4 +1,5 @@
 "use client";
+import { fetchDashboardRecord, dashboardGeneration } from "@/lib/dashboard-ready.client";
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
 import { PvasNativeHistory } from "@/components/pvas-native-history";
@@ -258,6 +259,7 @@ export function recordPayload(r:DonorRecord,t?:PvasTracking):ExportPayload { ret
 
 function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
   const { tracking, index, loading } = useCrm();
+  const readyGeneration = dashboardGeneration(index);
   const [r, setR] = useState<DonorRecord | null>(null);
   const [err, setErr] = useState(false);
   const [ver, setVer] = useState(0);
@@ -267,13 +269,13 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
     if (lastId.current !== cptid) { setR(null); lastId.current = cptid; }
     setErr(false);
     let active = true;
-    fetch(`/api/pvas-data-records?id=${cptid}`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : Promise.reject())).then((record) => { if (active) setR(record); }).catch(() => { if (active) setErr(true); });
+    fetchDashboardRecord("pvas", cptid).then((x) => (x.ok ? x.json() : Promise.reject())).then((record) => { if (active) setR(record); }).catch(() => { if (active) setErr(true); });
     return () => { active = false; };
-  }, [cptid, ver]);
+  }, [cptid, ver, readyGeneration]);
   if (err) return <Modal title="Record not found" onClose={onClose}><p>No record for CPTID {cptid}.</p></Modal>;
   // URL-selected modals are siblings of the dashboard body, outside its ready
   // gate. A memoized detail can arrive before the paired index/tracking read.
-  if (!r || loading) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
+  if (!r || loading || readyGeneration && (r as DonorRecord & {dashboardGeneration?: string}).dashboardGeneration !== readyGeneration) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
   if (!index) return <Modal title="Current records unavailable" onClose={onClose}><p role="alert" className="text-sm">Donor records and assignments are unavailable. Reload to try again.</p></Modal>;
   const c = r.contact ?? {};
   const s = r.summary;

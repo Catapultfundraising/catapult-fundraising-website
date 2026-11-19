@@ -139,7 +139,12 @@ export async function directData<T>(client: PortalClient, raw: T, kind: "records
 }
 export async function directTrackingView<T>(client: PortalClient, legacy: T, deps?: DirectReadDeps): Promise<T> {
   const observed = await observeDirect(client, deps);
-  if (!observed) return legacy;
+  return observed ? composeDirectTracking(legacy, observed) : legacy;
+}
+export async function observeDirectForReady(client: PortalClient, state: unknown) {
+  return observeDirect(client, { ...defaults, sql: async () => state });
+}
+export function composeDirectTracking<T>(_legacy: T, observed: DirectObservation): T {
   const document = structuredClone(observed.tracking.document);
   // Do NOT inject resolved source fields into mutable prospects, even in a GET response:
   // old clients can spread/resubmit those objects. Index fallback owns assignments.

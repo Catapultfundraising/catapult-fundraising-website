@@ -75,7 +75,7 @@ function normalizeManualUpdateRowIds(state: Record<string, unknown>): Record<str
 }
 
 /** Raw gateway call keeps HTTP status; invalid successful state row IDs also fail closed. */
-export type PortalReadContext = { readonly pvasRecords: Record<string, unknown> };
+export type PortalReadContext = { readonly pvasRecords: Record<string, unknown>; readonly buildRecords?: Record<string, unknown>; readonly buildingReady?: boolean };
 export async function engageCall(client: PortalClient, op: string, body: Record<string, unknown> = {}, readContext?: PortalReadContext): Promise<{ status: number; body: Record<string, unknown> }> {
   if (pvasCanonicalEnabled(client) && !pvasExistingOperationAllowed(op, body))
     return { status: 403, body: { ...PVAS_EXISTING_ONLY } };
@@ -90,7 +90,7 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
       !Array.isArray(result) && !result.error && result.configured !== false) {
     result = normalizeManualUpdateRowIds(result);
     // CSNF/JAG/WCBHC/BAQ: a SQL value changed after a dashboard edit wins over that edit.
-    if ((LIVE_CLIENTS as readonly string[]).includes(client)) result = await withoutSupersededEdits(client as LiveClient, result);
+    if ((LIVE_CLIENTS as readonly string[]).includes(client)) result = await withoutSupersededEdits(client as LiveClient, result, readContext?.buildRecords);
   }
   if (pvasCanonicalEnabled(client) && r.ok && !result.error && result.configured !== false) {
     if (op === "nativeStateV3") {
@@ -103,7 +103,7 @@ export async function engageCall(client: PortalClient, op: string, body: Record<
       const records=readContext?.pvasRecords ?? (await getPvasRecords())?.records;
       if(!records)throw new Error("Canonical contact/financial state unavailable");
       try{result=canonicalPvasState(normalizeManualUpdateRowIds(result),records,campaign.records);}
-      catch(e){await invalidatePvasDataCache();throw e;}
+      catch(e){if(!readContext?.buildingReady)await invalidatePvasDataCache();throw e;}
       result.databaseGiftEditsAvailable = pvasNativeWriteAccepted();
     }
     if (result.ok === true && typeof result.requestId === "string") await invalidatePvasDataCache();
@@ -119,14 +119,14 @@ export async function engage<T>(client: PortalClient, op: string, body: Record<s
 
 /** View-only: drops dashboard edits whose SQL value changed after them (newest change wins; see sql-newer.ts).
  * If the live SQL build is unavailable, nothing is dropped. */
-async function withoutSupersededEdits(client: LiveClient, state: Record<string, unknown>): Promise<Record<string, unknown>> {
+async function withoutSupersededEdits(client: LiveClient, state: Record<string, unknown>, buildRecords?: Record<string, unknown>): Promise<Record<string, unknown>> {
   if (liveLocalDir(client) || !Array.isArray(state.updates)) return state;
   // Deployed builds only (offline harnesses have no SQL); set PORTAL_SQL_NEWER=1 to exercise it locally.
   if (process.env.NODE_ENV !== "production" && !process.env.PORTAL_SQL_NEWER) return state;
   let records: Record<string, unknown>;
   // Never let a cold or failing SQL build slow the edit ledger: wait at most 5 seconds, else drop nothing.
   const timeout = new Promise<null>((res) => { const t = setTimeout(() => res(null), 5000); (t as { unref?: () => void }).unref?.(); });
-  try { const b = await Promise.race([liveBuild(client), timeout]); if (!b) return state; records = b.records.records; } catch { return state; }
+  try { const b = buildRecords ? { records: { records: buildRecords } } : await Promise.race([liveBuild(client), timeout]); if (!b) return state; records = b.records.records; } catch { return state; }
   const drop = supersededEdits(state.updates as UpdateRow[], recordBase(client, records));
   if (!drop.size) return state;
   // Asks / secondary solicitors from an uploaded file display that value as "current": never treat it as SQL changing.
@@ -329,9 +329,9 @@ async function withDbGifts(client: PortalClient, state: PortalState, strict = fa
 }
 
 /** Current campaign rows plus refresh-safe overrides, for gift-only donor lookup records. */
-export async function portalCampaignStateSafe(client: PortalClient, readContext?: PortalReadContext): Promise<PortalState | null> {
+export async function portalCampaignStateSafe(client: PortalClient, readContext?: PortalReadContext, strict = false): Promise<PortalState | null> {
   const state = await portalStateSafe(client, readContext);
-  return state ? withDbGifts(client, state) : null;
+  return state ? withDbGifts(client, state, strict) : null;
 }
 
 /** Name match against everything on file (records index, ids.json, portal prospects): exact name key first, then
@@ -800,7 +800,17 @@ export function portalV2Route(client: PortalClient) {
     }
   }
   return { GET, POST: async (req: NextRequest) => {
-    if (!pvasCanonicalEnabled(client)) return POST(req);
+    if (!pvasCanonicalEnabled(client)) {
+      const json = req.headers.get("content-type")?.includes("application/json");
+      const body = json ? await req.clone().json().catch(() => null) : null;
+      const response = await POST(req);
+      const mutations = new Set(["setAsk","setContact","setWealth","setOutcome","addGift","editGift","voidGift",
+        "addProspect","editProspect","requestScreening","mergeRecords","unmerge","restoreRecord","deleteRecord","notDuplicate","undo"]);
+      const result = !json && response.ok ? await response.clone().json().catch(() => null) : null;
+      if (response.ok && (json ? mutations.has(body?.op) : result?.applied === true))
+        await (await import("@/lib/client-live-data.server")).invalidateLive(client as LiveClient);
+      return response;
+    }
     if (!(await AUTH[client](req))) return bad("unauthorized", 401);
     // Old spreadsheet mutation path has no canonical source-key/expected-value
     // receipt contract. Hold rather than silently use its tuple-based adapter.

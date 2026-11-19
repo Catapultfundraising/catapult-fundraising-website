@@ -308,6 +308,10 @@ export function directFileGateway(client: PortalClient, deps: GatewayDeps = defa
           result = preview;
         }
       } else throw new GatewayError("invalid-operation");
+      if (object(result) && result.status === "committed") {
+        if (client === "pvas") await (await import("@/lib/pvas-data-store")).invalidatePvasDataCache();
+        else await (await import("@/lib/client-live-data.server")).invalidateLive(client);
+      }
       return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
     } catch (e) {
       if (commitAttempt) return NextResponse.json({ error: "UNCONFIRMED: check the original request status; do not resend", code: "unconfirmed", requestId: commitAttempt, statusOp: "directFileStatus" }, { status: 503, headers: { "Cache-Control": "no-store" } });

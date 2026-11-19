@@ -12,7 +12,10 @@ function local(file) {
     if (id === "server-only") return {};
     if (id === "@vercel/blob") return { get: () => assert.fail("no Blob"), put: () => assert.fail("no Blob") };
     if (id.endsWith("/pvas-shared-cache.server") || id === "./pvas-shared-cache.server")
-      return { createPvasSharedCache: () => cache };
+      return { createPvasSharedCache: () => cache, cacheTtlMs: () => 120000 };
+    if (id === "./dashboard-ready-cache.server") return {createDashboardReadyCache: () => cache};
+    if (id === "./dashboard-ready-blob.server") return {readyBlobStore: null};
+    if (id === "./dashboard-ready-model.server") return {};
     if (id === "./portal-refresh/pvas") return { buildPvas: () => assert.fail("no build IO") };
     if (id === "./portal-refresh/fingerprint") return { clientFingerprint: () => assert.fail("no SQL") };
     if (id.endsWith("/pvas-data-store.legacy")) return legacy;
@@ -115,6 +118,20 @@ async function main() {
   assert.notEqual(await store.readPvasRecordsView(), view);
   assert.ok((await get("?id=1001")).body.notes.includes("Fictional refreshed note"));
   assert.equal(stateReads, 2, "new build reprojects native state");
+  const readyState = local("lib/portal-v2/pvas-state-wire.ts").canonicalPvasState(rawState, build.records.records, []);
+  const readyKey = { readyRead: { records: build.records, state: readyState, tracking } };
+  const readyRoute = local("lib/portal-v2/records-route.ts").recordsRoute("pvas", async () => true,
+    async () => assert.fail("prepared route must not reload records"),
+    async () => assert.fail("prepared route must not refetch tracking"),
+    async () => assert.fail("prepared route must not refetch native state"),
+    async generation => generation === "fictional-generation" ? readyKey : null);
+  const preparedResponse = await readyRoute.GET(new NextRequest("https://localhost/api/pvas-data-records?id=1003&generation=fictional-generation"));
+  assert.equal(preparedResponse.status, 200);
+  const preparedDetail = await preparedResponse.json();
+  assert.equal(preparedDetail.cptid,1001); assert.equal(preparedDetail.campaignAsk.ask,700);
+  assert.equal(preparedDetail.dashboardGeneration,"fictional-generation");
+  assert.equal((await readyRoute.GET(new NextRequest("https://localhost/api/pvas-data-records?id=1003&generation=wrong-generation"))).status,503,
+    "an unavailable displayed generation never falls through to the latest build");
   canonical = false;
   assert.deepEqual(await store.readPvasRecordsView(), { legacy: true }, "legacy still delegates to legacy getter");
   canonical = true; build = null;

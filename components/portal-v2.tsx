@@ -1,8 +1,9 @@
 "use client";
+import { loadDashboardReady, subscribeDashboardReady, invalidateDashboardReady } from "@/lib/dashboard-ready.client";
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { pendingCampaignChange, newCampaignRequestId, submitCampaignChange, checkCampaignChange } from "@/lib/portal-v2/pvas-native-mutation.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
-import { uploadUndoPolicy, uploadHistoryRowKey, completePvasUploadHistory } from "@/lib/portal-v2/pvas-upload-history";
+import { uploadUndoPolicy, uploadHistoryRowKey } from "@/lib/portal-v2/pvas-upload-history";
 import { moneyInput } from "@/lib/portal-v2/pvas-financials";
 import {usdExact}from"@/lib/portal-v2/pvas-financials";
 import {pvasGiftMetadata}from"@/lib/portal-v2/pvas-gift-wire";
@@ -25,7 +26,7 @@ import { DateInput, NameLink, isoToUs, parseUsDateClient, useSort, SortTh } from
 // Portal v2 shared UI: campaign progress bar, Campaign Donors (gift-chart levels),
 // Add Prospect, manual gift/pledge entry, bulk client-file upload with preview, audit log + undo.
 
-type V2State = PortalState & { goal: number; configured: boolean; error?: string; directView?: DirectClientView; directSourceRevision?: string };
+type V2State = PortalState & { goal: number; configured: boolean; error?: string; directView?: DirectClientView; directSourceRevision?: string; dashboardGeneration?: string; readySnapshot?: object; dashboardFreshness?: { verifiedAt: number; stale: boolean; failedAt?: number } };
 interface Ctx { client: PortalClient; state: V2State | null; loading: boolean; reload: () => Promise<void> }
 const V2 = createContext<Ctx | null>(null);
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
@@ -42,40 +43,42 @@ export function PortalV2Provider({ client, children }: { client: PortalClient; c
   const [loading, setLoading] = useState(true);
   const reload = useCallback(async () => {
     try {
-      const r = await fetch(PORTAL_V2[client].api, { cache: "no-store" });
-      if (!r.ok) throw new Error("Current state unavailable");
-      let next: V2State = await r.json();
-      if (pvasCanonicalEnabled(client)) next = await completePvasUploadHistory(next, async before => {
-        const page = await fetch(PORTAL_V2[client].api, { method: "POST", cache: "no-store",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ op: "pvasHistoricalUploads", before, limit: 200 }) });
-        if (!page.ok) throw new Error("PVAS upload history unavailable");
-        return page.json();
-      });
-      setState(next);
+      await loadDashboardReady(client);
     } catch { setState(previous => previous ? { ...previous, configured: false, error: "Current state unavailable; retained last good data, not current success" } : null); }
     finally { setLoading(false); }
   }, [client]);
   useEffect(() => {
-    const refresh = () => { void reload(); };
-    refresh(); window.addEventListener("campaign-ask-refresh", refresh);
-    return () => window.removeEventListener("campaign-ask-refresh", refresh);
-  }, [reload]);
-  return <V2.Provider value={{ client, state, loading, reload }}>{children}</V2.Provider>;
+    const unsubscribe = subscribeDashboardReady(client, bundle => { setState(bundle.state as unknown as V2State); setLoading(false); });
+    const refresh = () => { invalidateDashboardReady(client); void reload(); };
+    const timer = window.setInterval(() => { void reload(); }, 120_000);
+    void reload(); window.addEventListener("campaign-ask-refresh", refresh);
+    return () => { window.clearInterval(timer); unsubscribe(); window.removeEventListener("campaign-ask-refresh", refresh); };
+  }, [client, reload]);
+  const freshness = state?.dashboardFreshness;
+  return <V2.Provider value={{ client, state, loading, reload }}>
+    {freshness && <div role="status" className={`px-6 py-2 text-sm ${freshness.stale || freshness.failedAt ? "bg-amber-50 text-amber-950" : "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"}`}>
+      SQL last verified {new Date(freshness.verifiedAt).toLocaleString("en-US")}.
+      {(freshness.stale || freshness.failedAt) && " Showing the last validated view while background refresh is pending or unavailable. Reload current SQL view to force a fresh read."}
+    </div>}
+    {children}
+  </V2.Provider>;
 }
 export function useCampaignDataStatus() { const { state, loading } = useV2(); return { loading, available: !!state && state.configured !== false && !state.error }; }
 export function useCampaignAskSnapshot<T extends object>(snapshot: T, index?: ({ cptid: number } & Partial<Assignment>)[] | null, tracking?: AssignmentTracking): T & { directReadUnavailable?: boolean } {
   const { client, state } = useV2();
   return useMemo(() => {
     const updates = (state?.updates ?? []) as UpdateRow[];
+    const readySnapshot = (state?.readySnapshot ?? snapshot) as T;
+    if (state?.dashboardGeneration && (index as unknown as {dashboardGeneration?: string})?.dashboardGeneration !== state.dashboardGeneration)
+      return { ...readySnapshot, directReadUnavailable: true };
     if (state?.directSourceRevision && (index as unknown as { directSourceRevision?: string })?.directSourceRevision !== state.directSourceRevision)
       return { ...snapshot, directReadUnavailable: true };
     if (pvasCanonicalEnabled(client)) {
       if (!index || !tracking) return { ...snapshot, directReadUnavailable: true };
-      try { return currentDashboardSnapshot(client,snapshot,index,tracking,updates,state?.directView); }
+      try { return currentDashboardSnapshot(client,readySnapshot,index,tracking,updates,state?.directView); }
       catch { return { ...snapshot, directReadUnavailable: true }; }
     }
-    return currentDashboardSnapshot(client,snapshot,index??null,tracking,updates,state?.directView);
+    return currentDashboardSnapshot(client,readySnapshot,index??null,tracking,updates,state?.directView);
   }, [snapshot, state, client, index, tracking]);
 }
 function useV2() { const c = useContext(V2); if (!c) throw new Error("PortalV2Provider missing"); return c; }

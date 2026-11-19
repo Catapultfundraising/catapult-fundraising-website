@@ -8,4 +8,4 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // GET ?id=<CPTID> -> one donor record; no id -> lookup index (incl. dashboard-added prospects).
-export const { GET } = recordsRoute("csnf", isCsnfDataAuthed, getCsnfRecords as never, getCsnfTracking, undefined, () => liveBuildIdentity("csnf"));
+export const { GET } = recordsRoute("csnf", isCsnfDataAuthed, getCsnfRecords as never, getCsnfTracking, undefined, (generation) => liveBuildIdentity("csnf", generation));
