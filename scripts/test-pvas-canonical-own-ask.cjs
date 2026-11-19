@@ -19,7 +19,7 @@ Module._load=function(name,parent,main){
   if(name==="react"&&parent.filename.endsWith("/components/ask-amount-panel.tsx"))return {...React,
     useEffect:()=>{},useState:initial=>[editorHook++===0?editorState:initial,()=>{}]};
   if(name==="@/lib/portal-v2/pvas-action.client")return {pvasActionFetch:()=>{throw Error("No mutation");}};
-  if(name==="./direct-source-state.server")return {};
+  if(name==="./direct-source-state.server")return {requireCurrentSql:()=>{},currentTracking:async(_client,get)=>get()};
   if(name==="./effective-ask"&&effective)return {...effective,
     effectiveAsk:(...args)=>{askCalls++;return effective.effectiveAsk(...args);},
     overlayCampaignAsks:(...args)=>{overlayCalls++;return effective.overlayCampaignAsks(...args);}};
@@ -72,6 +72,7 @@ async function reportBranch(snapshot){
     if(name.endsWith("/current-dashboard-snapshot"))return load("lib/portal-v2/current-dashboard-snapshot.ts");
     if(name.endsWith("/records-route"))return load("lib/portal-v2/records-route.ts");
     if(name==="next/server")return {NextResponse:Response};
+    if(name.endsWith("/gift-report-layout"))return {reportDataAsOf:()=>"Fictional build date"};
     if(name.endsWith("/pvas-data-auth"))return {isPvasDataAuthed:async()=>true};
     if(name.endsWith("/pvas-data-store"))return {getPvasSnapshot:async()=>snapshot,getPvasRecords:async()=>built.records};
     if(name.endsWith("/pvas-tracking"))return {getPvasTracking:async()=>tracking};
@@ -94,9 +95,9 @@ async function reportBranch(snapshot){
   assert.equal(response.status,503);assert.ok(reportPool,"actual report reached captured GC2P pool");
   return reportPool;
 }
-function hookReader(){
+function hookReader(extraState={}){
   return compile(fs.readFileSync(path.join(root,"components/portal-v2.tsx"),"utf8"),name=>{
-    if(name==="react")return {...React,useContext:()=>({client:"pvas",state:{...state,configured:true}}),useMemo:fn=>fn()};
+    if(name==="react")return {...React,useContext:()=>({client:"pvas",state:{...state,configured:true,...extraState}}),useMemo:fn=>fn()};
     if(name.endsWith("/pvas-canonical"))return canonical;
     if(name.endsWith("/current-dashboard-snapshot"))return load("lib/portal-v2/current-dashboard-snapshot.ts");
     return {};
@@ -104,7 +105,7 @@ function hookReader(){
 }
 async function main(){
   const {buildCanonicalPvas}=load("lib/portal-refresh/pvas.ts");
-  const {currentRecordProjection}=load("lib/portal-v2/records-route.ts");
+  const {currentRecordProjection,recordsRoute}=load("lib/portal-v2/records-route.ts");
   const {currentDashboardSnapshot}=load("lib/portal-v2/current-dashboard-snapshot.ts");
   const {AskAmountPanel}=load("components/ask-amount-panel.tsx"),gateway=getAskGateway();
   const hook=hookReader();
@@ -157,6 +158,38 @@ async function main(){
     assert.throws(()=>currentDashboardSnapshot("pvas",built.snapshot,invalidIndex,tracking,updates));
     assert.equal(hook(built.snapshot,invalidIndex,tracking).directReadUnavailable,true);
     assert.equal(hook(built.snapshot,current.index,tracking).directReadUnavailable,undefined);
+    // Exercise the actual HTTP serialization boundary, not the rich server index.
+    const api=recordsRoute("pvas",async()=>true,async()=>built.records,async()=>tracking,async()=>state);
+    const http=await api.GET({nextUrl:new URL("https://fixture.invalid/api/pvas-data-records")});
+    assert.equal(http.status,200);
+    const wire=await http.json();
+    assert.ok(wire.index.every(row=>!Object.hasOwn(row,"_canonicalContact")),"full editor profiles stay off HTTP index");
+    const browser=hook(built.snapshot,wire.index,tracking);
+    assert.equal(browser.directReadUnavailable,undefined,"serialized HTTP index must satisfy actual dashboard hook");
+    assert.deepEqual(JSON.parse(JSON.stringify(browser)),JSON.parse(JSON.stringify(visible)),"slim browser composition matches rich server asks/assignments/merges");
+    assert.deepEqual(wire.index.find(row=>row.cptid===3)._canonicalAsk,{cptid:3,ask:raw},"raw NULL/zero/value survives JSON exactly");
+    assert.equal(hookReader({directSourceRevision:"new"})(built.snapshot,wire.index,tracking).directReadUnavailable,true,"revision mismatch remains gated");
+    const paired=Object.assign([...wire.index],{directSourceRevision:"same"});
+    assert.equal(hookReader({directSourceRevision:"same"})(built.snapshot,paired,tracking).directReadUnavailable,undefined);
+    for(const malformed of [undefined,null,{}, {cptid:2,ask:raw}, {cptid:3},
+      {cptid:3,ask:undefined},{cptid:3,ask:"123"},{cptid:3,ask:false},
+      {cptid:3,ask:NaN},{cptid:3,ask:Infinity},{cptid:3,ask:raw,extra:true}]){
+      const badWire=wire.index.map(row=>row.cptid===3?{...row,_canonicalAsk:malformed}:row);
+      assert.equal(hook(built.snapshot,badWire,tracking).directReadUnavailable,true,"malformed compact owner fails closed");
+      // Even a rich profile must not hide a malformed present compact owner.
+      const mixed=badWire.map(row=>({...row,_canonicalContact:profiles.find(p=>p.cptid===row.cptid)}));
+      assert.equal(hook(built.snapshot,mixed,tracking).directReadUnavailable,true);
+    }
+    const missingWire=wire.index.map(row=>{const copy={...row};delete copy._canonicalAsk;return copy;});
+    assert.equal(hook(built.snapshot,missingWire,tracking).directReadUnavailable,true,"missing compact/full ask cannot become default zero");
+    const absentSurvivor=wire.index.filter(row=>row.cptid!==3);
+    assert.equal(hook(built.snapshot,absentSurvivor,tracking).directReadUnavailable,true,"missing merged survivor remains unavailable");
+    const invalidBuild=structuredClone(built.records);
+    invalidBuild.index.find(row=>row.cptid===3)._canonicalContact.fields.ask="123";
+    const invalidApi=recordsRoute("pvas",async()=>true,async()=>invalidBuild,async()=>tracking,async()=>state);
+    assert.equal((await invalidApi.GET({nextUrl:new URL("https://fixture.invalid")})).status,503,"server never serializes invalid raw asks");
+
+
     const sourceOnly={...built.snapshot,pool:[{...built.snapshot.portfolio.find(row=>row.cptid===1),rating:250000}],
       portfolio:[{...built.snapshot.portfolio.find(row=>row.cptid===1)}],board:[]};
     const missingSurvivor=current.index.filter(row=>row.cptid!==3),sourceOnlyBytes=JSON.stringify(sourceOnly);

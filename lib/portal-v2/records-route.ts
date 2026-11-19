@@ -7,7 +7,7 @@ import { buildOverlay, finalId, mergedSources, screeningPending, type Overlay, t
 import { campaignRecords } from "@/lib/portal-v2/campaign-records";
 import type { PortalClient } from "@/lib/portal-v2/clients";
 import {pvasCanonicalEnabled}from"./pvas-canonical";
-import {pvasContactProfile}from"./pvas-contact-wire";
+import {pvasContactProfile,pvasCanonicalAsk,type PvasCanonicalAsk}from"./pvas-contact-wire";
 import {readOutcome}from"./outcome";
 import { createViewMemo } from "./records-memo";
 
@@ -222,7 +222,15 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
       return withTiming(out ? NextResponse.json(out, { headers: { "Cache-Control": "no-store" } }) :
         NextResponse.json({ error: "not found" }, { status: 404 }), timings, start);
     }
-    return withTiming(NextResponse.json({asOf:data.asOf,index:projection.index.map(row => { const slim = { ...row } as Idx & { _canonicalContact?: unknown }; delete slim._canonicalContact; return slim; }),directSourceRevision:(data as unknown as {directSourceRevision?:string}).directSourceRevision},{headers:{"Cache-Control":"no-store"}}), timings, start);
+    // The dashboard composes current asks client-side. Preserve the raw SQL
+    // NULL/zero/value with its owner ID, not the large edit-only profile.
+    const index = projection.index.map(row => {
+      const slim = { ...row } as Idx & { _canonicalContact?: unknown; _canonicalAsk?: PvasCanonicalAsk };
+      if (pvasCanonicalEnabled(client)) slim._canonicalAsk = pvasCanonicalAsk(slim._canonicalContact, row.cptid);
+      delete slim._canonicalContact;
+      return slim;
+    });
+    return withTiming(NextResponse.json({asOf:data.asOf,index,directSourceRevision:(data as unknown as {directSourceRevision?:string}).directSourceRevision},{headers:{"Cache-Control":"no-store"}}), timings, start);
 
   }
   return { GET: async (req: NextRequest) => { try { return await GET(req); } catch { return NextResponse.json({ error: "Current complete records/manual/source view unavailable" }, { status: 503 }); } } };

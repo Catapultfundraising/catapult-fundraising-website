@@ -58,3 +58,23 @@ export function pvasMergeStates(profiles:Record<string,unknown>,keep:number,merg
     return {cptid:id,expected:{deleted,deleteReason,mergedInto,version},value:{deleted,deleteReason,mergedInto:id===keep?null:keep}};
   });
 }
+
+/** Minimal read-only dashboard ask owner. Never an editor/expected-state profile. */
+export type PvasCanonicalAsk = { cptid: number; ask: number | null };
+export function pvasCanonicalAsk(raw: unknown, cptid: number): PvasCanonicalAsk {
+  const profile = pvasContactProfile(raw, cptid), ask = profile.fields.ask;
+  if (!Object.hasOwn(profile.fields, "ask") || ask !== null && (typeof ask !== "number" || !Number.isFinite(ask)))
+    throw new Error("Invalid raw canonical ask");
+  return { cptid, ask };
+}
+/** Rich internal indexes retain full profiles; HTTP indexes carry only the
+ * validated raw ask. A present malformed compact owner never falls back. */
+export function pvasIndexAsk(row: unknown, cptid: number): PvasCanonicalAsk {
+  if (!object(row) || !Object.hasOwn(row, "_canonicalAsk"))
+    return pvasCanonicalAsk(object(row) ? row._canonicalContact : undefined, cptid);
+  const raw = row._canonicalAsk;
+  if (!object(raw) || raw.cptid !== cptid || Object.keys(raw).length !== 2 || !Object.hasOwn(raw, "ask") ||
+    raw.ask !== null && (typeof raw.ask !== "number" || !Number.isFinite(raw.ask)))
+    throw new Error("Invalid raw canonical ask projection");
+  return { cptid, ask: raw.ask };
+}
