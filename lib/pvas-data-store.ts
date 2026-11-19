@@ -118,3 +118,15 @@ export async function getPvasRecords(): Promise<PvasRecords | null> {
     return structuredClone((await currentPvas()).records) as unknown as PvasRecords;
   } catch { return null; }
 }
+
+/** Internal GET-only view. Never mutate this build-owned graph. The records
+ * route/state/projection consumers are audited by test-pvas-record-read-view.
+ * Other consumers must keep using getPvasRecords() for an independent copy.
+ * Uses currentPvas(), so SQL verification/invalidation/kill switches are unchanged.
+ */
+type ReadonlyTree<T> = T extends object ? { readonly [K in keyof T]: ReadonlyTree<T[K]> } : T;
+export async function readPvasRecordsView(): Promise<ReadonlyTree<PvasRecords> | null> {
+  if (!pvasCanonicalEnabled("pvas")) return legacy.getPvasRecords();
+  try { return (await currentPvas()).records as unknown as ReadonlyTree<PvasRecords>; }
+  catch { return null; }
+}
