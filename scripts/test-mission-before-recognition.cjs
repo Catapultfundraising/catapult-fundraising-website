@@ -32,6 +32,10 @@ assert(!/Anthony|Alonso/i.test(social), "Social image wrong author");
 assert(page.includes('href="https://go.catapultfr.com/meetings/jeff-grandy"'), "Jeff booking link missing");
 assert(page.includes("Vice President for Client Development"), "Jeff title missing");
 assert(page.includes("Book a 30-minute call with Jeff"), "Jeff CTA missing");
-assert(page.includes("hero-building-plans.jpg"), "Photographic hero missing");
+assert(page.includes("hero-donor-conversation-v2.jpg"), "Photographic hero missing");
 assert(page.includes("social-card-v2.png"), "Revised social image missing");
 console.log("PASS: Jeff byline, release date, sections, AFP links, shared index, sitemap and graphics.");
+
+assert(posts.includes(`/blog/${slug}/hero-donor-conversation-v2.jpg`), "Article card must use revised hero");
+assert(!page.includes("hero-building-plans.jpg"), "Old construction photo must not be the hero");
+assert(fs.statSync(path.join("public/blog", slug, "hero-donor-conversation-v2.jpg")).size > 10000, "New hero asset missing");

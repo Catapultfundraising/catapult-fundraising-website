@@ -73,7 +73,7 @@ export default function MissionBeforeRecognitionPage() {
         <p className="mt-1 text-sm text-[rgb(var(--ink))]/70">Vice President for Client Development</p>
         <p className="mt-2 text-sm text-[rgb(var(--ink))]/60"><time dateTime={DATE}>November 18, 2026</time> · 4 min read</p>
         <figure className="mb-8 mt-6 overflow-hidden rounded-2xl">
-          <Image src={`${IMG}/hero-building-plans.jpg`} alt="People reviewing building plans together around a table" width={1568} height={1176} priority className="h-auto w-full" sizes="(min-width: 1024px) 816px, 100vw" />
+          <Image src={`${IMG}/hero-donor-conversation-v2.jpg`} alt="A nonprofit professional listening to an older couple during a conversation about their support" width={1536} height={1024} priority className="h-auto w-full" sizes="(min-width: 1024px) 816px, 100vw" />
         </figure>
         <Figure src="mission-first.svg" alt="Mission before recognition: who will benefit, what will the gift do, and why this decision?" priority />
         <P>{"I have sat in a lot of board rooms where the naming conversation starts before anyone has said what the building is for. Whose name goes on the lobby. How big the sign should be. I understand why. Recognition is easy to picture. The mission takes more work to explain."}</P>
