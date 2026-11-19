@@ -378,7 +378,7 @@ async function currentGET(req: NextRequest) {
             </View>
             }
             rows={x.people.map((p) => (
-              <View key={p.cptid} style={{ flexDirection: "row", borderBottomWidth: 0.6, borderBottomColor: LINE }} wrap={false}>
+              <View key={p.cptid} style={{ flexDirection: "row", borderBottomWidth: 0.6, borderBottomColor: LINE }}>
                 <View style={{ width: pc[0], padding: 4 }}>
                   <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 8.5 }}>{p.name}</Text>
                   <Text style={{ fontSize: 6.2, color: BRASS, fontWeight: 700, marginTop: 1 }}>{[p.donorType, idTxt(p.cptid)].filter(Boolean).join(" · ")}</Text>
