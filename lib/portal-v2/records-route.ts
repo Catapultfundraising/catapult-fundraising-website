@@ -172,19 +172,39 @@ export function overlaidIndex(base: Idx[], prospects: Prospect[], campaign: Retu
 class RecordsNotLoaded extends Error {}
 export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, load: () => Promise<Data>, getTracking: () => Promise<AssignmentTracking> = async () => ({ prospects: {} }), getState = portalCampaignStateSafe, viewKey?: () => Promise<object | null>) {
   const memo = createViewMemo<object, { data: NonNullable<Data>; projection: ReturnType<typeof currentRecordProjection> }>();
-  async function view() {
-    return memo(viewKey ? await viewKey() : null, async () => {
-      const data = await load();
+  async function timed<T>(name: string, run: () => Promise<T>, timings: string[]): Promise<T> {
+    const start = performance.now();
+    try { return await run(); }
+    finally { timings.push(`${name};dur=${(performance.now() - start).toFixed(1)}`); }
+  }
+  // Authenticated response diagnostics only: fixed stage names/durations, never
+  // donor IDs/values. Per-request collection prevents replaying cold work on hits.
+  function withTiming(response: NextResponse, timings: string[], start: number) {
+    response.headers.set("Server-Timing", [...timings, `total;dur=${(performance.now() - start).toFixed(1)}`].join(", "));
+    return response;
+  }
+  async function view(timings: string[]) {
+    const key = await timed("build", () => viewKey ? viewKey() : Promise.resolve(null), timings);
+    let made = false;
+    const result = await memo(key, async () => {
+      made = true;
+      const data = await timed("records", load, timings);
       if (!data) throw new RecordsNotLoaded();
       const [state, tracking] = await Promise.all([
-        getState(client, pvasCanonicalEnabled(client) ? { pvasRecords: data.records } : undefined),
-        currentTracking(client, getTracking),
+        timed("state", () => getState(client, pvasCanonicalEnabled(client) ? { pvasRecords: data.records } : undefined), timings),
+        timed("tracking", () => currentTracking(client, getTracking), timings),
       ]);
       requireCurrentSql(client, state);
-      return { data, projection: currentRecordProjection(client, data, state, tracking) };
+      const start = performance.now();
+      const projection = currentRecordProjection(client, data, state, tracking);
+      timings.push(`projection;dur=${(performance.now() - start).toFixed(1)}`);
+      return { data, projection };
     });
+    timings.push(`memo;desc="${key ? made ? "miss" : "hit" : "bypass"}"`);
+    return result;
   }
   async function GET(req: NextRequest) {
+    const start = performance.now(), timings: string[] = [];
     if (!(await auth(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
     const drill = req.nextUrl.searchParams.get("drill");
     if (drill) {
@@ -193,12 +213,16 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
       return NextResponse.json({ cptids: drillIds(client, data.records as Record<string, Rec>, drill, req.nextUrl.searchParams.get("v") ?? "") });
     }
     let current: Awaited<ReturnType<typeof view>>;
-    try { current = await view(); }
+    try { current = await view(timings); }
     catch (e) { if (e instanceof RecordsNotLoaded) return NextResponse.json({ error: "records not loaded" }, { status: 503 }); throw e; }
     const { data, projection } = current;
     const id=req.nextUrl.searchParams.get("id");
-    if(id) { const out=projection.record(Number(id)); return out?NextResponse.json(out,{headers:{"Cache-Control":"no-store"}}):NextResponse.json({error:"not found"},{status:404}); }
-    return NextResponse.json({asOf:data.asOf,index:projection.index.map(row => { const slim = { ...row } as Idx & { _canonicalContact?: unknown }; delete slim._canonicalContact; return slim; }),directSourceRevision:(data as unknown as {directSourceRevision?:string}).directSourceRevision},{headers:{"Cache-Control":"no-store"}});
+    if(id) {
+      const out = projection.record(Number(id));
+      return withTiming(out ? NextResponse.json(out, { headers: { "Cache-Control": "no-store" } }) :
+        NextResponse.json({ error: "not found" }, { status: 404 }), timings, start);
+    }
+    return withTiming(NextResponse.json({asOf:data.asOf,index:projection.index.map(row => { const slim = { ...row } as Idx & { _canonicalContact?: unknown }; delete slim._canonicalContact; return slim; }),directSourceRevision:(data as unknown as {directSourceRevision?:string}).directSourceRevision},{headers:{"Cache-Control":"no-store"}}), timings, start);
 
   }
   return { GET: async (req: NextRequest) => { try { return await GET(req); } catch { return NextResponse.json({ error: "Current complete records/manual/source view unavailable" }, { status: 503 }); } } };

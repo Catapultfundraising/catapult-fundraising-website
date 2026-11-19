@@ -25,14 +25,14 @@ export function committeeInsight(tracking: Tracking, removed: { committed: numbe
     : "No committee updates entered yet; statuses and solicitors fill in as the committee updates the portal.";
 }
 
-/** Keep the band, column labels, and actual first row together, not a guessed
- * minPresenceAhead height (notes may make the first row much taller). */
+/** Keep band/labels together and reserve the start of the first donor. A note
+ * can exceed an entire page, so never trap the whole first row in wrap={false}. */
 export function GiftLevelRows({ heading, columns, rows, empty }: {
   heading: ReactNode; columns: ReactNode; rows: ReactNode[]; empty: ReactNode;
 }) {
   return <View style={{ marginBottom: 10 }}>
-    <View wrap={false}>{heading}{columns}{rows[0] ?? empty}</View>
-    {rows.slice(1)}
+    <View wrap={false} minPresenceAhead={24}>{heading}{columns}</View>
+    {rows.length ? rows : empty}
   </View>;
 }
 
