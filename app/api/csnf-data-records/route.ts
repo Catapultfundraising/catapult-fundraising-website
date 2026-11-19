@@ -1,3 +1,4 @@
+import { liveBuildIdentity } from "@/lib/client-live-data.server";
 import { getCsnfTracking } from "@/lib/csnf-tracking";
 import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
 import { getCsnfRecords } from "@/lib/csnf-data-store";
@@ -7,4 +8,4 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // GET ?id=<CPTID> -> one donor record; no id -> lookup index (incl. dashboard-added prospects).
-export const { GET } = recordsRoute("csnf", isCsnfDataAuthed, getCsnfRecords as never, getCsnfTracking);
+export const { GET } = recordsRoute("csnf", isCsnfDataAuthed, getCsnfRecords as never, getCsnfTracking, undefined, () => liveBuildIdentity("csnf"));

@@ -198,7 +198,7 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
     const { data, projection } = current;
     const id=req.nextUrl.searchParams.get("id");
     if(id) { const out=projection.record(Number(id)); return out?NextResponse.json(out,{headers:{"Cache-Control":"no-store"}}):NextResponse.json({error:"not found"},{status:404}); }
-    return NextResponse.json({asOf:data.asOf,index:projection.index,directSourceRevision:(data as unknown as {directSourceRevision?:string}).directSourceRevision},{headers:{"Cache-Control":"no-store"}});
+    return NextResponse.json({asOf:data.asOf,index:projection.index.map(row => { const slim = { ...row } as Idx & { _canonicalContact?: unknown }; delete slim._canonicalContact; return slim; }),directSourceRevision:(data as unknown as {directSourceRevision?:string}).directSourceRevision},{headers:{"Cache-Control":"no-store"}});
 
   }
   return { GET: async (req: NextRequest) => { try { return await GET(req); } catch { return NextResponse.json({ error: "Current complete records/manual/source view unavailable" }, { status: 503 }); } } };

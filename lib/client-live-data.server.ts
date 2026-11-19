@@ -1,3 +1,4 @@
+import { clientFingerprint } from "./portal-refresh/fingerprint";
 import "server-only";
 import { get, put } from "@vercel/blob";
 import { after } from "next/server";
@@ -6,7 +7,7 @@ import type { IdRow } from "./portal-refresh/ids";
 import { stampTrackingBases, recordBase } from "./portal-v2/sql-newer";
 
 // CSNF, JAG, WCBHC and BAQ dashboards read their client's SQL schema live (Anthony, 2026-11-18), the same way
-// PVAS does: one shared build per client, reused for at most 2 minutes (PVAS_CACHE_TTL_SECONDS, 0 disables),
+// PVAS does: one shared build per client, SQL-fingerprint-verified every 2 minutes (TTL=0 disables),
 // cleared by the dashboard's "Reload current SQL view" link. Dashboard edits are applied on top at read time,
 // so they show at once. No weekly file refresh feeds these dashboards any more; SQL is the only source.
 
@@ -43,6 +44,7 @@ function cacheFor(client: LiveClient) {
   let c = caches.get(client);
   if (!c) {
     c = createPvasSharedCache<LiveBuild>({
+      fingerprint: () => clientFingerprint(client),
       build: () => buildClient(client), store: blobStore, log: m => console.warn(`[${client}] ${m}`),
       background: p => { try { after(() => p); } catch { void p; } },
       paths: { data: `${client}-cache/live-build-v1.bin.gz`, marker: `${client}-cache/invalidated-v1.json` },
@@ -55,6 +57,11 @@ function cacheFor(client: LiveClient) {
 export const liveBuild = (client: LiveClient) => cacheFor(client).get();
 export async function invalidateLive(client: LiveClient): Promise<void> {
   try { await cacheFor(client).invalidate(); } catch (e) { console.warn(`${client} cache invalidation marker failed: ${String(e)}`); }
+}
+/** Same build identity/freshness gate as PVAS; local JSON QA bypasses the memo. */
+export async function liveBuildIdentity(client: LiveClient): Promise<object | null> {
+  if (liveLocalDir(client)) return null;
+  try { return await liveBuild(client); } catch { return null; }
 }
 /** Local QA only: {CLIENT}_LOCAL_DIR keeps reading the old JSON files. */
 export const liveLocalDir = (client: LiveClient) => process.env[`${client.toUpperCase()}_LOCAL_DIR`];

@@ -1,3 +1,4 @@
+import { clientFingerprint } from "./portal-refresh/fingerprint";
 import "server-only";
 import { buildPvas } from "./portal-refresh/pvas";
 import { get, put } from "@vercel/blob";
@@ -84,7 +85,7 @@ export interface DonorRecord {
 }
 export interface PvasRecords { asOf: string; index: IndexRow[]; records: Record<string, DonorRecord> }
 
-// Canonical PVAS builds are shared for at most 2 minutes (PVAS_CACHE_TTL_SECONDS, 0 disables).
+// Canonical PVAS builds are SQL-fingerprint-verified every 2 minutes (TTL=0 disables).
 // Confirmed edits and the dashboard Reload link invalidate it for every server instance.
 type Built = Awaited<ReturnType<typeof buildPvas>>;
 const blobStore: CacheBlobStore | null = process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID ? {
@@ -98,6 +99,7 @@ const blobStore: CacheBlobStore | null = process.env.BLOB_READ_WRITE_TOKEN || pr
   },
 } : null;
 const sharedCache = createPvasSharedCache<Built>({
+  fingerprint: () => clientFingerprint("pvas"),
   build: buildPvas, store: blobStore, log: m => console.warn(m),
   background: p => { try { after(() => p); } catch { void p; } },
 });

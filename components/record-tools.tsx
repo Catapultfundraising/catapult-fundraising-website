@@ -510,7 +510,17 @@ function MergeModal({ client, keep, index, onClose, onDone, preselect = [] }: { 
     if (!by.trim()) { setErr("Enter your name so the merge is credited to you"); return; }
     if (!sel.length) { setErr("Pick at least one duplicate to merge"); return; }
     setBusy(true); setErr("");
-    try { await v2(client, { op: "mergeRecords", keep: keep.cptid, merge: sel.map((s) => s.cptid), by,...(pvasCanonicalEnabled(client)?{_canonicalProfiles:Object.fromEntries([keep,...sel].map(x=>[x.cptid,x._canonicalContact]))}:{}) }); onDone(); }
+    try {
+      const profiles = pvasCanonicalEnabled(client) ? Object.fromEntries(await Promise.all([keep, ...sel].map(async row => {
+        const response = await fetch(`/api/${client}-data-records?id=${row.cptid}`, { cache: "no-store" });
+        if (!response.ok) throw new Error("Current canonical profile unavailable; reload before merging");
+        const record = await response.json() as AnyRec;
+        if (!record._canonicalContact) throw new Error("Current canonical profile unavailable; reload before merging");
+        return [row.cptid, record._canonicalContact];
+      }))) : undefined;
+      await v2(client, { op: "mergeRecords", keep: keep.cptid, merge: sel.map((s) => s.cptid), by,
+        ...(profiles ? { _canonicalProfiles: profiles } : {}) }); onDone();
+    }
     catch (e) { setErr((e as Error).message); } finally { setBusy(false); }
   }
   return (
