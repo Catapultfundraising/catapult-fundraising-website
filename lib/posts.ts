@@ -21,7 +21,7 @@ export interface Post {
 export const POSTS: Post[] = [
 {
   "slug": "mission-before-recognition",
-  "date": "2026-11-24",
+  "date": "2026-11-18",
   "title": "Mission Before Recognition",
   "description": "What donors need to hear before you talk about naming",
   "readTime": "4 min read",

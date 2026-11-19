@@ -9,7 +9,7 @@ const SLUG = "mission-before-recognition";
 const IMG = `/blog/${SLUG}`;
 const HEADLINE = "Mission Before Recognition";
 const DESCRIPTION = "What donors need to hear before you talk about naming";
-const DATE = "2026-11-24";
+const DATE = "2026-11-18";
 
 export const metadata = {
   title: { absolute: "Mission Before Recognition | Catapult Fundraising" },
@@ -71,7 +71,7 @@ export default function MissionBeforeRecognitionPage() {
         <ShareButtons url={`/blog/${SLUG}`} title={HEADLINE} />
         <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">BY JEFF GRANDY, CATAPULT FUNDRAISING</p>
         <p className="mt-1 text-sm text-[rgb(var(--ink))]/70">Vice President for Client Development</p>
-        <p className="mt-2 text-sm text-[rgb(var(--ink))]/60"><time dateTime={DATE}>November 24, 2026</time> · 4 min read</p>
+        <p className="mt-2 text-sm text-[rgb(var(--ink))]/60"><time dateTime={DATE}>November 18, 2026</time> · 4 min read</p>
         <figure className="mb-8 mt-6 overflow-hidden rounded-2xl">
           <Image src={`${IMG}/hero-building-plans.jpg`} alt="People reviewing building plans together around a table" width={1568} height={1176} priority className="h-auto w-full" sizes="(min-width: 1024px) 816px, 100vw" />
         </figure>

@@ -7,7 +7,7 @@ const page = fs.readFileSync(`app/blog/${slug}/page.tsx`, "utf8");
 const posts = fs.readFileSync("lib/posts.ts", "utf8");
 const sitemap = fs.readFileSync("app/sitemap.ts", "utf8");
 
-assert(page.includes('const DATE = "2026-11-24"'), "Pending release date changed");
+assert(page.includes('const DATE = "2026-11-18"'), "Pending release date changed");
 assert(page.includes('name: "Jeff Grandy"'), "Metadata must credit Jeff");
 assert(page.includes("BY JEFF GRANDY, CATAPULT FUNDRAISING"), "Source byline missing");
 assert(!/Anthony|Alonso/.test(page), "Wrong author");
