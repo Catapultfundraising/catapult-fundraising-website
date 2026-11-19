@@ -4,7 +4,7 @@ import { assignmentSnapshot, type Assignment, type AssignmentTracking } from "./
 import { askEdits, overlayCampaignAsks } from "./effective-ask";
 import { buildOverlay, finalId, type UpdateRow } from "./record-overlay";
 import { directSnapshot, type DirectClientView } from "./direct-snapshot";
-import { pvasContactProfile } from "./pvas-contact-wire";
+import { pvasIndexAsk } from "./pvas-contact-wire";
 
 /** Exact visible dashboard composition; shared with authoritative table exports. Financial arrays remain excluded. */
 export function currentDashboardSnapshot<T extends object>(
@@ -23,10 +23,8 @@ export function currentDashboardSnapshot<T extends object>(
   const own = (row:Row, pool=false):Row => {
     if (row.cptid==null) return row; // A board entry without a constituent is not a canonical identity.
     if (!Number.isInteger(row.cptid) || row.cptid<=0) throw new Error("Invalid canonical ask identity");
-    const id=finalId(overlay,row.cptid), source=byId.get(id) as { _canonicalContact?:unknown } | undefined;
-    const profile=pvasContactProfile(source?._canonicalContact,id),raw=profile.fields.ask;
-    if (!Object.hasOwn(profile.fields,"ask") || raw!==null && (typeof raw!=="number" || !Number.isFinite(raw)))
-      throw new Error("Invalid raw canonical ask");
+    const id=finalId(overlay,row.cptid), source=byId.get(id);
+    const raw=pvasIndexAsk(source,id).ask;
     const out:Row={...row,ask:raw??0,...(pool?{rating:raw??0}:{})};
     // These old source flags do not describe the current SQL owner. Numeric
     // snapshot cells remain presentation only, not historical edit attribution.
