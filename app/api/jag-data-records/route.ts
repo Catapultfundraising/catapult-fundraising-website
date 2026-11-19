@@ -1,3 +1,4 @@
+import { liveBuildIdentity } from "@/lib/client-live-data.server";
 import { getJagTracking } from "@/lib/jag-tracking";
 import { isJagDataAuthed } from "@/lib/jag-data-auth";
 import { getJagRecords } from "@/lib/jag-data-store";
@@ -7,4 +8,4 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 // GET ?id=<CPTID> -> one donor record; no id -> lookup index (incl. dashboard-added prospects).
-export const { GET } = recordsRoute("jag", isJagDataAuthed, getJagRecords as never, getJagTracking);
+export const { GET } = recordsRoute("jag", isJagDataAuthed, getJagRecords as never, getJagTracking, undefined, () => liveBuildIdentity("jag"));

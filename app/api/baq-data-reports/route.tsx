@@ -1,3 +1,4 @@
+import { reportDataAsOf, committeeInsight, GiftLevelRows, BelowProspects, ReportStatus } from "@/lib/portal-v2/gift-report-layout";
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 import { directData, currentTracking, directTrackingView, requireCurrentSql, sourceNoteReport, sourceAssignmentReport } from "@/lib/portal-v2/direct-source-state.server";
 import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
@@ -66,6 +67,7 @@ async function currentGET(req: NextRequest) {
   const tracking = report === "gc2p" ? await directTrackingView("baq", await currentTracking("baq", getBaqTracking)) : null;
   if (base && tracking && (base as unknown as { directSourceRevision?: string }).directSourceRevision !== (tracking as unknown as { directSourceRevision?: string }).directSourceRevision) throw new Error("Source changed during report");
   const recs = report === "gc2p" && tracking && Object.keys(tracking.prospects).length ? await getBaqRecords() : null;
+  const dataAsOf = reportDataAsOf(snap.builtAt);
   const { chart, seated, notShown, removed, below, belowLevel } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recs?.index, tracking, snap.pool));
   const stOf = (id: number) => tracking?.prospects[String(id)];
   const lastAct = (id: number) => (tracking?.activity ?? []).filter((a) => a.cptid === id && a.kind !== "Committee update").sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at))[0];
@@ -99,6 +101,7 @@ async function currentGET(req: NextRequest) {
       chart.manyValue > 0 ? `A total of ${n0(chart.totalGifts)} named gifts for ${usd(chart.namedTotal)}; the remaining ${usd(chart.manyValue)} comes from many gifts under ${formatDollars(chart.rows[chart.rows.length - 1].under ?? 0)}.` : `A total of ${n0(chart.totalGifts)} gifts for ${usd(chart.namedTotal)}, per the approved gift chart.`,
       `The top 10 gifts carry ${formatShare(chart.topTenShare)} of the goal. Leadership gifts account for ${formatShare(chart.leadershipShare)}.`,
       `Prospects needed are counted at ${GC2P_RATIO} qualified prospects for every gift.`,
+      `Data as of ${dataAsOf}.`,
       `Fundraising sources: Individuals, Foundations, Corporations, and Government.`,
     ];
 
@@ -237,9 +240,7 @@ async function currentGET(req: NextRequest) {
     `${covered.length} of ${seated.length} levels have a full ${GC2P_RATIO}-to-1 prospect pool${covered.length ? ` (${covered.map((x) => formatCompactDollars(x.level)).join(", ")})` : ""}.`,
     short2.length ? `${short2.reduce((a, x) => a + x.need - x.people.length, 0)} more prospects are needed: ${short2.map((x) => `${formatCompactDollars(x.level)} short ${x.need - x.people.length}`).join("; ")}.` : "Every level shown is fully covered.",
     `${n0(identified)} prospects are seated across the ${seated.length} levels of the suggested chart; ${usd(committedAmt)} is already received, pledged or verbally committed by seated donors.`,
-    removed.committed + removed.disqualified > 0
-      ? `Committee updates applied: ${removed.committed} committed and ${removed.disqualified} disqualified prospects are off the chart.`
-      : `No committee updates entered yet; statuses and solicitors fill in as the committee updates the portal.`,
+    committeeInsight(tracking, removed),
   ];
   const seatingNotes: [string, string][] = [
     ["Seat:", " the campaign ask in the BAQ campaign portfolio, rounded down to the nearest chart level."],
@@ -276,7 +277,7 @@ async function currentGET(req: NextRequest) {
       notes: [
         `Gift levels shown: all ${shownGifts} named gifts for ${usd(shownValue)}. The remaining ${usd(notShown)} comes from many gifts under ${minTxt}.`,
         ...seatingNotes.map(([a, b]) => a + b),
-        `Data as of ${snap.asOf}.`,
+        `Data as of ${dataAsOf}.`,
       ],
     });
     return new NextResponse(new Uint8Array(buf), { headers: { "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "Content-Disposition": `attachment; filename="${file}.xlsx"` } });
@@ -300,7 +301,7 @@ async function currentGET(req: NextRequest) {
         <Text style={{ fontSize: 7.5, fontWeight: 700, color: BRASS, letterSpacing: 1.3, textTransform: "uppercase" }}>{goalTxt} Campaign</Text>
         <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 22, marginTop: 3 }}>Gift Chart to Prospects</Text>
         <Text style={{ fontSize: 8.5, opacity: 0.8, marginTop: 5, lineHeight: 1.4, width: LW * 0.72 }}>
-          Every level of the suggested {goalTxt} gift chart ($5M lead gift, per the February 2026 feasibility study), with the prospects the campaign committee and Catapult have seated at each level (data as of {snap.asOf}).
+          Every level of the suggested {goalTxt} gift chart ($5M lead gift, per the February 2026 feasibility study), with the prospects the campaign committee and Catapult have seated at each level (data as of {dataAsOf}).
         </Text>
         <View style={{ flexDirection: "row", borderTopWidth: 0.6, borderBottomWidth: 0.6, borderColor: LINE, marginTop: 10, marginBottom: 12 }}>
           {stat(formatCompactDollars(shownValue), "", "Gift levels shown", `${shownGifts} named gifts · ${formatShare(shownValue / goal)} of the ${goalTxt} goal`)}
@@ -359,25 +360,29 @@ async function currentGET(req: NextRequest) {
           <Text style={{ fontSize: 8, opacity: 0.7, marginTop: 3, marginBottom: 6 }}>Ordered by readiness within each level. Solicitors and notes reflect committee ratings and the latest committee updates.</Text>
         </View>
         {seated.map((x) => (
-          <View key={x.level} style={{ marginBottom: 10 }}>
-            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#0E1E31", paddingVertical: 6, paddingHorizontal: 8 }} wrap={false} minPresenceAhead={60}>
+          <GiftLevelRows key={x.level}
+            heading={
+            <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: "#0E1E31", paddingVertical: 6, paddingHorizontal: 8 }} wrap={false}>
               <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 15, color: "#FFF", paddingRight: 8, borderRightWidth: 1.5, borderRightColor: BRASS }}>{formatDollars(x.level)}</Text>
               <Text style={{ fontSize: 7.5, color: "#FFF", opacity: 0.85, marginLeft: 8, flexGrow: 1 }}>{x.row.gifts} gift{x.row.gifts === 1 ? "" : "s"} needed  ·  {formatCompactDollars(x.row.value)}  ·  cumulative {formatCompactDollars(x.row.cumulative)}</Text>
               <Text style={{ fontSize: 7.5, color: "#FFF" }}>{x.people.length} identified / {x.need} needed · <Text style={{ color: BRASS }}>{x.people.length >= x.need ? "covered" : `short ${x.need - x.people.length}`}</Text></Text>
             </View>
+            }
+            columns={
             <View style={{ flexDirection: "row", borderBottomWidth: 1, borderBottomColor: NAVY }} fixed={false}>
               {["Prospect", "Status", "Solicitor / connection", "Wealth rating", "Capacity / grant range", "Giving history", "Notes"].map((h, i) => (
                 <Text key={h} style={[thS, { width: pc[i] }]}>{h}</Text>
               ))}
             </View>
-            {x.people.map((p) => (
+            }
+            rows={x.people.map((p) => (
               <View key={p.cptid} style={{ flexDirection: "row", borderBottomWidth: 0.6, borderBottomColor: LINE }} wrap={false}>
                 <View style={{ width: pc[0], padding: 4 }}>
                   <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 8.5 }}>{p.name}</Text>
                   <Text style={{ fontSize: 6.2, color: BRASS, fontWeight: 700, marginTop: 1 }}>{[p.donorType, idTxt(p.cptid)].filter(Boolean).join(" · ")}</Text>
                 </View>
                 <View style={{ width: pc[1], padding: 4 }}>
-                  <Text style={{ fontSize: 7.6, fontWeight: 700 }}>{askTxt(p)}</Text>
+                  <ReportStatus text={askTxt(p)} line={LINE} />
                 </View>
                 <Text style={{ width: pc[2], fontSize: 7.4, padding: 4 }}>{solTxt(p.cptid)}</Text>
                 <Text style={{ width: pc[3], fontSize: 7.4, padding: 4, color: BRASS }}>{p.wealth || p.ds || "-"}</Text>
@@ -386,24 +391,12 @@ async function currentGET(req: NextRequest) {
                 <Text style={{ width: pc[6], fontSize: 7.4, padding: 4 }}>{noteTxt(p)}</Text>
               </View>
             ))}
-            {x.people.length === 0 && <Text style={{ fontSize: 7.5, opacity: 0.6, padding: 4 }}>No prospects are seated at this level yet.</Text>}
-          </View>
+            empty={<Text style={{ fontSize: 7.5, opacity: 0.6, padding: 4 }}>No prospects are seated at this level yet.</Text>}
+          />
         ))}
-        {below.length > 0 && (
-          <View style={{ marginBottom: 10 }}>
-            <View style={{ backgroundColor: "#0E1E31", paddingVertical: 6, paddingHorizontal: 8 }} wrap={false} minPresenceAhead={40}>
-              <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 13, color: "#FFF" }}>Below {formatDollars(belowLevel)} · {below.length} prospects · {usd(below.reduce((a, p) => a + (campaignAskAmount(p)), 0))}</Text>
-            </View>
-            {below.map((p) => (
-              <View key={p.cptid} style={{ flexDirection: "row", borderBottomWidth: 0.6, borderBottomColor: LINE }} wrap={false}>
-                <Text style={{ width: "45%", fontSize: 7.6, padding: 3, fontWeight: 700 }}>{p.name}</Text>
-                <Text style={{ width: "15%", fontSize: 7.4, padding: 3 }}>CPTID {p.cptid}</Text>
-                <Text style={{ width: "20%", fontSize: 7.4, padding: 3, textAlign: "right" }}>{usd(campaignAskAmount(p))}</Text>
-                <Text style={{ width: "20%", fontSize: 7.4, padding: 3, textAlign: "right" }}>Lifetime {usd(p.lifetime)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {below.length > 0 && <BelowProspects navy={NAVY} line={LINE}
+          title={`Below ${formatDollars(belowLevel)} · ${below.length} prospects · ${usd(below.reduce((a, p) => a + (campaignAskAmount(p)), 0))}`}
+          rows={below.map(p => ({ cptid: p.cptid, name: p.name, ask: usd(campaignAskAmount(p)), lifetime: usd(p.lifetime) }))} />}
         <View wrap={false} style={{ marginTop: 6 }}>
           <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Pipeline totals</Text>
           {seated.map((x) => (
