@@ -1,0 +1,127 @@
+{
+  "family": "Fraunces",
+  "source": "Unmodified current production self-hosted assets, not newly generated Google font files",
+  "capturedAt": "2026-11-19T14:50:39.241Z",
+  "license": {
+    "url": "https://raw.githubusercontent.com/google/fonts/main/ofl/fraunces/OFL.txt",
+    "sha256": "bdf4c22802eaf804f998195871c6b8938aac2ac14b2d78a8bd66a6f1eced833b"
+  },
+  "fallback": {
+    "family": "Fraunces Fallback",
+    "local": "Times New Roman",
+    "ascentOverride": "84.71%",
+    "descentOverride": "22.09%",
+    "lineGapOverride": "0.00%",
+    "sizeAdjust": "115.45%"
+  },
+  "assets": [
+    {
+      "filename": "Fraunces-vietnamese-italic.woff2",
+      "url": "https://www.catapultfr.com/_next/static/media/f3deaf8281908ff2-s.woff2",
+      "deployedPath": "/_next/static/media/f3deaf8281908ff2-s.woff2",
+      "cssUrl": "https://www.catapultfr.com/_next/static/css/72f87ed84dfe547d.css?dpl=dpl_5uATSQurFshW79AGY5GLshPoc67x",
+      "sha256": "d24c3502a91415f2ec44f107807673255b696c379b3995543270921c27863e32",
+      "bytes": 12956,
+      "style": "italic",
+      "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+      ],
+      "subset": "vietnamese",
+      "unicodeRange": "u+0102-0103,u+0110-0111,u+0128-0129,u+0168-0169,u+01a0-01a1,u+01af-01b0,u+0300-0301,u+0303-0304,u+0308-0309,u+0323,u+0329,u+1ea0-1ef9,u+20ab"
+    },
+    {
+      "filename": "Fraunces-latin-ext-italic.woff2",
+      "url": "https://www.catapultfr.com/_next/static/media/c62081b071647022-s.woff2",
+      "deployedPath": "/_next/static/media/c62081b071647022-s.woff2",
+      "cssUrl": "https://www.catapultfr.com/_next/static/css/72f87ed84dfe547d.css?dpl=dpl_5uATSQurFshW79AGY5GLshPoc67x",
+      "sha256": "7e701dc124492f7d0856fba4a07157d0cecc84e2b2b4615f08530c1e8bc112dd",
+      "bytes": 40560,
+      "style": "italic",
+      "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+      ],
+      "subset": "latin-ext",
+      "unicodeRange": "u+0100-02ba,u+02bd-02c5,u+02c7-02cc,u+02ce-02d7,u+02dd-02ff,u+0304,u+0308,u+0329,u+1d00-1dbf,u+1e00-1e9f,u+1ef2-1eff,u+2020,u+20a0-20ab,u+20ad-20c4,u+2113,u+2c60-2c7f,u+a720-a7ff"
+    },
+    {
+      "filename": "Fraunces-latin-italic.woff2",
+      "url": "https://www.catapultfr.com/_next/static/media/6ba5f591ae6c56f6-s.p.woff2",
+      "deployedPath": "/_next/static/media/6ba5f591ae6c56f6-s.p.woff2",
+      "cssUrl": "https://www.catapultfr.com/_next/static/css/72f87ed84dfe547d.css?dpl=dpl_5uATSQurFshW79AGY5GLshPoc67x",
+      "sha256": "c9745ee907c02cdd46cc41a65bb711cd861432f679a76c18e3de204a18723040",
+      "bytes": 45624,
+      "style": "italic",
+      "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+      ],
+      "subset": "latin",
+      "unicodeRange": "u+00??,u+0131,u+0152-0153,u+02bb-02bc,u+02c6,u+02da,u+02dc,u+0304,u+0308,u+0329,u+2000-206f,u+20ac,u+2122,u+2191,u+2193,u+2212,u+2215,u+feff,u+fffd"
+    },
+    {
+      "filename": "Fraunces-vietnamese-normal.woff2",
+      "url": "https://www.catapultfr.com/_next/static/media/fb526027db1fc1ae-s.woff2",
+      "deployedPath": "/_next/static/media/fb526027db1fc1ae-s.woff2",
+      "cssUrl": "https://www.catapultfr.com/_next/static/css/72f87ed84dfe547d.css?dpl=dpl_5uATSQurFshW79AGY5GLshPoc67x",
+      "sha256": "250cc2966c658fb6d336731de9d82a8129025e9839c20c253bbc477852f6cf4f",
+      "bytes": 11536,
+      "style": "normal",
+      "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+      ],
+      "subset": "vietnamese",
+      "unicodeRange": "u+0102-0103,u+0110-0111,u+0128-0129,u+0168-0169,u+01a0-01a1,u+01af-01b0,u+0300-0301,u+0303-0304,u+0308-0309,u+0323,u+0329,u+1ea0-1ef9,u+20ab"
+    },
+    {
+      "filename": "Fraunces-latin-ext-normal.woff2",
+      "url": "https://www.catapultfr.com/_next/static/media/4da3161b738b07dd-s.woff2",
+      "deployedPath": "/_next/static/media/4da3161b738b07dd-s.woff2",
+      "cssUrl": "https://www.catapultfr.com/_next/static/css/72f87ed84dfe547d.css?dpl=dpl_5uATSQurFshW79AGY5GLshPoc67x",
+      "sha256": "f1451edd6434085c4f9f3a8b4a674182dd7d6acccf53bfced19fd167f0705a06",
+      "bytes": 33640,
+      "style": "normal",
+      "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+      ],
+      "subset": "latin-ext",
+      "unicodeRange": "u+0100-02ba,u+02bd-02c5,u+02c7-02cc,u+02ce-02d7,u+02dd-02ff,u+0304,u+0308,u+0329,u+1d00-1dbf,u+1e00-1e9f,u+1ef2-1eff,u+2020,u+20a0-20ab,u+20ad-20c4,u+2113,u+2c60-2c7f,u+a720-a7ff"
+    },
+    {
+      "filename": "Fraunces-latin-normal.woff2",
+      "url": "https://www.catapultfr.com/_next/static/media/af4bf8399d1aacdf-s.p.woff2",
+      "deployedPath": "/_next/static/media/af4bf8399d1aacdf-s.p.woff2",
+      "cssUrl": "https://www.catapultfr.com/_next/static/css/72f87ed84dfe547d.css?dpl=dpl_5uATSQurFshW79AGY5GLshPoc67x",
+      "sha256": "88e17be075f1be50ab67b057b99e3701b828f44ed28f9452df6c02645bb0cba9",
+      "bytes": 36560,
+      "style": "normal",
+      "weights": [
+        300,
+        400,
+        500,
+        600,
+        700
+      ],
+      "subset": "latin",
+      "unicodeRange": "u+00??,u+0131,u+0152-0153,u+02bb-02bc,u+02c6,u+02da,u+02dc,u+0304,u+0308,u+0329,u+2000-206f,u+20ac,u+2122,u+2191,u+2193,u+2212,u+2215,u+feff,u+fffd"
+    }
+  ]
+}
