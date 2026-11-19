@@ -1,3 +1,4 @@
+import { noteDashboardRefreshResponse } from "../dashboard-ready.client";
 import { campaignBody, campaignReceipt, campaignStatus, campaignStatusBody, type CampaignBody } from "./pvas-native-mutation-v3";
 const KEY = "pvas:campaign-change:v3:nativeCampaignMutationV3";
 const uncertain = "This change is not yet confirmed. Check its status before making another change.";
@@ -13,7 +14,8 @@ export function newCampaignRequestId() {
 }
 async function send(url: string, body: unknown) {
   if (url !== "/api/pvas-data-v2") throw new Error("Gift change is outside this dashboard.");
-  return fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  const response = await fetch(url, { method: "POST", cache: "no-store", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+  noteDashboardRefreshResponse("pvas", response); return response;
 }
 /** A pending/absent/error status NEVER clears intent or authorizes retry. */
 export async function checkCampaignChange(url: string) {

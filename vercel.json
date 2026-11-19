@@ -11,6 +11,10 @@
     {
       "path": "/api/portal-sync?project=csnf",
       "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/dashboard-ready-refresh",
+      "schedule": "*/2 * * * *"
     }
   ]
 }

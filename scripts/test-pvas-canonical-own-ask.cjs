@@ -56,6 +56,7 @@ function compile(source,require){
 }
 function getAskGateway(){
   return compile(fs.readFileSync(path.join(root,"lib/portal-v2/server.ts"),"utf8"),name=>{
+    if(name.endsWith("dashboard-ready-invalidation.server"))return {withDashboardMutationRefresh:run=>run};
     if(name==="./pvas-canonical")return canonical;
     if(name==="./pvas-action.server")return load("lib/portal-v2/pvas-action.server.ts");
     if(name==="next/server")return {NextResponse:Response};

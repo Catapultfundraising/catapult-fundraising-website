@@ -170,7 +170,7 @@ export function overlaidIndex(base: Idx[], prospects: Prospect[], campaign: Retu
 // are included so every name on every screen opens a record, even before the next refresh picks them up.
 // Dashboard edits (contact, wealth, merges, deletes) are applied on read; merged/deleted records leave the index.
 class RecordsNotLoaded extends Error {}
-export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, load: () => Promise<Data>, getTracking: () => Promise<AssignmentTracking> = async () => ({ prospects: {} }), getState = portalCampaignStateSafe, viewKey?: () => Promise<object | null>) {
+export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Promise<boolean>, load: () => Promise<Data>, getTracking: () => Promise<AssignmentTracking> = async () => ({ prospects: {} }), getState = portalCampaignStateSafe, viewKey?: (generation?: string) => Promise<object | null>) {
   const memo = createViewMemo<object, { data: NonNullable<Data>; projection: ReturnType<typeof currentRecordProjection> }>();
   async function timed<T>(name: string, run: () => Promise<T>, timings: string[]): Promise<T> {
     const start = performance.now();
@@ -183,16 +183,18 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
     response.headers.set("Server-Timing", [...timings, `total;dur=${(performance.now() - start).toFixed(1)}`].join(", "));
     return response;
   }
-  async function view(timings: string[]) {
-    const key = await timed("build", () => viewKey ? viewKey() : Promise.resolve(null), timings);
+  async function view(timings: string[], generation?: string) {
+    const key = await timed("build", () => viewKey ? viewKey(generation) : Promise.resolve(null), timings);
+    if (generation && !key) throw new Error("Displayed ready generation unavailable");
     let made = false;
     const result = await memo(key, async () => {
       made = true;
-      const data = await timed("records", load, timings);
+      const ready = (key as { readyRead?: {records: NonNullable<Data>; state: Awaited<ReturnType<typeof getState>>; tracking: AssignmentTracking} } | null)?.readyRead;
+      const data = ready?.records ?? await timed("records", load, timings);
       if (!data) throw new RecordsNotLoaded();
       const [state, tracking] = await Promise.all([
-        timed("state", () => getState(client, pvasCanonicalEnabled(client) ? { pvasRecords: data.records } : undefined), timings),
-        timed("tracking", () => currentTracking(client, getTracking), timings),
+        timed("state", () => ready ? Promise.resolve(ready.state) : getState(client, pvasCanonicalEnabled(client) ? { pvasRecords: data.records } : undefined), timings),
+        timed("tracking", () => ready ? Promise.resolve(ready.tracking) : currentTracking(client, getTracking), timings),
       ]);
       requireCurrentSql(client, state);
       const start = performance.now();
@@ -213,23 +215,19 @@ export function recordsRoute(client: PortalClient, auth: (r: NextRequest) => Pro
       return NextResponse.json({ cptids: drillIds(client, data.records as Record<string, Rec>, drill, req.nextUrl.searchParams.get("v") ?? "") });
     }
     let current: Awaited<ReturnType<typeof view>>;
-    try { current = await view(timings); }
+    const generation = req.nextUrl.searchParams.get("generation") ?? undefined;
+    try { current = await view(timings, generation); }
     catch (e) { if (e instanceof RecordsNotLoaded) return NextResponse.json({ error: "records not loaded" }, { status: 503 }); throw e; }
     const { data, projection } = current;
     const id=req.nextUrl.searchParams.get("id");
     if(id) {
       const out = projection.record(Number(id));
-      return withTiming(out ? NextResponse.json(out, { headers: { "Cache-Control": "no-store" } }) :
+      return withTiming(out ? NextResponse.json({ ...out, ...(generation ? { dashboardGeneration: generation } : {}) }, { headers: { "Cache-Control": "no-store" } }) :
         NextResponse.json({ error: "not found" }, { status: 404 }), timings, start);
     }
     // The dashboard composes current asks client-side. Preserve the raw SQL
     // NULL/zero/value with its owner ID, not the large edit-only profile.
-    const index = projection.index.map(row => {
-      const slim = { ...row } as Idx & { _canonicalContact?: unknown; _canonicalAsk?: PvasCanonicalAsk };
-      if (pvasCanonicalEnabled(client)) slim._canonicalAsk = pvasCanonicalAsk(slim._canonicalContact, row.cptid);
-      delete slim._canonicalContact;
-      return slim;
-    });
+    const index = httpIndex(client, projection.index);
     return withTiming(NextResponse.json({asOf:data.asOf,index,directSourceRevision:(data as unknown as {directSourceRevision?:string}).directSourceRevision},{headers:{"Cache-Control":"no-store"}}), timings, start);
 
   }
@@ -277,4 +275,16 @@ return {get index(){return indexed ??= overlaidIndex(data.index,prospects,campai
 
 return out;
 }};
+}
+
+/** HTTP read-only compact owners; internal indexes keep full editor profiles. */
+export function httpIndex(client: PortalClient, index: Idx[]) {
+  return index.map(row => {
+      const slim = { ...row } as Idx & { _canonicalContact?: unknown; _canonicalAsk?: PvasCanonicalAsk };
+      if (pvasCanonicalEnabled(client)) {
+        slim._canonicalAsk = pvasCanonicalAsk(slim._canonicalContact, row.cptid);
+        delete slim._canonicalContact;
+      }
+      return slim;
+    });
 }

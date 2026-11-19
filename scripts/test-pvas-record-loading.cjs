@@ -48,6 +48,10 @@ const carrier={_canonicalTracking:{objectPresent:false,statusPresent:false},soli
 context={index:[{cptid:101,name:record.name}],loading:false,tracking:{...empty,revision:'a'.repeat(64),prospects:{101:carrier}}};
 const ready=render();
 assert.match(ready,/Fictional donor/);assert.match(ready,/Campaign tracking/);assert.doesNotMatch(ready,/unavailable/);
+context={...context,index:Object.assign([...context.index],{dashboardGeneration:"new-ready-generation"})};
+assert.match(render(),/Loading record/,"new paired generation must not render the old record");
+record.dashboardGeneration="new-ready-generation";
+assert.match(render(),/Campaign tracking/,"matching exact record generation renders normally");
 context={...context,tracking:empty};
 assert.throws(render,/Canonical tracking presence unavailable/,'ready-but-missing authoritative carrier must not become fabricated absence');
 context={...context,tracking:{...empty,prospects:{101:{...carrier,_canonicalTracking:{objectPresent:'false',statusPresent:false}}}}};

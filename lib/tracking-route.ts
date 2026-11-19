@@ -1,3 +1,4 @@
+import { dashboardRefreshUnconfirmed, withDashboardMutationRefresh } from "./dashboard-ready-invalidation.server";
 import { NextRequest, NextResponse } from "next/server";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
 import { PvasTrackingSaveError } from "@/lib/pvas-tracking";
@@ -129,10 +130,11 @@ export function trackingRoute<T extends Tracking>(client: PortalClient, auth: (r
       return NextResponse.json({ error: "bad type" }, { status: 400 });
     }
     await save(t, canonical ? { requestId: b.requestId, by } : undefined);
+    if (dashboardRefreshUnconfirmed()) return NextResponse.json({ ok: true, ...(canonical ? { requestId: b.requestId } : {}) });
     if (audit && !canonical) await logHistoryAudit(client, { cptid, by, ...audit });
     const view=await withPirs(await directTrackingView(client, await withSecondary(canonical ? await get() : t)));
     return NextResponse.json(canonical?{...view,ok:true,requestId:b.requestId}:view);
   }
   const guarded = (run: (req: NextRequest) => Promise<NextResponse>) => async (req: NextRequest) => { try { return await run(req); } catch (e) { return NextResponse.json({ error: "Current tracking/source view unavailable; no success asserted" }, { status: e instanceof PvasTrackingSaveError && e.status === 409 ? 409 : 503 }); } };
-  return { GET: guarded(GET), POST: guarded(POST) };
+  return { GET: guarded(GET), POST: withDashboardMutationRefresh(guarded(POST)) };
 }

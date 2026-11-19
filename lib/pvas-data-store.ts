@@ -1,9 +1,11 @@
 import { clientFingerprint } from "./portal-refresh/fingerprint";
 import "server-only";
 import { buildPvas } from "./portal-refresh/pvas";
-import { get, put } from "@vercel/blob";
 import { after } from "next/server";
-import { createPvasSharedCache, type CacheBlobStore } from "./pvas-shared-cache.server";
+import { createDashboardReadyCache } from "./dashboard-ready-cache.server";
+import { cacheTtlMs } from "./pvas-shared-cache.server";
+import { readyBlobStore } from "./dashboard-ready-blob.server";
+import { DASHBOARD_READY_COMPATIBILITY, prepareDashboardRead, validateReadyBuild, type PreparedRead } from "./dashboard-ready-model.server";
 import { pvasCanonicalEnabled } from "./portal-v2/pvas-canonical";
 import * as legacy from "./pvas-data-store.legacy";
 import type{PvasGiftMetadata}from"./portal-v2/pvas-gift-wire";
@@ -87,30 +89,26 @@ export interface PvasRecords { asOf: string; index: IndexRow[]; records: Record<
 
 // Canonical PVAS builds are SQL-fingerprint-verified every 2 minutes (TTL=0 disables).
 // Confirmed edits and the dashboard Reload link invalidate it for every server instance.
-type Built = Awaited<ReturnType<typeof buildPvas>>;
-const blobStore: CacheBlobStore | null = process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID ? {
-  async read(path) {
-    const r = await get(path, { access: "private", useCache: false });
-    return r?.stream ? Buffer.from(await new Response(r.stream).arrayBuffer()) : null;
-  },
-  async write(path, body, contentType) {
-    await put(path, body, { access: "private", contentType, addRandomSuffix: false, allowOverwrite: true,
-      multipart: body.length > 50_000_000 });
-  },
-} : null;
-const sharedCache = createPvasSharedCache<Built>({
-  fingerprint: () => clientFingerprint("pvas"),
-  build: buildPvas, store: blobStore, log: m => console.warn(m),
+type Built = Awaited<ReturnType<typeof buildPvas>> & { readyRead: PreparedRead };
+const sharedCache = createDashboardReadyCache<Built>({
+  compatibility: `${DASHBOARD_READY_COMPATIBILITY}-${pvasCanonicalEnabled("pvas") ? "canonical" : "legacy"}`, prefix: "dashboard-ready/pvas",
+  markerPath: "pvas-cache/invalidated-v1.json", store: readyBlobStore,
+  enabled: cacheTtlMs() > 0 && pvasCanonicalEnabled("pvas"), canPublish: process.env.VERCEL_ENV === "production",
+  fingerprint: () => clientFingerprint("pvas", true),
+  build: async () => { const built = await buildPvas(); return { ...built, readyRead: await prepareDashboardRead("pvas", built as never) }; },
+  validate: validateReadyBuild as (value: unknown) => asserts value is Built,
   background: p => { try { after(() => p); } catch { void p; } },
 });
+export const inspectPvasReady = (generation?: string) => sharedCache.inspect(generation);
+export const refreshPvasReady = (allowPreview = false) => sharedCache.refresh({ allowPreview });
 export async function invalidatePvasDataCache(): Promise<void> {
-  try { await sharedCache.invalidate(); } catch (e) { console.warn(`pvas cache invalidation marker failed: ${String(e)}`); }
+  await sharedCache.invalidate();
 }
 async function currentPvas(): Promise<Built> { return sharedCache.get(); }
 /** Identity of the current shared build (same freshness rules), for reusing per-build read views. */
-export async function pvasBuildIdentity(): Promise<object | null> {
+export async function pvasBuildIdentity(generation?: string): Promise<object | null> {
   if (!pvasCanonicalEnabled("pvas")) return null;
-  try { return (await currentPvas()) as object; } catch { return null; }
+  try { return (generation ? (await inspectPvasReady(generation)).built : await currentPvas()) as object; } catch { return null; }
 }
 export async function getPvasRecords(): Promise<PvasRecords | null> {
   if (!pvasCanonicalEnabled("pvas")) return legacy.getPvasRecords();

@@ -1,4 +1,5 @@
 "use client";
+import { noteDashboardRefreshResponse } from "@/lib/dashboard-ready.client";
 import { useEffect, useRef, useState } from "react";
 import type { DirectFileCapabilities, DirectFilePlan, DirectFileReceipt } from "@/lib/portal-v2/directFileProtocol";
 import type { ParseSettings } from "@/lib/portal-v2/source-file-preview";
@@ -30,6 +31,7 @@ export function DirectDashboardUpload({ client }: { client: string }) {
   async function call(body: unknown) {
     const r = await fetch(api, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
     const j = await r.json();
+    noteDashboardRefreshResponse(client, r);
       if (r.status === 401) setAuthRequired(true);
     if (!r.ok) { const e = new Error(j.error || j.code || "Unavailable") as Error & { exceptions?: typeof exceptions }; e.exceptions = j.exceptions; throw e; }
     return j;
@@ -40,7 +42,8 @@ export function DirectDashboardUpload({ client }: { client: string }) {
     const saved = localStorage.getItem(`direct-import-pending:${client}`);
     if (saved && /^[a-f0-9]{32}$/.test(saved)) { request.current = saved; setPending({ requestId: saved, uncertain: true }); }
     call({ op: "capabilities" }).then(c => { if (active) { setCaps(c); setTemplate(c.templates?.[0]?.template ?? ""); } }).catch(e => { if (active) setMessage(e.message); });
-    return () => { active = false; generation.current++; };
+    const cleanupGeneration = generation;
+    return () => { active = false; cleanupGeneration.current++; };
   }, [client]); // eslint-disable-line react-hooks/exhaustive-deps
   const canonical=usePvasImportReview(client,"direct",call,async()=>{window.dispatchEvent(new Event("crm-index-refresh"));window.dispatchEvent(new Event("campaign-ask-refresh"));},()=>{request.current=null;setPlan(null);});
   const locked = busy || !!pending || canonical.locked;

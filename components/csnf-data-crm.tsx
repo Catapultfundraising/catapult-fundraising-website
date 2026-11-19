@@ -1,4 +1,6 @@
 "use client";
+import { noteDashboardRefreshResponse } from "@/lib/dashboard-ready.client";
+import { fetchDashboardRecord, dashboardGeneration } from "@/lib/dashboard-ready.client";
 import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayload} from "@/lib/portal-v2/csnf-export-model";
 import type {ExportIntent} from "@/lib/portal-v2/dashboard-export-types";
 
@@ -253,6 +255,7 @@ export function recordPayload(r:DonorRecord,t?:CsnfTracking):ExportPayload { ret
 
 function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void }) {
   const { tracking, index } = useCrm();
+  const readyGeneration = dashboardGeneration(index);
   const [r, setR] = useState<DonorRecord | null>(null);
   const [err, setErr] = useState(false);
   const [ver, setVer] = useState(0);
@@ -262,11 +265,11 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
     if (lastId.current !== cptid) { setR(null); lastId.current = cptid; }
     setErr(false);
     let active = true;
-    fetch(`/api/csnf-data-records?id=${cptid}`, { cache: "no-store" }).then((x) => (x.ok ? x.json() : Promise.reject())).then((record) => { if (active) setR(record); }).catch(() => { if (active) setErr(true); });
+    fetchDashboardRecord("csnf", cptid).then((x) => (x.ok ? x.json() : Promise.reject())).then((record) => { if (active) setR(record); }).catch(() => { if (active) setErr(true); });
     return () => { active = false; };
-  }, [cptid, ver]);
+  }, [cptid, ver, readyGeneration]);
   if (err) return <Modal title="Record not found" onClose={onClose}><p>No record for CPTID {cptid}.</p></Modal>;
-  if (!r) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
+  if (!r || readyGeneration && (r as DonorRecord & {dashboardGeneration?: string}).dashboardGeneration !== readyGeneration) return <Modal title="Loading record..." onClose={onClose}><p className="text-sm">One moment.</p></Modal>;
   const c = r.contact ?? {};
   const s = r.summary;
   const byYear = new Map<string, number>();
@@ -366,6 +369,7 @@ function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { so
       const res = await fetch("/api/csnf-data-tracking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, cptid, by }) });
       const j = await res.json().catch(() => ({ error: `Could not save (error ${res.status})` }));
       if (!res.ok) { setMsg(j.error ?? "Could not save"); return false; }
+      if (noteDashboardRefreshResponse("csnf", res)) { setMsg("Saved to SQL. Dashboard refresh unconfirmed; do not resubmit."); return true; }
       setTracking(j); setMsg("Saved"); return true;
     } catch { setMsg("Could not save. Check your connection and try again."); return false; } finally { setBusy(null); }
   };

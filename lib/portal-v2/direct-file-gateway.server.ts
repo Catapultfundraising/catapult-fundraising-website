@@ -1,3 +1,4 @@
+import { invalidateCommittedDashboard, withDashboardMutationRefresh } from "../dashboard-ready-invalidation.server";
 import "server-only";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 import { PVAS_EXISTING_ONLY } from "./pvas-existing-only";
@@ -240,7 +241,7 @@ const DASHBOARD_AUTH: Record<PortalClient, (req: NextRequest) => Promise<boolean
 };
 export const dashboardDataAuthed = (client: PortalClient, req: NextRequest) => DASHBOARD_AUTH[client](req);
 export function directFileGateway(client: PortalClient, deps: GatewayDeps = defaults) {
-  return async (req: NextRequest) => {
+  return withDashboardMutationRefresh(async (req: NextRequest) => {
     if (!(await dashboardDataAuthed(client, req))) return NextResponse.json({ error: "Dashboard sign-in required", dashboardLogin: `/${client}/data-dashboard/login`, code: "dashboard-auth-required" }, { status: 401 });
     if (pvasCanonicalEnabled(client)) return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403 });
     if (req.headers.get("origin") !== req.nextUrl.origin || req.headers.get("sec-fetch-site") === "cross-site") return NextResponse.json({ code: "same-origin-required" }, { status: 403 });
@@ -308,11 +309,14 @@ export function directFileGateway(client: PortalClient, deps: GatewayDeps = defa
           result = preview;
         }
       } else throw new GatewayError("invalid-operation");
+      if (object(result) && result.status === "committed") {
+        await invalidateCommittedDashboard(client);
+      }
       return NextResponse.json(result, { headers: { "Cache-Control": "no-store" } });
     } catch (e) {
       if (commitAttempt) return NextResponse.json({ error: "UNCONFIRMED: check the original request status; do not resend", code: "unconfirmed", requestId: commitAttempt, statusOp: "directFileStatus" }, { status: 503, headers: { "Cache-Control": "no-store" } });
       if (e instanceof GatewayError) return NextResponse.json({ error: e.code === "private-receipt-too-large" ? "Complete audit exceeds storage limit; nothing saved." : e.code, code: e.code, exceptions: e.exceptions }, { status: e.status, headers: { "Cache-Control": "no-store" } });
       return NextResponse.json({ error: "File/context unavailable or invalid; no success asserted", code: "invalid-or-unavailable" }, { status: 400, headers: { "Cache-Control": "no-store" } });
     }
-  };
+  });
 }

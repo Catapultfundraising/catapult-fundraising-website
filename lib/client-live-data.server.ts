@@ -1,8 +1,12 @@
+import { directLaneEnabled } from "./portal-v2/direct-registration.server";
+import { invalidateCommittedDashboard } from "./dashboard-ready-invalidation.server";
 import { clientFingerprint } from "./portal-refresh/fingerprint";
 import "server-only";
-import { get, put } from "@vercel/blob";
 import { after } from "next/server";
-import { createPvasSharedCache, type CacheBlobStore } from "./pvas-shared-cache.server";
+import { createDashboardReadyCache } from "./dashboard-ready-cache.server";
+import { cacheTtlMs } from "./pvas-shared-cache.server";
+import { readyBlobStore } from "./dashboard-ready-blob.server";
+import { DASHBOARD_READY_COMPATIBILITY, prepareDashboardRead, validateReadyBuild, type PreparedRead } from "./dashboard-ready-model.server";
 import type { IdRow } from "./portal-refresh/ids";
 import { stampTrackingBases, recordBase } from "./portal-v2/sql-newer";
 
@@ -14,7 +18,7 @@ import { stampTrackingBases, recordBase } from "./portal-v2/sql-newer";
 export type LiveClient = "csnf" | "jag" | "wcbhc" | "baq";
 export const LIVE_CLIENTS: readonly LiveClient[] = ["csnf", "jag", "wcbhc", "baq"];
 type Build = { snapshot: { kpi?: unknown; health?: unknown }; records: { index: unknown[]; records: Record<string, unknown> }; pirs: Record<string, { name: string; url: string }> };
-export type LiveBuild = Build & { ids: IdRow[] };
+export type LiveBuild = Build & { ids: IdRow[]; readyRead: PreparedRead };
 
 async function buildClient(client: LiveClient): Promise<LiveBuild> {
   const { buildIds } = await import("./portal-refresh/ids");
@@ -26,28 +30,20 @@ async function buildClient(client: LiveClient): Promise<LiveBuild> {
   const [built, ids] = await Promise.all([build(), buildIds(client)]);
   // Never show an empty dashboard because SQL is half-way through a reload; fail visibly instead.
   if (!built.records?.index?.length) throw new Error(`${client} SQL build returned no records`);
-  return { ...built, ids };
+  return { ...built, ids, readyRead: await prepareDashboardRead(client, built as never) };
 }
 
-const blobStore: CacheBlobStore | null = process.env.BLOB_READ_WRITE_TOKEN || process.env.BLOB_STORE_ID ? {
-  async read(path) {
-    const r = await get(path, { access: "private", useCache: false });
-    return r?.stream ? Buffer.from(await new Response(r.stream).arrayBuffer()) : null;
-  },
-  async write(path, body, contentType) {
-    await put(path, body, { access: "private", contentType, addRandomSuffix: false, allowOverwrite: true, multipart: body.length > 50_000_000 });
-  },
-} : null;
-
-const caches = new Map<LiveClient, ReturnType<typeof createPvasSharedCache<LiveBuild>>>();
+const caches = new Map<LiveClient, ReturnType<typeof createDashboardReadyCache<LiveBuild>>>();
 function cacheFor(client: LiveClient) {
   let c = caches.get(client);
   if (!c) {
-    c = createPvasSharedCache<LiveBuild>({
-      fingerprint: () => clientFingerprint(client),
-      build: () => buildClient(client), store: blobStore, log: m => console.warn(`[${client}] ${m}`),
+    c = createDashboardReadyCache<LiveBuild>({
+      compatibility: `${DASHBOARD_READY_COMPATIBILITY}-${directLaneEnabled(client) ? "direct-on" : "direct-off"}`, prefix: `dashboard-ready/${client}`,
+      markerPath: `${client}-cache/invalidated-v1.json`, store: readyBlobStore,
+      enabled: cacheTtlMs() > 0, canPublish: process.env.VERCEL_ENV === "production",
+      fingerprint: () => clientFingerprint(client, true), build: () => buildClient(client),
+      validate: validateReadyBuild as (value: unknown) => asserts value is LiveBuild,
       background: p => { try { after(() => p); } catch { void p; } },
-      paths: { data: `${client}-cache/live-build-v1.bin.gz`, marker: `${client}-cache/invalidated-v1.json` },
     });
     caches.set(client, c);
   }
@@ -55,13 +51,15 @@ function cacheFor(client: LiveClient) {
 }
 /** The current shared SQL build for a client (never a weekly file). Callers must not mutate it. */
 export const liveBuild = (client: LiveClient) => cacheFor(client).get();
+export const inspectLiveReady = (client: LiveClient, generation?: string) => cacheFor(client).inspect(generation);
+export const refreshLiveReady = (client: LiveClient, allowPreview = false) => cacheFor(client).refresh({ allowPreview });
 export async function invalidateLive(client: LiveClient): Promise<void> {
-  try { await cacheFor(client).invalidate(); } catch (e) { console.warn(`${client} cache invalidation marker failed: ${String(e)}`); }
+  await cacheFor(client).invalidate();
 }
 /** Same build identity/freshness gate as PVAS; local JSON QA bypasses the memo. */
-export async function liveBuildIdentity(client: LiveClient): Promise<object | null> {
+export async function liveBuildIdentity(client: LiveClient, generation?: string): Promise<object | null> {
   if (liveLocalDir(client)) return null;
-  try { return await liveBuild(client); } catch { return null; }
+  try { return generation ? (await inspectLiveReady(client, generation)).built : await liveBuild(client); } catch { return null; }
 }
 /** Local QA only: {CLIENT}_LOCAL_DIR keeps reading the old JSON files. */
 export const liveLocalDir = (client: LiveClient) => process.env[`${client.toUpperCase()}_LOCAL_DIR`];
@@ -93,6 +91,7 @@ export async function saveSqlTracking(client: LiveClient, t: { prospects: unknow
   const { status, body } = await engageTracking(client, "saveClientTracking", { tracking: { prospects: t.prospects, activity: t.activity, removed: t.removed ?? [] } });
   if (status === 409 && body.code === "tracking-not-in-sql") return false;
   if (status !== 200 || body.ok !== true) throw new Error(String(body.error || `tracking save failed (${status})`));
+  await invalidateCommittedDashboard(client);
   return true;
 }
 
