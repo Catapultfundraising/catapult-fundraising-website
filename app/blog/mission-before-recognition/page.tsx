@@ -72,14 +72,23 @@ export default function MissionBeforeRecognitionPage() {
         <p className="text-sm font-semibold uppercase tracking-wider text-[rgb(var(--brass))]">BY JEFF GRANDY, CATAPULT FUNDRAISING</p>
         <p className="mt-1 text-sm text-[rgb(var(--ink))]/70">Vice President for Client Development</p>
         <p className="mt-2 text-sm text-[rgb(var(--ink))]/60"><time dateTime={DATE}>November 18, 2026</time> · 4 min read</p>
-        <figure className="mb-8 mt-6 overflow-hidden rounded-2xl">
-          <Image src={`${IMG}/hero-building-plans.jpg`} alt="People reviewing building plans together around a table" width={1568} height={1176} priority className="h-auto w-full" sizes="(min-width: 1024px) 816px, 100vw" />
+        <figure data-article-hero className="mb-6 mt-5 w-full shrink-0 sm:float-right sm:mb-4 sm:ml-8 sm:w-72 md:w-80">
+          <div className="relative aspect-[4/3] w-full overflow-hidden rounded-2xl" style={{
+            WebkitMaskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)",
+            maskImage: "radial-gradient(ellipse farthest-corner at center, black 70%, transparent 100%)",
+            WebkitMaskSize: "100% 100%",
+            maskSize: "100% 100%",
+            WebkitMaskRepeat: "no-repeat",
+            maskRepeat: "no-repeat",
+          }}>
+            <Image src={`${IMG}/hero-building-plans.jpg`} alt="People reviewing building plans together around a table" fill priority className="object-cover" sizes="(min-width: 768px) 320px, (min-width: 640px) 288px, 100vw" />
+          </div>
         </figure>
-        <Figure src="mission-first.svg" alt="Mission before recognition: who will benefit, what will the gift do, and why this decision?" priority />
         <P>{"I have sat in a lot of board rooms where the naming conversation starts before anyone has said what the building is for. Whose name goes on the lobby. How big the sign should be. I understand why. Recognition is easy to picture. The mission takes more work to explain."}</P>
         <P>{"Donors who give because of the mission rarely ask about recognition first. They ask what will change because they gave. The donors who lead with wanting their name in flashing lights tend to be the ones who are gone after the ribbon cutting."}</P>
         <div className="clear-both" />
         <H2>{"The easy site and the right site"}</H2>
+        <Figure src="mission-first.svg" alt="Mission before recognition: who will benefit, what will the gift do, and why this decision?" />
         <P>{"One client I worked with had to choose between two pieces of land. The first was the site they had planned on all along. The second was donated. It was bigger, the build would be simpler, and the move would be easier on staff and the people they serve. On paper the donated land won."}</P>
         <P>{"Then the board asked who the facility was for and how those people would actually get there and use it. The donated land fell short on that question. The board chose the site that served the mission."}</P>
         <P>{"That decision cost them an easier build. It also gave them a story every donor could understand. When you can explain why you made a hard choice for the people you serve, you have a case. A naming menu cannot do that for you."}</P>

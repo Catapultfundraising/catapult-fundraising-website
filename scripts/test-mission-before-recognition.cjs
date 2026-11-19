@@ -35,3 +35,12 @@ assert(page.includes("Book a 30-minute call with Jeff"), "Jeff CTA missing");
 assert(page.includes("hero-building-plans.jpg"), "Photographic hero missing");
 assert(page.includes("social-card-v2.png"), "Revised social image missing");
 console.log("PASS: Jeff byline, release date, sections, AFP links, shared index, sitemap and graphics.");
+
+const hero = page.match(/<figure data-article-hero[\s\S]*?<\/figure>/)?.[0];
+assert(hero, "Opening hero figure required");
+assert(hero.includes("hero-building-plans.jpg"), "Keep approved original picture");
+assert(hero.includes("sm:float-right") && hero.includes("md:w-80"), "Desktop hero must float right at established article width");
+assert(hero.includes("aspect-[4/3]") && hero.includes("radial-gradient"), "Match established hero crop and soft-edge treatment");
+assert(page.indexOf("data-article-hero") < page.indexOf("<P>"), "Hero must sit beside the opening text");
+assert(page.indexOf('src="mission-first.svg"') > page.indexOf('<H2>{"The easy site and the right site"}</H2>'), "Supporting diagram must not compete with opening photo");
+assert(!page.includes("hero-donor-conversation-v2"), "Do not replace approved photo");
