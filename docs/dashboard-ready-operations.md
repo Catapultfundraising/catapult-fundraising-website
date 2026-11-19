@@ -14,7 +14,9 @@ validated read models, not write validation or a replacement database.
   using the in-progress records, and existing direct-source composition.
 - Each fingerprint discovers and fully hashes its own schema's non-retired
   tables. Full row JSON includes NULL and unlimited text, SHA2_256 per row and
-  sorted table hashes. SQL statements are batched below the portal's 20KB cap.
+  sorted fixed-hex XML concatenation (`sha256-json-xml-v2`). Azure SQL rejects
+  ordered STRING_AGG around correlated FOR JSON; the engine-verified XML path
+  hashes unbounded nvarchar, preserves duplicates, and has no XML metacharacters. SQL statements are batched below the portal's 20KB cap.
 - PVAS additionally includes `pvas.legacy_engage_portal_batches`; this is the
   historical upload reader dependency otherwise excluded by the legacy prefix.
 - When the other four clients' direct lane is enabled, the fingerprint also

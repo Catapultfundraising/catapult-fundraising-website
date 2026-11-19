@@ -99,6 +99,24 @@ async function main() {
   mode="uncached";const uncached=await client.loadDashboardReady("jag");
   assert.equal(uncached.mode,"uncached");assert.equal(uncached.index.dashboardGeneration,undefined);
   await client.fetchDashboardRecord("jag",101);assert.doesNotMatch(calls.at(-1).url,/generation=/);
+
+  // The actual canonical action wrapper absorbs refresh headers ONLY without
+  // weakening its original requestId/ok/uncertainty receipt validation.
+  const storage=new Map();let malformed=false,notices=0;
+  const action=compile("lib/portal-v2/pvas-action.client.ts",{
+    "./pvas-canonical":{pvasCanonicalEnabled:()=>true},
+    "../dashboard-ready.client":{noteDashboardRefreshResponse:(_c,r)=>{assert.equal(r.headers.get("X-Dashboard-Refresh"),"unconfirmed");notices++;}},
+  },{crypto:require("node:crypto").webcrypto,
+    sessionStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
+    fetch:async(_url,init)=>{const b=JSON.parse(init.body);return Response.json(malformed?{}:{ok:true,requestId:b.requestId},
+      {headers:{"X-Dashboard-Refresh":"unconfirmed","X-Dashboard-Refresh-After":"7000"}});},
+  });
+  const init={method:"POST",body:JSON.stringify({op:"pvasFields",by:"Fictional",command:{actor:"Fictional"}})};
+  assert.equal((await action.pvasActionFetch("pvas","/api/pvas-data-v2",init)).status,200);
+  assert.equal(storage.size,0,"committed receipt retires identity despite cache warning");assert.equal(notices,1);
+  malformed=true;
+  assert.equal((await action.pvasActionFetch("pvas","/api/pvas-data-v2",init)).status,503);
+  assert.equal(storage.size,1,"malformed flagged response still retains reconciliation identity");assert.equal(notices,1);
   console.log("PASS authenticated ready/cron routes, preview opt-in, disabled mode, shared browser single flight/publication, exact record generation, post-save supersession, no silent failure fallback");
 }
 main().catch(error=>{console.error(error);process.exitCode=1;});

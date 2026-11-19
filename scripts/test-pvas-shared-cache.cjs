@@ -16,17 +16,25 @@ async function main(){
  const sql=fm.exports.fingerprintQuery("pvas",["notes", "long]name's"]);
  assert.match(sql,/SELECT src\.\* FOR JSON PATH, WITHOUT_ARRAY_WRAPPER, INCLUDE_NULL_VALUES/,
   "full row JSON covers nvarchar beyond 255 characters and distinguishes NULL from missing/empty");
- assert.match(sql,/STRING_AGG\(CAST\(h\.row_hash AS varchar\(max\)\), ''\) WITHIN GROUP \(ORDER BY h\.row_hash COLLATE Latin1_General_100_BIN2\)/,
-  "sorted full-length hashes avoid physical-order changes and STRING_AGG truncation");
+ assert.match(sql,/SELECT h\.row_hash AS \[text\(\)\]/,"hex-only concatenation preserves duplicate rows");
+ assert.match(sql,/ORDER BY h\.row_hash COLLATE Latin1_General_100_BIN2 FOR XML PATH\(''\)/,"deterministically sorted full hashes");
+ assert.doesNotMatch(sql,/STRING_AGG|WITHIN GROUP/,"engine rejects ordered aggregate with correlated FOR JSON (8711)");
+ assert.match(sql,/,N''\)\),2\) k/,"XML concatenation has unbounded nvarchar digest domain");
  assert.equal((sql.match(/HASHBYTES\('SHA2_256'/g)||[]).length,4,"each table hashes every row then the ordered table digest");
  assert.doesNotMatch(sql,/BINARY_CHECKSUM|CHECKSUM_AGG|LEFT\(|SUBSTRING\(/,"no lossy checksum or text prefix");
  assert.ok(sql.includes("FROM pvas.[long]]name's] src")&&sql.includes("'long]name''s'"),"SQL names and labels escaped");
  // Fixture sentinels: these changes must reach row JSON, not its first 255 chars.
  const h=v=>crypto.createHash("sha256").update(JSON.stringify({note:v}),"utf16le").digest("hex");
+ const table=notes=>crypto.createHash("sha256").update(notes.map(n=>h(n).toUpperCase()).sort().join(""),"utf16le").digest("hex");
+ assert.equal(table(["A","B","A"]),table(["B","A","A"]),"row order independent");
+ assert.notEqual(table(["A","B","A"]),table(["A","B"]),"duplicates retained");
+ assert.notEqual(table([null]),table([""]),"NULL distinct from empty");
+ assert.notEqual(table(["x".repeat(255)+"A"]),table(["x".repeat(255)+"B"]),"long text suffix retained");
+
  assert.notEqual(h("x".repeat(255)+"A"),h("x".repeat(255)+"B"));
  assert.notEqual(h(null),h(""));
  const fpResult=await fm.exports.clientFingerprint("pvas");
- assert.match(fpResult,/sha256-json-v1/);assert.ok(queries[1].includes("pvas.[contacts]"));
+ assert.match(fpResult,/sha256-json-xml-v2/);assert.ok(queries[1].includes("pvas.[contacts]"));
  assert.doesNotMatch(queries[1],/_load_log|legacy_notes|reconciliation_notes/);
 
  assert.equal(cacheTtlMs(undefined),120000);assert.equal(cacheTtlMs("0"),0);assert.equal(cacheTtlMs("bad"),0);
