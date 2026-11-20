@@ -15,15 +15,16 @@ import { stampTrackingBases, recordBase } from "./portal-v2/sql-newer";
 // cleared by the dashboard's "Reload current SQL view" link. Dashboard edits are applied on top at read time,
 // so they show at once. No weekly file refresh feeds these dashboards any more; SQL is the only source.
 
-export type LiveClient = "csnf" | "jag" | "wcbhc" | "baq";
-export const LIVE_CLIENTS: readonly LiveClient[] = ["csnf", "jag", "wcbhc", "baq"];
+export type LiveClient = "csnf" | "jag" | "wcbhc" | "baq" | "imas" | "imas";
+export const LIVE_CLIENTS: readonly LiveClient[] = ["csnf", "jag", "wcbhc", "baq", "imas"];
 type Build = { snapshot: { kpi?: unknown; health?: unknown }; records: { index: unknown[]; records: Record<string, unknown> }; pirs: Record<string, { name: string; url: string }> };
 export type LiveBuild = Build & { ids: IdRow[]; readyRead: PreparedRead };
 
 async function buildClient(client: LiveClient): Promise<LiveBuild> {
   const { buildIds } = await import("./portal-refresh/ids");
   const build: () => Promise<Build> =
-    client === "baq" ? async () => (await import("./portal-refresh/baq")).buildBaq() as Promise<Build>
+    client === "imas" ? async () => (await import("./portal-refresh/imas")).buildImas() as Promise<Build>
+      : client === "baq" ? async () => (await import("./portal-refresh/baq")).buildBaq() as Promise<Build>
       : client === "csnf" ? async () => (await import("./portal-refresh/csnf")).buildCsnf() as Promise<Build>
         : client === "jag" ? async () => (await import("./portal-refresh/jag")).buildJag() as Promise<Build>
           : async () => (await import("./portal-refresh/wcbhc")).buildWcbhc() as Promise<Build>;

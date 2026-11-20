@@ -21,6 +21,7 @@ import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
 import { isJagDataAuthed } from "@/lib/jag-data-auth";
 import { isWcbhcDataAuthed } from "@/lib/wcbhc-data-auth";
 import { isBaqDataAuthed } from "@/lib/baq-data-auth";
+import { isImasDataAuthed } from "@/lib/imas-data-auth";
 import { getPvasRecords, invalidatePvasDataCache } from "@/lib/pvas-data-store";
 import { LIVE_CLIENTS, liveBuild, liveLocalDir, type LiveClient } from "@/lib/client-live-data.server";
 import { supersededEdits, withoutSuperseded, recordBase } from "@/lib/portal-v2/sql-newer";
@@ -29,6 +30,7 @@ import { getCsnfRecords } from "@/lib/csnf-data-store";
 import { getJagRecords } from "@/lib/jag-data-store";
 import { getWcbhcRecords } from "@/lib/wcbhc-data-store";
 import { getBaqRecords, getBaqSnapshot } from "@/lib/baq-data-store";
+import { getImasRecords, getImasSnapshot } from "@/lib/imas-data-store";
 import { getPvasSnapshot } from "@/lib/pvas-data-store";
 import { getWcbhcSnapshot } from "@/lib/wcbhc-data-store";
 import { PORTAL_V2, idsPath, type PortalClient, type PortalGift, type PortalState } from "@/lib/portal-v2/clients";
@@ -41,10 +43,10 @@ import { listProfiles, getProfile } from "@/lib/research-profiles-store";
 // Authorization: Bearer PORTAL_WRITE_SECRET.
 
 const AUTH: Record<PortalClient, (r: NextRequest) => Promise<boolean>> = {
-  pvas: isPvasDataAuthed, csnf: isCsnfDataAuthed, jag: isJagDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed,
+  pvas: isPvasDataAuthed, csnf: isCsnfDataAuthed, jag: isJagDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed, imas: isImasDataAuthed,
 };
 const RECORDS: Record<PortalClient, () => Promise<{ index: { cptid: number; name: string; city?: string }[] } | null>> = {
-  pvas: getPvasRecords, csnf: getCsnfRecords, jag: getJagRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords,
+  pvas: getPvasRecords, csnf: getCsnfRecords, jag: getJagRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords, imas: getImasRecords,
 };
 // CPTIDs at or above this are placeholders in client data (PVAS has a 999999); they never set the next id.
 const PLACEHOLDER_CPTID = 900_000;
@@ -230,6 +232,7 @@ const DB_CAMPAIGN: Partial<Record<PortalClient, { load: () => Promise<SnapLike>;
   wcbhc: { load: getWcbhcSnapshot as () => Promise<SnapLike>, campaign: () => true, label: "Client database" },
   // BAQ: community campaign, nothing on file yet; picks up automatically once the database has campaign gifts.
   baq: { load: getBaqSnapshot as () => Promise<SnapLike>, campaign: () => true, label: "Client database" },
+  imas: { load: getImasSnapshot as () => Promise<SnapLike>, campaign: () => true, label: "Client database" },
 };
 const BAD_STATUS = /refund|disput|fail|cancel|void|declin/i;
 
@@ -666,7 +669,7 @@ export function portalV2Route(client: PortalClient) {
         const resolved = effectiveAsk(target, overlay, edits, (id) => {
           const record = data?.records?.[String(id)];
           if (record?.portfolio?.directAskPresent || record?.portfolio?.directManualAskPresent) return record.portfolio.ask;
-          return record?.portfolio?.ask ?? (client !== "wcbhc" && client !== "baq" ? record?.board?.find((row) => row.active && row.ask)?.ask : undefined);
+          return record?.portfolio?.ask ?? (client !== "wcbhc" && client !== "baq" && client !== "imas" ? record?.board?.find((row) => row.active && row.ask)?.ask : undefined);
         }, (id) => data?.records?.[String(id)]?.portfolio?.directAskPresent === true, (id) => data?.records?.[String(id)]?.portfolio?.directManualAskPresent === true);
         const last = edits.get(resolved.askFromCptid ?? target);
         if (b.op === "getAsk") return NextResponse.json({ edited: !!resolved.askEdited, ask: resolved.ask ?? null, oldAsk: last?.oldValue ?? null, by: last?.by ?? "", at: last?.at ?? "", askConflict: !!resolved.askConflict, ...(resolved.directAskPresent ? { directAskPresent: true } : {}) });

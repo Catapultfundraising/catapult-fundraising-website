@@ -100,7 +100,7 @@ export function currentDirectValues(observed: DirectObservation) {
 /** View-only copies: never mutate a cached Access archive or store derived source values into tracking. */
 export function composeDirectData<T>(raw: T, kind: "records" | "snapshot", observed: DirectObservation): T {
   if (!raw || typeof raw !== "object") throw new DirectReadUnavailable();
-  if (kind === "snapshot") return { ...directSnapshot(raw, directClientView(observed), !["wcbhc", "baq"].includes(observed.state.client)), directSourceRevision: observed.state.revision };
+  if (kind === "snapshot") return { ...directSnapshot(raw, directClientView(observed), !["wcbhc", "baq", "imas"].includes(observed.state.client)), directSourceRevision: observed.state.revision };
   const values = currentDirectValues(observed);
   const row = (input: unknown, record = false, excludeAsk = false): unknown => {
     if (!object(input)) return input;

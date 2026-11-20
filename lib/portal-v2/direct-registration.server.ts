@@ -16,6 +16,7 @@ export const APPROVED_WEBSITE_DIRECT_REGISTRATIONS: readonly WebsiteDirectRegist
   Object.freeze({ client: "pvas", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
   Object.freeze({ client: "wcbhc", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
   Object.freeze({ client: "baq", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
+  Object.freeze({ client: "imas", template: "staff-notes-asks-v1", solicitorAliases: Object.freeze({}) }),
 ]);
 /** Acceptance of this code path, NOT deployment/configuration or import approval.
  * Missing/malformed existing source transport configuration leaves every client OFF. */

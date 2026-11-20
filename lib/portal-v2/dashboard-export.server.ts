@@ -55,6 +55,7 @@ async function owners(client: PortalClient) {
     case "csnf": { const [s,t,m] = await Promise.all([import("../csnf-data-store"),import("../csnf-tracking"),import("./csnf-export-model")]); return { records:s.getCsnfRecords,snapshot:s.getCsnfSnapshot,tracking:t.getCsnfTracking,index:m.indexPayload,record:m.recordPayload }; }
     case "wcbhc": { const [s,t,m] = await Promise.all([import("../wcbhc-data-store"),import("../wcbhc-tracking"),import("./wcbhc-export-model")]); return { records:s.getWcbhcRecords,snapshot:s.getWcbhcSnapshot,tracking:t.getWcbhcTracking,index:m.indexPayload,record:m.recordPayload }; }
     case "baq": { const [s,t,m] = await Promise.all([import("../baq-data-store"),import("../baq-tracking"),import("./baq-export-model")]); return { records:s.getBaqRecords,snapshot:s.getBaqSnapshot,tracking:t.getBaqTracking,index:m.indexPayload,record:m.recordPayload }; }
+    case "imas": { const [s,t,m] = await Promise.all([import("../imas-data-store"),import("../imas-tracking"),import("./imas-export-model")]); return { records:s.getImasRecords,snapshot:s.getImasSnapshot,tracking:t.getImasTracking,index:m.indexPayload,record:m.recordPayload }; }
   }
 }
 export async function reconstructDashboardExport(client: PortalClient, rawIntent: unknown, presentation: { title?: unknown; subtitle?: unknown }): Promise<CurrentExportPayload> {

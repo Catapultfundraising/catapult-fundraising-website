@@ -214,7 +214,7 @@ return {get index(){return indexed ??= overlaidIndex(data.index,prospects,campai
       if (ownSource && (["redirectedFrom","mergedFrom","dsFromCptid"].some(k => Object.hasOwn(base,k)) ||
         [base.campaignAsk,base.portfolio].some(v => !!v && typeof v === "object" && Object.hasOwn(v,"askFromCptid"))))
         throw new Error("PVAS own-source HOLD: already-derived-base");
-      const out = overlayRecord(base, recordOverlay, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup);
+      const out = overlayRecord(base, recordOverlay, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq" && client !== "imas", lookup);
       const a = recordAssignment(target);
       out.assignment = a;
       if (out.portfolio) out.portfolio = { ...(out.portfolio as object), solicitor: a.solicitor, secondary: a.solicitor2 };

@@ -7,8 +7,9 @@ import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
 import { isJagDataAuthed } from "@/lib/jag-data-auth";
 import { isWcbhcDataAuthed } from "@/lib/wcbhc-data-auth";
 import { isBaqDataAuthed } from "@/lib/baq-data-auth";
+import { isImasDataAuthed } from "@/lib/imas-data-auth";
 export const runtime = "nodejs", dynamic = "force-dynamic", maxDuration = 300;
-const AUTH = { pvas: isPvasDataAuthed, csnf: isCsnfDataAuthed, jag: isJagDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed };
+const AUTH = { pvas: isPvasDataAuthed, csnf: isCsnfDataAuthed, jag: isJagDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed, imas: isImasDataAuthed };
 export async function GET(req: NextRequest) {
   const client = req.nextUrl.searchParams.get("client");
   if (!readyClient(client)) return NextResponse.json({ error: "Unknown dashboard" }, { status: 400 });

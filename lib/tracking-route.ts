@@ -29,7 +29,7 @@ export function trackingRoute<T extends Tracking>(client: PortalClient, auth: (r
   // PIR links live in <client>.pir_links and arrive with the live SQL build. The direct-source
   // tracking document has no pirs, so re-attach them to every response (View PIR + PIR wealth).
   async function withPirs<V>(view: V): Promise<V> {
-    if (client !== "csnf" && client !== "jag" && client !== "wcbhc" && client !== "baq") return view;
+    if (client !== "csnf" && client !== "jag" && client !== "wcbhc" && client !== "baq" && client !== "imas") return view;
     const { liveBuild } = await import("@/lib/client-live-data.server");
     const pirs = (await liveBuild(client)).pirs ?? {};
     return { ...(view as object), pirs } as V;

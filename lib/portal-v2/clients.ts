@@ -8,9 +8,10 @@ import type { MixedGiftRecord } from "./pvas-native-v3";
 import { pvasChart, PVAS_GOAL } from "@/lib/pvas-gc2p";
 import { wcbhcChart, WCBHC_GOAL } from "@/lib/wcbhc-gc2p";
 import { baqChart, BAQ_GOAL } from "@/lib/baq-gc2p";
+import { imasChart, IMAS_GOAL } from "@/lib/imas-gc2p";
 
 // Portal v2 per-client config (safe for client components).
-export const PORTAL_V2_CLIENTS = ["pvas", "csnf", "jag", "wcbhc", "baq"] as const;
+export const PORTAL_V2_CLIENTS = ["pvas", "csnf", "jag", "wcbhc", "baq", "imas"] as const;
 export type PortalClient = (typeof PORTAL_V2_CLIENTS)[number];
 
 export interface PortalV2Config {
@@ -27,6 +28,7 @@ export const PORTAL_V2: Record<PortalClient, PortalV2Config> = {
   jag: { key: "jag", clientIdLabel: "Client ID", goal: 1_750_000, chart: buildGiftChart, api: "/api/jag-data-v2" },
   wcbhc: { key: "wcbhc", clientIdLabel: "Client ID", goal: WCBHC_GOAL, chart: wcbhcChart, api: "/api/wcbhc-data-v2" },
   baq: { key: "baq", clientIdLabel: "Client ID", goal: BAQ_GOAL, chart: baqChart, api: "/api/baq-data-v2" },
+  imas: { key: "imas", clientIdLabel: "Client ID", goal: IMAS_GOAL, chart: imasChart, api: "/api/imas-data-v2" },
 };
 export const idsPath = (c: string) => `${c}-data/ids.json`;
 

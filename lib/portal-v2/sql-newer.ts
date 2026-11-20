@@ -97,7 +97,7 @@ export function recordBase(client: string, records: Record<string, unknown>): Ba
     if (field === "wealth:capacity") return r.ds ? ((r.ds["Wealth-Based Capacity"] as BaseValue) ?? "") : undefined;
     if (field === "wealth:rating") return r.ds ? ((r.ds["DS Rating"] as BaseValue) ?? "") : undefined;
     if (field === "ask") {
-      const a = r.portfolio?.ask ?? (client !== "wcbhc" && client !== "baq" ? r.board?.find((b) => b.active && b.ask)?.ask : undefined);
+      const a = r.portfolio?.ask ?? (client !== "wcbhc" && client !== "baq" && client !== "imas" ? r.board?.find((b) => b.active && b.ask)?.ask : undefined);
       return a === undefined ? undefined : (a as BaseValue);
     }
     if (field === "solicitor") return r.portfolio ? ((r.portfolio.solicitor as BaseValue) ?? "") : "";

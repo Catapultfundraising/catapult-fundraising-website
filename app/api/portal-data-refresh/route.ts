@@ -14,10 +14,13 @@ import { buildWcbhc } from "@/lib/portal-refresh/wcbhc";
 import { WCBHC_DATA_PATH, WCBHC_RECORDS_PATH } from "@/lib/wcbhc-data-store";
 import { WCBHC_PIRS_PATH } from "@/lib/wcbhc-tracking";
 import { buildBaq } from "@/lib/portal-refresh/baq";
+import { buildImas } from "@/lib/portal-refresh/imas";
 import { buildIds } from "@/lib/portal-refresh/ids";
 import { idsPath } from "@/lib/portal-v2/clients";
 import { BAQ_DATA_PATH, BAQ_RECORDS_PATH } from "@/lib/baq-data-store";
+import { IMAS_DATA_PATH, IMAS_RECORDS_PATH } from "@/lib/imas-data-store";
 import { BAQ_PIRS_PATH } from "@/lib/baq-tracking";
+import { IMAS_PIRS_PATH } from "@/lib/imas-tracking";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
 import { PVAS_EXISTING_ONLY } from "@/lib/portal-v2/pvas-existing-only";
 
@@ -30,7 +33,7 @@ export const preferredRegion = "iad1";
 // ---------------------------------------------------------------------------
 // Manual-only Azure SQL -> data-portal refresh (replaces Viktor's Access-file scripts).
 //
-//   POST /api/portal-data-refresh?client=all|csnf|jag|pvas|wcbhc|baq[&dry=1]
+//   POST /api/portal-data-refresh?client=all|csnf|jag|pvas|wcbhc|baq|imas[&dry=1]
 //
 // Auth: Authorization: Bearer $CRON_SECRET. Scheduled GET is disabled; manual POST remains available.
 // Reads Azure SQL (env AZURE_SQL_SERVER/DB/USER/PASSWORD, read-only login
@@ -43,6 +46,7 @@ const TARGETS = {
   csnf: { build: buildCsnf, paths: { snapshot: CSNF_DATA_PATH, records: CSNF_RECORDS_PATH, pirs: CSNF_PIRS_PATH } },
   wcbhc: { build: buildWcbhc, paths: { snapshot: WCBHC_DATA_PATH, records: WCBHC_RECORDS_PATH, pirs: WCBHC_PIRS_PATH } },
   baq: { build: buildBaq, paths: { snapshot: BAQ_DATA_PATH, records: BAQ_RECORDS_PATH, pirs: BAQ_PIRS_PATH } },
+  imas: { build: buildImas, paths: { snapshot: IMAS_DATA_PATH, records: IMAS_RECORDS_PATH, pirs: IMAS_PIRS_PATH } },
   jag: { build: buildJag, paths: { snapshot: JAG_DATA_PATH, records: JAG_RECORDS_PATH, pirs: JAG_PIRS_PATH } },
   pvas: { build: buildPvas, paths: { snapshot: PVAS_DATA_PATH, records: PVAS_RECORDS_PATH, pirs: PVAS_PIRS_PATH } },
 } as const;
@@ -60,10 +64,10 @@ async function run(req: NextRequest) {
   if (pvasSql && which === "pvas") {
     return NextResponse.json(PVAS_EXISTING_ONLY, { status: 403, headers: { "Cache-Control": "no-store" } });
   }
-  const clients: Client[] = which === "all" ? ["csnf", "jag", "pvas", "wcbhc", "baq"] : which in TARGETS ? [which as Client] : [];
-  if (!clients.length) return NextResponse.json({ error: "client must be all|csnf|jag|pvas|wcbhc|baq" }, { status: 400 });
+  const clients: Client[] = which === "all" ? ["csnf", "jag", "pvas", "wcbhc", "baq", "imas"] : which in TARGETS ? [which as Client] : [];
+  if (!clients.length) return NextResponse.json({ error: "client must be all|csnf|jag|pvas|wcbhc|baq|imas" }, { status: 400 });
 
-  const NO_GIVING_CLIENTS = new Set<string>(["baq"]);
+  const NO_GIVING_CLIENTS = new Set<string>(["baq", "imas"]);
   const results: Record<string, unknown> = {};
   if (pvasSql && which === "all") {
     results.pvas = { skipped: true, saved: false, code: PVAS_EXISTING_ONLY.code };

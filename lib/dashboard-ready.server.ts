@@ -5,7 +5,7 @@ import type { PreparedRead } from "./dashboard-ready-model.server";
 import { currentRecordProjection, httpIndex } from "./portal-v2/records-route";
 import type { ReadyFreshness } from "./dashboard-ready-cache.server";
 
-export const READY_CLIENTS = ["pvas", "csnf", "jag", "wcbhc", "baq"] as const;
+export const READY_CLIENTS = ["pvas", "csnf", "jag", "wcbhc", "baq", "imas"] as const;
 export function readyClient(value: unknown): value is PortalClient {
   return typeof value === "string" && (READY_CLIENTS as readonly string[]).includes(value);
 }

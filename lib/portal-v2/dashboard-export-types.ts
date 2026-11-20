@@ -4,6 +4,7 @@ import { jagExportTable } from "./jag-export-model";
 import { csnfExportTable } from "./csnf-export-model";
 import { wcbhcExportTable } from "./wcbhc-export-model";
 import { baqExportTable } from "./baq-export-model";
+import { imasExportTable } from "./imas-export-model";
 
 export type ExportCell = string | number | null;
 export type TableRow = Record<string, unknown>;
@@ -22,7 +23,7 @@ export type CurrentExportPayload = {
   sections: { heading?: string; rows: ExportCell[][] }[]; notes?: string[]; intent?: ExportIntent;
 };
 export function buildDashboardExportModel(client: PortalClient, context: TableSource & { index: unknown[]; tracking: unknown }): TableModel {
-  return ({ pvas: pvasExportTable, jag: jagExportTable, csnf: csnfExportTable, wcbhc: wcbhcExportTable, baq: baqExportTable })[client](context.table, context);
+  return ({ pvas: pvasExportTable, jag: jagExportTable, csnf: csnfExportTable, wcbhc: wcbhcExportTable, baq: baqExportTable, imas: imasExportTable })[client](context.table, context);
 }
 /** Exact existing cmpValues semantics, without importing a React/client component into server IO. */
 export function compareExportValues(a: unknown, b: unknown): number {

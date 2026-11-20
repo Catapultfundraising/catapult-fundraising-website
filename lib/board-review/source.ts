@@ -5,11 +5,13 @@ import { getCsnfRecords } from "@/lib/csnf-data-store";
 import { getPvasRecords } from "@/lib/pvas-data-store";
 import { getWcbhcRecords } from "@/lib/wcbhc-data-store";
 import { getBaqRecords } from "@/lib/baq-data-store";
+import { getImasRecords } from "@/lib/imas-data-store";
 import { getJagTracking } from "@/lib/jag-tracking";
 import { getCsnfTracking } from "@/lib/csnf-tracking";
 import { getPvasTracking } from "@/lib/pvas-tracking";
 import { getWcbhcTracking } from "@/lib/wcbhc-tracking";
 import { getBaqTracking } from "@/lib/baq-tracking";
+import { getImasTracking } from "@/lib/imas-tracking";
 import { portalProspects } from "@/lib/portal-v2/server";
 import { idsPath } from "@/lib/portal-v2/clients";
 import { LIVE_CLIENTS, liveBuild, liveLocalDir, type LiveClient } from "@/lib/client-live-data.server";
@@ -20,8 +22,8 @@ import { lastNameKey, type BrClient, type BrEntry, type BrFilters, type BrPoolRo
 type Rec = { index: { cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number; last: string; ds?: string; capacity?: string; capMin: number }[];
   records: Record<string, { contact?: Record<string, string>; gifts?: { date?: string; amount: number }[] }> };
 type Trk = { prospects: Record<string, { status?: string; solicitor?: string }> };
-const RECORDS: Record<BrClient, () => Promise<unknown>> = { jag: getJagRecords, csnf: getCsnfRecords, pvas: getPvasRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords };
-const TRACKING: Record<BrClient, () => Promise<unknown>> = { jag: getJagTracking, csnf: getCsnfTracking, pvas: getPvasTracking, wcbhc: getWcbhcTracking, baq: getBaqTracking };
+const RECORDS: Record<BrClient, () => Promise<unknown>> = { jag: getJagRecords, csnf: getCsnfRecords, pvas: getPvasRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords, imas: getImasRecords };
+const TRACKING: Record<BrClient, () => Promise<unknown>> = { jag: getJagTracking, csnf: getCsnfTracking, pvas: getPvasTracking, wcbhc: getWcbhcTracking, baq: getBaqTracking, imas: getImasTracking };
 
 export async function getPool(c: BrClient): Promise<BrPoolRow[]> {
   const [rec0, trk, added] = (await Promise.all([RECORDS[c](), TRACKING[c]().catch(() => null), portalProspects(c)])) as [Rec | null, Trk | null, Awaited<ReturnType<typeof portalProspects>>];

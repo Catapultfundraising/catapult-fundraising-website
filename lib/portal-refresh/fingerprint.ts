@@ -1,6 +1,6 @@
 import { rows } from "./common";
 
-export type FingerprintClient = "pvas" | "csnf" | "jag" | "wcbhc" | "baq";
+export type FingerprintClient = "pvas" | "csnf" | "jag" | "wcbhc" | "baq" | "imas";
 
 /** Full contents, including unlimited text and explicit NULL. Azure SQL rejects
  * correlated FOR JSON plus ordered STRING_AGG (8711); this engine-verified XML

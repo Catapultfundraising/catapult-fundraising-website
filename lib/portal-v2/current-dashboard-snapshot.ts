@@ -12,9 +12,9 @@ export function currentDashboardSnapshot<T extends object>(
   tracking: AssignmentTracking | undefined, updates: UpdateRow[], directView?: DirectClientView | null,
 ): T {
   const overlay = buildOverlay(updates);
-  const source = directSnapshot(snapshot, pvasCanonicalEnabled(client) ? null : directView, client !== "wcbhc" && client !== "baq");
+  const source = directSnapshot(snapshot, pvasCanonicalEnabled(client) ? null : directView, client !== "wcbhc" && client !== "baq" && client !== "imas");
   const asks = pvasCanonicalEnabled(client) ? source :
-    overlayCampaignAsks(source, overlay, askEdits(updates), client !== "wcbhc" && client !== "baq");
+    overlayCampaignAsks(source, overlay, askEdits(updates), client !== "wcbhc" && client !== "baq" && client !== "imas");
   if (!pvasCanonicalEnabled(client)) return tracking ? assignmentSnapshot(asks, index, tracking, overlay) : asks;
   if (!index || !tracking) throw new Error("Current canonical ask index/tracking unavailable");
   const byId = new Map(index.map(row=>[row.cptid,row]));

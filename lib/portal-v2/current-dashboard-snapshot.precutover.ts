@@ -10,7 +10,7 @@ export function currentDashboardSnapshot<T extends object>(
   tracking: AssignmentTracking | undefined, updates: UpdateRow[], directView?: DirectClientView | null,
 ): T {
   const overlay = buildOverlay(updates);
-  const source = directSnapshot(snapshot, directView, client !== "wcbhc" && client !== "baq");
-  const asks = overlayCampaignAsks(source, overlay, askEdits(updates), client !== "wcbhc" && client !== "baq");
+  const source = directSnapshot(snapshot, directView, client !== "wcbhc" && client !== "baq" && client !== "imas");
+  const asks = overlayCampaignAsks(source, overlay, askEdits(updates), client !== "wcbhc" && client !== "baq" && client !== "imas");
   return tracking ? assignmentSnapshot(asks, index, tracking, overlay) : asks;
 }
