@@ -26,6 +26,9 @@ export async function buildImas() {
     q("account_manager"), q("notes"), q("gc2p_prospects"), q("gc2p_unrated"), q("gc2p_not_seated"), loadedAsOf("imas"),
   ]);
   const ghRows: Row[] = [], ncRows: Row[] = [];
+  // Per-donor giving summary from the museum's donation report (imas.giving_summary). Optional until loaded.
+  let gsRows: Row[] = [];
+  try { gsRows = await q("giving_summary"); } catch { gsRows = []; }
   const byC = (rr: Row[]) => { const m = new Map<number, Row>(); for (const r of rr) { const c = cid(r.CPTID); if (c !== null && !m.has(c)) m.set(c, r); } return m; };
   const master = byC(mRows), ds = byC(dsRows);
   const fullName = (r: Row) => [s(r.First_Name), s(r.Last_Name)].filter(Boolean).join(" ");
@@ -48,7 +51,16 @@ export async function buildImas() {
     p.total += g.a; p.n += 1; p.max = Math.max(p.max, g.a);
     if (g.d) { if (!p.first || g.d < p.first) p.first = g.d; if (!p.last || g.d > p.last) p.last = g.d; p.fys.add(yr(g.d)!); }
   }
-  const tot = gifts.reduce((a, g) => a + g.a, 0);
+  // Summary-only giving: one row per donor with count, lifetime, first, last and largest. No individual gifts exist.
+  let sumGifts = 0;
+  for (const r of gsRows) {
+    const c = cid(r.CPTID); if (c === null || pd.has(c)) continue;
+    const total = money(r.Total_Lifetime_Amount); const n = Math.round(money(r.Total_Count_of_Gifts)); if (!total && !n) continue;
+    const first = pdate(r.First_Gift_Date), last = pdate(r.Last_Gift_Date), lg = pdate(r.Largest_Gift_Date);
+    const fys = new Set<number>(); for (const d of [first, last, lg]) if (d) fys.add(Number(d.slice(0, 4)));
+    pd.set(c, { total, n, first, last, max: money(r.Largest_Gift_Amount), fys }); sumGifts += n;
+  }
+  const tot = gifts.reduce((a, g) => a + g.a, 0) + [...pd.values()].reduce((a, p) => a + p.total, 0) - gifts.reduce((a, g) => a + (g.c !== null ? g.a : 0), 0);
   const camp = gifts.filter((g) => g.src === "campaign");
   const campTot = camp.reduce((a, g) => a + g.a, 0);
 
@@ -165,12 +177,13 @@ export async function buildImas() {
     byTier: ftiers.map((t) => ({ tier: t, prospects: cnt((x) => x.tier === t), completed: cnt((x) => x.tier === t && x.result === "Completed"), consider: cnt((x) => x.tier === t && x.consider) })),
     people: fp,
   };
-  const dtype = counter([...master.values()].map((r) => s(r.Donor_Type) || "Not coded"));
+  const donorTypeOf = (c: number) => s(master.get(c)?.Donor_Type) || "Not coded";
+  const dtype = counter([...pd.keys()].map(donorTypeOf));
   const flags = { "Campaign committee and board members": board.length, "Campaign portfolio prospects": amRows.length, "Seated on the $19M Phase 1 gift chart": pool.length,
     "Feasibility study prospects": feasibility.total, "Feasibility interviews completed": feasibility.completed, "Wealth screened (DonorSearch)": ds.size };
   const otype = counter(mRows.map((r) => s(r.Record_Type) || "Not coded"));
   const stagesM = new Map<string, [number, number]>();
-  for (const g of gifts) { const k = "$19M Phase 1 Capital Campaign"; const x = stagesM.get(k) ?? [0, 0]; x[0] += 1; x[1] += g.a; stagesM.set(k, x); }
+  for (const [c, p] of pd) { const k = donorTypeOf(c); const x = stagesM.get(k) ?? [0, 0]; x[0] += p.n; x[1] += p.total; stagesM.set(k, x); }
 
   const solicitors = [...new Set(pool.map((p) => p.solicitor))].sort();
   const batches = solicitors.map((sol) => {
@@ -181,7 +194,7 @@ export async function buildImas() {
 
   const snapshot = {
     pool, unrated, notSeated, client: "International Museum of Art & Science", asOf, builtAt: builtAt(), source: "",
-    kpi: { total: round2(tot), gifts: gifts.length, donors: pd.size, avg: round2(tot / Math.max(1, gifts.length)), gho: round2(tot), cash: round2(campTot), inkind: 0,
+    kpi: { total: round2(tot), gifts: gifts.length + sumGifts, donors: pd.size, avg: round2(tot / Math.max(1, gifts.length + sumGifts)), gho: round2(tot), cash: round2(campTot), inkind: 0,
       campaign: round2(campTot), campaignGifts: camp.length, campaignDonors: givebutter.txDonors },
     stages: [...stagesM].map(([k, v]) => ({ stage: k, gifts: v[0], total: round2(v[1]) })).sort((a, b) => b.total - a.total), fys, retention,
     pyramid: pyramid(pd), dsRating: sortedItems(dsr), capacity: [...capc.entries()].sort((a, b) => capmin(b[0]) - capmin(a[0])),
