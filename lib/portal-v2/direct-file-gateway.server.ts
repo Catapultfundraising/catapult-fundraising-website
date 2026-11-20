@@ -9,6 +9,7 @@ import { isCsnfDataAuthed } from "../csnf-data-auth";
 import { isPvasDataAuthed } from "../pvas-data-auth";
 import { isWcbhcDataAuthed } from "../wcbhc-data-auth";
 import { isBaqDataAuthed } from "../baq-data-auth";
+import { isImasDataAuthed } from "../imas-data-auth";
 import { NextRequest, NextResponse } from "next/server";
 import { buildProfile } from "./source-mapping-profile";
 import { parseKeyOf } from "./source-keys";
@@ -237,7 +238,7 @@ function publicReceipt(raw: Record<string, unknown>, client: PortalClient, origi
 /** Same fixed-client authorization owner as established dashboard/manual-write APIs.
  * Existing research and automation access stays valid; another dashboard cookie never grants this client. */
 const DASHBOARD_AUTH: Record<PortalClient, (req: NextRequest) => Promise<boolean>> = {
-  jag: isJagDataAuthed, csnf: isCsnfDataAuthed, pvas: isPvasDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed,
+  jag: isJagDataAuthed, csnf: isCsnfDataAuthed, pvas: isPvasDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed, imas: isImasDataAuthed,
 };
 export const dashboardDataAuthed = (client: PortalClient, req: NextRequest) => DASHBOARD_AUTH[client](req);
 export function directFileGateway(client: PortalClient, deps: GatewayDeps = defaults) {

@@ -12,6 +12,7 @@ export async function verifyCurrentDirectView(client: PortalClient): Promise<Rec
     pvas: () => import("../pvas-data-store").then(m => Promise.all([m.getPvasRecords(), m.getPvasSnapshot()])),
     wcbhc: () => import("../wcbhc-data-store").then(m => Promise.all([m.getWcbhcRecords(), m.getWcbhcSnapshot()])),
     baq: () => import("../baq-data-store").then(m => Promise.all([m.getBaqRecords(), m.getBaqSnapshot()])),
+    imas: () => import("../imas-data-store").then(m => Promise.all([m.getImasRecords(), m.getImasSnapshot()])),
   };
   const [records, raw] = await loaders[client]();
   if (!records || !raw || (records as unknown as { directSourceRevision?: string }).directSourceRevision !== observed.state.revision) throw new DirectReadUnavailable();

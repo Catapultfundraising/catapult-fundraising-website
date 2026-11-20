@@ -1,6 +1,6 @@
 // Board / committee Prospect Review: per-client config and shared types.
 // Safe for client components (no server imports).
-export const BR_CLIENTS = ["jag", "csnf", "pvas", "wcbhc", "baq"] as const;
+export const BR_CLIENTS = ["jag", "csnf", "pvas", "wcbhc", "baq", "imas"] as const;
 export type BrClient = (typeof BR_CLIENTS)[number];
 export const isBrClient = (c: string): c is BrClient => (BR_CLIENTS as readonly string[]).includes(c);
 
@@ -10,6 +10,7 @@ export const BR_CLIENT_NAMES: Record<BrClient, string> = {
   pvas: "Palm Valley Animal Society",
   wcbhc: "Washoe Children's Behavioral Health Center",
   baq: "Boerne Aquaplex",
+  imas: "International Museum of Art & Science",
 };
 
 export const BR_CHOICES = [

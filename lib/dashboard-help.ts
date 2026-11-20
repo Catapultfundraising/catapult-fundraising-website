@@ -2,7 +2,7 @@
 // Every claim here is checked against the current components (see the source-to-topic map in the PR).
 // Keep wording client-safe: no passwords, keys, internal systems or real donor examples.
 
-export type HelpClient = "jag" | "csnf" | "pvas" | "wcbhc" | "baq";
+export type HelpClient = "jag" | "csnf" | "pvas" | "wcbhc" | "baq" | "imas";
 
 /** Tabs exactly as each dashboard renders them (its TABS constant plus Prospect Ratings). Tested against the source. */
 export const DASHBOARD_TABS: Record<HelpClient, readonly string[]> = {
@@ -11,6 +11,7 @@ export const DASHBOARD_TABS: Record<HelpClient, readonly string[]> = {
   pvas: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
   wcbhc: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Committee", "Campaign Prospects", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
   baq: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Committee", "Campaign Prospects", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
+  imas: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Committee", "Campaign Prospects", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
 };
 
 export interface HelpTopic {
@@ -52,7 +53,7 @@ const ALL_TOPICS: HelpTopic[] = [
       "Use the giving, donor count and retention charts to compare years.",
       "Use the Recent years table, or the download buttons on a table, to export the figures.",
     ],
-    notes: ["JAG and CSNF charts use fiscal years (July to June). PVAS, WCBHC and BAQ use calendar years."],
+    notes: ["JAG and CSNF charts use fiscal years (July to June). PVAS, WCBHC, BAQ and IMAS use calendar years."],
     related: ["gifts-pledges", "downloads"],
   },
   {
@@ -120,7 +121,7 @@ const ALL_TOPICS: HelpTopic[] = [
     related: ["record", "downloads"],
   },
   {
-    id: "committee", kind: "section", tab: "Committee", title: "Committee", clients: ["wcbhc", "baq"],
+    id: "committee", kind: "section", tab: "Committee", title: "Committee", clients: ["wcbhc", "baq", "imas"],
     summary: "Campaign committee members with their pledges and gifts on file.",
     steps: [
       "Review the Committee giving table.",
@@ -140,7 +141,7 @@ const ALL_TOPICS: HelpTopic[] = [
     related: ["record"],
   },
   {
-    id: "campaign-prospects", kind: "section", tab: "Campaign Prospects", title: "Campaign Prospects", clients: ["wcbhc", "baq"],
+    id: "campaign-prospects", kind: "section", tab: "Campaign Prospects", title: "Campaign Prospects", clients: ["wcbhc", "baq", "imas"],
     summary: "Prospects seated on the campaign gift chart, plus the pipeline not yet seated.",
     steps: [
       "Check Solicitor assignments for seated prospects by committee solicitor or connection.",
@@ -162,7 +163,7 @@ const ALL_TOPICS: HelpTopic[] = [
     related: ["gifts-pledges"],
   },
   {
-    id: "campaign-gifts", kind: "section", tab: "Campaign Gifts", title: "Campaign Gifts", clients: ["wcbhc", "baq"],
+    id: "campaign-gifts", kind: "section", tab: "Campaign Gifts", title: "Campaign Gifts", clients: ["wcbhc", "baq", "imas"],
     summary: "Campaign gifts by payment type, committee pledges and every campaign gift.",
     steps: [
       "Review Gifts by type.",

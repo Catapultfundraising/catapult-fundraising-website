@@ -31,6 +31,7 @@ const DISALLOWED_INTERNAL_TOOLS = [
   "/pvas/",
   "/wcbhc/",
   "/baq/",
+  "/imas/",
   // Referral-partner signup pages (QR codes at partner webinars).
   "/partners/",
 ];

@@ -18,6 +18,7 @@ const ID_SQL: Record<string, string> = {
   jag: `SELECT cptid, client_id, COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(first_name,' ',last_name))),''), organization, account_name) name, address_1 address, city, zip FROM jag.constituents`,
   wcbhc: `SELECT CPTID cptid, Client_ID client_id, COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(First_Name,' ',Last_Name))),''), Company_Foundation_Name, Account_Name) name, Address address, City city, Zip_Code zip FROM wcbhc.master`,
   baq: `SELECT CPTID cptid, Client_ID client_id, COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(First_Name,' ',Last_Name))),''), Company_Foundation_Name, Account_Name) name, Address address, City city, Zip_Code zip FROM baq.master`,
+  imas: `SELECT CPTID cptid, Client_ID client_id, COALESCE(NULLIF(LTRIM(RTRIM(CONCAT(First_Name,' ',Last_Name))),''), Company_Foundation_Name, Account_Name) name, Address address, City city, Zip_Code zip FROM imas.master`,
 };
 
 // Client ids come back as floats from Access loads (29309523.0); keep them as clean strings.

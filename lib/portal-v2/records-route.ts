@@ -262,7 +262,7 @@ return {get index(){return indexed ??= overlaidIndex(data.index,prospects,campai
           throw new Error("Invalid raw canonical ask");
         canonicalOwnAsk={ask};
       }
-      const out = overlayRecord(base, o, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq", lookup,canonicalOwnAsk);
+      const out = overlayRecord(base, o, askEdits((state?.updates ?? []) as UpdateRow[]), client !== "wcbhc" && client !== "baq" && client !== "imas", lookup,canonicalOwnAsk);
       if(profile){
         const raw=profile.fields.outcome;
         if(raw!==null&&typeof raw!=="string")throw new Error("Invalid canonical outcome");

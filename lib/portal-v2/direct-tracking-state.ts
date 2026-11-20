@@ -7,7 +7,7 @@ import "server-only";
 import { DIRECT_FILE_MAX_IDS, DIRECT_STATE_MAX_NOTES } from "./directFileProtocol";
 import { createHash } from "node:crypto";
 
-export const DIRECT_CLIENTS = ["jag", "csnf", "pvas", "wcbhc", "baq"] as const;
+export const DIRECT_CLIENTS = ["jag", "csnf", "pvas", "wcbhc", "baq", "imas"] as const;
 export type DirectClient = typeof DIRECT_CLIENTS[number];
 export type DirectField = "ask" | "primarySolicitor" | "secondarySolicitor";
 type Obj = Record<string, unknown>;

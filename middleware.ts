@@ -3,6 +3,7 @@ import { isJagCookieValid, JAG_DATA_COOKIE } from "@/lib/jag-data-auth";
 import { isPvasCookieValid, PVAS_DATA_COOKIE } from "@/lib/pvas-data-auth";
 import { isWcbhcCookieValid, WCBHC_DATA_COOKIE } from "@/lib/wcbhc-data-auth";
 import { isBaqCookieValid, BAQ_DATA_COOKIE } from "@/lib/baq-data-auth";
+import { isImasCookieValid, IMAS_DATA_COOKIE } from "@/lib/imas-data-auth";
 import { isCsnfCookieValid, CSNF_DATA_COOKIE } from "@/lib/csnf-data-auth";
 import { BR_MEMBER_COOKIE, verifyMemberToken } from "@/lib/board-review/auth";
 import { NextRequest, NextResponse } from "next/server";
@@ -119,7 +120,7 @@ export async function middleware(req: NextRequest) {
   // (employee {CLIENT}D2026!@ dashboard login only; research login does NOT open it).
   // /{client}/data-dashboard/review = board/committee member form (member cookie for THAT client).
   // Members only ever get the member cookie, so every other dashboard page and API stays closed to them.
-  const br = pathname.match(/^\/(jag|csnf|pvas|wcbhc|baq)\/data-dashboard\/(board-review|review)(\/login)?\/?$/i);
+  const br = pathname.match(/^\/(jag|csnf|pvas|wcbhc|baq|imas)\/data-dashboard\/(board-review|review)(\/login)?\/?$/i);
   if (br) {
     const client = br[1].toLowerCase();
     if (br[2].toLowerCase() === "board-review") {
@@ -137,7 +138,7 @@ export async function middleware(req: NextRequest) {
   if (/^\/api\/([a-z]+-data-|board-review\/admin|portal-)/.test(pathname) && !pathname.endsWith("-data-login") && req.cookies.get(BR_MEMBER_COOKIE)?.value) {
     const rc = req.cookies.get("catapult_research_auth")?.value;
     const rExp = rc ? await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET") : "";
-    const staff = (rc && rExp && rc === rExp) || req.headers.get("authorization") || [JAG_DATA_COOKIE, PVAS_DATA_COOKIE, WCBHC_DATA_COOKIE, BAQ_DATA_COOKIE, CSNF_DATA_COOKIE].some((n) => req.cookies.get(n));
+    const staff = (rc && rExp && rc === rExp) || req.headers.get("authorization") || [JAG_DATA_COOKIE, PVAS_DATA_COOKIE, WCBHC_DATA_COOKIE, BAQ_DATA_COOKIE, IMAS_DATA_COOKIE, CSNF_DATA_COOKIE].some((n) => req.cookies.get(n));
     if (!staff) return NextResponse.json({ error: "Not available for board review logins" }, { status: 403 });
   }
 
@@ -190,6 +191,16 @@ export async function middleware(req: NextRequest) {
         return NextResponse.rewrite(new URL("/research/baq-data", req.url));
       }
       return NextResponse.redirect(new URL("/baq/data-dashboard/login", req.url));
+    }
+    if (client === "imas") {
+      // IMAS data portal: its own password (IMAS_DATA_PASSWORD) and cookie.
+      const imasOk = await isImasCookieValid(req.cookies.get(IMAS_DATA_COOKIE)?.value);
+      const rc = req.cookies.get("catapult_research_auth")?.value;
+      const rExp = rc ? await expectedCookieValue("RESEARCH_PASSWORD", "RESEARCH_AUTH_SECRET") : "";
+      if (imasOk || (rc && rExp && rc === rExp)) {
+        return NextResponse.rewrite(new URL("/research/imas-data", req.url));
+      }
+      return NextResponse.redirect(new URL("/imas/data-dashboard/login", req.url));
     }
     if (client === "csnf") {
       // CSNF data portal: its own password (CSNF_DATA_PASSWORD) and cookie.

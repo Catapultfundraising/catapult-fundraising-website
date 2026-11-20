@@ -17,6 +17,7 @@ const defaults: SolicitorInventoryDeps = {
       case "pvas": return (await import("../pvas-data-store")).getPvasSnapshot();
       case "wcbhc": return (await import("../wcbhc-data-store")).getWcbhcSnapshot();
       case "baq": return (await import("../baq-data-store")).getBaqSnapshot();
+      case "imas": return (await import("../imas-data-store")).getImasSnapshot();
     }
   },
   tracking: strictTrackingFor,
@@ -39,7 +40,7 @@ export async function observeSolicitorInventory(client: PortalClient, deps: Soli
         !Array.isArray(sql.updates) || !Array.isArray(sql.prospects) || sql.updates.length > 10000 || sql.prospects.length > 10000 ||
         !sql.prospects.every(p => object(p) && id(p.cptid))) return null;
     const required = ["pool", "highWealth", "midLevel", "legacy", "lapsed", "top",
-      ...(["pvas", "wcbhc", "baq"].includes(client) ? ["portfolio", "committed"] : [])];
+      ...(["pvas", "wcbhc", "baq", "imas"].includes(client) ? ["portfolio", "committed"] : [])];
     if (!required.every(key => Array.isArray(snapshot[key]))) return null;
     const names = new Set<string>();
     const add = (value: unknown) => {

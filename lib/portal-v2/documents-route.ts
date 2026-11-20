@@ -8,18 +8,20 @@ import { isCsnfDataAuthed } from "@/lib/csnf-data-auth";
 import { isJagDataAuthed } from "@/lib/jag-data-auth";
 import { isWcbhcDataAuthed } from "@/lib/wcbhc-data-auth";
 import { isBaqDataAuthed } from "@/lib/baq-data-auth";
+import { isImasDataAuthed } from "@/lib/imas-data-auth";
 import { getPvasRecords } from "@/lib/pvas-data-store";
 import { getCsnfRecords } from "@/lib/csnf-data-store";
 import { getJagRecords } from "@/lib/jag-data-store";
 import { getWcbhcRecords } from "@/lib/wcbhc-data-store";
 import { getBaqRecords } from "@/lib/baq-data-store";
+import { getImasRecords } from "@/lib/imas-data-store";
 import { engage } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 import type { PortalClient, PortalState } from "@/lib/portal-v2/clients";
 
 const MAX_BYTES = 20 * 1024 * 1024;
-const AUTH = { pvas: isPvasDataAuthed, csnf: isCsnfDataAuthed, jag: isJagDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed };
-const LOAD = { pvas: getPvasRecords, csnf: getCsnfRecords, jag: getJagRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords };
+const AUTH = { pvas: isPvasDataAuthed, csnf: isCsnfDataAuthed, jag: isJagDataAuthed, wcbhc: isWcbhcDataAuthed, baq: isBaqDataAuthed, imas: isImasDataAuthed };
+const LOAD = { pvas: getPvasRecords, csnf: getCsnfRecords, jag: getJagRecords, wcbhc: getWcbhcRecords, baq: getBaqRecords, imas: getImasRecords };
 type Doc = { id: number; cptid: number; blob_path: string; filename: string; bytes: number; sha256: string; uploaded_by: string; uploaded_at: string; deleted_at?: string | null; deleted_by?: string | null };
 type Intent = { cptid: number; filename: string; by: string };
 class RequestError extends Error { constructor(message: string, public status = 400) { super(message); } }
