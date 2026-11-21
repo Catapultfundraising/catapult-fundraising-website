@@ -8,6 +8,14 @@ Anthony requested standard site navigation, blue PageHero heading and full websi
 
 The route remains noindex/nofollow and robots-disallowed, and is not added to navigation or sitemap. `BareRoute` does **not** hide standard site chrome on this page.
 
+### Marketing copy revision
+
+Anthony subsequently supplied these Catapult facts: some Engagement Officers have 20+ years of fundraising outreach experience and years working across PBS/NPR clients; Catapult also provides customized training and a two-day Fundraising Bootcamp. The page qualifies the experience claim with “Some,” and does not imply all officers have 20 years or that all 20 years were public-media-specific. Customized training and Bootcamp appear in both the offering and comparison.
+
+Catapult's column emphasizes staffed execution, documented donor insights, priority profiles and practical preparation. Visible comparison sources, review-date text and the matrix note are removed as requested; primary research and the review date remain in the JSON and these internal notes. Calendar-duration disclosures remain because they communicate the material mismatch between the requested label and available appointment lengths.
+
+No direct competitor primary source established categorical absence of research, Engagement Officers or solicitation. The approved final cells therefore say “not listed” in published services, not “does not offer” or “does not solicit.” This distinction must survive future edits.
+
 ## Sources and claims
 
 - Jeff Grandy's November 20, 2026 email, “public media outreach landing page,” supplies the theme, four offerings, training names, seven station names and hands-on engagement/handoff positioning.

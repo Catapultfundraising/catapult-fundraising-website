@@ -43,7 +43,7 @@ const JOURNEY = [
 const SUPPORT = [
   { Icon: Search, title: "Major Gift Prospect Research", body: "In-depth donor profiles help your station identify and prioritize its strongest major gift prospects." },
   { Icon: MessageCircle, title: "Fundraising Coaching", body: "Practical guidance prepares your development team for donor conversations, cultivation and solicitation." },
-  { Icon: Users, title: "Board and Staff Training", body: "Build confidence with Everyone is a Fundraiser, Making The Ask, and What to Say When." },
+  { Icon: Users, title: "Board and Staff Training", body: "Build your team’s confidence with Everyone is a Fundraiser, Making The Ask, and What to Say When, plus customized training and a two-day Fundraising Bootcamp." },
 ];
 
 function ConversationLink() {
@@ -61,6 +61,7 @@ export default function PublicMediaPage() {
             <p className={styles.eyebrow}>Build on your members’ loyalty</p>
             <h2 id="public-media-title">Your members believe in your mission.<br /><span>Let’s build on that relationship.</span></h2>
             <p className={styles.intro}>Catapult helps PBS and NPR station development teams turn loyal support into deeper donor relationships, with personal engagement and qualified prospects for your major gift officers.</p>
+            <p className={styles.experience}>Some of our Engagement Officers bring <strong>20+ years of fundraising outreach experience</strong>, with years of work across PBS and NPR clients.</p>
             <ConversationLink />
             <p className={styles.ctaNote}>Connect with Jeff Grandy, Vice President for Client Development.<br />{BOOKING_NOTE}</p>
           </div>
@@ -109,8 +110,8 @@ export default function PublicMediaPage() {
         <div className={`${styles.wrap} ${styles.offerGrid}`}>
           <div className={styles.offeringIntro}>
             <p className={styles.eyebrow}>Four ways we support your team</p>
-            <h2 id="offerings-title">More capacity.<br />More personal connection.</h2>
-            <p>Bring hands-on engagement and practical fundraising support to the work your station is already doing.</p>
+            <h2 id="offerings-title">A team that carries the donor work forward.</h2>
+            <p>Add experienced people to engage your donors, research your strongest prospects and prepare your team for its next fundraising conversation.</p>
             <div className={styles.featured}>
               <Headphones size={37} strokeWidth={1.5} aria-hidden="true" />
               <h3>Mid-Level Donor Engagement</h3>
@@ -152,8 +153,6 @@ export default function PublicMediaPage() {
               <div role="cell"><span className={styles.mobileCompany}>Veritus Group</span>{row.veritus}</div>
             </div>)}
           </div>
-          <p className={styles.comparisonNote}>{comparison.note}</p>
-          <p className={styles.sourceLinks}>Sources: {comparison.sources.map((source, index) => <span key={source.url}>{index > 0 && " · "}<a href={source.url} target="_blank" rel="noopener noreferrer">{source.label}</a></span>)}</p>
         </div>
       </section>
 

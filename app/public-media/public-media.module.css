@@ -12,6 +12,8 @@
 .hero .heroCopy h2 span{color:rgb(var(--brass))}
 .lead{font-size:21px;line-height:1.5;margin-bottom:17px;font-weight:600;letter-spacing:-.025em}
 .intro{font-size:16px;line-height:1.8;max-width:510px;color:rgb(var(--navy)/.78);margin-bottom:29px}
+.experience{font-size:14px;line-height:1.8;max-width:510px;color:rgb(var(--navy)/.82);margin:-9px 0 27px}
+.experience strong{font-weight:800;color:rgb(var(--navy))}
 .cta{display:inline-flex;align-items:center;justify-content:center;gap:18px;min-height:56px;padding:16px 22px;border-radius:var(--radius);background:rgb(var(--navy));color:rgb(var(--paper));font-size:14px;font-weight:700;line-height:1.45;text-decoration:none;transition:background .2s}
 .cta:hover{background:rgb(var(--navy-deep))}
 .cta:focus-visible{outline:3px solid rgb(var(--brass));outline-offset:5px}
@@ -74,7 +76,7 @@
 .comparisonRow{border-top:1px solid rgb(var(--line))}
 .comparisonRow>div{padding:24px 22px;font-size:14px;line-height:1.8}
 .comparisonRow>div:first-child{font-weight:800;line-height:1.6}
-.comparisonRow>div:nth-child(2){background:rgb(var(--navy)/.04);border-inline:1px solid rgb(var(--line))}
+.comparisonRow>div:nth-child(2){background:rgb(var(--navy)/.06);border-inline:1px solid rgb(var(--line));font-weight:600}
 .comparisonRow>div:nth-child(3){color:rgb(var(--navy)/.76)}
 .mobileCompany{display:none}
 .comparisonNote,.sourceLinks{font-size:11px;line-height:1.85;color:rgb(var(--navy)/.65);margin-top:21px}
