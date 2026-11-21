@@ -1,0 +1,45 @@
+{
+  "title": "Two approaches to building donor relationships",
+  "intro": "Compare how each team supports the work between membership and major gifts.",
+  "reviewed": "November 20, 2026",
+  "rows": [
+    {
+      "capability": "Mid-level donor engagement",
+      "catapult": "Catapult Engagement Officers personally contact donors, steward relationships and identify increased-giving opportunities.",
+      "veritus": "Trains and manages your mid-level staff, with donor strategy, activity tracking and accountability.",
+      "source": "https://veritusgroup.com/services/mid-level-donors"
+    },
+    {
+      "capability": "Donor cultivation and asks",
+      "catapult": "Catapult carries out donor cultivation and asks within the engagement program, and coordinates qualified major-gift prospects with your team.",
+      "veritus": "Helps structure major-gift portfolios and coaches and manages your fundraisers as they develop donor relationships.",
+      "source": "https://veritusgroup.com/services/major-gift-programs-planning-development-management"
+    },
+    {
+      "capability": "Major-gift prospect research",
+      "catapult": "In-depth donor profiles help your station identify and prioritize its strongest major-gift prospects.",
+      "veritus": "Emphasizes donor qualification, goals and portfolio strategy; standalone donor-profile research is not described on the service pages reviewed.",
+      "source": "https://veritusgroup.com/services"
+    },
+    {
+      "capability": "Fundraising coaching",
+      "catapult": "Practical preparation for donor conversations, cultivation and solicitation, alongside engagement and research support.",
+      "veritus": "Weekly training, coaching and accountability for major-gift staff, plus individual and group coaching.",
+      "source": "https://veritusgroup.com/services/major-gift-programs-planning-development-management"
+    },
+    {
+      "capability": "Board and staff training",
+      "catapult": "Everyone is a Fundraiser, Making The Ask, and What to Say When.",
+      "veritus": "Veritus Group Academy courses, fundraising certifications and customized organizational training.",
+      "source": "https://veritusgroup.com/learning"
+    }
+  ],
+  "note": "Based on Catapult's offering and Veritus Group's public service descriptions reviewed November 20, 2026. Describes published service models, not every possible engagement. Scope is agreed with each firm.",
+  "sources": [
+    {"label": "Veritus mid-level services", "url": "https://veritusgroup.com/services/mid-level-donors"},
+    {"label": "Veritus major-gift services", "url": "https://veritusgroup.com/services/major-gift-programs-planning-development-management"},
+    {"label": "Veritus service overview", "url": "https://veritusgroup.com/services"},
+    {"label": "Veritus training", "url": "https://veritusgroup.com/learning"},
+    {"label": "Veritus enterprise training", "url": "https://veritusgroup.com/services/enterprise-partnership/"}
+  ]
+}

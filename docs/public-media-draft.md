@@ -1,43 +1,45 @@
-# Public media landing page — approval draft
+# Public media landing page: revised approval draft
 
-Route: `/public-media`. Do not merge or publish without Anthony's approval.
+Route: `/public-media`. **Do not merge or publish without Anthony's approval.**
 
-## Source and claims
+## Current revision
 
-- Brief: Jeff Grandy's email to Anthony, November 20, 2026, “public media outreach landing page.”
-- Uses the exact theme “Beyond Membership. Toward Major Gifts.” and the four requested offering names.
-- The seven-station roster is sourced to that brief. No claims about each station's program, results or endorsement are made.
-- Catapult carries out personal donor engagement, documents interests, and coordinates qualified handoffs. The station develops the major-gift relationship and makes the major-gift ask.
-- No competitor comparison, invented outcomes or testimonials.
+Anthony requested standard site navigation, blue PageHero heading and full website-map footer; official station logos; the original PBS KVIE testimonial; a calendar-linked CTA; Catapult cultivation/asks in the journey; and a sourced visual comparison with Veritus Group.
 
-## Conversion
+The route remains noindex/nofollow and robots-disallowed, and is not added to navigation or sitemap. `BareRoute` does **not** hide standard site chrome on this page.
 
-One action, repeated twice: “Schedule a 20-minute conversation.”
+## Sources and claims
 
-The CTA intentionally opens an email to `jeffg@catapultfr.com` with a prefilled request for a 20-minute public media conversation. Jeff's current booking page offers 30/45/60-minute choices, not 20 minutes. Replace the mailto with a verified 20-minute booking flow only after one is available; the page explicitly says that it opens an email request.
+- Jeff Grandy's November 20, 2026 email, “public media outreach landing page,” supplies the theme, four offerings, training names, seven station names and hands-on engagement/handoff positioning.
+- Anthony's explicit page revision clarifies that Catapult performs cultivation and asks within the engagement program, with qualified major-gift prospects coordinated with the station team. No implication that Catapult owns every client major-gift ask.
+- Exact PBS KVIE quote is a contiguous excerpt from Colleen Schulman's April 5, 2023 “RE: Reference” email, forwarded by Anthony April 6, 2023 (“FW: Reference”). Existing website testimonial paraphrases are **not** used as literal quotations. The section explicitly labels the evidence “Legacy Call at PBS KVIE,” not mid-level program results.
+- Comparison rows and citations were reviewed against the five Veritus primary service/learning pages on November 20, 2026. Data lives in `app/public-media/comparison.json`. Veritus coaching, training, management and donor-qualification services are acknowledged. The narrow standalone-research evidence gap is not stated as an absence of service.
+- No invented testimonials, metrics, pricing, results or comparative outcome claims.
 
-## Design and assets
+## CTA duration disclosure
 
-- Reuses the site's locally hosted Fraunces and Manrope fonts and navy/paper/brass tokens.
-- Reuses real photography already published at `/services/board-development/hero-board-meeting.jpg`; this is contextual photography, not an assertion that the subjects are Catapult employees or public-media clients.
-- The official Catapult navy/gold logo comes from the workspace's approved 2026 asset, proportionally resized without redrawing.
-- The donor journey is live, accessible HTML with lucide SVG line icons, short labels and thin gold rules, based on the inspected `is-the-phonathon-dead/what-works.png` graphic. It stacks into a vertical journey on mobile.
-- The RNL transition landing page was inspected for structure; its university-specific claims, testimonials and results were not reused.
+The exact requested label “Schedule a 20-minute conversation.” opens Jeff's verified calendar URL from his signature. His live calendar currently offers 30/45/60-minute choices, not 20. A visible note at both CTAs discloses the available durations. Calendar configuration was not changed. Before outreach, a true 20-minute appointment type would remove that mismatch.
 
-## Draft safeguards
+## Logo provenance
 
-- `noindex, nofollow`, including the Googlebot directive.
-- Disallowed in robots.txt.
-- Deliberately not added to navigation, footer links or sitemap.
-- Existing `BareRoute` mechanism hides global navigation and renders the page's focused brand header/footer.
-- No submission endpoint, lead-storage change or new integration.
-- Noindex and unlisted are not access controls. Keep Vercel preview protection on for approval review.
+All original official marks, not fabricated text or recolored logos:
 
-## Verification
+- Rocky Mountain Public Media: https://www.rmpm.org/assets/img/rmpm-logo-h.png (official rmpm.org header).
+- WUCF: https://image.pbs.org/bento3-prod/wucf-bento-live-pbs/WUCF%202025/WUCF%20Logos/81b8093526_WUCF-Header-Logo.png (official wucf.org header).
+- PBS KVIE: existing approved `public/clients/pbs-kvie.svg`.
+- PBS SoCal: https://kcet.brightspotcdn.com/19/7a/14cab9d646178c92acb3ce057cd3/pbs-socal-logo-164.svg (official pbssocal.org header).
+- Vegas PBS: https://image.pbs.org/bento3-prod/klvx-bento-live-pbs/vegas_pbs/logos/2020/6260846f8c_vegas-pbs-logo-200x45.png (official vegaspbs.org header).
+- WLRN: https://npr-brightspot.s3.amazonaws.com/6a/df/d2313bd840e991cb307384d1dba7/wlrn-logo-white-pbs-npr.png (official wlrn.org header; white mark on navy backing).
+- WPBS: https://www.wpbstv.org/wp-content/uploads/2025/01/wpbstv-logo.png (official header; same-origin canvas extraction at original 272×51 because direct HTTP download returns 403).
 
-- `node scripts/test-public-media.cjs`
-- `npm run build` (production build includes TypeScript verification)
-- Browser QA at 1440, 900, 390 and 320 CSS pixels: HTTP 200, no horizontal overflow, all images decoded, no page errors, noindex present, both CTAs target the same 20-minute email request, minimum 44px CTA targets.
-- Desktop and mobile full-page screenshots plus rendered-page PDF proof supplied separately.
+Original pixels/paths and aspect ratios preserved. Existing published real conversation photo is contextual, not represented as station donors or Catapult personnel.
 
-The repository's `npm run lint` invokes `next lint` and prompts to configure ESLint because there is no existing configuration. It did not complete a lint analysis; no unrelated lint configuration was added for this draft.
+## Verification and approval
+
+- Focused source guards: `node scripts/test-public-media.cjs`.
+- Production build: `npm run build` (includes default TypeScript verification).
+- Real Chromium: desktop/mobile, images decoded, no horizontal overflow, correct calendar targets, duration notes, verified quote, five comparison rows, standard nav/footer and noindex.
+- Refreshed proof screenshots and PDF accompany the approval handoff.
+- Repository `npm run lint` prompts for initial ESLint configuration; no completed lint analysis is claimed.
+
+Keep Vercel preview protection enabled. Unlisted/noindex is not access control. No merge, production publish, calendar settings, or backend integration changes are authorized by this draft.
