@@ -54,9 +54,9 @@ export default function PublicMediaPage() {
             <p className={styles.eyebrow}>Public media · Donor engagement</p>
             <h1 id="public-media-title">Beyond Membership.<br /><span>Toward Major Gifts.</span></h1>
             <p className={styles.lead}>Your members believe in your mission.<br className={styles.desktopBreak} /> Let’s build on that relationship.</p>
-            <p className={styles.intro}>Catapult helps PBS and NPR station development teams turn loyal support into deeper donor relationships—with personal engagement and qualified prospects for your major gift officers.</p>
+            <p className={styles.intro}>Catapult helps PBS and NPR station development teams turn loyal support into deeper donor relationships, with personal engagement and qualified prospects for your major gift officers.</p>
             <ConversationLink />
-            <p className={styles.ctaNote}>Connect with Jeff Grandy, Vice President.<br />Opens an email to request a time.</p>
+            <p className={styles.ctaNote}>Connect with Jeff Grandy, Vice President for Client Development.<br />Opens an email to request a time.</p>
           </div>
           <figure className={styles.heroFigure}>
             <div className={styles.photoFrame}>
