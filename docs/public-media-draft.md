@@ -12,7 +12,7 @@ The route remains noindex/nofollow and robots-disallowed, and is not added to na
 
 Anthony subsequently supplied these Catapult facts: some Engagement Officers have 20+ years of fundraising outreach experience and years working across PBS/NPR clients; Catapult also provides customized training and a two-day Fundraising Bootcamp. The page qualifies the experience claim with “Some,” and does not imply all officers have 20 years or that all 20 years were public-media-specific. Customized training and Bootcamp appear in both the offering and comparison.
 
-Catapult's column emphasizes staffed execution, documented donor insights, priority profiles and practical preparation. Visible comparison sources, review-date text and the matrix note are removed as requested; primary research and the review date remain in the JSON and these internal notes. Calendar-duration disclosures remain because they communicate the material mismatch between the requested label and available appointment lengths.
+Catapult's column emphasizes staffed execution, documented donor insights, priority profiles and practical preparation. Visible comparison sources, review-date text and the matrix note are removed as requested; primary research and the review date remain in the JSON and these internal notes.
 
 No direct competitor primary source established categorical absence of research, Engagement Officers or solicitation. The approved final cells therefore say “not listed” in published services, not “does not offer” or “does not solicit.” This distinction must survive future edits.
 
@@ -24,9 +24,9 @@ No direct competitor primary source established categorical absence of research,
 - Comparison rows and citations were reviewed against the five Veritus primary service/learning pages on November 20, 2026. Data lives in `app/public-media/comparison.json`. Veritus coaching, training, management and donor-qualification services are acknowledged. The narrow standalone-research evidence gap is not stated as an absence of service.
 - No invented testimonials, metrics, pricing, results or comparative outcome claims.
 
-## CTA duration disclosure
+## Final calendar CTA
 
-The exact requested label “Schedule a 20-minute conversation.” opens Jeff's verified calendar URL from his signature. His live calendar currently offers 30/45/60-minute choices, not 20. A visible note at both CTAs discloses the available durations. Calendar configuration was not changed. Before outreach, a true 20-minute appointment type would remove that mismatch.
+Anthony's final copy revision changes both CTA labels to “Schedule a 30-minute conversation.” The same verified Jeff calendar URL is retained; its current appointment choices include 30 minutes. Both former duration-disclosure lines are removed. No guessed booking parameters or calendar-setting changes were made.
 
 ## Logo provenance
 

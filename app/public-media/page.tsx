@@ -8,9 +8,8 @@ import styles from "./public-media.module.css";
 
 const TITLE = "Beyond Membership. Toward Major Gifts. | Catapult Fundraising";
 const DESCRIPTION = "Personal donor engagement, prospect research, coaching and training for public media development teams. Build the relationships behind your station’s next major gifts.";
-const CTA = "Schedule a 20-minute conversation.";
+const CTA = "Schedule a 30-minute conversation.";
 const BOOKING_URL = "https://go.catapultfr.com/meetings/jeff-grandy?uuid=c244f9ea-42be-4acb-88ff-83abefb9b1c6";
-const BOOKING_NOTE = "Jeff’s calendar currently offers 30-, 45- and 60-minute slots.";
 const HERO = "/services/board-development/hero-board-meeting.jpg";
 
 export const metadata: Metadata = {
@@ -63,7 +62,7 @@ export default function PublicMediaPage() {
             <p className={styles.intro}>Catapult helps PBS and NPR station development teams turn loyal support into deeper donor relationships, with personal engagement and qualified prospects for your major gift officers.</p>
             <p className={styles.experience}>Some of our Engagement Officers bring <strong>20+ years of fundraising outreach experience</strong>, with years of work across PBS and NPR clients.</p>
             <ConversationLink />
-            <p className={styles.ctaNote}>Connect with Jeff Grandy, Vice President for Client Development.<br />{BOOKING_NOTE}</p>
+            <p className={styles.ctaNote}>Connect with Jeff Grandy, Vice President for Client Development.</p>
           </div>
           <figure className={styles.heroFigure}>
             <div className={styles.photoFrame}>
@@ -162,7 +161,6 @@ export default function PublicMediaPage() {
           <h2 id="closing-title">Who’s ready for a deeper conversation?</h2>
           <p>Tell us about your members, your development team and where you want your major gift pipeline to go.</p>
           <ConversationLink />
-          <p className={styles.ctaNote}>{BOOKING_NOTE}</p>
         </div>
       </section>
     </div>
