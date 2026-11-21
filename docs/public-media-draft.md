@@ -40,4 +40,4 @@ The CTA intentionally opens an email to `jeffg@catapultfr.com` with a prefilled 
 - Browser QA at 1440, 900, 390 and 320 CSS pixels: HTTP 200, no horizontal overflow, all images decoded, no page errors, noindex present, both CTAs target the same 20-minute email request, minimum 44px CTA targets.
 - Desktop and mobile full-page screenshots plus rendered-page PDF proof supplied separately.
 
-The repository's `npm run lint` still invokes the removed Next 15 `next lint` command; any reported failure from that command is a baseline tooling limitation, not a successful lint run.
+The repository's `npm run lint` invokes `next lint` and prompts to configure ESLint because there is no existing configuration. It did not complete a lint analysis; no unrelated lint configuration was added for this draft.
