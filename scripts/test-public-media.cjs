@@ -1,0 +1,13 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const page = fs.readFileSync("app/public-media/page.tsx", "utf8");
+for (const title of ["Beyond Membership.", "Toward Major Gifts.", "Mid-Level Donor Engagement", "Major Gift Prospect Research", "Fundraising Coaching", "Board and Staff Training"]) assert.ok(page.includes(title), title);
+assert.match(page, /index: false, follow: false/);
+assert.match(page, /mailto:jeffg@catapultfr\.com/);
+assert.match(page, /Request a 20-minute public media conversation/);
+assert.doesNotMatch(page, /go\.catapultfr\.com\/meetings|Veritus|composite|<Testimonial/i);
+assert.match(page, /Your team leads cultivation and makes the major-gift ask/);
+for (const file of ["app/sitemap.ts", "lib/constants.ts", "components/site-footer.tsx"]) assert.ok(!fs.readFileSync(file, "utf8").includes('"/public-media"'), `${file} must not list the approval draft`);
+assert.ok(fs.readFileSync("app/robots.ts", "utf8").includes('"/public-media"'));
+assert.ok(fs.readFileSync("components/bare-route.tsx", "utf8").includes('"/public-media"'));
+console.log("Public media draft: copy, CTA, noindex, ownership and unlisted-route guards passed.");
