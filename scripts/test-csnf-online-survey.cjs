@@ -39,7 +39,7 @@ const { SurveyAutosave, SurveyInputRejectedError, sendSurveyWrite } = require(".
 const route = require("../app/api/csnf-survey/route.ts"), exportRoute = require("../app/api/csnf-survey/export/route.ts"), sync = require("../app/api/portal-sync/route.ts");
 const uuid = n => `00000000-0000-4000-8000-${String(n).padStart(12, "0")}`;
 const completeAnswers = Object.fromEntries(schema.SURVEY_QUESTIONS.filter(q => q.type !== "text").map(q => [q.id, q.type === "multi" ? [q.options[0]] : q.options[0]]));
-const payload = (n = 1, revision = 1, answers = {}) => ({ id: uuid(n), writeToken: "a".repeat(64), revision, status: revision === schema.SUBMITTED_REVISION ? "submitted" : "draft", surveyVersion: schema.SURVEY_VERSION, firstName: "Zoë", lastName: "O’Neill-李", telephone: "+44 (0)20 1234 5678 ext. 7", answers: revision === schema.SUBMITTED_REVISION ? { ...completeAnswers, ...answers } : answers });
+const payload = (n = 1, revision = 1, answers = {}) => ({ id: uuid(n), writeToken: "a".repeat(64), revision, status: revision === schema.SUBMITTED_REVISION ? "submitted" : "draft", surveyVersion: schema.SURVEY_VERSION, firstName: "Zoë", lastName: "O’Neill-李", telephone: "+44 (0)20 1234 5678 ext. 7", ...(revision === schema.SUBMITTED_REVISION ? { email: "Donor@example.org" } : {}), answers: revision === schema.SUBMITTED_REVISION ? { ...completeAnswers, ...answers } : answers });
 const request = (body, extra = {}) => new NextRequest("https://fixture.invalid/api/csnf-survey", { method: "POST", headers: { origin: "https://fixture.invalid", "content-type": "application/json", ...extra }, body: typeof body === "string" ? body : JSON.stringify(body) });
 const ack = body => ({ id: body.id, revision: body.revision, status: body.status, updatedAt: "2026-11-13T21:00:00.000Z" });
 const form = (answers = {}, firstName = "Zoë", lastName = "O’Neill-李") => ({ firstName, lastName, telephone: "", answers, website: "" });
@@ -52,6 +52,16 @@ function clock(iso) { global.Date = class extends RealDate { constructor(...args
   assert.equal(schema.SURVEY_QUESTIONS.filter(q => q.type === "multi").map(q => q.id).join(), "q4");
   assert.equal(schema.validateSurvey(payload()).firstName, "Zoë", "names-only partial is valid");
   assert.equal(schema.validateSurvey({ ...payload(), telephone: "" }).telephone, "");
+  for (const email of [undefined, "", "   "]) {
+    assert.ok(!Object.hasOwn(schema.validateSurvey({ ...payload(), email }), "email"), "missing/empty draft email omitted, not backfilled");
+    assert.throws(() => schema.validateSurvey({ ...payload(1, schema.SUBMITTED_REVISION), email }), schema.SurveyValidationError);
+  }
+  for (const email of ["Donor@example.org", "a@b", "first+tag@sub.example.org"]) {
+    assert.equal(schema.validateSurvey({ ...payload(), email: ` ${email} ` }).email, email, "trim without case folding");
+  }
+  for (const email of [null, 1, [], "not-email", "a@@b.com", "a b@example.org", "Donor <a@example.org>", "a@-b.com", "a@example..org", "a@example.org\nBcc:bad@example.org", "a".repeat(243) + "@example.org"]) {
+    assert.throws(() => schema.validateSurvey({ ...payload(), email }), schema.SurveyValidationError);
+  }
   for (const body of [null, [], {}, { ...payload(), firstName: "" }, { ...payload(), lastName: " " }, { ...payload(), firstName: "a".repeat(121) }, { ...payload(), telephone: "1".repeat(81) }, { ...payload(), firstName: "bad\nname" }, { ...payload(), writeToken: "" }, { ...payload(), revision: 0 }, { ...payload(), revision: 1.5 }, { ...payload(), revision: schema.SUBMITTED_REVISION }, { ...payload(), status: "unknown" }, { ...payload(), id: "../../bad" }, { ...payload(), surveyVersion: "wrong" }, payload(1, 1, { bogus: "x" }), payload(1, 1, { q1: "invented" }), payload(1, 1, { q4: ["Other", "Other"] }), payload(1, 1, { q10: "x".repeat(2001) }), { ...payload(), website: "bot" }]) assert.throws(() => schema.validateSurvey(body));
   assert.equal((await route.POST(request(payload()))).status, 503); assert.equal(ledger.size, 0);
   process.env.CSNF_SURVEY_ENABLED = "true"; process.env.VERCEL_ENV = "preview";
@@ -69,21 +79,30 @@ function clock(iso) { global.Date = class extends RealDate { constructor(...args
   assert.equal((await route.POST(request({ ...payload(88, schema.SUBMITTED_REVISION), answers: {} }))).status, 400);
   await assert.rejects(store.saveSurvey({ ...payload(88, schema.SUBMITTED_REVISION), answers: {} }), schema.SurveyValidationError);
   assert.deepEqual([...ledger.entries()], beforeIncomplete, "invalid final must not create owner or receipt blobs");
+  for (const email of [undefined, "", "invalid", null]) {
+    const invalidFinal = { ...payload(88, schema.SUBMITTED_REVISION), email };
+    assert.equal((await route.POST(request(invalidFinal))).status, 400);
+    await assert.rejects(store.saveSurvey(invalidFinal), schema.SurveyValidationError);
+  }
+  assert.deepEqual([...ledger.entries()], beforeIncomplete, "missing/invalid final email never writes even an owner");
   let result = await route.POST(request(payload())); assert.equal(result.status, 200); assert.equal((await result.json()).status, "draft");
   const firstBytes = [...ledger.entries()];
   assert.equal((await route.POST(request(payload()))).status, 200); assert.deepEqual([...ledger.entries()], firstBytes);
   assert.equal((await route.POST(request(payload(1, 1, { q1: "Average" })))).status, 409);
   assert.equal((await route.POST(request({ ...payload(1, 2), writeToken: "b".repeat(64) }))).status, 409);
   assert.deepEqual([...ledger.entries()], firstBytes, "wrong capability and changed retry cannot mutate any existing bytes");
-  await store.saveSurvey(payload(1, 3, { q1: "Good", q1_comments: "PRIVATE_COMMENT" }));
+  await store.saveSurvey({ ...payload(1, 3, { q1: "Good", q1_comments: "PRIVATE_COMMENT" }), email: " Donor@example.org " });
+  for (const [path, bytes] of firstBytes) assert.equal(ledger.get(path), bytes, "adding email to existing draft never mutates legacy owner/receipt bytes");
   await store.saveSurvey(payload(1, 2, { q1: "Average" }));
   let projected = await store.listSurveyResponses();
   assert.equal(projected.length, 1); assert.equal(projected[0].revision, 3); assert.equal(projected[0].answers.q1, "Good", "late draft cannot overwrite higher revision");
+  assert.equal(projected[0].email, "Donor@example.org", "email survives durable draft projection and older no-email write");
   const final = payload(1, schema.SUBMITTED_REVISION, { q1: "Very good" });
   await Promise.all([store.saveSurvey(final), store.saveSurvey(final)]);
   assert.equal((await store.listSurveyResponses())[0].status, "submitted");
   await assert.rejects(store.saveSurvey(payload(1, 4)), schema.SurveyConflictError);
   await assert.rejects(store.saveSurvey({ ...final, telephone: "123" }), schema.SurveyConflictError);
+  await assert.rejects(store.saveSurvey({ ...final, email: "other@example.org" }), schema.SurveyConflictError);
   assert.equal((await store.saveSurvey(final)).status, "submitted");
   ambiguous = true; await store.saveSurvey(payload(2)); ambiguous = false;
   assert.equal((await store.listSurveyResponses()).length, 2, "pagination, owners ignored and snapshots projected once");
@@ -92,6 +111,9 @@ function clock(iso) { global.Date = class extends RealDate { constructor(...args
   const key = [...ledger.keys()].find(k => k.includes("revision-0000003")), originalBytes = ledger.get(key);
   const corrupt = JSON.parse(originalBytes); corrupt.answers.q1 = "Average"; ledger.set(key, JSON.stringify(corrupt));
   await assert.rejects(store.listSurveyResponses()); ledger.set(key, originalBytes);
+  const changedEmail = JSON.parse(originalBytes); changedEmail.email = "other@example.org";
+  ledger.set(key, JSON.stringify(changedEmail));
+  await assert.rejects(store.listSurveyResponses(), /Invalid survey receipt/); ledger.set(key, originalBytes);
   // A draft already in flight may land after final; final remains authoritative.
   const started = deferred(), release = deferred(); holdDraft = { started: started.resolve, wait: release.promise };
   const late = store.saveSurvey(payload(2, 5, { q1: "Average" })); await started.promise;
@@ -115,21 +137,26 @@ function clock(iso) { global.Date = class extends RealDate { constructor(...args
   assert.equal(summary.responseCount, 1); assert.equal(summary.partialResponseCount, 1);
   assert.equal(summary.questions.find(q => q.id === "q1").counts.find(c => c.label === "Very good").count, 1);
   assert.equal(summary.partialQuestions.find(q => q.id === "q1").counts.find(c => c.label === "Good").count, 1);
-  for (const secret of ["Zoë", "O’Neill", "telephone", "PRIVATE_COMMENT", uuid(99)]) assert.ok(!JSON.stringify(summary).includes(secret));
+  for (const secret of ["Zoë", "O’Neill", "telephone", "email", "Donor@example.org", "PRIVATE_COMMENT", uuid(99)]) assert.ok(!JSON.stringify(summary).includes(secret));
   process.env.CRON_SECRET = "fixture-cron";
   const exp = auth => new NextRequest("https://fixture.invalid/api/csnf-survey/export", { headers: auth ? { authorization: auth } : {} });
   assert.equal((await exportRoute.GET(exp())).status, 401);
   assert.equal((await exportRoute.GET(exp("Bearer wrong"))).status, 401);
   result = await exportRoute.GET(exp("Bearer fixture-cron")); assert.equal(result.headers.get("cache-control"), "no-store");
-  const exported = await result.json(); assert.equal(exported.schemaVersion, 2); assert.equal(exported.identityFields.length, 3);
+  const exported = await result.json(); assert.equal(exported.schemaVersion, 2); assert.equal(exported.identityFields.length, 4);
+  assert.equal(exported.responses.find(r => r.id === uuid(1)).email, "Donor@example.org");
+  assert.deepEqual(exported.identityFields.at(-1), { id: "email", label: "Email address", required: true });
   assert.ok(exported.responses.every(r => !("digest" in r) && !("writeToken" in r) && !("tokenHash" in r)));
   failList = true; assert.equal((await exportRoute.GET(exp("Bearer fixture-cron"))).status, 503); failList = false;
   // A genuine pre-policy immutable final receipt must remain readable/exportable.
-  const historical = schema.validateSurvey({ ...payload(777, schema.SUBMITTED_REVISION), answers: {} }, { requireCompleteSubmission: false });
+  const historical = schema.validateSurvey({ ...payload(777, schema.SUBMITTED_REVISION), email: undefined, answers: {} }, { requireCompleteSubmission: false, requireEmailOnSubmission: false });
   const { writeToken: _unused, ...historicalPayload } = historical;
   const historicalRecord = { ...historicalPayload, createdAt: "2026-11-13T20:00:00.000Z", updatedAt: "2026-11-13T20:00:00.000Z", submittedAt: "2026-11-13T20:00:00.000Z" };
   ledger.set(`csnf-survey/v2/production/sessions/${uuid(777)}/submitted.json`, JSON.stringify({ ...historicalRecord, digest: require("node:crypto").createHash("sha256").update(JSON.stringify(historicalRecord)).digest("hex") }));
-  assert.equal((await store.listSurveyResponses()).find(r => r.id === uuid(777)).status, "submitted");
+  const historicalBytes = [...ledger.entries()];
+  const legacyExport = (await store.listSurveyResponses()).find(r => r.id === uuid(777));
+  assert.equal(legacyExport.status, "submitted"); assert.ok(!Object.hasOwn(legacyExport, "email"));
+  assert.deepEqual([...ledger.entries()], historicalBytes, "historical no-email receipt bytes/hashes unchanged on read");
   assert.equal((await exportRoute.GET(exp("Bearer fixture-cron"))).status, 200);
 
   clock("2026-11-16T18:00:00.000Z");
@@ -152,15 +179,17 @@ function clock(iso) { global.Date = class extends RealDate { constructor(...args
   const gate = deferred(); writes = []; views = [];
   const serialized = new SurveyAutosave(uuid(51), "d".repeat(64), async b => { writes.push(structuredClone(b)); if (writes.length === 1) await gate.promise; return ack(b); }, v => views.push(v));
   serialized.update(form()); const saving = serialized.flush();
-  serialized.update(form({ q1: "Good" })); void serialized.flush(); assert.equal(writes.length, 1);
+  serialized.update({ ...form({ q1: "Good" }), email: "coalesced@example.org" }); void serialized.flush(); assert.equal(writes.length, 1);
   assert.notEqual(views.at(-1).phase, "saved"); gate.resolve(); await saving;
   assert.equal(writes.length, 2); assert.equal(writes[0].answers.q1, undefined); assert.equal(writes[1].answers.q1, "Good"); assert.ok(writes[1].revision > writes[0].revision);
+  assert.equal(writes[1].email, "coalesced@example.org", "in-flight draft does not drop newly entered email");
   let failure = true; writes = []; views = [];
   const retry = new SurveyAutosave(uuid(52), "e".repeat(64), async b => { writes.push(structuredClone(b)); if (failure) { failure = false; throw new Error("fixture network failure"); } return ack(b); }, v => views.push(v));
-  retry.update(form()); await retry.flush(); assert.equal(views.at(-1).phase, "error");
-  retry.update(form({ q1: "Maybe" })); await retry.flush();
+  retry.update({ ...form(), email: "old@example.org" }); await retry.flush(); assert.equal(views.at(-1).phase, "error");
+  retry.update({ ...form({ q1: "Maybe" }), email: "new@example.org" }); await retry.flush();
   assert.deepEqual(writes[0], writes[1], "retained ambiguous revision payload never mutated by edits");
   assert.ok(writes[2].revision > writes[1].revision); assert.equal(writes[2].answers.q1, "Maybe");
+  assert.equal(writes[2].email, "new@example.org", "retry retains newer email until old ambiguous payload resolves");
   const oldAck = deferred(); writes = []; views = [];
   const exiting = new SurveyAutosave(uuid(53), "f".repeat(64), async (b, keepalive) => { writes.push({ ...structuredClone(b), keepalive }); if (writes.length === 1) await oldAck.promise; return ack(b); }, v => views.push(v));
   exiting.update(form()); const old = exiting.flush(); exiting.update(form({ q1: "Good" })); exiting.flushOnExit();
@@ -212,12 +241,26 @@ function clock(iso) { global.Date = class extends RealDate { constructor(...args
     assert.equal(options.signal, undefined); assert.equal(options.keepalive, true);
     return Response.json({ ok: true, ...ack(payload(58)) });
   }, 1);
+  // Resume a pre-email controller's draft, then add email without losing pending answers.
+  const resumedWrites = [];
+  const resumed = new SurveyAutosave(uuid(59), "c".repeat(64), async b => { schema.validateSurvey(b); resumedWrites.push(structuredClone(b)); return ack(b); }, () => {});
+  resumed.update(form({ q10: "existing draft" })); await resumed.flush();
+  resumed.update({ ...form({ ...completeAnswers, q10: "existing draft" }), email: "Donor@example.org" });
+  await resumed.flush(); await resumed.flush(true);
+  assert.ok(!Object.hasOwn(resumedWrites[0], "email"));
+  assert.equal(resumedWrites.at(-1).email, "Donor@example.org");
+  assert.equal(resumedWrites.at(-1).answers.q10, "existing draft");
+  assert.equal(resumedWrites.at(-1).status, "submitted");
   const React = require("react"), { renderToStaticMarkup } = require("react-dom/server");
+  const { CsnfSurveyForm } = require("../components/csnf-survey-form.tsx");
+  const formHtml = renderToStaticMarkup(React.createElement(CsnfSurveyForm, { accepting: true }));
+  assert.match(formHtml, /id="survey-email"[^>]*type="email"[^>]*autoComplete="email"[^>]*required=""[^>]*maxLength="254"/);
+  assert.match(formHtml, /Email address is required to submit/);
   const Campaign = require("../components/csnf-campaign-page.tsx").default;
   const resource = renderToStaticMarkup(React.createElement(Campaign, { resourceOnly: true })), invitation = renderToStaticMarkup(React.createElement(Campaign, { schedulingLink: "https://fixture.invalid/schedule" }));
   assert.ok(!/interview|calendly/i.test(resource));
   assert.equal(resource.match(/<section id="case-for-support"[\s\S]*?(?=<section id="faq")/)[0], invitation.match(/<section id="case-for-support"[\s\S]*?(?=<section id="faq")/)[0]);
   assert.deepEqual(resource.match(/<details[\s\S]*?<\/details>/g), invitation.match(/<details[\s\S]*?<\/details>/g).slice(0, -1));
   assert.ok(fs.readFileSync("lib/csnf-survey.ts", "utf8").includes("getCsnfSurvey"));
-  console.log("PASS v2 CSNF survey: identified drafts/names gate, immutable authorized revisions and terminal races, retries/coalescing/out-of-order/exit flush, capability privacy, export auth, prior-revision cutoff, submitted+partial cohort breakdowns/no PII, Monday gate, unchanged case/VIP.");
+  console.log("PASS v2 CSNF survey: required email on final/API/store, optional draft email, durable private export, immutable legacy hashes, email UI, identified drafts/names gate, immutable authorized revisions and terminal races, retries/coalescing/out-of-order/exit flush, capability privacy, export auth, prior-revision cutoff, submitted+partial cohort breakdowns/no PII, Monday gate, unchanged case/VIP.");
 })().catch(e => { global.Date = RealDate; console.error(e); process.exit(1); });

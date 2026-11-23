@@ -6,6 +6,7 @@ export const IDENTITY_FIELDS = [
   { id: "firstName", label: "First name", required: true },
   { id: "lastName", label: "Last name", required: true },
   { id: "telephone", label: "Telephone", required: false },
+  { id: "email", label: "Email address", required: true },
 ] as const;
 export interface SurveyQuestion {
   id: string;
@@ -47,7 +48,12 @@ export type SurveyAnswers = Record<string, string | string[]>;
 export function missingRequiredSurveyQuestions(answers: SurveyAnswers): string[] {
   return SURVEY_QUESTIONS.filter(q => q.type !== "text" && !(answers[q.id]?.length > 0)).map(q => q.id);
 }
-export interface SurveyIdentity { firstName: string; lastName: string; telephone: string }
+// Optional in stored historical responses and draft autosaves; required on new final writes.
+export interface SurveyIdentity { firstName: string; lastName: string; telephone: string; email?: string }
+export function validSurveyEmail(value: string): boolean {
+  // HTML-style single address, without display names or internationalized domains.
+  return value.length <= 254 && /^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$/.test(value);
+}
 export interface SurveyWrite extends SurveyIdentity {
   id: string;
   writeToken: string;
@@ -74,11 +80,11 @@ export interface SurveyResults {
 export class SurveyValidationError extends Error {}
 export class SurveyConflictError extends Error {}
 
-export function validateSurvey(input: unknown, { requireCompleteSubmission = true }: { requireCompleteSubmission?: boolean } = {}): SurveyWrite {
+export function validateSurvey(input: unknown, { requireCompleteSubmission = true, requireEmailOnSubmission = true }: { requireCompleteSubmission?: boolean; requireEmailOnSubmission?: boolean } = {}): SurveyWrite {
   const fail = (): never => { throw new SurveyValidationError("Please check your responses and try again."); };
   if (!input || typeof input !== "object" || Array.isArray(input)) return fail();
   const body = input as Record<string, unknown>;
-  if (Object.keys(body).some(k => !["id", "writeToken", "revision", "status", "surveyVersion", "firstName", "lastName", "telephone", "answers", "website"].includes(k))) return fail();
+  if (Object.keys(body).some(k => !["id", "writeToken", "revision", "status", "surveyVersion", "firstName", "lastName", "telephone", "email", "answers", "website"].includes(k))) return fail();
   if (body.website || body.surveyVersion !== SURVEY_VERSION || typeof body.id !== "string" ||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(body.id)) return fail();
   if (typeof body.writeToken !== "string" || !/^[0-9a-f]{64}$/.test(body.writeToken)) return fail();
@@ -90,6 +96,13 @@ export function validateSurvey(input: unknown, { requireCompleteSubmission = tru
     if (typeof value !== "string" || value.length > (key === "telephone" ? 80 : 120) || /[\u0000-\u001f\u007f]/.test(value)) return fail();
     identity[key] = value.trim();
     if (key !== "telephone" && !identity[key]) return fail();
+  }
+  // Empty draft email is omitted, preserving legacy canonical bytes and autosave.
+  if (body.email !== undefined && (typeof body.email !== "string" || body.email.length > 254)) return fail();
+  const email = typeof body.email === "string" ? body.email.trim() : "";
+  if (email && !validSurveyEmail(email)) throw new SurveyValidationError("Please enter a valid email address.");
+  if (requireEmailOnSubmission && body.status === "submitted" && !email) {
+    throw new SurveyValidationError("Please enter your email address before submitting.");
   }
   if (!body.answers || typeof body.answers !== "object" || Array.isArray(body.answers)) return fail();
   const supplied = body.answers as Record<string, unknown>;
@@ -112,7 +125,7 @@ export function validateSurvey(input: unknown, { requireCompleteSubmission = tru
   if (requireCompleteSubmission && body.status === "submitted" && missingRequiredSurveyQuestions(answers).length) {
     throw new SurveyValidationError("Please answer questions 1–9 before submitting. Comments and question 10 are optional.");
   }
-  return { id: body.id, writeToken: body.writeToken, revision: Number(body.revision), status: body.status, surveyVersion: SURVEY_VERSION, ...identity, answers };
+  return { id: body.id, writeToken: body.writeToken, revision: Number(body.revision), status: body.status, surveyVersion: SURVEY_VERSION, ...identity, answers, ...(email ? { email } : {}) };
 }
 
 // Only fixed-choice counts are reportable. Never include names, free text,
