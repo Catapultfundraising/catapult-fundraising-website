@@ -5,7 +5,7 @@ import { SURVEY_QUESTIONS, missingRequiredSurveyQuestions } from "@/lib/csnf-onl
 import { SurveyAutosave, sendSurveyWrite, type SurveyFormData, type SaveView } from "@/lib/csnf-survey-autosave";
 
 export function CsnfSurveyForm({ accepting }: { accepting: boolean }) {
-  const [data, setData] = useState<SurveyFormData>({ firstName: "", lastName: "", telephone: "", answers: {}, website: "" });
+  const [data, setData] = useState<SurveyFormData>({ firstName: "", lastName: "", telephone: "", email: "", answers: {}, website: "" });
   const [submissionAttempted, setSubmissionAttempted] = useState(false);
   const missingQuestions = missingRequiredSurveyQuestions(data.answers);
   const [view, setView] = useState<SaveView>({ phase: "idle", finalizing: false });
@@ -69,10 +69,11 @@ export function CsnfSurveyForm({ accepting }: { accepting: boolean }) {
     {!accepting && <p role="status" className="rounded-md border border-[#d8e3ef] bg-white p-4">Preview only: responses are not being collected.</p>}
     <section aria-labelledby="your-details" className="rounded-md border border-[#d8e3ef] bg-white p-5 sm:p-7">
       <h3 id="your-details" className="text-xl font-bold text-[#004990]">Your details</h3>
-      <p id="autosave-disclosure" className="mt-3 text-sm leading-relaxed">Once you enter your first and last name, your details and answers save automatically, including unfinished surveys you do not submit. Telephone is optional. Check the save status before leaving.</p>
+      <p id="autosave-disclosure" className="mt-3 text-sm leading-relaxed">Once you enter your first and last name, your details and answers save automatically, including unfinished surveys you do not submit. Email address is required to submit; unfinished surveys can save before you add it. Telephone is optional. Check the save status before leaving.</p>
       <fieldset disabled={disabled} aria-describedby="autosave-disclosure" className="mt-5 grid gap-5 sm:grid-cols-2">
         <label htmlFor="survey-firstName" className="font-semibold">First name <span aria-hidden="true">*</span><input id="survey-firstName" name="firstName" autoComplete="given-name" required maxLength={120} value={data.firstName} onChange={e => setData(d => ({ ...d, firstName: e.target.value }))} onBlur={flushOnBlur} className={fieldClass} /></label>
         <label htmlFor="survey-lastName" className="font-semibold">Last name <span aria-hidden="true">*</span><input id="survey-lastName" name="lastName" autoComplete="family-name" required maxLength={120} value={data.lastName} onChange={e => setData(d => ({ ...d, lastName: e.target.value }))} onBlur={flushOnBlur} className={fieldClass} /></label>
+        <label htmlFor="survey-email" className="font-semibold sm:col-span-2">Email address <span aria-hidden="true">*</span><input id="survey-email" name="email" type="email" autoComplete="email" required maxLength={254} value={data.email ?? ""} onChange={e => setData(d => ({ ...d, email: e.target.value }))} onBlur={flushOnBlur} className={fieldClass} /></label>
         <label htmlFor="survey-telephone" className="font-semibold sm:col-span-2">Telephone <span className="font-normal">(optional)</span><input id="survey-telephone" name="telephone" type="tel" autoComplete="tel" maxLength={80} value={data.telephone} onChange={e => setData(d => ({ ...d, telephone: e.target.value }))} onBlur={flushOnBlur} className={fieldClass} /></label>
       </fieldset>
       <div className="mt-4 min-h-[148px] sm:min-h-[100px]">

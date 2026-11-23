@@ -16,7 +16,19 @@ During preview review Anthony explicitly authorized **required first/last
 name, optional telephone, and identified autosave including unfinished
 surveys**. Those fields are additions approved by Anthony, not attributed to
 the original questionnaire. The disclosure is visible before the identity
-fields. Final submission requires Q1–Q9 (at least one selection for Q4). Comments and Q10 remain optional. Identified draft autosave still accepts incomplete answers; existing immutable receipts remain readable. Question definitions, schema/version and export contract are unchanged.
+fields. Final submission requires Q1–Q9 (at least one selection for Q4). Comments and Q10 remain optional. Identified draft autosave still accepts incomplete answers; existing immutable receipts remain readable. Question definitions and schema/version are unchanged.
+Anthony subsequently requested required email. The export identity metadata appends
+`{id: "email", label: "Email address", required: true}` after telephone. The
+optional top-level `email` response field is trimmed (case preserved), max254
+characters, and validated as a single HTML-style address when nonempty. New
+submissions require it; draft autosaves permit missing/empty email and omit it
+from the canonical payload. Old immutable receipts remain valid without email;
+no migration, hash/revision changes, or backfill occurs. Question definitions,
+`csnf-2026-11-v2` and schemaVersion2 remain pinned. The private authenticated
+export carries email when present; public aggregate results never include it.
+Existing draft sessions can continue writing with their capability and collect
+email before final submission; browser reload/resume remains unsupported.
+
 Names are trimmed/nonblank, max120 characters each; telephone optional/max80
 without a country-specific format rule. Controls are rejected in identity
 strings. Written answers max2000 characters each.
