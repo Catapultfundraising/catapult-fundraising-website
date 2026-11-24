@@ -259,3 +259,21 @@ usable direct/mobile) OR private Top20` is used for member inclusion. Existing
 Top20 config and all canonical/private histories stay untouched; no new metadata
 installation is needed. Parent verifies current live counts after approved
 deployment; no real names/IDs, test members or private-data calls enter this task.
+
+
+## Board-facing source display (November 24)
+The review page does not render contact-source research notes/URLs or portal
+source/checked citation footers. Contact fit remains a labelled contact detail
+(`Public-source contact` is presented as `Published contact`). Email/phone status,
+contact names/titles, office/direct distinctions, giving status/eligibility/timing,
+and company/giving/contact links remain. Only exact office provenance annotations
+`(company record)` / `(published office line)` are omitted; `(original file; not
+reverified)` becomes `(not reverified)`. Phone numbers/extensions are not stripped.
+This is presentation only: full private roster/export, access, immutable responses,
+strict contact/Top20 inclusion, autosave and navigation are unchanged.
+
+Focused proof: `SA_SOURCE_DISPLAY_PROOF=1 python scripts/qa-sa-sponsorship.py <out>`
+checks the actual authenticated synthetic page on desktop/mobile, absent citations,
+preserved contact quality/fit and application details, numbers/extensions and
+company/giving links, plus byte-equivalent parsed admin roster fields and no
+response writes. `SA_SOURCE_DISPLAY_BEFORE=1` captures the pre-change state only.
