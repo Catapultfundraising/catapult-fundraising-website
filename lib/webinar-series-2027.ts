@@ -9,13 +9,10 @@ export interface Webinar2027 {
   presenter_name: string;
   title: string;
   description: string;
-  service: string;
-  next_step: string;
   learning_objectives: string[];
   slug: string;
   format: string;
   registration_url: string | null;
-  service_links: { href: string; label: string }[];
 }
 
 // Separate from the retired CGA webinar metadata. Approved public copy and

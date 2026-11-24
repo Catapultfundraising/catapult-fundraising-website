@@ -4,6 +4,7 @@ import React from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { WEBINARS_2027, formatWebinarDate } from "../lib/webinar-series-2027";
 import { WebinarRegistration } from "../components/webinar-registration";
+import { TEAM_PRESENTER_PROFILES, presenterProfileFor } from "../lib/team-presenter-profiles";
 
 assert.equal(WEBINARS_2027.length, 12);
 assert.equal(new Set(WEBINARS_2027.map((s) => s.slug)).size, 12);
@@ -17,7 +18,11 @@ const dateParts = (value: string, timeZone: string) => new Intl.DateTimeFormat("
 }).formatToParts(new Date(value));
 for (const session of WEBINARS_2027) {
   assert.equal(session.learning_objectives.length, 3);
-  assert.ok(session.description && session.presenter_name && session.service && session.next_step);
+  assert.ok(session.description && session.presenter_name);
+  for (const field of ["service", "service_links", "next_step"]) assert.ok(!(field in session), `No internal ${field} in public session data`);
+  const presenter = presenterProfileFor(session.presenter);
+  assert.ok(presenter.id && presenter.role && presenter.photo);
+  assert.equal(new URL(presenter.photo).hostname, "galaxy-prod.tlcdn.com");
   assert.equal((new Date(session.end).valueOf() - new Date(session.start).valueOf()) / 60000, 60);
   for (const [zone, startHour, endHour] of [
     ["America/Los_Angeles", "11", "12"], ["America/Chicago", "13", "14"], ["America/New_York", "14", "15"],
@@ -31,7 +36,6 @@ for (const session of WEBINARS_2027) {
     }
   }
   assert.ok(formatWebinarDate(session.date).endsWith("2027"));
-  for (const link of session.service_links) assert.ok(fs.existsSync(`app${link.href}/page.tsx`), link.href);
   assert.ok(session.registration_url, "Each approved session has a registration link");
   const registration = new URL(session.registration_url);
   assert.equal(registration.protocol, "https:");
@@ -54,7 +58,15 @@ assert.match(fs.readFileSync("lib/constants.ts", "utf8").split("export const INS
 assert.match(fs.readFileSync("components/site-footer.tsx", "utf8"), /href="\/webinars"/);
 assert.match(fs.readFileSync("app/sitemap.ts", "utf8"), /"\/webinars"/);
 assert.match(fs.readFileSync("components/site-header.tsx", "utf8"), /pathname === "\/webinars"/);
+assert.equal(TEAM_PRESENTER_PROFILES.Anthony.role, "President & CEO");
+assert.equal(TEAM_PRESENTER_PROFILES.Jeff.role, "Vice President of Client Development");
+assert.equal(TEAM_PRESENTER_PROFILES.Gwen.role, "Vice President of Client Services");
+assert.throws(() => presenterProfileFor("Unknown"), /Unknown webinar presenter/);
+const team = fs.readFileSync("app/our-team/page.tsx", "utf8");
+for (const name of Object.keys(TEAM_PRESENTER_PROFILES)) assert.ok(team.includes(`...TEAM_PRESENTER_PROFILES.${name}`));
+assert.ok(team.includes('id={"id" in member ? member.id : undefined}'));
+assert.ok(team.includes('scroll-mt-56'));
 const page = fs.readFileSync("app/webinars/page.tsx", "utf8");
-for (const required of ["PageHero", "CtaBand", "Register for each session below.", "11:30am–12:30pm Pacific", "1:30–2:30pm Central", "2:30–3:30pm Eastern"]) assert.ok(page.includes(required));
-assert.doesNotMatch(page, /CGA_WEBINAR|@\/lib\/webinars|CFRE|recording|pricing|zoom\.us/);
-console.log("2027 webinar series: 12 approved dates and Zoom registration URLs, 36 objectives, three-zone DST times, valid service links, pending/active accessible registration states and discovery PASS");
+for (const required of ["PageHero", "CtaBand", "annual giving", "mid-level donors", "h-[88px] w-[88px] flex-none shrink-0", "presenter.photo", "presenter.role", "href={bioHref}", "Register for each session below.", "11:30am–12:30pm Pacific", "1:30–2:30pm Central", "2:30–3:30pm Eastern"]) assert.ok(page.includes(required));
+assert.doesNotMatch(page, /CGA_WEBINAR|@\/lib\/webinars|CFRE|recording|pricing|zoom\.us|Service connection|service_links|next_step/);
+console.log("2027 webinar series: 12 approved dates and Zoom URLs, 36 objectives, DST times, verified shared presenter profiles/bio targets, fixed circles, no internal service mappings, registration states and discovery PASS");
