@@ -100,6 +100,16 @@ export default function WebinarsPage() {
                     {session.learning_objectives.map((objective) => <li key={objective}>{objective}</li>)}
                   </ul>
                 </div>
+                <div className="mt-6 text-sm">
+                  <p className="font-semibold text-[rgb(var(--navy))]">Learn more:</p>
+                  <div className="flex flex-wrap gap-x-5 gap-y-1">
+                    {session.service_links.map((link) => (
+                      <Link key={link.href} href={link.href} className="inline-flex min-h-11 items-center gap-2 font-semibold text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))] underline-offset-4">
+                        {link.label}<ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
                 <div className="mt-5"><WebinarRegistration title={session.title} registrationUrl={session.registration_url} /></div>
               </div>
             </article>

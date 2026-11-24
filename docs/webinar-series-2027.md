@@ -14,8 +14,13 @@
 - Presenter roles, existing portrait URLs and real bio card IDs are shared in
   `lib/team-presenter-profiles.ts` with `/our-team`. Names and portraits link
   directly to the existing biographies with sticky-header scroll clearance.
-- Internal service connections, next-step mapping and service links are omitted
-  from both the public entries and their JSON source at Anthony's request.
+- Each session has a simple “Learn more:” section linking to relevant existing
+  service pages via `service_links`. Internal service tags and next-step prose
+  remain omitted from both public entries and their JSON source.
+- There are no standalone prospect research, AI/capacity-building or major gift
+  service routes. June links to planned giving and capital campaign consulting;
+  July and November link to capital campaign planning/research. These use real broader
+  service pages and labels, not invented routes or contact-only substitutes.
 - Month navigation uses identical 88px circles with flex shrink disabled.
 - This does not reuse `lib/webinars.ts`, restore retired CGA registration, or add
   a global promo bar.

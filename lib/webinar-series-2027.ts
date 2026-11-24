@@ -13,6 +13,7 @@ export interface Webinar2027 {
   slug: string;
   format: string;
   registration_url: string | null;
+  service_links: { href: string; label: string }[];
 }
 
 // Separate from the retired CGA webinar metadata. Approved public copy and

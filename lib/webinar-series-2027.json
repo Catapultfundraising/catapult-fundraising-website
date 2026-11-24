@@ -15,7 +15,17 @@
     ],
     "slug": "2027-01-20-anthony",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_yVTEOV0ySoGQ2uMYKyMv7Q"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_yVTEOV0ySoGQ2uMYKyMv7Q",
+    "service_links": [
+      {
+        "href": "/services/feasibility-study",
+        "label": "Feasibility studies"
+      },
+      {
+        "href": "/services/capital-campaign",
+        "label": "Capital campaign consulting"
+      }
+    ]
   },
   {
     "date": "2027-02-17",
@@ -33,7 +43,13 @@
     ],
     "slug": "2027-02-17-jeff",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_hMULXdB7Qj2CrsbhJVqI1A"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_hMULXdB7Qj2CrsbhJVqI1A",
+    "service_links": [
+      {
+        "href": "/services/planned-giving",
+        "label": "Explore Legacy Call"
+      }
+    ]
   },
   {
     "date": "2027-03-17",
@@ -51,7 +67,13 @@
     ],
     "slug": "2027-03-17-gwen",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_vctp9BuDQ5uWOlSc4wJwVg"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_vctp9BuDQ5uWOlSc4wJwVg",
+    "service_links": [
+      {
+        "href": "/services/mid-level-donor-program",
+        "label": "Mid-level donor engagement"
+      }
+    ]
   },
   {
     "date": "2027-04-14",
@@ -69,7 +91,17 @@
     ],
     "slug": "2027-04-14-anthony",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_TQa7RPCaQWCeOXlJkO3o_w"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_TQa7RPCaQWCeOXlJkO3o_w",
+    "service_links": [
+      {
+        "href": "/services/telefundraising",
+        "label": "Annual Fund Connect"
+      },
+      {
+        "href": "/services/mid-level-donor-program",
+        "label": "Mid-level donor engagement"
+      }
+    ]
   },
   {
     "date": "2027-05-12",
@@ -87,7 +119,13 @@
     ],
     "slug": "2027-05-12-jeff",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_OoHD02z2RAezka19GEi08g"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_OoHD02z2RAezka19GEi08g",
+    "service_links": [
+      {
+        "href": "/services/capital-campaign",
+        "label": "Capital campaign consulting"
+      }
+    ]
   },
   {
     "date": "2027-06-09",
@@ -105,7 +143,17 @@
     ],
     "slug": "2027-06-09-anthony",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_bumrwQ5ETMCj4sH4YKO9VQ"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_bumrwQ5ETMCj4sH4YKO9VQ",
+    "service_links": [
+      {
+        "href": "/services/planned-giving",
+        "label": "Explore Legacy Call"
+      },
+      {
+        "href": "/services/capital-campaign",
+        "label": "Capital campaign consulting"
+      }
+    ]
   },
   {
     "date": "2027-07-14",
@@ -123,7 +171,13 @@
     ],
     "slug": "2027-07-14-jeff",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_iMzXp0nLRba6hySvD0NiEw"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_iMzXp0nLRba6hySvD0NiEw",
+    "service_links": [
+      {
+        "href": "/services/capital-campaign",
+        "label": "Campaign planning and prospect research"
+      }
+    ]
   },
   {
     "date": "2027-08-11",
@@ -141,7 +195,13 @@
     ],
     "slug": "2027-08-11-gwen",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_mNBGjX2hRIin_X4kFn-2dg"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_mNBGjX2hRIin_X4kFn-2dg",
+    "service_links": [
+      {
+        "href": "/services/planned-giving",
+        "label": "Explore Legacy Call"
+      }
+    ]
   },
   {
     "date": "2027-09-08",
@@ -159,7 +219,13 @@
     ],
     "slug": "2027-09-08-anthony",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_xeA88zx2RGmO_2p3phw7TA"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_xeA88zx2RGmO_2p3phw7TA",
+    "service_links": [
+      {
+        "href": "/services/capital-campaign",
+        "label": "Capital campaign consulting"
+      }
+    ]
   },
   {
     "date": "2027-10-13",
@@ -177,7 +243,13 @@
     ],
     "slug": "2027-10-13-jeff",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_8lHgEl8JQyW3Su6wQKW_6A"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_8lHgEl8JQyW3Su6wQKW_6A",
+    "service_links": [
+      {
+        "href": "/services/telefundraising",
+        "label": "Annual Fund Connect"
+      }
+    ]
   },
   {
     "date": "2027-11-17",
@@ -195,7 +267,13 @@
     ],
     "slug": "2027-11-17-anthony",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_-2rzhcOLQHKRPYb6AXxUGQ"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_-2rzhcOLQHKRPYb6AXxUGQ",
+    "service_links": [
+      {
+        "href": "/services/capital-campaign",
+        "label": "Campaign planning and prospect research"
+      }
+    ]
   },
   {
     "date": "2027-12-08",
@@ -213,6 +291,16 @@
     ],
     "slug": "2027-12-08-jeff",
     "format": "60 minutes, including audience Q&A",
-    "registration_url": "https://us06web.zoom.us/webinar/register/WN_bCjxdZEpTv--XylTb0Vixw"
+    "registration_url": "https://us06web.zoom.us/webinar/register/WN_bCjxdZEpTv--XylTb0Vixw",
+    "service_links": [
+      {
+        "href": "/services/capital-campaign",
+        "label": "Capital campaign consulting"
+      },
+      {
+        "href": "/services/telefundraising",
+        "label": "Campaign calling support"
+      }
+    ]
   }
 ]

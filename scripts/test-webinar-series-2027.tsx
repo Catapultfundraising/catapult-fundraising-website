@@ -19,7 +19,13 @@ const dateParts = (value: string, timeZone: string) => new Intl.DateTimeFormat("
 for (const session of WEBINARS_2027) {
   assert.equal(session.learning_objectives.length, 3);
   assert.ok(session.description && session.presenter_name);
-  for (const field of ["service", "service_links", "next_step"]) assert.ok(!(field in session), `No internal ${field} in public session data`);
+  for (const field of ["service", "next_step"]) assert.ok(!(field in session), `No internal ${field} in public session data`);
+  assert.ok(session.service_links.length > 0);
+  for (const link of session.service_links) {
+    assert.ok(link.href.startsWith("/services/"), "Learn more links must lead to real service pages, not contact-only substitutes");
+    assert.ok(fs.existsSync(`app${link.href}/page.tsx`), link.href);
+    assert.ok(link.label);
+  }
   const presenter = presenterProfileFor(session.presenter);
   assert.ok(presenter.id && presenter.role && presenter.photo);
   assert.equal(new URL(presenter.photo).hostname, "galaxy-prod.tlcdn.com");
@@ -67,6 +73,6 @@ for (const name of Object.keys(TEAM_PRESENTER_PROFILES)) assert.ok(team.includes
 assert.ok(team.includes('id={"id" in member ? member.id : undefined}'));
 assert.ok(team.includes('scroll-mt-56'));
 const page = fs.readFileSync("app/webinars/page.tsx", "utf8");
-for (const required of ["PageHero", "CtaBand", "annual giving", "mid-level donors", "h-[88px] w-[88px] flex-none shrink-0", "presenter.photo", "presenter.role", "href={bioHref}", "Register for each session below.", "11:30am–12:30pm Pacific", "1:30–2:30pm Central", "2:30–3:30pm Eastern"]) assert.ok(page.includes(required));
-assert.doesNotMatch(page, /CGA_WEBINAR|@\/lib\/webinars|CFRE|recording|pricing|zoom\.us|Service connection|service_links|next_step/);
-console.log("2027 webinar series: 12 approved dates and Zoom URLs, 36 objectives, DST times, verified shared presenter profiles/bio targets, fixed circles, no internal service mappings, registration states and discovery PASS");
+for (const required of ["PageHero", "CtaBand", "annual giving", "mid-level donors", "h-[88px] w-[88px] flex-none shrink-0", "presenter.photo", "presenter.role", "href={bioHref}", "Learn more:", "session.service_links.map", "Register for each session below.", "11:30am–12:30pm Pacific", "1:30–2:30pm Central", "2:30–3:30pm Eastern"]) assert.ok(page.includes(required));
+assert.doesNotMatch(page, /CGA_WEBINAR|@\/lib\/webinars|CFRE|recording|pricing|zoom\.us|Service connection|next_step/);
+console.log("2027 webinar series: 12 dates/Zoom URLs, 36 objectives, DST times, shared presenters/bios, fixed circles, verified Learn more service routes without internal tags, registration/discovery PASS");
