@@ -9,10 +9,16 @@ out=pathlib.Path(sys.argv[1] if len(sys.argv)>1 else '/tmp/sa-proof');out.mkdir(
 base='https://localhost:3133'; endpoint=base+'/api/sa-sponsorship/'; page_url=base+'/salvation-army/sponsorship-review'
 code=secrets.token_hex(24);cron=secrets.token_hex(24)
 filter_only=os.environ.get('SA_MEMBER_FILTER_PROOF')=='1'
+source_only=os.environ.get('SA_SOURCE_DISPLAY_PROOF')=='1'
+source_before=os.environ.get('SA_SOURCE_DISPLAY_BEFORE')=='1'
 fixture=json.loads(subprocess.check_output(['node','-e',"process.stdout.write(JSON.stringify(require('./scripts/sa-sponsorship-fixture.cjs')))"],cwd=root))
 # Exercise multi-line dialing vs non-dialable annotated office provenance.
 fixture['prospects'][0]['directPhone']='+1 (202) 555-0104; +1 (202) 555-0105'
 fixture['prospects'][0]['officePhone']='+1 (202) 555-0100 (original file; not reverified)'
+if source_only:
+ fixture['prospects'][1]['officePhone']='+1 (202) 555-0110 ext. 42 (company record)'
+ fixture['prospects'][2]['officePhone']='+1 (202) 555-0120 (published office line)'
+ fixture['prospects'][2]['contactFit']='Public-source contact; see role'
 if filter_only:
  template=fixture['prospects'][0]
  fixture['prospects']=[{**template,'id':f'sample-{i+1}','organization':'Sample Desert Community Bank' if i==0 else f'Sample Community Company {i+1}','contactName':'' if i<20 or i==21 else 'Sample Contact','email':'work@example.com' if i in [20,21,23,26] else '','directPhone':'+1 202-555-0100' if i in [20,21,22,26] else '','officePhone':'(202) 555-0100 (original file; not reverified)' if i in [23,24] else '','portals':[{**template['portals'][0],'email':'shared@example.com'}] if i==25 else []} for i in range(27)]
@@ -62,6 +68,44 @@ with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
    page.get_by_role('button',name='Open private review').click()
    first=page.get_by_role('article').filter(has=page.get_by_role('heading',name='Sample Desert Community Bank'))
    expect(first).to_be_visible(timeout=10000)
+   if source_only:
+    if source_before:
+     first.get_by_text('Contact research notes',exact=True).click()
+     expect(first.get_by_text('Source: Fictional test fixture — not a researched contact',exact=True)).to_be_visible()
+     expect(first.get_by_text('Checked 2026-11-23 · Source: Fictional example-domain source',exact=True)).to_be_visible()
+    else:
+     assert first.locator('details').count()==0
+     for absent in ['Source:', 'Contact research notes', 'Fictional test fixture', 'Fictional example-domain source', 'original file']:
+      assert absent not in first.inner_text(),absent
+     expect(first.get_by_text('not reverified',exact=False)).to_be_visible()
+     second=page.get_by_role('article').filter(has=page.get_by_role('heading',name='Sample Community Company 2',exact=True))
+     third=page.get_by_role('article').filter(has=page.get_by_role('heading',name='Sample Community Company 3',exact=True))
+     expect(second.get_by_text('+1 (202) 555-0110 ext. 42',exact=True)).to_be_visible()
+     expect(third.locator('a[href="tel:+12025550120"]')).to_be_visible()
+     expect(third.get_by_text('Published contact; see role',exact=True)).to_be_visible()
+     assert 'company record' not in second.inner_text() and 'published office line' not in third.inner_text()
+     expect(first.get_by_text('Contact fit',exact=True)).to_be_visible()
+     expect(first.get_by_text('Sample contact for preview only',exact=True)).to_be_visible()
+     expect(first.get_by_role('link',name='Visit company website')).to_have_attribute('href','https://example.com')
+     expect(first.get_by_role('link',name='Giving / ask / application link')).to_have_attribute('href','https://example.com/giving')
+     expect(first.locator('a[href="mailto:jordan@example.com"]')).to_be_visible()
+     expect(first.locator('a[href="mailto:giving@example.com"]')).to_be_visible()
+     assert first.locator('a[href^="tel:"]').count()>=2
+     expect(first.get_by_text('Fictional work email for testing only',exact=True)).to_be_visible()
+     expect(first.get_by_text('Fictional direct / mobile line',exact=True)).to_be_visible()
+     expect(first.get_by_text('Eligibility not verified',exact=True)).to_be_visible()
+     expect(first.get_by_text('Fictional demonstration only',exact=True)).to_be_visible()
+     expect(first.get_by_text('No confirmed application timing',exact=False)).to_be_visible()
+    first.screenshot(path=str(out/('before-desktop.png' if source_before else 'after-desktop.png')))
+    page.set_viewport_size({'width':390,'height':844})
+    first.screenshot(path=str(out/('before-mobile.png' if source_before else 'after-mobile.png')))
+    assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+    exported=req.get(endpoint+'admin',headers={'Authorization':'Bearer '+cron}).json()
+    assert exported['prospects']==fixture['prospects'],'canonical admin fields unchanged'
+    assert exported['responses']==[] and len(exported['members'])==1
+    (out/'source-display-browser.txt').write_text(('BEFORE: research notes and portal citations visible.' if source_before else 'PASS: no source/research notes/citations or office provenance; contact qualifications, mailto/tel, company/giving links, eligibility/status/timing retained; desktop/mobile no overflow; full admin roster unchanged; no response writes.')+'\n')
+    print((out/'source-display-browser.txt').read_text())
+    context.close();browser.close();raise SystemExit(0)
    if filter_only:
     expect(page.get_by_text('0 of 22 companies reviewed',exact=True)).to_be_visible()
     assert first.get_by_text('Not available / not verified',exact=True).count()>0,'contact-less Top20 exception retained'
@@ -87,7 +131,7 @@ with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
     (out/'member-filter-browser.txt').write_text('PASS: strict member filter22/27 with20 contact-less Top20 exceptions; only complete named/main-email/direct profiles included; missing-name/email/direct and office/shared-only rows absent from browser;22-count/3-page pagination/search; excluded old-page save retained in full27 admin export/history and omitted from member responses.\n')
     print((out/'member-filter-browser.txt').read_text())
     context.close();browser.close();raise SystemExit(0)
-   assert len(first.locator('a[href^="tel:"]').all())==2,'semicolon direct numbers each get one link; annotated office is not dialed'
+   assert len(first.locator('a[href^="tel:"]').all())==2,'semicolon direct numbers each get one link; uncertain office remains text with its warning'
    expect(first.get_by_text('A = Fully comfortable making the ask to this prospect, serving as the primary solicitor',exact=True)).to_be_visible()
    page.screenshot(path=str(out/'desktop-review.png'),full_page=False)
    first.screenshot(path=str(out/'desktop-company.png'))
