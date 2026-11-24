@@ -125,3 +125,44 @@ Before: route/API did not exist (404). After: protected standalone workflow, wit
 no sample roster automatically installed in deployments. Test fixture is generated
 only by scripts and never imported into application code. No production mutations
 or live member responses are part of QA.
+
+
+## Narrow preview-only source-label redaction migration
+
+Source/provenance labels are neutralized server-side on import and every roster
+read/export. Organization/contact identity, titles, emails, actual direct phone
+numbers, company website, member records and response receipts are not rewritten.
+Annotated office-phone provenance may change wording, never its numeric phone.
+Provider-host source links are removed, not replaced with invented citations.
+
+For an already-shared immutable preview deployment, changing getter code alone is
+insufficient. The following separately authorized migration updates only the
+active private roster blob, so its old deployment code reads neutral labels too.
+General imports and the active pointer remain create-only.
+
+1. Authenticated `GET /api/sa-sponsorship/admin` keeps the exact five JSON keys
+   unchanged and adds `X-SA-Roster-Raw-SHA256`. This is lowercase SHA256 of **exact
+   stored bytes**, including whitespace, not reserialized export JSON. No digest
+   or migration metadata is exposed through member APIs.
+2. Send same-origin `PATCH /api/sa-sponsorship/admin` with CRON bearer and JSON:
+   `{action:"redact-source-labels",operationId:<UUIDv4>,expectedRawDigest:<header>}`.
+   No roster body, path, arbitrary patch or extra keys are accepted.
+3. Only Vercel **preview** allows this migration (production/local-file modes
+   refuse). It pins the active version/path and verifies the supplied raw digest.
+   It creates immutable `source-redactions/<operationId>/original.json` (exact raw
+   bytes as base64 plus SHA256), `intent.json`, and after confirmation `receipt.json`.
+   All audit objects stay private in the same environment-isolated namespace.
+4. Exactly one roster write uses installed Blob SDK `ifMatch:<original ETag>`;
+   no blind overwrite or general overwrite permission is introduced. Concurrent
+   edits fail 409. A lost acknowledgement is resolved only by rereading the exact
+   intended target-byte digest. Members/answers/operation receipts are untouched.
+5. Response `{action,operationId,rosterVersion,originalRawDigest,
+   redactedRawDigest,authorizedAt}` contains no contact data. An identical replay
+   returns the existing receipt; changed operation/digest conflicts. `authorizedAt`
+   is the server-created immutable migration-intent timestamp.
+
+After a 409, reread the authenticated header and inspect before starting a **new**
+operation ID. Do not guess/reconstruct the raw digest from the exported JSON. The
+original private audit backup may retain provider provenance for integrity, but
+it is never included in member or admin display exports. No live migration is
+performed by repository tests or this implementation task.
