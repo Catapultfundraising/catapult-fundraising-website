@@ -240,7 +240,7 @@ histories and full admin five-key export remain intact. POST saves still validat
 against the full canonical roster so an older open page can finish an in-flight
 save for a newly excluded prospect without data loss. A later refresh receives
 the filtered view. No delete, roster mutation, presentation overwrite or source
-workbook change occurs. Parent owns private config installation and live135/259
+workbook change occurs. Parent owns private config installation and live visible/canonical
 count verification after approved deployment; tests use synthetic IDs only.
 
 Existing focused route tests cover strict config/auth/Origin/idempotence/conflict,
