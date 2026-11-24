@@ -97,6 +97,21 @@ export default function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
+      <aside aria-label="2027 webinar series" className="border-b border-[rgb(var(--brass))]/40 bg-[rgb(var(--paper))] text-[rgb(var(--navy))]">
+        <div className="mx-auto flex max-w-7xl flex-col items-center justify-center gap-x-6 gap-y-1 px-6 py-4 text-center text-sm sm:flex-row lg:px-10">
+          <p>
+            <span className="font-semibold">Free 2027 Webinar Series</span>
+            {" · "}Begins in January
+          </p>
+          <Link
+            href="/webinars"
+            className="group inline-flex min-h-11 items-center gap-2 font-semibold underline decoration-[rgb(var(--brass))] underline-offset-4 hover:decoration-[rgb(var(--navy))] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-[rgb(var(--navy))]"
+          >
+            View the series &amp; register
+            <ArrowRight aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-hover:translate-x-1" />
+          </Link>
+        </div>
+      </aside>
       <Hero />
 
       <section className="border-t border-[rgb(var(--line))] bg-[rgb(var(--paper))] py-14 lg:py-16">
