@@ -11,6 +11,8 @@ const SITE_URL = "https://www.catapultfr.com";
 // app/assets/layout.tsx, and app/jag-dashboard/layout.tsx, not a substitute
 // for them.
 const DISALLOWED_INTERNAL_TOOLS = [
+  "/salvation-army/",
+  "/api/sa-sponsorship/",
   "/public-media",
   "/nj-conference",
   "/research",
