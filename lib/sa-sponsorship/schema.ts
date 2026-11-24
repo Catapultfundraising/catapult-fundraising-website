@@ -3,7 +3,7 @@ export interface Portal { type: string; url: string; email: string; deadline: st
 export interface Prospect { id: string; organization: string; contactName: string; title: string; email: string; emailStatus: string; directPhone: string; phoneStatus: string; officePhone: string; website: string; contactSource: string; contactFit: string; portals: Portal[] }
 export interface Roster { schemaVersion: 1; version: string; checkedAt: string; prospects: Prospect[] }
 export interface Member { id: string; name: string; email: string; identityHash: string; createdAt: string }
-export interface Operation { operationId: string; rosterVersion: string; prospectId: string; revision: number; choice: 'A'|'B'|'C'|'D'|'O'; comment: string }
+export interface Operation { operationId: string; rosterVersion: string; prospectId: string; revision: number; choice: ''|'A'|'B'|'C'|'D'|'O'; comment: string }
 export interface Receipt extends Operation { memberId: string; savedAt: string }
 export class ReviewError extends Error { constructor(message: string, public status = 400, public diagnostic?: {stage:'conditional-put';code:string;httpStatus?:number;etagFormat:'quoted'|'weak'|'bare'|'missing'}) { super(message); } }
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -26,6 +26,6 @@ export function validateRoster(input: unknown): Roster {
 }
 export function validateOperation(input: unknown, roster: Roster): Operation {
  const o=object(input); keys(o,['operationId','rosterVersion','prospectId','revision','choice','comment']);
- if (typeof o.operationId !== 'string' || !UUID.test(o.operationId) || o.rosterVersion !== roster.version || typeof o.prospectId !== 'string' || !roster.prospects.some(p=>p.id===o.prospectId) || !Number.isSafeInteger(o.revision) || Number(o.revision)<1 || Number(o.revision)>1000000 || !['A','B','C','D','O'].includes(String(o.choice))) throw new ReviewError('Invalid answer or roster version. Reload and try again.');
+ if (typeof o.operationId !== 'string' || !UUID.test(o.operationId) || o.rosterVersion !== roster.version || typeof o.prospectId !== 'string' || !roster.prospects.some(p=>p.id===o.prospectId) || !Number.isSafeInteger(o.revision) || Number(o.revision)<1 || Number(o.revision)>1000000 || (typeof o.choice!=='string'||!['','A','B','C','D','O'].includes(o.choice))) throw new ReviewError('Invalid answer or roster version. Reload and try again.');
  return {operationId:o.operationId,rosterVersion:roster.version,prospectId:o.prospectId,revision:Number(o.revision),choice:o.choice as Operation['choice'],comment:text(o.comment,2000)};
 }

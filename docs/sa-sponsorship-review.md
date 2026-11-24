@@ -61,13 +61,13 @@ forwarded client IP), with create-only atomic slot claims across instances. Loca
 QA uses one local bucket. Retention/cleanup of old buckets is a separate operation;
 this implementation never deletes records. Uniform code failures reveal no identity.
 
-Each explicit per-company save carries an operation UUID and monotonic revision.
+Each automatic per-company save carries an operation UUID and monotonic revision.
 The operation is bound to the authenticated member, allowlisted roster/version,
 choice A/B/C/D/O and at most 2,000 comment characters. The server timestamps saves.
 Operation claims and response revision receipts are immutable. Exact payload replays
 return the original receipt; conflicting operation/revision replays return 409.
 A failed/ambiguous save preserves its payload and operation ID until acknowledged;
-controls lock to prevent accidentally replacing the retry with different content.
+the pending operation remains fixed while newer edits stay editable and queue behind it.
 Draft edits remain mounted across search/paging; closing/reloading before a save
 is acknowledged is warned against. Unsaved edits are not stored in localStorage.
 
@@ -81,7 +81,7 @@ is acknowledged is warned against. Unsaved edits are not stored in localStorage.
   prospects: Prospect[], // exact imported roster rows
   members: [{ id: UUID, name: string, email: string, createdAt: ISO8601 }],
   responses: [{ operationId: UUID, rosterVersion: string, prospectId: string,
-    revision: integer, choice: "A"|"B"|"C"|"D"|"O", comment: string,
+    revision: integer, choice: ""|"A"|"B"|"C"|"D"|"O", comment: string,
     memberId: UUID, savedAt: ISO8601 }]
 }
 ```
@@ -183,3 +183,28 @@ match actual byte length. Only the provider's unchanged canonical ETag is used f
 `ifMatch`; no stripping/guessing or blind overwrite. Existing raw-digest and
 immutable intent/UUID/target checks are unchanged. Unstable metadata fails before
 any migration audit/write. Admin export raw-digest behavior remains unchanged.
+
+
+## Automatic saving and navigation (follow-up)
+- Role changes save immediately; comments debounce600ms and flush on blur.
+- No routine Save button. Saving/Saved/Notes saved/error state is acknowledged by
+  matching immutable receipts; exceptional `Retry saving` preserves the exact
+  pending UUID/revision/body. Inputs remain editable while saving. Latest edits
+  coalesce behind the pending operation and use the next revision only after ack.
+- Empty choice `""` is additive and means **No role selected**, never Other. Notes
+  save without a role. Clearing a saved note-only comment creates the next revision
+  with empty choice/comment. Initial blank no-ops create no receipts. Reviewed
+  counts include only actual A/B/C/D/O roles; notes-only badges say Notes saved.
+- Next/Previous, search/filter and ending the session first drain every dirty
+  prospect. Failure blocks navigation, retains typed text and the exact retry
+  operation, and preserves the page-close warning. Search text stays pending until
+  saves confirm. Next/Previous scroll to page top only after successful navigation.
+- The input fields are not disabled for ordinary saves or retries. Only actual
+  session deletion briefly disables editing after its final flush.
+- Protocol keys, rosterVersion, endpoint paths, identity/session rules and existing
+  immutable A/B/C/D/O history are unchanged. Parent exporter accepts choice `""`.
+- Focused proofs: `node scripts/test-sa-sponsorship-autosave.cjs` (deterministic
+  controller debounce/races/replay); existing route/store test adds note-only,
+  clearing, notes-to-role, no-op rejection; existing HTTPS browser script now tests
+  real React held/lost response races, editable focus, blocked navigation/search,
+  scroll-top, notes-only persistence and logout flush with fictional data only.

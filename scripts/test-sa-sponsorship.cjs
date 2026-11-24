@@ -84,6 +84,17 @@ const body=async r=>{assert.equal(r.headers.get('cache-control'),'private, no-st
  for(const [k,v]of unchanged)assert.equal(ledger.get(k),v,'all members, answers, operations and pre-existing non-roster objects unchanged');
  assert.equal((await admin.POST(request('admin',{...fixture,checkedAt:'2026-11-21'},{authorization}))).status,409,'arbitrary import remains immutable');
  process.env.VERCEL_ENV='production';process.env.SA_SPONSORSHIP_ENABLED='true';assert.equal((await admin.PATCH(request('admin',accepted,{authorization},'PATCH'))).status,403);delete process.env.SA_SPONSORSHIP_ENABLED;process.env.VERCEL_ENV='preview';
+
+ // Additive blank choice means notes only, never an inferred Other; historical keys stay exact.
+ const notes={operationId:randomUUID(),rosterVersion:fixture.version,prospectId:'sample-2',revision:1,choice:'',comment:'Sample notes without a selected role'};
+ const initialBlank={...notes,operationId:randomUUID(),prospectId:'sample-3',comment:''};
+ assert.equal((await review.POST(request('review',initialBlank,{cookie:c1}))).status,400,'initial blank no-op rejected');
+ const noteReceipt=await body(await review.POST(request('review',notes,{cookie:c1})));assert.equal(noteReceipt.receipt.choice,'');
+ assert.deepEqual(await body(await review.POST(request('review',notes,{cookie:c1}))),noteReceipt,'note-only exact replay');
+ const clearNotes={...notes,operationId:randomUUID(),revision:2,comment:''};assert.equal((await review.POST(request('review',clearNotes,{cookie:c1}))).status,200,'explicit clearing of existing note-only draft');
+ const chooseRole={...notes,operationId:randomUUID(),revision:3,choice:'B'};assert.equal((await review.POST(request('review',chooseRole,{cookie:c1}))).status,200,'notes to actual role uses next revision');
+ assert.equal((await review.POST(request('review',{...notes,operationId:randomUUID(),revision:4,choice:'unknown'},{cookie:c1}))).status,400);
+ const noteHistory=(await body(await review.GET(request('review',undefined,{cookie:c1})))).responses.filter(r=>r.prospectId==='sample-2');assert.deepEqual(noteHistory.map(r=>[r.revision,r.choice,r.comment]),[[1,'',notes.comment],[2,'',''],[3,'B',notes.comment]]);
  const beforeProduction=[...ledger.entries()];process.env.VERCEL_ENV='production';assert.equal((await admin.POST(request('admin',fixture,{authorization}))).status,503);assert.equal((await review.GET(request('review',undefined,{cookie:c1}))).status,503);assert.deepEqual([...ledger.entries()],beforeProduction,'production gate never reads or writes collection');
  assert.ok([...ledger.keys()].every(k=>k.startsWith('sa-sponsorship/v1/preview/')));
  console.log('PASS: access fail-closed, strict import, immutable version, signed/isolated sessions, origin/content/body limits, allowlist, replay/concurrency, lost acknowledgement, append-only history, safe errors, rate limit, private export, source-label sanitization, conditional preview migration/audit/replay and zero production collection.');

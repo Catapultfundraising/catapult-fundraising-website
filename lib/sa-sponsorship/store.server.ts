@@ -42,6 +42,7 @@ export async function responses(memberId:string,roster:Roster,prospectId?:string
  return result.sort((a,b)=>a.revision-b.revision);
 }
 export async function saveAnswer(member:Member,input:unknown){const roster=await getRoster(),op=validateOperation(input,roster);const base=`${prefix()}operations/${member.id}/${op.operationId}.json`;
+ if(op.revision===1&&!op.choice&&!op.comment.trim())throw new ReviewError('Choose a role or enter a note before saving.');
  // Claim operation ID immutably before the revision. Hash the actual canonical payload, not caller metadata.
  await create(base,op,saved=>same(saved,op));
  const key=receiptPath(member.id,op.prospectId,op.revision),old=await read<Receipt>(key);
