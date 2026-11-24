@@ -5,7 +5,7 @@ export interface Roster { schemaVersion: 1; version: string; checkedAt: string; 
 export interface Member { id: string; name: string; email: string; identityHash: string; createdAt: string }
 export interface Operation { operationId: string; rosterVersion: string; prospectId: string; revision: number; choice: 'A'|'B'|'C'|'D'|'O'; comment: string }
 export interface Receipt extends Operation { memberId: string; savedAt: string }
-export class ReviewError extends Error { constructor(message: string, public status = 400) { super(message); } }
+export class ReviewError extends Error { constructor(message: string, public status = 400, public diagnostic?: {stage:'conditional-put';code:string;httpStatus?:number;etagFormat:'quoted'|'weak'|'bare'|'missing'}) { super(message); } }
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
 export function object(v: unknown): Record<string, unknown> { if (!v || typeof v !== 'object' || Array.isArray(v)) throw new ReviewError('Invalid object.'); return v as Record<string, unknown>; }
 export function keys(o: Record<string, unknown>, expected: string[]) { if (Object.keys(o).sort().join('|') !== expected.slice().sort().join('|')) throw new ReviewError('Unexpected fields.'); }

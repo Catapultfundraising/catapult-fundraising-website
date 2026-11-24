@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { redactSourceLabels } from './source-labels.server';
-import { get, put, list, BlobNotFoundError } from '@vercel/blob';
+import { get, put, list, BlobNotFoundError, BlobError, BlobPreconditionFailedError, BlobAccessError, BlobServiceNotAvailable, BlobServiceRateLimited, BlobUnknownError } from '@vercel/blob';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { equal, hash, previewOnly, verifyToken } from './security.server';
@@ -54,6 +54,15 @@ export async function exportReview(snapshot?: Roster){const roster=snapshot||awa
 // No raw IP is persisted. Failed races fail closed, rather than exceeding the limit.
 export async function throttleLogin(clientKey:string) { const bucket=Math.floor(Date.now()/900000); const base=`${prefix()}login-limits/${clientKey}/${bucket}/`; const count=(await paths(base)).length; if(count>=64)throw new ReviewError('Too many access attempts. Please try again in 15 minutes.',429);const nonce=hash(`${Math.random()}-${Date.now()}`);await create(`${base}${count}.json`,{nonce},()=>{throw new ReviewError('Too many access attempts. Please try again in 15 minutes.',429);}); }
 
+function conditionalDiagnostic(error:unknown,etag:string|undefined) {
+ const classes=[['BlobPreconditionFailedError',BlobPreconditionFailedError],['BlobAccessError',BlobAccessError],['BlobServiceNotAvailable',BlobServiceNotAvailable],['BlobServiceRateLimited',BlobServiceRateLimited],['BlobUnknownError',BlobUnknownError],['BlobError',BlobError]] as const;
+ const code=classes.find(([,kind])=>typeof kind==='function'&&error instanceof kind)?.[0]||'UnknownError';
+ const raw=error&&typeof error==='object'?(error as {statusCode?:unknown;status?:unknown}):{};
+ const numeric=raw.statusCode??raw.status;
+ const httpStatus=typeof numeric==='number'&&Number.isInteger(numeric)&&numeric>=100&&numeric<=599?numeric:undefined;
+ const etagFormat=!etag?'missing':etag.startsWith('W/')?'weak':etag.startsWith('"')?'quoted':'bare';
+ return {stage:'conditional-put' as const,code,...(httpStatus!==undefined?{httpStatus}:{}),etagFormat} as const;
+}
 const rawHash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
 async function activeRawRoster() {
  ready();const active=await read<{version:string}>(`${prefix()}active.json`);
@@ -95,9 +104,10 @@ export async function redactActiveSourceLabels(input:unknown) {
  // Recheck the immutable active pointer immediately before the one allowed conditional overwrite.
  const pinned=await read<{version:string}>(`${prefix()}active.json`);if(pinned?.version!==raw.version)throw new ReviewError('Active roster changed.',409);
  try{await put(raw.key,target,{access:'private',contentType:'application/json',addRandomSuffix:false,ifMatch:raw.etag});}
- catch{
+ catch(error){
+  const diagnostic=conditionalDiagnostic(error,raw.etag);
   // Resolve lost acknowledgements only by the exact target bytes; never blind overwrite.
-  raw=await activeRawRoster();if(raw.version!==intent.rosterVersion||raw.digest!==targetDigest)throw new ReviewError('Conditional redaction was not confirmed. No blind overwrite was attempted.',409);
+  raw=await activeRawRoster();if(raw.version!==intent.rosterVersion||raw.digest!==targetDigest)throw new ReviewError('Conditional redaction was not confirmed. No blind overwrite was attempted.',409,diagnostic);
  }
  const verified=await activeRawRoster();if(verified.version!==intent.rosterVersion||verified.digest!==targetDigest)throw new ReviewError('Redaction could not be confirmed.',409);
  const receipt={action:intent.action,operationId:intent.operationId,rosterVersion:intent.rosterVersion,originalRawDigest:intent.expectedRawDigest,redactedRawDigest:targetDigest,authorizedAt:intent.createdAt};

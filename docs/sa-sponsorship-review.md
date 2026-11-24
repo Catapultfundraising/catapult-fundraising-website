@@ -166,3 +166,11 @@ operation ID. Do not guess/reconstruct the raw digest from the exported JSON. Th
 original private audit backup may retain provider provenance for integrity, but
 it is never included in member or admin display exports. No live migration is
 performed by repository tests or this implementation task.
+
+Conditional-write failures expose only a bounded admin diagnostic: stage
+`conditional-put`, allowlisted SDK error class (or `UnknownError`), optional integer
+HTTP status100–599, and ETag format `quoted|weak|bare|missing`. Raw provider messages,
+ETag bytes, secrets and contact data are never included. Installed Blob SDK
+`createPutHeaders` already implies `x-allow-overwrite:1` when `ifMatch` is supplied;
+GET passes its response ETag unchanged, and PUT forwards it unchanged as
+`x-if-match`. Diagnostics do not weaken or retry the conditional write.
