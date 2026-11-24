@@ -61,13 +61,13 @@ forwarded client IP), with create-only atomic slot claims across instances. Loca
 QA uses one local bucket. Retention/cleanup of old buckets is a separate operation;
 this implementation never deletes records. Uniform code failures reveal no identity.
 
-Each explicit per-company save carries an operation UUID and monotonic revision.
+Each automatic per-company save carries an operation UUID and monotonic revision.
 The operation is bound to the authenticated member, allowlisted roster/version,
 choice A/B/C/D/O and at most 2,000 comment characters. The server timestamps saves.
 Operation claims and response revision receipts are immutable. Exact payload replays
 return the original receipt; conflicting operation/revision replays return 409.
 A failed/ambiguous save preserves its payload and operation ID until acknowledged;
-controls lock to prevent accidentally replacing the retry with different content.
+the pending operation remains fixed while newer edits stay editable and queue behind it.
 Draft edits remain mounted across search/paging; closing/reloading before a save
 is acknowledged is warned against. Unsaved edits are not stored in localStorage.
 
@@ -81,7 +81,7 @@ is acknowledged is warned against. Unsaved edits are not stored in localStorage.
   prospects: Prospect[], // exact imported roster rows
   members: [{ id: UUID, name: string, email: string, createdAt: ISO8601 }],
   responses: [{ operationId: UUID, rosterVersion: string, prospectId: string,
-    revision: integer, choice: "A"|"B"|"C"|"D"|"O", comment: string,
+    revision: integer, choice: ""|"A"|"B"|"C"|"D"|"O", comment: string,
     memberId: UUID, savedAt: ISO8601 }]
 }
 ```
@@ -183,3 +183,71 @@ match actual byte length. Only the provider's unchanged canonical ETag is used f
 `ifMatch`; no stripping/guessing or blind overwrite. Existing raw-digest and
 immutable intent/UUID/target checks are unchanged. Unstable metadata fails before
 any migration audit/write. Admin export raw-digest behavior remains unchanged.
+
+
+## Automatic saving and navigation (follow-up)
+- Role changes save immediately; comments debounce600ms and flush on blur.
+- No routine Save button. Saving/Saved/Notes saved/error state is acknowledged by
+  matching immutable receipts; exceptional `Retry saving` preserves the exact
+  pending UUID/revision/body. Inputs remain editable while saving. Latest edits
+  coalesce behind the pending operation and use the next revision only after ack.
+- Empty choice `""` is additive and means **No role selected**, never Other. Notes
+  save without a role. Clearing a saved note-only comment creates the next revision
+  with empty choice/comment. Initial blank no-ops create no receipts. Reviewed
+  counts include only actual A/B/C/D/O roles; notes-only badges say Notes saved.
+- Next/Previous, search/filter and ending the session first drain every dirty
+  prospect. Failure blocks navigation, retains typed text and the exact retry
+  operation, and preserves the page-close warning. Search text stays pending until
+  saves confirm. Next/Previous scroll to page top only after successful navigation.
+- The input fields are not disabled for ordinary saves or retries. Only actual
+  session deletion briefly disables editing after its final flush.
+- Protocol keys, rosterVersion, endpoint paths, identity/session rules and existing
+  immutable A/B/C/D/O history are unchanged. Parent exporter accepts choice `""`.
+- Focused proofs: `node scripts/test-sa-sponsorship-autosave.cjs` (deterministic
+  controller debounce/races/replay); existing route/store test adds note-only,
+  clearing, notes-to-role, no-op rejection; existing HTTPS browser script now tests
+  real React held/lost response races, editable focus, blocked navigation/search,
+  scroll-top, notes-only persistence and logout flush with fictional data only.
+
+
+## Private member-view contact / Top20 inclusion
+The canonical roster, IDs, version, complete admin export and all immutable
+member/response histories are unchanged. A separately installed private per-roster
+presentation config controls the member view only.
+
+Authenticated same-origin `PUT /api/sa-sponsorship/admin` accepts exactly
+`{rosterVersion,topProspectIds:[20 unique IDs from the active canonical roster]}`.
+Requires existing CRON bearer and JSON. Private path
+`sa-sponsorship/v1/{environment}/presentation/{rosterVersion}.json` is create-only;
+exact replay is idempotent, a different list/order/version conflicts409. No actual
+ranked IDs are committed. Response summary is
+`{rosterVersion,topProspectCount,visibleProspectCount,canonicalProspectCount}` for an
+administrator's private expected-count check without a fake member response.
+
+Without config, existing full-member-view behavior is preserved until metadata
+is explicitly installed. With config, member GET includes any Top20 prospect OR
+one with valid main work email, valid shared/public portal contact email, usable
+direct/mobile number, or usable general office number. A name, website or ask/
+application URL alone is insufficient. No contact field is rewritten or inferred.
+Phone detection strips only a trailing alphabetic provenance annotation (before
+splitting, since annotation text can contain semicolons); each remaining number
+segment must be entirely optional plus/digits/spaces/parentheses/hyphens and7–15
+digits. Numeric area-code parentheses survive; years, ISO dates, status text and
+source URLs are not dialable contact evidence.
+
+Member responses/progress/pagination are limited to visible IDs. Complete private
+histories and full admin five-key export remain intact. POST saves still validate
+against the full canonical roster so an older open page can finish an in-flight
+save for a newly excluded prospect without data loss. A later refresh receives
+the filtered view. No delete, roster mutation, presentation overwrite or source
+workbook change occurs. Parent owns private config installation and live visible/canonical
+count verification after approved deployment; tests use synthetic IDs only.
+
+Existing focused route tests cover strict config/auth/Origin/idempotence/conflict,
+known phone formats and non-phone rejection, contact-less Top20 exceptions,
+portal-email/office/main-email inclusion, no-config fallback, filtered histories,
+full admin export and saveability of excluded old-page IDs. Focused browser mode
+`SA_MEMBER_FILTER_PROOF=1 python scripts/qa-sa-sponsorship.py <out>` verifies22/24
+synthetic visible rows, correct22-count/3-page pagination/search, no excluded rows
+in the browser, and preserved full24 admin history. Earlier autosave race proofs
+are reused unchanged rather than rerunning broad layers.

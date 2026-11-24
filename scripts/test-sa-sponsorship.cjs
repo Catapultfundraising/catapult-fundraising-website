@@ -84,6 +84,47 @@ const body=async r=>{assert.equal(r.headers.get('cache-control'),'private, no-st
  for(const [k,v]of unchanged)assert.equal(ledger.get(k),v,'all members, answers, operations and pre-existing non-roster objects unchanged');
  assert.equal((await admin.POST(request('admin',{...fixture,checkedAt:'2026-11-21'},{authorization}))).status,409,'arbitrary import remains immutable');
  process.env.VERCEL_ENV='production';process.env.SA_SPONSORSHIP_ENABLED='true';assert.equal((await admin.PATCH(request('admin',accepted,{authorization},'PATCH'))).status,403);delete process.env.SA_SPONSORSHIP_ENABLED;process.env.VERCEL_ENV='preview';
+
+ // Additive blank choice means notes only, never an inferred Other; historical keys stay exact.
+ const notes={operationId:randomUUID(),rosterVersion:fixture.version,prospectId:'sample-2',revision:1,choice:'',comment:'Sample notes without a selected role'};
+ const initialBlank={...notes,operationId:randomUUID(),prospectId:'sample-3',comment:''};
+ assert.equal((await review.POST(request('review',initialBlank,{cookie:c1}))).status,400,'initial blank no-op rejected');
+ const noteReceipt=await body(await review.POST(request('review',notes,{cookie:c1})));assert.equal(noteReceipt.receipt.choice,'');
+ assert.deepEqual(await body(await review.POST(request('review',notes,{cookie:c1}))),noteReceipt,'note-only exact replay');
+ const clearNotes={...notes,operationId:randomUUID(),revision:2,comment:''};assert.equal((await review.POST(request('review',clearNotes,{cookie:c1}))).status,200,'explicit clearing of existing note-only draft');
+ const chooseRole={...notes,operationId:randomUUID(),revision:3,choice:'B'};assert.equal((await review.POST(request('review',chooseRole,{cookie:c1}))).status,200,'notes to actual role uses next revision');
+ assert.equal((await review.POST(request('review',{...notes,operationId:randomUUID(),revision:4,choice:'unknown'},{cookie:c1}))).status,400);
+ const noteHistory=(await body(await review.GET(request('review',undefined,{cookie:c1})))).responses.filter(r=>r.prospectId==='sample-2');assert.deepEqual(noteHistory.map(r=>[r.revision,r.choice,r.comment]),[[1,'',notes.comment],[2,'',''],[3,'B',notes.comment]]);
+
+ const presentation=require('../lib/sa-sponsorship/presentation.server.ts');
+ for(const phone of ['+1 202-555-0100','+1 202-555-0100; +1 202-555-0101','+44 123 456 789','+44 123 456 7890','+1 202-555-0100 (company record)','(202) 555-0100 (original file; not reverified)','202-555-0100 (published office line)','+1-202-555-0100 (published office line)','+44 1 2345 6789 (company record)'])assert.equal(presentation.usablePhone(phone),true,phone);
+ for(const phone of ['', '2026','2026-11-24','Checked 2026-11-24','Not verified: 2025550100','https://example.com/2025550100','(company record 2026)','+1234567890123456','202 555 (not verified)'])assert.equal(presentation.usablePhone(phone),false,phone);
+ // Dedicated full roster with twenty contact-less priority exceptions and four
+ // additional rows: main email, shared portal email, office phone, URL/name only.
+ const displayRoster={...fixture,version:'synthetic-presentation-v1',prospects:Array.from({length:24},(_,i)=>({...fixture.prospects[0],id:'display-'+(i+1),organization:'Sample Display '+(i+1),contactName:'Sample Contact',email:i===20?'work@example.com':'',directPhone:'',officePhone:i===22?'(202) 555-0100 (original file; not reverified)':'',portals:i===21?[{...fixture.prospects[0].portals[0],email:'shared@example.com'}]:[{...fixture.prospects[0].portals[0],email:''}]}))};
+ const originalLedger=new Map(ledger);ledger.clear();
+ const displayKey=store.prefix()+'rosters/'+displayRoster.version+'.json';ledger.set(displayKey,JSON.stringify(displayRoster));ledger.set(store.prefix()+'active.json',JSON.stringify({version:displayRoster.version}));
+ const config={rosterVersion:displayRoster.version,topProspectIds:displayRoster.prospects.slice(0,20).map(p=>p.id)};
+ // Existing member has no historical rows tied to this separate synthetic fixture.
+ // Previous throttle boundary is full: create a separate private member through
+ // the existing store helper, then use its own signed cookie (not staff auth).
+ const displayMember=security.identity({...login,email:'display@example.com'});await store.saveMember(displayMember);const displayCookie=security.COOKIE+'='+security.token(displayMember);
+ assert.equal((await body(await review.GET(request('review',undefined,{cookie:displayCookie})))).roster.prospects.length,24,'missing config preserves old full view');
+ assert.equal((await admin.PUT(request('admin',config,{},'PUT'))).status,401);
+ assert.equal((await admin.PUT(request('admin',config,{authorization,origin:'https://evil.example'},'PUT'))).status,403);
+ for(const bad of [{...config,rosterVersion:'wrong'},{...config,topProspectIds:config.topProspectIds.slice(1)},{...config,topProspectIds:[...config.topProspectIds.slice(1),'unlisted']},{...config,topProspectIds:[...config.topProspectIds.slice(1),config.topProspectIds[1]]},{...config,extra:true}])assert.equal((await admin.PUT(request('admin',bad,{authorization},'PUT'))).status,400);
+ const untouched=new Map([...ledger.entries()]);
+ const configured=await admin.PUT(request('admin',config,{authorization},'PUT'));assert.equal(configured.status,200);assert.deepEqual(await body(configured),{rosterVersion:displayRoster.version,topProspectCount:20,visibleProspectCount:23,canonicalProspectCount:24});assert.equal((await admin.PUT(request('admin',config,{authorization},'PUT'))).status,200);
+ const alternate={...config,topProspectIds:[...config.topProspectIds.slice(1),'display-21']};assert.equal((await admin.PUT(request('admin',alternate,{authorization},'PUT'))).status,409,'presentation cannot be destructively replaced');
+ const beforeExcluded={operationId:randomUUID(),rosterVersion:displayRoster.version,prospectId:'display-24',revision:1,choice:'',comment:'Sample old open page note remains saveable'};
+ assert.equal((await review.POST(request('review',beforeExcluded,{cookie:displayCookie}))).status,200,'old open pages can save canonical excluded IDs');
+ const view=await body(await review.GET(request('review',undefined,{cookie:displayCookie})));assert.equal(view.roster.prospects.length,23);assert.ok(view.roster.prospects.some(p=>p.id==='display-1'),'priority included without contacts');assert.ok(!view.roster.prospects.some(p=>p.id==='display-24'),'name and website/application alone excluded');assert.equal(view.responses.length,0,'excluded histories not returned to member');
+ // No canonical roster/member/history mutation from configuration installation.
+ for(const [k,v]of untouched)assert.equal(ledger.get(k),v);
+ // Export with this roster only references this isolated synthetic member.
+ const fullDisplayExport=await body(await admin.GET(request('admin',undefined,{authorization})));assert.deepEqual(Object.keys(fullDisplayExport).sort(),['members','prospects','responses','rosterVersion','schemaVersion']);assert.equal(fullDisplayExport.prospects.length,24);assert.equal(fullDisplayExport.responses.length,1,'admin preserves excluded histories');
+ const allHistory=await store.responses(displayMember.id,displayRoster);assert.equal(allHistory.length,1);assert.equal(allHistory[0].prospectId,'display-24');
+ ledger.clear();for(const [k,v]of originalLedger)ledger.set(k,v);
  const beforeProduction=[...ledger.entries()];process.env.VERCEL_ENV='production';assert.equal((await admin.POST(request('admin',fixture,{authorization}))).status,503);assert.equal((await review.GET(request('review',undefined,{cookie:c1}))).status,503);assert.deepEqual([...ledger.entries()],beforeProduction,'production gate never reads or writes collection');
  assert.ok([...ledger.keys()].every(k=>k.startsWith('sa-sponsorship/v1/preview/')));
  console.log('PASS: access fail-closed, strict import, immutable version, signed/isolated sessions, origin/content/body limits, allowlist, replay/concurrency, lost acknowledgement, append-only history, safe errors, rate limit, private export, source-label sanitization, conditional preview migration/audit/replay and zero production collection.');
