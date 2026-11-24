@@ -226,9 +226,10 @@ administrator's private expected-count check without a fake member response.
 
 Without config, existing full-member-view behavior is preserved until metadata
 is explicitly installed. With config, member GET includes any Top20 prospect OR
-one with valid main work email, valid shared/public portal contact email, usable
-direct/mobile number, or usable general office number. A name, website or ask/
-application URL alone is insufficient. No contact field is rewritten or inferred.
+one with ALL three: a named contact, valid individual/main work email, AND a
+usable direct/mobile number. A placeholder is not a named contact. Office-only
+phone, shared giving/portal email, a name, website or application URL alone do
+not qualify. Top20 prospects remain regardless of completeness. No contact field is rewritten or inferred.
 Phone detection strips only a trailing alphabetic provenance annotation (before
 splitting, since annotation text can contain semicolons); each remaining number
 segment must be entirely optional plus/digits/spaces/parentheses/hyphens and7–15
@@ -245,9 +246,16 @@ count verification after approved deployment; tests use synthetic IDs only.
 
 Existing focused route tests cover strict config/auth/Origin/idempotence/conflict,
 known phone formats and non-phone rejection, contact-less Top20 exceptions,
-portal-email/office/main-email inclusion, no-config fallback, filtered histories,
+complete named/main-email/direct inclusion, each missing component and office/
+shared-only exclusion, no-config fallback, filtered histories,
 full admin export and saveability of excluded old-page IDs. Focused browser mode
-`SA_MEMBER_FILTER_PROOF=1 python scripts/qa-sa-sponsorship.py <out>` verifies22/24
+`SA_MEMBER_FILTER_PROOF=1 python scripts/qa-sa-sponsorship.py <out>` verifies22/27
 synthetic visible rows, correct22-count/3-page pagination/search, no excluded rows
-in the browser, and preserved full24 admin history. Earlier autosave race proofs
+in the browser, and preserved full27 admin history. Earlier autosave race proofs
 are reused unchanged rather than rerunning broad layers.
+
+Stricter-contact clarification: only `(named contact AND main work email AND
+usable direct/mobile) OR private Top20` is used for member inclusion. Existing
+Top20 config and all canonical/private histories stay untouched; no new metadata
+installation is needed. Parent verifies current live counts after approved
+deployment; no real names/IDs, test members or private-data calls enter this task.
