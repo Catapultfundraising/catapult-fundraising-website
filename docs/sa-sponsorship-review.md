@@ -56,7 +56,7 @@ The identity hash is checked against the private persisted member record. Cookie
 name `sa_sponsorship_member` is unique and uses `/` solely to reach the dedicated
 API path. It does not authenticate any other tool. Logout clears only the cookie.
 
-Login attempts are limited durably to 8 per 15-minute hashed-IP bucket (Vercel's
+Login attempts are limited durably to 64 per 15-minute hashed-IP bucket (Vercel's
 forwarded client IP), with create-only atomic slot claims across instances. Local
 QA uses one local bucket. Retention/cleanup of old buckets is a separate operation;
 this implementation never deletes records. Uniform code failures reveal no identity.
