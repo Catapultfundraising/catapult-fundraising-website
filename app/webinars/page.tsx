@@ -48,7 +48,7 @@ export default function WebinarsPage() {
                 2:30–3:30pm Eastern
               </p>
               <p className="mt-4 text-sm leading-relaxed text-[rgb(var(--ink))]/80">
-                <strong>Series preview:</strong> Registration opens soon. Each session will have its own registration link here when available.
+                Register for each session below. Each session has its own registration link.
               </p>
             </div>
           </div>

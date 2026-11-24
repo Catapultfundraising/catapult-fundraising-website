@@ -5,11 +5,12 @@
   registration URLs: `lib/webinar-series-2027.json`.
 - Source: Anthony's approved public 2027 program roster. No private calendars,
   credentials, prices or recording promises are included.
-- This is a **series preview**. All `registration_url` fields are `null`.
-  The page renders non-interactive “Registration opens soon” text, not fake links
-  or disabled anchors. Replace a field with the approved HTTPS registration URL
-  when that session's registration exists; the component then renders a
-  session-specific accessible external link.
+- All twelve `registration_url` fields contain Anthony's approved, API-verified
+  Zoom webinar registration links. Each renders a session-specific accessible
+  external link. The page remains unpublished pending Anthony's website approval.
+- The component continues to support `registration_url: null`: if a future
+  registration is unavailable, it renders non-interactive “Registration opens
+  soon” text, not a fake link or disabled anchor. This fallback is fixture-tested.
 - There are no dedicated Prospect Research, Capacity Building, Major Gift
   Initiatives or Campaign Connect service routes today. Relevant sessions link
   to existing broader services or contact with clear labels rather than inventing

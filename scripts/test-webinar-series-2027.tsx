@@ -32,7 +32,13 @@ for (const session of WEBINARS_2027) {
   }
   assert.ok(formatWebinarDate(session.date).endsWith("2027"));
   for (const link of session.service_links) assert.ok(fs.existsSync(`app${link.href}/page.tsx`), link.href);
-  assert.equal(session.registration_url, null, "Preview must not invent registration links");
+  assert.ok(session.registration_url, "Each approved session has a registration link");
+  const registration = new URL(session.registration_url);
+  assert.equal(registration.protocol, "https:");
+  assert.ok(registration.hostname.endsWith(".zoom.us"));
+  assert.ok(registration.pathname.startsWith("/webinar/register/"));
+  assert.equal(registration.search, "");
+  assert.equal(registration.hash, "");
 }
 const pending = renderToStaticMarkup(<WebinarRegistration title="Session & topic" registrationUrl={null} />);
 assert.match(pending, /Registration opens soon/);
@@ -49,6 +55,6 @@ assert.match(fs.readFileSync("components/site-footer.tsx", "utf8"), /href="\/web
 assert.match(fs.readFileSync("app/sitemap.ts", "utf8"), /"\/webinars"/);
 assert.match(fs.readFileSync("components/site-header.tsx", "utf8"), /pathname === "\/webinars"/);
 const page = fs.readFileSync("app/webinars/page.tsx", "utf8");
-for (const required of ["PageHero", "CtaBand", "Series preview:", "11:30am–12:30pm Pacific", "1:30–2:30pm Central", "2:30–3:30pm Eastern"]) assert.ok(page.includes(required));
+for (const required of ["PageHero", "CtaBand", "Register for each session below.", "11:30am–12:30pm Pacific", "1:30–2:30pm Central", "2:30–3:30pm Eastern"]) assert.ok(page.includes(required));
 assert.doesNotMatch(page, /CGA_WEBINAR|@\/lib\/webinars|CFRE|recording|pricing|zoom\.us/);
-console.log("2027 webinar series: 12 approved dates, 36 objectives, three-zone DST times, valid service links, pending/active accessible registration states and discovery PASS");
+console.log("2027 webinar series: 12 approved dates and Zoom registration URLs, 36 objectives, three-zone DST times, valid service links, pending/active accessible registration states and discovery PASS");
