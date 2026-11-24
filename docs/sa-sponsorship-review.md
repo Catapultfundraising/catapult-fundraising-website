@@ -208,3 +208,46 @@ any migration audit/write. Admin export raw-digest behavior remains unchanged.
   clearing, notes-to-role, no-op rejection; existing HTTPS browser script now tests
   real React held/lost response races, editable focus, blocked navigation/search,
   scroll-top, notes-only persistence and logout flush with fictional data only.
+
+
+## Private member-view contact / Top20 inclusion
+The canonical roster, IDs, version, complete admin export and all immutable
+member/response histories are unchanged. A separately installed private per-roster
+presentation config controls the member view only.
+
+Authenticated same-origin `PUT /api/sa-sponsorship/admin` accepts exactly
+`{rosterVersion,topProspectIds:[20 unique IDs from the active canonical roster]}`.
+Requires existing CRON bearer and JSON. Private path
+`sa-sponsorship/v1/{environment}/presentation/{rosterVersion}.json` is create-only;
+exact replay is idempotent, a different list/order/version conflicts409. No actual
+ranked IDs are committed. Response summary is
+`{rosterVersion,topProspectCount,visibleProspectCount,canonicalProspectCount}` for an
+administrator's private expected-count check without a fake member response.
+
+Without config, existing full-member-view behavior is preserved until metadata
+is explicitly installed. With config, member GET includes any Top20 prospect OR
+one with valid main work email, valid shared/public portal contact email, usable
+direct/mobile number, or usable general office number. A name, website or ask/
+application URL alone is insufficient. No contact field is rewritten or inferred.
+Phone detection strips only a trailing alphabetic provenance annotation (before
+splitting, since annotation text can contain semicolons); each remaining number
+segment must be entirely optional plus/digits/spaces/parentheses/hyphens and7–15
+digits. Numeric area-code parentheses survive; years, ISO dates, status text and
+source URLs are not dialable contact evidence.
+
+Member responses/progress/pagination are limited to visible IDs. Complete private
+histories and full admin five-key export remain intact. POST saves still validate
+against the full canonical roster so an older open page can finish an in-flight
+save for a newly excluded prospect without data loss. A later refresh receives
+the filtered view. No delete, roster mutation, presentation overwrite or source
+workbook change occurs. Parent owns private config installation and live135/259
+count verification after approved deployment; tests use synthetic IDs only.
+
+Existing focused route tests cover strict config/auth/Origin/idempotence/conflict,
+known phone formats and non-phone rejection, contact-less Top20 exceptions,
+portal-email/office/main-email inclusion, no-config fallback, filtered histories,
+full admin export and saveability of excluded old-page IDs. Focused browser mode
+`SA_MEMBER_FILTER_PROOF=1 python scripts/qa-sa-sponsorship.py <out>` verifies22/24
+synthetic visible rows, correct22-count/3-page pagination/search, no excluded rows
+in the browser, and preserved full24 admin history. Earlier autosave race proofs
+are reused unchanged rather than rerunning broad layers.

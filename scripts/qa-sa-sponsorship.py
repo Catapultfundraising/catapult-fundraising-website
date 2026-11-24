@@ -8,10 +8,14 @@ root=pathlib.Path(__file__).resolve().parents[1]
 out=pathlib.Path(sys.argv[1] if len(sys.argv)>1 else '/tmp/sa-proof');out.mkdir(parents=True,exist_ok=True)
 base='https://localhost:3133'; endpoint=base+'/api/sa-sponsorship/'; page_url=base+'/salvation-army/sponsorship-review'
 code=secrets.token_hex(24);cron=secrets.token_hex(24)
+filter_only=os.environ.get('SA_MEMBER_FILTER_PROOF')=='1'
 fixture=json.loads(subprocess.check_output(['node','-e',"process.stdout.write(JSON.stringify(require('./scripts/sa-sponsorship-fixture.cjs')))"],cwd=root))
 # Exercise multi-line dialing vs non-dialable annotated office provenance.
 fixture['prospects'][0]['directPhone']='+1 (202) 555-0104; +1 (202) 555-0105'
 fixture['prospects'][0]['officePhone']='+1 (202) 555-0100 (original file; not reverified)'
+if filter_only:
+ template=fixture['prospects'][0]
+ fixture['prospects']=[{**template,'id':f'sample-{i+1}','organization':'Sample Desert Community Bank' if i==0 else f'Sample Community Company {i+1}','contactName':'','email':'work@example.com' if i==20 else '','directPhone':'','officePhone':'(202) 555-0100 (original file; not reverified)' if i==21 else '','portals':[]} for i in range(24)]
 with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
  env={**os.environ,'SA_SPONSORSHIP_LOCAL_DIR':storage,'SA_SPONSORSHIP_ACCESS_CODE':code,'BOARD_REVIEW_SECRET':secrets.token_hex(32),'CRON_SECRET':cron,'NEXT_TELEMETRY_DISABLED':'1'}
  env.pop('VERCEL',None);env.pop('VERCEL_ENV',None);env.pop('NODE_ENV',None)
@@ -36,6 +40,9 @@ with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
    req=context.request
    headers={'Origin':'https://localhost:3133','Authorization':'Bearer '+cron}
    response=req.post(endpoint+'admin',data=fixture,headers=headers,timeout=120000);assert response.status==200,response.text()
+   if filter_only:
+    configured=req.put(endpoint+'admin',data={'rosterVersion':fixture['version'],'topProspectIds':[p['id'] for p in fixture['prospects'][:20]]},headers=headers)
+    assert configured.status==200,configured.text()
    page=context.new_page();external=[]
    page.on('request',lambda r:external.append(r.url) if not r.url.startswith(base) else None)
    page.add_init_script("localStorage.setItem('catapult_cookie_consent','accepted')")
@@ -55,6 +62,31 @@ with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
    page.get_by_role('button',name='Open private review').click()
    first=page.get_by_role('article').filter(has=page.get_by_role('heading',name='Sample Desert Community Bank'))
    expect(first).to_be_visible(timeout=10000)
+   if filter_only:
+    expect(page.get_by_text('0 of 22 companies reviewed',exact=True)).to_be_visible()
+    assert first.get_by_text('Not available / not verified',exact=True).count()>0,'contact-less Top20 exception retained'
+    # Record an old-open-page answer for an excluded canonical prospect: stays in
+    # admin history, never in current member response counts or roster.
+    old=req.post(endpoint+'review',data={'operationId':__import__('uuid').uuid4().__str__(),'rosterVersion':fixture['version'],'prospectId':'sample-24','revision':1,'choice':'C','comment':'Sample prior open-page edit'},headers={'Origin':base})
+    assert old.status==200,old.text()
+    member_view=req.get(endpoint+'review').json()
+    assert len(member_view['roster']['prospects'])==22 and member_view['responses']==[]
+    assert not any(p['id'] in ['sample-23','sample-24'] for p in member_view['roster']['prospects'])
+    exported=req.get(endpoint+'admin',headers={'Authorization':'Bearer '+cron}).json()
+    assert len(exported['prospects'])==24 and len(exported['responses'])==1
+    page.get_by_role('button',name='Next →').click();expect(page.get_by_text('Page 2 of 3',exact=True)).to_be_visible()
+    page.get_by_role('button',name='Next →').click();expect(page.get_by_text('Page 3 of 3',exact=True)).to_be_visible()
+    expect(page.get_by_role('heading',name='Sample Community Company 21',exact=True)).to_be_visible()
+    expect(page.get_by_role('heading',name='Sample Community Company 22',exact=True)).to_be_visible()
+    assert page.get_by_role('heading',name='Sample Community Company 23',exact=True).count()==0
+    page.wait_for_function('window.scrollY===0')
+    page.get_by_label('Find a company or contact').fill('Company 23')
+    expect(page.get_by_text('No companies match your search. Try a different company or contact name.',exact=True)).to_be_visible()
+    page.get_by_label('Find a company or contact').fill('')
+    expect(page.get_by_text('0 of 22 companies reviewed',exact=True)).to_be_visible()
+    (out/'member-filter-browser.txt').write_text('PASS: actual member filter22/24 with20 contact-less priority exceptions; absent-only rows not sent to browser;22-count/3-page pagination/search; excluded old-page save retained in full24 admin export/history and omitted from member responses.\n')
+    print((out/'member-filter-browser.txt').read_text())
+    context.close();browser.close();raise SystemExit(0)
    assert len(first.locator('a[href^="tel:"]').all())==2,'semicolon direct numbers each get one link; annotated office is not dialed'
    expect(first.get_by_text('A = Fully comfortable making the ask to this prospect, serving as the primary solicitor',exact=True)).to_be_visible()
    page.screenshot(path=str(out/'desktop-review.png'),full_page=False)

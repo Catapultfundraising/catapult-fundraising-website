@@ -1,5 +1,6 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
+import { memberPresentation, validatePresentation, type Presentation } from './presentation.server';
 import { redactSourceLabels } from './source-labels.server';
 import { get, head, put, list, BlobNotFoundError, BlobError, BlobPreconditionFailedError, BlobAccessError, BlobServiceNotAvailable, BlobServiceRateLimited, BlobUnknownError } from '@vercel/blob';
 import { promises as fs } from 'node:fs';
@@ -126,4 +127,16 @@ export async function redactActiveSourceLabels(input:unknown) {
  const verified=await activeRawRoster();if(verified.version!==intent.rosterVersion||verified.digest!==targetDigest)throw new ReviewError('Redaction could not be confirmed.',409);
  const receipt={action:intent.action,operationId:intent.operationId,rosterVersion:intent.rosterVersion,originalRawDigest:intent.expectedRawDigest,redactedRawDigest:targetDigest,authorizedAt:intent.createdAt};
  return create(receiptKey,receipt,saved=>same(saved,receipt));
+}
+
+
+// Presentation only: canonical roster, historical receipts and save allowlist stay intact.
+export async function configurePresentation(input:unknown) {
+ const roster=await getRoster(),config=validatePresentation(input,roster);
+ await create(`${prefix()}presentation/${roster.version}.json`,config,saved=>same(validatePresentation(saved,roster),config));
+ return {rosterVersion:roster.version,topProspectCount:config.topProspectIds.length,visibleProspectCount:memberPresentation(roster,config).prospects.length,canonicalProspectCount:roster.prospects.length};
+}
+export async function getPresentation(roster:Roster):Promise<Presentation|null>{
+ const config=await read<Presentation>(`${prefix()}presentation/${roster.version}.json`);
+ return config?validatePresentation(config,roster):null;
 }
