@@ -116,6 +116,17 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(httpsUrl, 308);
   }
 
+  // Isolated sponsorship preview: privacy applies to successful and error responses.
+  if (pathname === "/salvation-army/sponsorship-review" || pathname.startsWith("/salvation-army/sponsorship-review/") || pathname.startsWith("/api/sa-sponsorship/")) {
+    const res = NextResponse.next();
+    res.headers.set("Cache-Control", "private, no-store, max-age=0");
+    res.headers.set("X-Robots-Tag", "noindex, nofollow, noarchive");
+    res.headers.set("Referrer-Policy", "no-referrer");
+    res.headers.set("X-Content-Type-Options", "nosniff");
+    res.headers.set("Content-Security-Policy", "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; frame-ancestors 'none'; form-action 'self'; base-uri 'self'");
+    return res;
+  }
+
   // Board Prospect Review. /{client}/data-dashboard/board-review = Catapult setup + results
   // (employee {CLIENT}D2026!@ dashboard login only; research login does NOT open it).
   // /{client}/data-dashboard/review = board/committee member form (member cookie for THAT client).

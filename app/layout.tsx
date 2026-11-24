@@ -7,6 +7,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { CookieConsent } from "@/components/cookie-consent";
+import { PrivateRoute } from "@/components/private-route";
 import { BareRoute } from "@/components/bare-route";
 import { WebinarBar } from "@/components/webinar-bar";
 import { FIRM_PHONE, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
@@ -479,6 +480,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${fraunces.variable} ${frauncesLatinExt.variable} ${frauncesVietnamese.variable} ${manrope.variable}`}>
       <body className="bg-[rgb(var(--paper))] text-[rgb(var(--ink))] antialiased">
+        <PrivateRoute>
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
@@ -498,6 +500,7 @@ o.onload=function(){window.trackingFunctions.onLoad({appId:"6a7b2ca6343a240014fd
 document.head.appendChild(o)}initApollo();`,
           }}
         />
+        </PrivateRoute>
         <BareRoute>
           <WebinarBar />
           <SiteHeader />
@@ -506,7 +509,7 @@ document.head.appendChild(o)}initApollo();`,
         <BareRoute>
           <SiteFooter />
         </BareRoute>
-        <CookieConsent />
+        <PrivateRoute><CookieConsent /></PrivateRoute>
       </body>
     </html>
   );
