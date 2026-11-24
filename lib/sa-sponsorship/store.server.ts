@@ -26,13 +26,25 @@ export async function saveMember(member:Member){await create(`${prefix()}members
 export async function memberFor(value:string|undefined){const session=verifyToken(value);if(!session)throw new ReviewError('Please enter the board access code to continue.',401);const member=await read<Member>(`${prefix()}members/${session.id}.json`);if(!member||member.id!==session.id||!equal(member.identityHash,session.identityHash)||!equal(member.identityHash,hash(JSON.stringify([member.name,member.email.toLowerCase()]))))throw new ReviewError('Session unavailable. Sign in again.',401);return member;}
 const receiptPath=(m:string,p:string,r:number)=>`${prefix()}answers/${m}/${p}/revision-${String(r).padStart(7,'0')}.json`;
 function operation(r:Receipt):Operation{return {operationId:r.operationId,rosterVersion:r.rosterVersion,prospectId:r.prospectId,revision:r.revision,choice:r.choice,comment:r.comment};}
-export async function responses(memberId:string,roster:Roster) {const keys=await paths(`${prefix()}answers/${memberId}/`);const result:Receipt[]=[];for(const key of keys){const r=await read<Receipt>(key);if(!r||r.memberId!==memberId||key!==receiptPath(memberId,r.prospectId,r.revision)||!Number.isFinite(Date.parse(r.savedAt))||new Date(r.savedAt).toISOString()!==r.savedAt)throw new Error('Receipt invalid');validateOperation(operation(r),roster);result.push(r);}return result.sort((a,b)=>a.revision-b.revision);}
+export async function responses(memberId:string,roster:Roster,prospectId?:string) {
+ if(prospectId!==undefined&&!roster.prospects.some(p=>p.id===prospectId))throw new ReviewError('Unknown prospect.');
+ const base=`${prefix()}answers/${memberId}/${prospectId?`${prospectId}/`:''}`;
+ const keys=await paths(base),result:Receipt[]=[];
+ for(let i=0;i<keys.length;i+=10){
+  const batch=await Promise.all(keys.slice(i,i+10).map(async key=>{
+   const r=await read<Receipt>(key);
+   if(!r||r.memberId!==memberId||key!==receiptPath(memberId,r.prospectId,r.revision)||(prospectId!==undefined&&r.prospectId!==prospectId)||!Number.isFinite(Date.parse(r.savedAt))||new Date(r.savedAt).toISOString()!==r.savedAt)throw new Error('Receipt invalid');
+   validateOperation(operation(r),roster);return r;
+  }));result.push(...batch);
+ }
+ return result.sort((a,b)=>a.revision-b.revision);
+}
 export async function saveAnswer(member:Member,input:unknown){const roster=await getRoster(),op=validateOperation(input,roster);const base=`${prefix()}operations/${member.id}/${op.operationId}.json`;
  // Claim operation ID immutably before the revision. Hash the actual canonical payload, not caller metadata.
  await create(base,op,saved=>same(saved,op));
  const key=receiptPath(member.id,op.prospectId,op.revision),old=await read<Receipt>(key);
  if(old){same(operation(old),op);return old;}
- const history=await responses(member.id,roster),latest=history.filter(r=>r.prospectId===op.prospectId).pop();if(op.revision!==(latest?.revision||0)+1)throw new ReviewError('Your saved answer changed. Reload before editing.',409);
+ const history=await responses(member.id,roster,op.prospectId),latest=history.filter(r=>r.prospectId===op.prospectId).pop();if(op.revision!==(latest?.revision||0)+1)throw new ReviewError('Your saved answer changed. Reload before editing.',409);
  return create<Receipt>(key,{...op,memberId:member.id,savedAt:new Date().toISOString()},saved=>{same(operation(saved),op);if(saved.memberId!==member.id)throw new Error('Receipt owner mismatch');});
 }
 export async function exportReview(){const roster=await getRoster(),members:Member[]=[],answers:Receipt[]=[];for(const key of await paths(`${prefix()}members/`)){const member=await read<Member>(key);if(!member||key!==`${prefix()}members/${member.id}.json`)throw new Error('Invalid member');members.push(member);answers.push(...await responses(member.id,roster));}return {schemaVersion:1,rosterVersion:roster.version,prospects:roster.prospects,members:members.map(({identityHash:_hash,...m})=>m),responses:answers};}

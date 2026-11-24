@@ -5,20 +5,26 @@ import type { Operation, Prospect, Receipt, Roster } from '@/lib/sa-sponsorship/
 type Member={id:string;name:string;email:string};
 type ReviewData={roster:Roster;member:Member;responses:Receipt[]};
 const API='/api/sa-sponsorship';
-async function call(path:string,init?:RequestInit){const res=await fetch(`${API}/${path}`,{...init,cache:'no-store',credentials:'same-origin',headers:{'Content-Type':'application/json',...init?.headers}});const body=await res.json();if(!res.ok)throw new Error(body.error||'Unable to save. Keep this page open and retry.');return body;}
+async function call(path:string,init?:RequestInit){const res=await fetch(`${API}/${path}`,{...init,cache:'no-store',credentials:'same-origin',headers:{'Content-Type':'application/json',...init?.headers}});const body=await res.json();if(!res.ok)throw Object.assign(new Error(body.error||'Unable to save. Keep this page open and retry.'),{status:res.status});return body;}
 const available=(v:string)=>v||'Not available / not verified';
-function Phone({value}:{value:string}) { if(!value)return <>{available('')}</>;return <>{value.split(';').map((raw,i)=>{const v=raw.trim();const clean=/^\+?[0-9 ()-]+$/.test(v)&&v.replace(/\D/g,'').length>=7&&v.replace(/\D/g,'').length<=15;return <span key={i} style={{display:'block'}}>{clean?<a href={`tel:${v.replace(/[^+0-9]/g,'')}`}>{v}</a>:v}</span>;})}</>; }
+function Phone({value}:{value:string}) {
+ if(!value)return <>{available('')}</>;
+ const numbers=value.split(';').map(v=>v.trim());
+ const clean=numbers.every(v=>/^\+?[0-9 ()-]+$/.test(v)&&v.replace(/\D/g,'').length>=7&&v.replace(/\D/g,'').length<=15);
+ if(!clean)return <>{value}</>;
+ return <>{numbers.map((v,i)=><span key={i} style={{display:'block'}}><a href={`tel:${v.replace(/[^+0-9]/g,'')}`}>{v}</a></span>)}</>;
+}
 function LinkOut({href,children}:{href:string;children:React.ReactNode}){return <a href={href} target="_blank" rel="noreferrer noopener">{children} <span aria-hidden="true">↗</span></a>;}
 export function SponsorshipReview({preview=true}:{preview?:boolean}){
  const [data,setData]=useState<ReviewData|null>(null),[loading,setLoading]=useState(true),[error,setError]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(0),[busy,setBusy]=useState(false);
  const dirty=useRef(new Set<string>());
- async function load(){setLoading(true);try{setData(await call('review'));setError('');}catch(e){setError((e as Error).message);}finally{setLoading(false);}}
+ async function load(){setLoading(true);try{setData(await call('review'));setError('');}catch(e){setError((e as Error&{status?:number}).status===401?'':(e as Error).message);}finally{setLoading(false);}}
  useEffect(()=>{void load();const warn=(e:BeforeUnloadEvent)=>{if(dirty.current.size){e.preventDefault();}};window.addEventListener('beforeunload',warn);return()=>window.removeEventListener('beforeunload',warn);},[]);
  async function login(e:React.FormEvent<HTMLFormElement>){e.preventDefault();setBusy(true);setError('');const form=new FormData(e.currentTarget);try{await call('session',{method:'POST',body:JSON.stringify({name:form.get('name'),email:form.get('email'),code:form.get('code')})});await load();}catch(e){setError((e as Error).message);}finally{setBusy(false);}}
  async function logout(){if(dirty.current.size&&!window.confirm('You have unsaved edits. Leave this session?'))return;try{await call('session',{method:'DELETE'});dirty.current.clear();setData(null);setError('');}catch(e){setError((e as Error).message);}}
  const filtered=data?.roster.prospects.filter(p=>`${p.organization} ${p.contactName} ${p.title}`.toLowerCase().includes(search.toLowerCase()))||[];
  const latest=new Map<string,Receipt>();for(const r of data?.responses||[]){if((latest.get(r.prospectId)?.revision||0)<r.revision)latest.set(r.prospectId,r);}
- return <div className="sa-review"><header className="sa-masthead"><img src="/salvation-army/official-lockup.png" alt="The Salvation Army — Doing the Most Good" width="262" height="116"/><div>Southwest Division<span>Board &amp; committee review</span></div></header>
+ return <div className="sa-review"><header className="sa-masthead"><img src="/salvation-army/official-lockup.png" alt="The Salvation Army — Doing the Most Good" width="624" height="181"/><div>Southwest Division<span>Board &amp; committee review</span></div></header>
  {preview&&<div className="sa-preview">Private preview · Not the live review · Responses stay in this preview</div>}
  <div className="sa-content"><section className="sa-intro"><p className="sa-eyebrow">Chef Showdown · Sponsorship connections</p><h1>Who can you help us reach?</h1><p>Review the companies below. Tell us who you know and who you could approach for sponsorship. Choose your role and add a comment if helpful. The committee will coordinate next steps.</p><p className="sa-small">Your answers are private from other members. This review does not send outreach or reserve a company exclusively.</p></section>
  {loading?<p role="status">Opening your private review…</p>:!data?<section className="sa-entry"><div><h2>Board member access</h2><p>Use the shared board access code and enter your name and email.</p><p className="sa-small">Your name and email identify your responses; this is not an email account login. Return in the same browser to resume your own review for up to 30 days. Signing in again starts a separate review, even with the same email.</p></div><form onSubmit={login}><label>Your name<input name="name" required maxLength={150} autoComplete="name"/></label><label>Email address<input type="email" name="email" required maxLength={254} autoComplete="email"/></label><label>Board access code<input type="password" name="code" required maxLength={200} autoComplete="off"/></label><button disabled={busy}>{busy?'Opening…':'Open private review'}</button>{error&&<p className="sa-error" role="alert">{error}</p>}</form></section>:<>
