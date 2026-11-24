@@ -174,3 +174,12 @@ ETag bytes, secrets and contact data are never included. Installed Blob SDK
 `createPutHeaders` already implies `x-allow-overwrite:1` when `ifMatch` is supplied;
 GET passes its response ETag unchanged, and PUT forwards it unchanged as
 `x-if-match`. Diagnostics do not weaken or retry the conditional write.
+
+The deployed CDN GET was observed to return a weak ETag, unsuitable for `ifMatch`.
+Migration now binds exact uncached raw bytes to provider-canonical private
+`head()` metadata before and after GET. Canonical ETags must be identical, nonempty
+and non-weak; all metadata paths match the pinned roster, and both canonical sizes
+match actual byte length. Only the provider's unchanged canonical ETag is used for
+`ifMatch`; no stripping/guessing or blind overwrite. Existing raw-digest and
+immutable intent/UUID/target checks are unchanged. Unstable metadata fails before
+any migration audit/write. Admin export raw-digest behavior remains unchanged.

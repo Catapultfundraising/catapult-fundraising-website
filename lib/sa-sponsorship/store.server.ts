@@ -1,7 +1,7 @@
 import 'server-only';
 import { createHash } from 'node:crypto';
 import { redactSourceLabels } from './source-labels.server';
-import { get, put, list, BlobNotFoundError, BlobError, BlobPreconditionFailedError, BlobAccessError, BlobServiceNotAvailable, BlobServiceRateLimited, BlobUnknownError } from '@vercel/blob';
+import { get, head, put, list, BlobNotFoundError, BlobError, BlobPreconditionFailedError, BlobAccessError, BlobServiceNotAvailable, BlobServiceRateLimited, BlobUnknownError } from '@vercel/blob';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import { equal, hash, previewOnly, verifyToken } from './security.server';
@@ -64,13 +64,26 @@ function conditionalDiagnostic(error:unknown,etag:string|undefined) {
  return {stage:'conditional-put' as const,code,...(httpStatus!==undefined?{httpStatus}:{}),etagFormat} as const;
 }
 const rawHash=(bytes:Uint8Array)=>createHash('sha256').update(bytes).digest('hex');
-async function activeRawRoster() {
+async function activeRawRoster(requireCanonicalETag=false) {
  ready();const active=await read<{version:string}>(`${prefix()}active.json`);
  if(!active||!/^[a-zA-Z0-9_-]{1,80}$/.test(active.version))throw new ReviewError('The review roster is not available yet.',503);
  const key=`${prefix()}rosters/${active.version}.json`,dir=localDir();
  let bytes:Buffer,etag:string|undefined;
  if(dir){bytes=await fs.readFile(path.join(dir,key));}
- else{const result=await get(key,{access:'private',useCache:false});if(!result||result.statusCode!==200||!result.stream)throw new ReviewError('Private roster unavailable.',503);bytes=Buffer.from(await new Response(result.stream).arrayBuffer());etag=result.blob.etag;}
+ else{
+  // CDN GET may carry a weak ETag that is not valid for a conditional write.
+  // Bind the exact uncached bytes to stable provider-canonical metadata instead;
+  // never strip/guess a weak validator or weaken the write precondition.
+  const before=requireCanonicalETag?await head(key):null;
+  const result=await get(key,{access:'private',useCache:false});
+  if(!result||result.statusCode!==200||!result.stream)throw new ReviewError('Private roster unavailable.',503);
+  bytes=Buffer.from(await new Response(result.stream).arrayBuffer());etag=result.blob.etag;
+  if(requireCanonicalETag){
+   const after=await head(key);
+   if(!before||!before.etag||/^W\//i.test(before.etag)||before.etag!==after.etag||before.pathname!==key||after.pathname!==key||result.blob.pathname!==key||before.size!==bytes.byteLength||after.size!==bytes.byteLength)throw new ReviewError('Canonical roster identity changed or is unavailable. No conditional write attempted.',409);
+   etag=before.etag;
+  }
+ }
  // Fatal UTF-8 decoding preserves an optional BOM instead of hashing reconstructed text.
  const raw=new TextDecoder('utf-8',{fatal:true,ignoreBOM:true}).decode(bytes);
  const roster=validateRoster(JSON.parse(raw.charCodeAt(0)===0xfeff?raw.slice(1):raw));if(roster.version!==active.version)throw new Error('Roster mismatch');
@@ -86,7 +99,7 @@ export async function redactActiveSourceLabels(input:unknown) {
  const base=`${prefix()}source-redactions/${o.operationId}/`,intentKey=`${base}intent.json`,receiptKey=`${base}receipt.json`;
  const oldIntent=await read<RedactionIntent>(intentKey);
  if(oldIntent&&(oldIntent.action!==o.action||oldIntent.expectedRawDigest!==o.expectedRawDigest||oldIntent.operationId!==o.operationId))throw new ReviewError('Conflicting migration replay.',409);
- let raw=await activeRawRoster();
+ let raw=await activeRawRoster(true);
  const cleaned=validateRoster(redactSourceLabels(raw.roster));
  const target=Buffer.from(JSON.stringify(cleaned),'utf8'),targetDigest=rawHash(target);
  // Exact replay after an acknowledged or lost successful conditional update.
