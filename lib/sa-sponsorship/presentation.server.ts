@@ -23,5 +23,6 @@ const usableEmail=(value:string)=>value.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$
 export function memberPresentation(roster:Roster,config:Presentation|null):Roster {
  if(!config)return roster; // Approved metadata is installed separately; no accidental launch filter.
  const priority=new Set(config.topProspectIds);
- return {...roster,prospects:roster.prospects.filter(p=>priority.has(p.id)||usableEmail(p.email)||usablePhone(p.directPhone)||usablePhone(p.officePhone)||p.portals.some(q=>usableEmail(q.email)))};
+ const namedContact=(name:string)=>Boolean(name.trim())&&!/^(?:not (?:verified|available)|unknown|n\/?a|none|-)$/i.test(name.trim());
+ return {...roster,prospects:roster.prospects.filter(p=>priority.has(p.id)||(namedContact(p.contactName)&&usableEmail(p.email)&&usablePhone(p.directPhone)))};
 }

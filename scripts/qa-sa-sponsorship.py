@@ -15,7 +15,7 @@ fixture['prospects'][0]['directPhone']='+1 (202) 555-0104; +1 (202) 555-0105'
 fixture['prospects'][0]['officePhone']='+1 (202) 555-0100 (original file; not reverified)'
 if filter_only:
  template=fixture['prospects'][0]
- fixture['prospects']=[{**template,'id':f'sample-{i+1}','organization':'Sample Desert Community Bank' if i==0 else f'Sample Community Company {i+1}','contactName':'','email':'work@example.com' if i==20 else '','directPhone':'','officePhone':'(202) 555-0100 (original file; not reverified)' if i==21 else '','portals':[]} for i in range(24)]
+ fixture['prospects']=[{**template,'id':f'sample-{i+1}','organization':'Sample Desert Community Bank' if i==0 else f'Sample Community Company {i+1}','contactName':'' if i<20 or i==21 else 'Sample Contact','email':'work@example.com' if i in [20,21,23,26] else '','directPhone':'+1 202-555-0100' if i in [20,21,22,26] else '','officePhone':'(202) 555-0100 (original file; not reverified)' if i in [23,24] else '','portals':[{**template['portals'][0],'email':'shared@example.com'}] if i==25 else []} for i in range(27)]
 with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
  env={**os.environ,'SA_SPONSORSHIP_LOCAL_DIR':storage,'SA_SPONSORSHIP_ACCESS_CODE':code,'BOARD_REVIEW_SECRET':secrets.token_hex(32),'CRON_SECRET':cron,'NEXT_TELEMETRY_DISABLED':'1'}
  env.pop('VERCEL',None);env.pop('VERCEL_ENV',None);env.pop('NODE_ENV',None)
@@ -71,20 +71,20 @@ with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
     assert old.status==200,old.text()
     member_view=req.get(endpoint+'review').json()
     assert len(member_view['roster']['prospects'])==22 and member_view['responses']==[]
-    assert not any(p['id'] in ['sample-23','sample-24'] for p in member_view['roster']['prospects'])
+    assert not any(p['id'] in ['sample-22','sample-23','sample-24','sample-25','sample-26'] for p in member_view['roster']['prospects'])
     exported=req.get(endpoint+'admin',headers={'Authorization':'Bearer '+cron}).json()
-    assert len(exported['prospects'])==24 and len(exported['responses'])==1
+    assert len(exported['prospects'])==27 and len(exported['responses'])==1
     page.get_by_role('button',name='Next →').click();expect(page.get_by_text('Page 2 of 3',exact=True)).to_be_visible()
     page.get_by_role('button',name='Next →').click();expect(page.get_by_text('Page 3 of 3',exact=True)).to_be_visible()
     expect(page.get_by_role('heading',name='Sample Community Company 21',exact=True)).to_be_visible()
-    expect(page.get_by_role('heading',name='Sample Community Company 22',exact=True)).to_be_visible()
+    expect(page.get_by_role('heading',name='Sample Community Company 27',exact=True)).to_be_visible()
     assert page.get_by_role('heading',name='Sample Community Company 23',exact=True).count()==0
     page.wait_for_function('window.scrollY===0')
     page.get_by_label('Find a company or contact').fill('Company 23')
     expect(page.get_by_text('No companies match your search. Try a different company or contact name.',exact=True)).to_be_visible()
     page.get_by_label('Find a company or contact').fill('')
     expect(page.get_by_text('0 of 22 companies reviewed',exact=True)).to_be_visible()
-    (out/'member-filter-browser.txt').write_text('PASS: actual member filter22/24 with20 contact-less priority exceptions; absent-only rows not sent to browser;22-count/3-page pagination/search; excluded old-page save retained in full24 admin export/history and omitted from member responses.\n')
+    (out/'member-filter-browser.txt').write_text('PASS: strict member filter22/27 with20 contact-less Top20 exceptions; only complete named/main-email/direct profiles included; missing-name/email/direct and office/shared-only rows absent from browser;22-count/3-page pagination/search; excluded old-page save retained in full27 admin export/history and omitted from member responses.\n')
     print((out/'member-filter-browser.txt').read_text())
     context.close();browser.close();raise SystemExit(0)
    assert len(first.locator('a[href^="tel:"]').all())==2,'semicolon direct numbers each get one link; annotated office is not dialed'
