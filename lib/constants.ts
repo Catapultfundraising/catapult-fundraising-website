@@ -38,6 +38,7 @@ export const FREE_TOOLS_LINKS = [
 ];
 
 export const INSIGHTS_LINKS = [
+  { href: "/webinars", label: "2027 Webinars" },
   { href: "/blog", label: "Articles" },
   { href: "/insights/case-studies", label: "Case Studies" },
   { href: "/resources", label: "Free Fundraising Tools" },

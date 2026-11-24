@@ -1,3 +1,4 @@
+import { TEAM_PRESENTER_PROFILES } from "@/lib/team-presenter-profiles";
 import Image from "next/image";
 import { PageHero } from "@/components/page-hero";
 import { CtaBand } from "@/components/cta-band";
@@ -8,8 +9,7 @@ const SITE_URL = "https://www.catapultfr.com";
 const LEADERSHIP = [
   {
     name: "Anthony R. Alonso",
-    role: "President & CEO",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/5ac6ad8e-2df9-495a-812f-da0bf44735b9.png",
+    ...TEAM_PRESENTER_PROFILES.Anthony,
     bio: "Every great campaign needs someone who believes, without a doubt, that a community's generosity is bigger than anyone has yet imagined. That's Anthony. In 35 years of fundraising, he's helped organizations raise over a billion dollars in the last decade alone, but the number he's proudest of is the one no spreadsheet can capture: the trust of every board and every donor who took a chance on a bigger vision because he asked them to. A former AFP Las Vegas Chapter President and twice honored for excellence in philanthropy, Anthony also serves as Board Chair of the Salvation Army of Southern Nevada and was recently appointed to the board of the Henderson Libraries Foundation, living out in his own community the same conviction he brings to every client: that the right ask, made with heart, changes everything.",
   },
   {
@@ -38,14 +38,12 @@ const LEADERSHIP = [
   },
   {
     name: "Gwen Paxon, CFRE",
-    role: "Vice President of Client Services",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/adaffa6f-1329-4284-b98b-2b6ef9677093.png",
+    ...TEAM_PRESENTER_PROFILES.Gwen,
     bio: "Gwen has spent 25 years proving that client service and fundraising results aren't two different jobs. They're the same job, done well. A past president of the AFP-NJ Chapter with degrees from Temple, Saint Mary's, and North Park University, she leads Catapult's client services team with the conviction that a nonprofit partner should never have to wonder what's happening with their campaign, because Gwen already told them.",
   },
   {
     name: "Jeff J. Grandy, M.Ed",
-    role: "Vice President of Client Development",
-    photo: "https://galaxy-prod.tlcdn.com/gen/user_35qqBV71YqPhG02PJcVxttmFcLs/52219736-dfaf-4dd5-9a66-c758720799cb.png",
+    ...TEAM_PRESENTER_PROFILES.Jeff,
     bio: "Jeff has spent 15 years proving that fundraising can be taught, mentored, and passed forward. He's an instructor in UNLV's Nonprofit Management program and a past president of AFP's Texas Coastal Bend chapter. He brings that same teaching instinct to every new Catapult partnership, helping first-time clients understand not just what will happen in their campaign, but why each step matters.",
   },
   {
@@ -263,7 +261,7 @@ export default function OurTeamPage() {
 
           <div className="mt-14 grid gap-x-10 gap-y-14 sm:grid-cols-2 lg:grid-cols-3">
             {LEADERSHIP.map((member) => (
-              <div key={member.name} className="flex flex-col items-start">
+              <div key={member.name} id={"id" in member ? member.id : undefined} className="flex scroll-mt-56 flex-col items-start">
                 <div className="relative h-28 w-28 overflow-hidden rounded-full ring-4 ring-[rgb(var(--paper))] shadow-md">
                   <Image
                     src={member.photo}

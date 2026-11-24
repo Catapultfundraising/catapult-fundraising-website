@@ -52,7 +52,7 @@ export function SiteHeader() {
   }, []);
 
   const isServiceActive = pathname.startsWith("/services");
-  const isInsightsActive = pathname.startsWith("/insights") || pathname.startsWith("/blog");
+  const isInsightsActive = pathname.startsWith("/insights") || pathname.startsWith("/blog") || pathname === "/webinars";
   const isAboutActive = ABOUT_LINKS.some((link) => pathname === link.href);
   const isToolsActive = pathname.startsWith("/resources");
   const homeLink = NAV_LINKS.find((link) => link.href === "/");
