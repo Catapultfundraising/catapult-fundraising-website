@@ -1,6 +1,4 @@
 import {reconstructDashboardExport,ExportIntentError} from "@/lib/portal-v2/dashboard-export.server";
-import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
-import { directLaneEnabled } from "@/lib/portal-v2/direct-registration.server";
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, View, Text } from "@react-pdf/renderer";
 import { isPvasDataAuthed } from "@/lib/pvas-data-auth";
@@ -28,12 +26,10 @@ export async function POST(req: NextRequest) {
   if (!(await isPvasDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   let b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[]; intent?: unknown };
-  if (pvasCanonicalEnabled("pvas") || directLaneEnabled("pvas")) {
-    try {
-      if (!b || !["pdf","xlsx"].includes(b.format)) return NextResponse.json({error:"Choose PDF or Excel."},{status:400});
-      b={...b,...await reconstructDashboardExport("pvas",b.intent,b)};
-    } catch(e) { return NextResponse.json({error:e instanceof ExportIntentError?e.message:"Current complete dashboard records/manual/source export unavailable. Reload and try again."},{status:e instanceof ExportIntentError?400:503}); }
-  }
+  try {
+    if (!b || !["pdf","xlsx"].includes(b.format)) return NextResponse.json({error:"Choose PDF or Excel."},{status:400});
+    b={...b,...await reconstructDashboardExport("pvas",b.intent,b)};
+  } catch(e) { return NextResponse.json({error:e instanceof ExportIntentError?e.message:"Current complete dashboard records/manual/source export unavailable. Reload and try again."},{status:e instanceof ExportIntentError?400:503}); }
   const title = String(b.title || "PVAS Report").slice(0, 120);
   const subtitle = `${b.subtitle ? b.subtitle + " · " : ""}${CLIENT} · Prepared ${preparedOn()}`;
   const total = b.sections.reduce((s, x) => s + x.rows.length, 0);
@@ -82,8 +78,9 @@ export async function POST(req: NextRequest) {
                   <Text style={bs.bandText}>{s.heading}</Text>
                 </View>
               )}
+              {/* Notes may exceed a page; keep rows splittable above the reserved footer. */}
               {s.rows.map((r, ri) => (
-                <View key={ri} style={ri % 2 ? bs.trAlt : bs.tr} wrap={false}>
+                <View key={ri} style={ri % 2 ? bs.trAlt : bs.tr} wrap>
                   {b.cols.map((c, i) => (
                     <Text key={i} style={[bs.td, { width: widths[i], textAlign: c.kind && c.kind !== "text" ? "right" : "left" }]}>{fmt(r[i], c.kind)}</Text>
                   ))}

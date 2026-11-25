@@ -23,16 +23,13 @@ function fmt(v: string | number | null, kind?: string) {
 // Branded PDF/Excel for any table on the JAG data portal.
 // Body: { format: "pdf"|"xlsx", title, subtitle?, cols: ExportCol[], sections: ExportSection[], notes?: string[] }
 export async function POST(req: NextRequest) {
-  const { directLaneEnabled } = await import("@/lib/portal-v2/direct-registration.server");
   if (!(await isJagDataAuthed(req))) return NextResponse.json({ error: "unauthorized" }, { status: 401 });
 
   let b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[]; intent?: unknown };
-  if (directLaneEnabled("jag")) {
-    try {
-      if (!b || !["pdf","xlsx"].includes(b.format)) return NextResponse.json({error:"Choose PDF or Excel."},{status:400});
-      b={...b,...await reconstructDashboardExport("jag",b.intent,b)};
-    } catch(e) { return NextResponse.json({error:e instanceof ExportIntentError?e.message:"Current complete dashboard records/manual/source export unavailable. Reload and try again."},{status:e instanceof ExportIntentError?400:503}); }
-  }
+  try {
+    if (!b || !["pdf","xlsx"].includes(b.format)) return NextResponse.json({error:"Choose PDF or Excel."},{status:400});
+    b={...b,...await reconstructDashboardExport("jag",b.intent,b)};
+  } catch(e) { return NextResponse.json({error:e instanceof ExportIntentError?e.message:"Current complete dashboard records/manual/source export unavailable. Reload and try again."},{status:e instanceof ExportIntentError?400:503}); }
   const title = String(b.title || "JAG Report").slice(0, 120);
   const subtitle = `${b.subtitle ? b.subtitle + " · " : ""}${CLIENT} · Prepared ${preparedOn()}`;
   const total = b.sections.reduce((s, x) => s + x.rows.length, 0);
@@ -81,8 +78,9 @@ export async function POST(req: NextRequest) {
                   <Text style={bs.bandText}>{s.heading}</Text>
                 </View>
               )}
+              {/* Notes may exceed a page; keep rows splittable above the reserved footer. */}
               {s.rows.map((r, ri) => (
-                <View key={ri} style={ri % 2 ? bs.trAlt : bs.tr} wrap={false}>
+                <View key={ri} style={ri % 2 ? bs.trAlt : bs.tr} wrap>
                   {b.cols.map((c, i) => (
                     <Text key={i} style={[bs.td, { width: widths[i], textAlign: c.kind && c.kind !== "text" ? "right" : "left" }]}>{fmt(r[i], c.kind)}</Text>
                   ))}
