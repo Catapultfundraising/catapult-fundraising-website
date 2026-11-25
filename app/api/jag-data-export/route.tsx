@@ -28,7 +28,9 @@ export async function POST(req: NextRequest) {
   let b = (await req.json()) as { format: "pdf" | "xlsx"; title: string; subtitle?: string; cols: ExportCol[]; sections: ExportSection[]; notes?: string[]; intent?: unknown };
   try {
     if (!b || !["pdf","xlsx"].includes(b.format)) return NextResponse.json({error:"Choose PDF or Excel."},{status:400});
-    b={...b,...await reconstructDashboardExport("jag",b.intent,b)};
+    const current = await reconstructDashboardExport("jag", b.intent, b);
+    // Optional server footnotes must clear any browser-supplied notes too.
+    b = { ...b, ...current, notes: current.notes ?? [] };
   } catch(e) { return NextResponse.json({error:e instanceof ExportIntentError?e.message:"Current complete dashboard records/manual/source export unavailable. Reload and try again."},{status:e instanceof ExportIntentError?400:503}); }
   const title = String(b.title || "JAG Report").slice(0, 120);
   const subtitle = `${b.subtitle ? b.subtitle + " · " : ""}${CLIENT} · Prepared ${preparedOn()}`;
