@@ -9,6 +9,7 @@ import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
+import { CampaignProspects } from "@/components/campaign-prospects";
 import { CampaignGifts } from "@/components/campaign-gifts";
 import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
@@ -19,7 +20,7 @@ import { formatDollars } from "@/lib/gift-chart";
 import { extrasFromIndex, seatGc2p } from "@/lib/csnf-gc2p";
 import { BoardReviewAdmin } from "@/components/board-review/admin";
 import { useBoardReviewStaff, StaffSignIn } from "@/components/board-review/staff-tab";
-import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, downloadExport, downloadUrl, useCrm, type ExportKind } from "@/components/csnf-data-crm";
+import { CrmProvider, DonorSearch, DownloadButtons, PeopleTable, indexPayload, downloadExport, downloadUrl, useCrm, type ExportKind } from "@/components/csnf-data-crm";
 import { ReportBuilder } from "@/components/report-builder";
 import { DashboardHelp } from "@/components/dashboard-help";
 import type { IndexRow } from "@/lib/csnf-data-store";
@@ -34,7 +35,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Calling", "Database Health", "Alumni", "Campaign Gifts", "Campaign Donors", "Add + Upload"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Campaign Prospects", "Reports", "Board", "Calling", "Database Health", "Alumni", "Campaign Gifts", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -683,6 +684,7 @@ function CsnfDashboardBody({ data: snapshot }: { data: CsnfSnapshot }) {
         {tab === "Gift Pyramid" && <Pyramid d={data} />}
         {tab === "Gift Chart + GC2P" && <GiftChartTab d={data} />}
         {tab === "Prospects" && <Prospects d={data} />}
+        {tab === "Campaign Prospects" && <CampaignProspects index={index} PeopleTable={PeopleTable} DownloadButtons={DownloadButtons} indexPayload={indexPayload} />}
         {tab === "Reports" && <ReportsTab clientLabel={data.client} />}
         {tab === "Board" && <Board d={data} />}
         {tab === "Calling" && <Calling d={data} />}
