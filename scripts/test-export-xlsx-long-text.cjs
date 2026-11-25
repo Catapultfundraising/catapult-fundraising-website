@@ -29,8 +29,9 @@ async function check(client) {
   assert.equal(JSON.stringify(opts), original);
   const wb = new ExcelJS.Workbook(); await wb.xlsx.load(buf);
   const ws = wb.worksheets[0];
-  assert.equal(ws.getCell('C7').value, notes[0]);
-  assert.equal(ws.getCell('C8').value, notes[1]);
+  const readableText = (address) => wb.worksheets.filter(s => s.getCell('A1').value === 'Report sheet').flatMap(s => { const parts=[]; s.eachRow((r,n)=>{if(n>1 && r.getCell(1).value===ws.name && r.getCell(2).value===address) parts.push(r.getCell(7).value)}); return parts; }).join('');
+  assert.equal(readableText('C7'), notes[0]);
+  assert.equal(readableText('C8'), notes[1]);
   const continuation = wb.worksheets.find(s => s.name.startsWith('Text continuation'));
   assert.ok(continuation, `${client}: must preserve over-limit text on continuation sheet`);
   assert.match(ws.getCell('C9').value, /Text continuation/);
@@ -52,7 +53,7 @@ async function check(client) {
   for(const n of Object.keys(zip.files).filter(n=>n.endsWith('.xml'))) { const parser=new SaxesParser(); parser.write(await zip.file(n).async('string')).close(); }
   fs.mkdirSync(proofDir,{recursive:true}); fs.writeFileSync(`${proofDir}/${client}.xlsx`,buf);
   assert.equal(ws.getCell('D7').numFmt, '"$"#,##0'); assert.equal(ws.views[0].ySplit, 5);
-  console.log(`PASS ${client}: <=limit unchanged; ${notes[2].length} code units in ${part} lossless parts`);
+  console.log(`PASS ${client}: <=limit reconstructed exactly; ${notes[2].length} code units in ${part} lossless parts`);
 }
 (async () => {
   for (const client of clients) await check(client);
@@ -60,7 +61,7 @@ async function check(client) {
   const extra='a'.repeat(32766)+'🌱\r\n'+'b'.repeat(32768)+'EXTRA_FINAL';
   const opts={title:'Text continuation',subtitle:'Fixture',client:'Synthetic',cols:[{label:'Name'}],sections:[{rows:[['Short']]}],extraSheets:[{name:'Text continuation 2',cols:[{label:'CPTID'},{label:'Name'},{label:'Notes'}],rows:[[900999,'Extra Fictional',extra]]}]};
   const wb=new ExcelJS.Workbook();await wb.xlsx.load(await buildBrandedXlsx(opts));
-  assert.equal(wb.worksheets.length,3); assert.equal(wb.worksheets[2].name,'Text continuation 3');
+  assert.equal(wb.worksheets.length,4); assert.equal(wb.worksheets[2].name,'Text continuation 3');
   assert.ok(fullText(wb,'Text continuation 2','C2')===extra,'extra sheet Unicode boundary survives');
   assert.match(wb.worksheets[1].getCell('C2').value,/Text continuation 3/);
   const helper=require('../lib/brand-xlsx-text.ts');
