@@ -9,12 +9,12 @@
 export type FieldKind = "text" | "usd" | "num" | "date";
 export interface ReportField { id: string; label: string; group: string; kind: FieldKind; help?: string }
 
-export const PROSPECT_NOTES_LABEL = "Prospect notes and activity";
+export const PROSPECT_NOTES_LABEL = "Prospect notes";
 /** Downloads always include notes, even older saved lists that omit the field. */
 export const reportExportFields = (fields: string[]) => fields.includes("notes") ? fields : [...fields, "notes"];
 
 export const REPORT_FIELDS: ReportField[] = [
-  { id: "notes", label: PROSPECT_NOTES_LABEL, group: "Record", kind: "text", help: "Full current source notes and dashboard activity, with available dates and attribution. Removed history is excluded." },
+  { id: "notes", label: PROSPECT_NOTES_LABEL, group: "Record", kind: "text", help: "Full current note text. Removed or cleared notes are excluded." },
   { id: "cptid", label: "CPTID", group: "Record", kind: "num" },
   { id: "name", label: "Name", group: "Record", kind: "text" },
   { id: "kind", label: "Record type", group: "Record", kind: "text" },

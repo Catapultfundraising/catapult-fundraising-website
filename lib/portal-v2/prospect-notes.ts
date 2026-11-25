@@ -8,7 +8,8 @@ type ObjectValue = Record<string, unknown>;
 const object = (v: unknown): ObjectValue => v && typeof v === "object" && !Array.isArray(v) ? v as ObjectValue : {};
 const text = (v: unknown) => typeof v === "string" ? v : "";
 const list = (v: unknown): unknown[] => Array.isArray(v) ? v : [];
-const meta = (values: unknown[]) => values.map(text).filter(Boolean).join(" · ");
+// Test whitespace only to decide presence; never trim/rewrite a genuine body.
+const substantive = (v: unknown) => text(v).trim().length > 0;
 
 export function createProspectNotes({ records, prospects = [], tracking, overlay: o }: Context): (cptid: number) => string {
   const t = object(tracking), activity = new Map<number, ObjectValue[]>(), direct = new Map<number, ObjectValue[]>();
@@ -28,42 +29,39 @@ export function createProspectNotes({ records, prospects = [], tracking, overlay
     const id = finalId(o, asked);
     if (o.deleted.has(id)) return "";
     const parts: string[] = [], sourceIds = [id, ...mergedSources(o, id)], directSeen = new Set<string>();
-    const prefix = (c: number) => c === id ? "" : ` [from CPTID ${c}]`;
-    const appendDirect = (n: ObjectValue, c: number) => {
+    const append = (body: unknown) => { if (substantive(body)) parts.push(text(body)); };
+    const appendDirect = (n: ObjectValue) => {
       const key = text(n.event_key);
       if (key && directSeen.has(key)) return;
       if (key) directSeen.add(key);
-      parts.push(`Imported source note${prefix(c)} (read only; declared attribution) · ${meta([n.note_date, n.declared_actor, n.file_name])}\n${text(n.body)}${n.source_date ? `\nSource date ${text(n.source_date)}` : ""}`);
+      append(n.body);
     };
     for (const c of sourceIds) {
       const r = object(records[String(c)]);
-      for (const note of list(r.notes)) if (typeof note === "string") parts.push(`Original source note${prefix(c)}\n${note}`);
+      for (const note of list(r.notes)) append(note);
       for (const raw of list(r.calls)) {
         const call = object(raw);
-        parts.push(`Source call${prefix(c)} · ${meta([call.date, call.by, call.result, call.reason])}\n${text(call.comments)}`);
+        append(call.comments);
       }
       const portfolio = object(r.portfolio);
-      if (text(portfolio.task)) parts.push(`Source portfolio task / note${prefix(c)}\n${text(portfolio.task)}`);
-      if (text(portfolio.relationship)) parts.push(`Source portfolio relationship / history${prefix(c)}\n${text(portfolio.relationship)}`);
-      for (const raw of list(r.directSourceNotes)) appendDirect(object(raw), c);
+      append(portfolio.task);
+      append(portfolio.relationship);
+      for (const raw of list(r.directSourceNotes)) appendDirect(object(raw));
       // Numeric collisions with a genuinely named source record do not prove
       // that a separately saved manual prospect is the same constituent.
       const p = manual.get(c), name = text(r.name).trim();
       if (p && (!name || name.toLowerCase() === `cptid ${c}`) && p.note != null)
-        parts.push(`Dashboard-added prospect note${prefix(c)} · ${meta([p.created_at, p.created_by])}\n${p.note}`);
+        append(p.note);
       const state = object(object(t.prospects)[String(c)]);
-      if (text(state.reason)) parts.push(`Current tracking reason${prefix(c)} · ${meta([state.updatedAt, state.by])}\n${text(state.reason)}`);
+      append(state.reason);
     }
     for (const a of activity.get(id) ?? []) {
       const native = object(a._canonical), canonical = Object.keys(native).length > 0;
       // Canonical raw NULL and explicit empty are different current values;
       // neither may revive the original imported text.
-      const body = canonical ? native.text === null ? "[Note text is NULL]" : native.text === "" ? "[Note explicitly blank]" : text(native.text) : text(a.note);
-      const date = canonical ? native.date : a.sourceDate ?? a.date;
-      const edited = a.editedAt || a.editedBy ? `\nEdited ${meta([a.editedAt, a.editedBy])}` : "";
-      parts.push(`${canonical ? "Campaign history" : "Dashboard activity"}${prefix(Number(a.cptid))} · ${meta([a.kind, date, a.by, a.at])}\n${body}${edited}`);
+      append(canonical ? native.text : a.note);
     }
-    for (const n of direct.get(id) ?? []) appendDirect(n, Number(n.cptid));
+    for (const n of direct.get(id) ?? []) appendDirect(n);
     return parts.join("\n\n");
   };
 }
@@ -73,7 +71,7 @@ export function prospectNotes(cptid: number, context: Context): string { return 
  * source note/history too; suppress only the known exact pool->portfolio copy. */
 export function gc2pSourceNotes(row: unknown, record: unknown): string {
   const p = object(row), portfolio = object(object(record).portfolio), out: string[] = [];
-  if (text(p.note) && p.note !== portfolio.task) out.push(`Source GC2P note\n${text(p.note)}`);
-  if (text(p.history) && p.history !== portfolio.relationship) out.push(`Source GC2P history\n${text(p.history)}`);
+  if (substantive(p.note) && p.note !== portfolio.task) out.push(text(p.note));
+  if (substantive(p.history) && p.history !== portfolio.relationship) out.push(text(p.history));
   return out.join("\n\n");
 }
