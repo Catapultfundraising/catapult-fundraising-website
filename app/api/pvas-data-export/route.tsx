@@ -1,3 +1,4 @@
+import { isWideProspectTable, loadBoundedPdfText, WideProspectRows } from "@/lib/brand-wide-prospect-pdf";
 import {reconstructDashboardExport,ExportIntentError} from "@/lib/portal-v2/dashboard-export.server";
 import { NextRequest, NextResponse } from "next/server";
 import { Document, Page, View, Text } from "@react-pdf/renderer";
@@ -49,6 +50,8 @@ export async function POST(req: NextRequest) {
   const { renderToBuffer } = await import("@react-pdf/renderer");
   const landscape = b.cols.length > 6;
   const contentW = (landscape ? 792 : 612) - 72;
+  const wideProspects = isWideProspectTable(b.cols);
+  const boundedText = wideProspects ? await loadBoundedPdfText() : undefined;
   // Column widths from content length, capped so long text wraps.
   const weights = b.cols.map((c, i) => {
     let w = c.label.length;
@@ -72,7 +75,7 @@ export async function POST(req: NextRequest) {
         <Text style={bs.title}>{title}</Text>
         <Text style={bs.meta}>{subtitle} · {total.toLocaleString("en-US")} rows</Text>
         <View style={{ marginTop: 10 }}>
-          <Head />
+          {!wideProspects && <Head />}
           {b.sections.map((s, si) => (
             <View key={si}>
               {s.heading && (
@@ -81,7 +84,7 @@ export async function POST(req: NextRequest) {
                 </View>
               )}
               {/* Notes may exceed a page; keep rows splittable above the reserved footer. */}
-              {s.rows.map((r, ri) => (
+              {wideProspects ? <WideProspectRows cols={b.cols} rows={s.rows} width={contentW} styles={bs} format={fmt} bound={boundedText!} /> : s.rows.map((r, ri) => (
                 <View key={ri} style={ri % 2 ? bs.trAlt : bs.tr} wrap>
                   {b.cols.map((c, i) => (
                     <Text key={i} style={[bs.td, { width: widths[i], textAlign: c.kind && c.kind !== "text" ? "right" : "left" }]}>{fmt(r[i], c.kind)}</Text>
