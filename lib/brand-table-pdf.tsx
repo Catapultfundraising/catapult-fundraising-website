@@ -34,8 +34,9 @@ export async function renderTablePdf(o: { title: string; eyebrow: string; subtit
             <View key={si} style={{ marginTop: 10 }}>
               {s.heading && <View style={bs.band} wrap={false} minPresenceAhead={30}><Text style={bs.bandText}>{s.heading}</Text></View>}
               <View style={bs.thead} wrap={false}>{cols.map((c, i) => <Text key={i} style={[bs.th, { width: widths[i], textAlign: c.kind && c.kind !== "text" ? "right" : "left" }]}>{c.label}</Text>)}</View>
+              {/* Notes may exceed a page; keep rows splittable above the reserved footer. */}
               {s.rows.map((r, ri) => (
-                <View key={ri} style={ri % 2 ? bs.trAlt : bs.tr} wrap={false}>
+                <View key={ri} style={ri % 2 ? bs.trAlt : bs.tr} wrap>
                   {cols.map((c, i) => <Text key={i} style={[bs.td, { width: widths[i], textAlign: c.kind && c.kind !== "text" ? "right" : "left" }]}>{fmt(r[i], c.kind)}</Text>)}
                 </View>
               ))}

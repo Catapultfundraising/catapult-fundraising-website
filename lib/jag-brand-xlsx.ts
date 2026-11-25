@@ -1,3 +1,4 @@
+import { preserveWorkbookText, sanitizeXlsxText } from "@/lib/brand-xlsx-text";
 import ExcelJS from "exceljs";
 import { LOGO_URL, LOGO_ASPECT } from "@/lib/jag-brand-pdf";
 import { FIRM_EMAIL, FIRM_PHONE } from "@/lib/constants";
@@ -28,7 +29,7 @@ export function safeSheetName(name: string, taken: Set<string> = new Set()) {
   return n;
 }
 /** Strip characters that are illegal in XML 1.0 (control chars, lone surrogates); they corrupt the shared strings part. */
-export const xmlSafe = (v: unknown) => (typeof v === "string" ? v.replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "").replace(/[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/g, "").slice(0, 32000) : v);
+export const xmlSafe = (v: unknown) => typeof v === "string" ? sanitizeXlsxText(v) : v;
 
 /** ExcelJS writes `editAs` on <xdr:oneCellAnchor> (the logo), which the OOXML schema only allows on twoCellAnchor.
  *  Strict readers reject it and some Excel builds offer to "repair" the file, so strip it before download. */
@@ -39,6 +40,12 @@ export async function finalizeXlsx(buf: Buffer | ArrayBuffer): Promise<Buffer> {
     const xml = await zip.file(name)!.async("string");
     const fixed = xml.replace(/<xdr:oneCellAnchor editAs="[^"]*">/g, "<xdr:oneCellAnchor>");
     if (fixed !== xml) zip.file(name, fixed);
+  }
+  // Literal CR/CRLF in XML text is normalized to LF by XML readers. Character
+  // references retain the original note's carriage returns as well as newlines.
+  for (const name of Object.keys(zip.files).filter((n) => n === "xl/sharedStrings.xml" || /^xl\/worksheets\/sheet\d+\.xml$/.test(n))) {
+    const xml = await zip.file(name)!.async("string");
+    if (xml.includes("\r")) zip.file(name, xml.replace(/\r/g, "&#13;"));
   }
   return Buffer.from(await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" }));
 }
@@ -130,5 +137,6 @@ export async function buildBrandedXlsx(opts: {
     }));
     x.cols.forEach((c, i) => { let w = c.label.length; for (const r of x.rows.slice(0, 400)) w = Math.max(w, String(r[i] ?? "").length); sh.getColumn(i + 1).width = Math.min(60, Math.max(10, w + 2)); });
   }
+  preserveWorkbookText(wb);
   return finalizeXlsx(await wb.xlsx.writeBuffer());
 }
