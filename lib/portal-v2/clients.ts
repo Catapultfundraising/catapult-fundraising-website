@@ -51,7 +51,7 @@ export interface CampaignLevel { level: number; gifts: number; value: number; se
  * and the payments against it are not counted twice (outright gifts with no pledge still count).
  * Each donor sits at the largest chart level their credit reaches; below the smallest level = "below chart".
  */
-export function campaignByLevel(chart: GiftChart, gifts: PortalGift[]) {
+export function campaignByLevel(chart: Pick<GiftChart, "rows">, gifts: PortalGift[]) {
   const byDonor = new Map<string, CampaignDonor>();
   const exact=gifts.some(g=>g.amountExact!==undefined),balances=new Map<string,{gifts:bigint;pledges:bigint;credit:bigint}>();
   if(exact&&!gifts.every(g=>typeof g.amountExact==="string"))throw new Error("Incomplete exact campaign amounts");

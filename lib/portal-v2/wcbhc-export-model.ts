@@ -200,39 +200,6 @@ case "Portfolio.3": {
 const exportCols: TableColumn[] = [{ key: "name", label: "Prospect" }, { key: "reason", label: "Reason" }];
 return {title:("Not Seated").replace(/\.csv$/i,"").replace(/^WCBHC /,""),subtitle:undefined,rows:(d.notSeated) as unknown as TableRow[],cols:exportCols};
 }
-case "Givebutter.0": {
-const g = d.givebutter;
-const usd = (n: number, d = 0) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: d, minimumFractionDigits: d });
-const exportCols: TableColumn[] = [
-          { key: "campaign", label: "Type" }, { key: "gifts", label: "Gifts", right: true },
-          { key: "total", label: "Dollars", fmt: (v) => usd(v as number), right: true },
-        ];
-return {title:("Campaign Gifts by Type").replace(/\.csv$/i,"").replace(/^WCBHC /,""),subtitle:undefined,rows:(g.byCampaign) as unknown as TableRow[],cols:exportCols};
-}
-case "Givebutter.1": {
-const g = d.givebutter;
-const usd = (n: number, d = 0) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: d, minimumFractionDigits: d });
-const exportCols: TableColumn[] = [
-          { key: "name", label: "Name" }, { key: "pledged", label: "Pledged On" },
-          { key: "amount", label: "Amount", fmt: (v: unknown) => usd(v as number), right: true },
-          { key: "remaining", label: "Remaining", fmt: (v: unknown) => usd(v as number), right: true },
-                    { key: "campaign", label: "Campaign" }, { key: "status", label: "Status" },
-        ];
-return {title:("Campaign Pledges").replace(/\.csv$/i,"").replace(/^WCBHC /,""),subtitle:undefined,rows:(g.pledges) as unknown as TableRow[],cols:exportCols};
-}
-case "Givebutter.2": {
-const g = d.givebutter;
-const usd = (n: number, d = 0) =>
-  n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: d, minimumFractionDigits: d });
-const exportCols: TableColumn[] = [
-          { key: "date", label: "Date" }, { key: "name", label: "Name" },
-          { key: "amount", label: "Amount", fmt: (v: unknown) => usd(v as number, 2), right: true },
-          { key: "dedication", label: "Type" }, { key: "fund", label: "Description" }, { key: "status", label: "Status" },
-        ];
-return {title:("Campaign Gifts").replace(/\.csv$/i,"").replace(/^WCBHC /,""),subtitle:undefined,rows:(g.transactions) as unknown as TableRow[],cols:exportCols};
-}
 default:throw new Error("Unknown dashboard table selector");
 }}
 

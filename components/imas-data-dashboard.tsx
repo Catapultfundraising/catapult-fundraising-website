@@ -9,6 +9,7 @@ import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
+import { CampaignGifts } from "@/components/campaign-gifts";
 import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
@@ -609,38 +610,6 @@ function Portfolio({ d }: { d: ImasSnapshot }) {
   );
 }
 
-function Givebutter({ d }: { d: ImasSnapshot }) {
-  const g = d.givebutter;
-  const ids = useIds();
-  return (
-    <div className="space-y-6">
-      <CampaignProgress />
-      <Card className="border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5">
-        <p className="text-sm text-[rgb(var(--ink))]/75">
-          Gifts recorded to the $19M Phase 1 Capital Campaign{g.from ? ` from ${g.from} to ${g.to}` : ""}, plus committee pledges and verbal commitments. Campaign totals above include gifts and pledges without counting pledge payments twice. The gift dollars below show payments received only.
-        </p>
-      </Card>
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Campaign gifts" value={num(g.txCount)} note={`${num(g.txDonors)} donors`} onClick={() => ids('Gift donors', "", g.transactions as { cptid?: number | null }[])} />
-        <Stat label="Campaign payments received" value={usd(g.txTotal)} onClick={() => ids('Gift donors', "", g.transactions as { cptid?: number | null }[])} />
-        <Stat label="Committee pledges" value={num(g.pledgeCount)} onClick={() => ids('Pledges', "", g.pledges as { cptid?: number | null }[])} />
-        <Stat label="Pledged" value={usd(g.pledgeTotal)} onClick={() => ids('Pledges', "", g.pledges as { cptid?: number | null }[])} />
-      </div>
-      <Card>
-        <H sub="Campaign gifts by payment type">Gifts by type</H>
-        <Table exportSource={{table:"Givebutter.0",snapshot:d,parameters:{}}} rowClick={(r: { campaign: string }) => ids(r.campaign, "Donors with gifts in this group", (g.transactions as { cptid?: number | null; campaign?: string }[]).filter((t) => (t.campaign || "General") === r.campaign))} csvName="Campaign Gifts by Type"   />
-      </Card>
-      <Card>
-        <H sub="Committee pledges and verbal commitments, largest first">Pledges</H>
-        <Table exportSource={{table:"Givebutter.1",snapshot:d,parameters:{}}} csvName="Campaign Pledges"   />
-      </Card>
-      <Card>
-        <H sub="Every campaign gift, newest first">Gifts</H>
-        <Table exportSource={{table:"Givebutter.2",snapshot:d,parameters:{}}} csvName="Campaign Gifts"   />
-      </Card>
-    </div>
-  );
-}
 
 export function ImasDataDashboard({ data }: { data: ImasSnapshot }) {
   return <CrmProvider><PortalV2Provider client="imas"><ImasDashboardBody data={data} /></PortalV2Provider></CrmProvider>;
@@ -699,7 +668,7 @@ function ImasDashboardBody({ data: snapshot }: { data: ImasSnapshot }) {
         {tab === "Committee" && <Board d={data} />}
         {tab === "Campaign Prospects" && <Portfolio d={data} />}
         {tab === "Database Health" && <Health d={data} />}
-        {tab === "Campaign Gifts" && <Givebutter d={data} />}
+        {tab === "Campaign Gifts" && <CampaignGifts snapshot={data} Table={Table} />}
         </SafeBoundary>
         <p className="mt-10 text-xs text-[rgb(var(--ink))]/50">
           {dates.refreshed}. Lifetime totals include all gifts recorded in the IMAS database.

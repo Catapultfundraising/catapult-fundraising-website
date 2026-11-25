@@ -9,6 +9,7 @@ import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
+import { CampaignGifts } from "@/components/campaign-gifts";
 import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
@@ -33,7 +34,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Calling", "Database Health", "Alumni", "Campaign Donors", "Add + Upload"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Calling", "Database Health", "Alumni", "Campaign Gifts", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -676,6 +677,7 @@ function CsnfDashboardBody({ data: snapshot }: { data: CsnfSnapshot }) {
         {tab === "Donor Lookup" && <Lookup d={data} />}
         {tab === "Prospect Ratings" && (staff ? <BoardReviewAdmin client="csnf" /> : <StaffSignIn client="csnf" />)}
         {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
+        {tab === "Campaign Gifts" && <CampaignGifts snapshot={data} Table={Table} />}
         {tab === "Campaign Donors" && <CampaignDonors />}
         {tab === "Add + Upload" && <AddAndUpload />}
         {tab === "Gift Pyramid" && <Pyramid d={data} />}
