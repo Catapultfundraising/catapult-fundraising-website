@@ -48,7 +48,10 @@ export function SponsorshipReview({preview=true}:{preview?:boolean}){
  {ordered.map(p=><div key={`${data.member.id}:${p.id}`} hidden={!filtered.slice(page*10,page*10+10).some(v=>v.id===p.id)}><ProspectReview prospect={p} controller={controllerFor(p.id,latest.get(p.id))} closing={closing}/></div>)}
  </div>{!filtered.length&&<p>No companies match your search. Try a different company or contact name.</p>}
  <nav className="sa-pagination" aria-label="Roster pages"><button className="sa-text-button" disabled={navigating||page===0} onClick={()=>void navigate(()=>setPage(page-1),true)}>← Previous</button><span>Page {page+1} of {Math.max(1,Math.ceil(filtered.length/10))}</span><button className="sa-text-button" disabled={navigating||(page+1)*10>=filtered.length} onClick={()=>void navigate(()=>setPage(page+1),true)}>Next →</button></nav>
+ {/* Keep the final-question draft/controller mounted across paging and search. */}
+ <div hidden={searchInput!==''||search!==''||page!==Math.max(0,Math.ceil(ordered.length/10)-1)}>
  <SuggestionsReview controller={controllerFor('other-companies',latest.get('other-companies'))} closing={closing}/>
+ </div>
  </>}
  <footer className="sa-footer">The Salvation Army · Southwest Division<br/>Private sponsorship planning. Contact details are for committee coordination only.</footer></div></div>;
 }
