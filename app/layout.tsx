@@ -10,6 +10,7 @@ import { CookieConsent } from "@/components/cookie-consent";
 import { PrivateRoute } from "@/components/private-route";
 import { BareRoute } from "@/components/bare-route";
 import { WebinarBar } from "@/components/webinar-bar";
+import { HomeWebinarBanner } from "@/components/home-webinar-banner";
 import { FIRM_PHONE, FIRM_EMAIL, FIRM_ADDRESS_LINES } from "@/lib/constants";
 
 const SITE_URL = "https://www.catapultfr.com";
@@ -502,6 +503,7 @@ document.head.appendChild(o)}initApollo();`,
         />
         </PrivateRoute>
         <BareRoute>
+          <HomeWebinarBanner />
           <WebinarBar />
           <SiteHeader />
         </BareRoute>
