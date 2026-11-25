@@ -36,7 +36,7 @@ const DETAIL_LINES = 12;
 function noteLines(text: string, width: number): number {
   const capacity = Math.max(1, Math.floor((width - 4) / 2));
   return text.split(/\r\n|\r|\n/).reduce((lines, line) => lines + Math.max(1,
-    Math.ceil(Array.from(line).reduce((n, c) => n + (c.codePointAt(0)! > 255 ? 2 : 1), 0) / capacity)), 0);
+    Math.ceil(Array.from(line).reduce((n, c) => n + (c === "\t" ? 8 : c.codePointAt(0)! > 255 ? 2 : 1), 0) / capacity)), 0);
 }
 
 function readableNoteParts(text: string): string[] {
@@ -45,7 +45,11 @@ function readableNoteParts(text: string): string[] {
   // Match CRLF and Unicode codepoints atomically; joining parts is byte-exact.
   for (const token of text.match(/\r\n|[\s\S]/gu) ?? []) {
     if (current && noteLines(current + token, DETAIL_WIDTH) > DETAIL_LINES) {
-      parts.push(current); current = "";
+      // Prefer an existing line/word boundary, without dropping whitespace.
+      const newline = Math.max(current.lastIndexOf("\n"), current.lastIndexOf("\r"));
+      const space = Math.max(current.lastIndexOf(" "), current.lastIndexOf("\t"));
+      const boundary = newline >= current.length / 2 ? newline + 1 : space >= current.length / 2 ? space + 1 : current.length;
+      parts.push(current.slice(0, boundary)); current = current.slice(boundary);
     }
     current += token;
   }
@@ -66,17 +70,22 @@ function captureProspectNotes(sources: ExcelJS.Worksheet[]) {
     const id = headers.findIndex(v => typeof v === "string" && /^CPTID$/i.test(v));
     const name = headers.findIndex(v => typeof v === "string" && /^(?:(?:prospect|donor|full|display) )?name$/i.test(v));
     noteColumns.forEach(column => { ws.getColumn(column).width = NOTE_WIDTH; });
+    let recordNotesSection = false;
+    let recordId = "";
+    const recordName = ws.getCell("A2").text.replace(/^Donor Record,\s*/i, "");
     ws.eachRow((row, rn) => {
       if (rn <= headerRow) return;
+      if (row.getCell(1).isMerged) recordNotesSection = row.getCell(1).text.startsWith(PROSPECT_NOTES_LABEL);
+      if (!noteColumns.length && row.getCell(1).value === "CPTID") recordId = row.getCell(2).text;
       for (const column of noteColumns) {
         const cell = row.getCell(column);
         if (cell.isMerged || typeof cell.value !== "string") continue;
         notes.push({ ws, cell, text: sanitizeXlsxText(cell.value), identity: [id, name].map(c => c > 0 ? row.getCell(c).text : "") });
       }
       // Individual record downloads place canonical notes in a labelled row.
-      if (!noteColumns.length && row.getCell(1).value === "Notes" && typeof row.getCell(2).value === "string" && !row.getCell(2).isMerged) {
+      if (recordNotesSection && !noteColumns.length && row.getCell(1).value === "Notes" && typeof row.getCell(2).value === "string" && !row.getCell(2).isMerged) {
         ws.getColumn(2).width = NOTE_WIDTH;
-        notes.push({ ws, cell: row.getCell(2), text: sanitizeXlsxText(row.getCell(2).value as string), identity: ["", ""] });
+        notes.push({ ws, cell: row.getCell(2), text: sanitizeXlsxText(row.getCell(2).value as string), identity: [recordId, recordName] });
       }
     });
   });
@@ -101,6 +110,7 @@ function formatProspectNotes(wb: ExcelJS.Workbook, notes: ReturnType<typeof capt
     return sh;
   };
   for (const { ws, cell, text, identity } of notes) {
+    ws.getRow(Number(cell.row)).eachCell(c => { c.alignment = { ...c.alignment, vertical: "top" }; });
     cell.alignment = { ...cell.alignment, vertical: "top", wrapText: true };
     let display = text;
     if (noteLines(text, NOTE_WIDTH) > INLINE_LINES) {

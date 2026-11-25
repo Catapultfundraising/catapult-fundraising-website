@@ -25,7 +25,7 @@ function originalText(wb,ws,cell){
   const before=JSON.stringify(opts),buf=await buildBrandedXlsx(opts);assert.equal(JSON.stringify(opts),before,'no mutation');fs.writeFileSync(path.join(out,client+'.xlsx'),buf);
   const wb=new ExcelJS.Workbook();await wb.xlsx.load(buf);const ws=wb.worksheets[0];
   if(!process.env.CAPTURE_BASE_ONLY){
-   assert.equal(ws.getCell('C6').alignment?.wrapText,true,client+': ordinary prospect note must wrap');assert.equal(ws.getCell('C6').alignment.vertical,'top');assert.ok(ws.getColumn(3).width>=60);assert.ok(ws.getRow(6).height>=150&&ws.getRow(6).height<=409);
+   assert.equal(ws.getCell('C6').alignment?.wrapText,true,client+': ordinary prospect note must wrap');assert.equal(ws.getCell('C6').alignment.vertical,'top');assert.equal(ws.getCell('A6').alignment.vertical,'top');assert.ok(ws.getColumn(3).width>=60);assert.ok(ws.getRow(6).height>=150&&ws.getRow(6).height<=409);
    notes.forEach((note,i)=>assert.equal(originalText(wb,ws,ws.getCell(i+6,3)),note,client+': exact notes incl CRLF'));
    for(const i of [1,2,4])assert.match(ws.getCell(i+6,3).value,/Readable notes: Prospect notes/);
    assert.equal(ws.getCell('C9').value,notes[3]);assert.ok(ws.getRow(9).height>=20&&ws.getRow(9).height<60);
@@ -36,6 +36,8 @@ function originalText(wb,ws,cell){
    // Actual15-column roster, not just reduced visual proof.
    const wide={...opts,cols:[...opts.cols.slice(0,2),...Array.from({length:12},(_,i)=>({label:'Context '+i})),opts.cols[2]],sections:[{rows:[[990007,'Fictional Wide Family',...Array(12).fill('Context'),ordinary]]}]};
    const w=new ExcelJS.Workbook();await w.xlsx.load(await buildBrandedXlsx(wide));assert.equal(w.worksheets[0].getCell('O6').alignment.wrapText,true);assert.ok(w.worksheets[0].getRow(6).height>=150);
+   const rec={...opts,title:'Donor Record, Fictional Record',cols:[{label:'Year'},{label:'Amount',kind:'usd'},...Array(4).fill({label:''})],sections:[{heading:'Profile',rows:[['CPTID','990009'],['Notes','Not a canonical note row']]},{heading:PROSPECT_NOTES_LABEL,rows:[['Notes',beyondRow]]}]};
+   const rw=new ExcelJS.Workbook();await rw.xlsx.load(await buildBrandedXlsx(rec));const rs=rw.worksheets[0];assert.equal(rs.getCell('B8').value,'Not a canonical note row');assert.equal(originalText(rw,rs,rs.getCell('B10')),beyondRow);const detail=rw.worksheets.find(s=>s.getCell('A1').value==='Report sheet');assert.equal(detail.getCell('C2').value,'990009');assert.equal(detail.getCell('D2').value,'Fictional Record');
    console.log(`PASS ${client}: ordinary multiline inline; row/cell-limit and unbroken notes readable; exact Unicode/CRLF;15 columns; no mutation`);
   }
  }
