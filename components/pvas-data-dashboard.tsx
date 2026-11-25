@@ -4,12 +4,13 @@ import {buildDashboardExportModel,type TableSource} from "@/lib/portal-v2/dashbo
 
 import { dashboardDateLabels } from "@/lib/dashboard-dates";
 
-import { filterAssignments, isUnassigned, assignmentMembers, belongsToSolicitor } from "@/lib/portal-v2/effective-assignment";
+import { filterAssignments, isUnassigned } from "@/lib/portal-v2/effective-assignment";
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
+import { Portfolio } from "@/components/portfolio";
 import { CampaignProspects } from "@/components/campaign-prospects";
 import { CampaignGifts } from "@/components/campaign-gifts";
 import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
@@ -36,7 +37,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Campaign Prospects", "Reports", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Gifts", "Campaign Donors", "Add + Upload"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Campaign Prospects", "Portfolio", "Reports", "Board", "Recent Givebutter Activity", "Database Health", "Campaign Gifts", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -612,34 +613,6 @@ function Health({ d }: { d: PvasSnapshot }) {
   );
 }
 
-function Portfolio({ d }: { d: PvasSnapshot }) {
-  const withAsk = d.portfolio.filter((p) => p.ask > 0);
-  const bySol = Array.from(new Set(d.portfolio.flatMap((p) => assignmentMembers(p)))).sort().map((s) => {
-    const ps = d.portfolio.filter((p) => belongsToSolicitor(p, s));
-    return { solicitor: s, prospects: ps.length, asks: ps.filter((p) => p.ask > 0).length, ask: ps.reduce((a, p) => a + p.ask, 0) };
-  }).sort((a, b) => b.ask - a.ask);
-  const ids = useIds();
-  const { tracking } = useCrm();
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Portfolio prospects" value={num(d.portfolio.length)} onClick={() => ids('Campaign prospects', "", d.portfolio)} />
-        <Stat label="With a Campaign Ask" value={num(withAsk.length)} onClick={() => ids('Prospects with a Campaign Ask', "", withAsk)} />
-        <Stat label="Total Campaign Asks" value={short(withAsk.reduce((a, p) => a + p.ask, 0))} onClick={() => ids('Prospects with a Campaign Ask', "", withAsk)} />
-        <Stat label="Committed (Stewardship)" value={num(d.committed.length)} note={short(d.committed.reduce((a, p) => a + p.ask, 0))} onClick={() => ids('Committed', "", d.committed)} />
-      </div>
-      <Card>
-        <H sub="Campaign portfolio by primary or secondary solicitor (a prospect may appear in both)">Solicitor assignments</H>
-        <Table exportSource={{table:"Portfolio.0",snapshot:d,parameters:{}}} rowClick={(r: { solicitor: string }) => ids(`Solicitor: ${r.solicitor}`, "Prospects assigned to this solicitor", d.portfolio.filter((p) => belongsToSolicitor(p, r.solicitor)))} csvName="Portfolio by Solicitor"   />
-      </Card>
-      <Card>
-        <H sub="Every prospect in the campaign portfolio, largest Campaign Ask first. Click a name to open the record.">Campaign portfolio</H>
-        <Table exportSource={{table:"Portfolio.1",snapshot:d,parameters:{}}} csvName="Campaign Portfolio"   />
-      </Card>
-    </div>
-  );
-}
-
 function Givebutter({ d }: { d: PvasSnapshot }) {
   const g = d.givebutter;
   const ids = useIds();
@@ -734,9 +707,9 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
         {tab === "Gift Chart + GC2P" && <GiftChartTab d={data} />}
         {tab === "Prospects" && <Prospects d={data} />}
         {tab === "Campaign Prospects" && <CampaignProspects index={index} PeopleTable={PeopleTable} DownloadButtons={DownloadButtons} indexPayload={indexPayload} />}
+        {tab === "Portfolio" && <Portfolio index={index} committedCount={data.committed.length} PeopleTable={PeopleTable} DownloadButtons={DownloadButtons} indexPayload={indexPayload} />}
         {tab === "Reports" && <ReportsTab clientLabel={data.client} />}
         {tab === "Board" && <Board d={data} />}
-        {tab === "Portfolio" && <Portfolio d={data} />}
         {tab === "Database Health" && <Health d={data} />}
         {tab === "Recent Givebutter Activity" && <Givebutter d={data} />}
         </SafeBoundary>

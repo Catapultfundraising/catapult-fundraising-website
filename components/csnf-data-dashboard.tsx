@@ -3,12 +3,13 @@ import {buildDashboardExportModel,type TableSource} from "@/lib/portal-v2/dashbo
 
 import { dashboardDateLabels } from "@/lib/dashboard-dates";
 
-import { filterAssignments, isUnassigned, assignmentMembers, belongsToSolicitor } from "@/lib/portal-v2/effective-assignment";
+import { filterAssignments, isUnassigned } from "@/lib/portal-v2/effective-assignment";
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
+import { Portfolio } from "@/components/portfolio";
 import { CampaignProspects } from "@/components/campaign-prospects";
 import { CampaignGifts } from "@/components/campaign-gifts";
 import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
@@ -35,7 +36,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Campaign Prospects", "Reports", "Board", "Calling", "Database Health", "Alumni", "Campaign Gifts", "Campaign Donors", "Add + Upload"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Campaign Prospects", "Portfolio", "Reports", "Board", "Calling", "Database Health", "Alumni", "Campaign Gifts", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -685,6 +686,7 @@ function CsnfDashboardBody({ data: snapshot }: { data: CsnfSnapshot }) {
         {tab === "Gift Chart + GC2P" && <GiftChartTab d={data} />}
         {tab === "Prospects" && <Prospects d={data} />}
         {tab === "Campaign Prospects" && <CampaignProspects index={index} PeopleTable={PeopleTable} DownloadButtons={DownloadButtons} indexPayload={indexPayload} />}
+        {tab === "Portfolio" && <Portfolio index={index} committedCount={(data as typeof data & { committed?: unknown[] }).committed?.length} PeopleTable={PeopleTable} DownloadButtons={DownloadButtons} indexPayload={indexPayload} />}
         {tab === "Reports" && <ReportsTab clientLabel={data.client} />}
         {tab === "Board" && <Board d={data} />}
         {tab === "Calling" && <Calling d={data} />}
