@@ -24,11 +24,10 @@ export function Portfolio<I extends PortfolioAskRow>({
   const subtitle = solicitor ? `Primary or secondary solicitor: ${solicitor}` : "All current primary or secondary solicitor assignments";
   const payload = (summary: boolean): CurrentExportPayload => {
     const intent: PortfolioIntent = { kind: "portfolio", solicitor, summary };
-    // The shared export union is extended by the authoritative server slice.
     // Keep the existing placeholder payload for DownloadButtons' transport.
     return { ...indexPayload(summary ? "Solicitor assignments" : "Portfolio prospects", subtitle, model.rows),
       ...(summary ? { notes: [] } : {}),
-      intent: intent as unknown as CurrentExportPayload["intent"] };
+      intent };
   };
   return <div className="space-y-6">
     <div className={card}>
@@ -45,7 +44,7 @@ export function Portfolio<I extends PortfolioAskRow>({
       {[
         ["Portfolio prospects", num(model.stats.assigned), "Current solicitor selection"],
         ["With a Campaign Ask", num(model.stats.withAsk), "Current solicitor selection"],
-        ["Total Campaign Asks", usd(model.stats.askTotal), "Effective asks; cleared or missing asks add no amount"],
+        ["Total Campaign Asks", model.stats.assigned > 0 && model.stats.askReview + model.stats.askMissing === model.stats.assigned ? "Not available" : usd(model.stats.askTotal), `Known amounts only; ${num(model.stats.askReview)} need review, ${num(model.stats.askMissing)} without an amount`],
         ["Committed (Stewardship)", committedCount === undefined ? "Not available" : num(committedCount), "All source Stewardship commitments; not filtered by solicitor"],
       ].map(([label, value, note]) => <div key={label} className={card}>
         <p className="font-display text-2xl text-[rgb(var(--navy))]">{value}</p>
@@ -61,11 +60,11 @@ export function Portfolio<I extends PortfolioAskRow>({
       <div className="overflow-auto rounded-lg border border-[rgb(var(--line))]">
         <table className="w-full text-sm">
           <thead className="bg-[rgb(var(--navy))] text-left text-xs uppercase tracking-wider text-white">
-            <tr>{["Solicitor", "Prospects", "Primary", "Secondary", "With an Ask", "Campaign Asks"].map((label, i) => <th key={label} scope="col" className={`whitespace-nowrap px-3 py-2 ${i ? "text-right" : ""}`}>{label}</th>)}</tr>
+            <tr>{["Solicitor", "Prospects", "Primary", "Secondary", "With an Ask", "Campaign Asks (known)", "Need ask review", "Without an amount"].map((label, i) => <th key={label} scope="col" className={`whitespace-nowrap px-3 py-2 ${i ? "text-right" : ""}`}>{label}</th>)}</tr>
           </thead>
           <tbody>{model.summary.map((row, i) => <tr key={row.solicitor} className={i % 2 ? "bg-[rgb(var(--paper))]" : "bg-white"}>
             <th scope="row" className="px-3 py-2 text-left font-medium"><button type="button" aria-pressed={solicitor === row.solicitor} onClick={() => setSolicitor(row.solicitor)} className="text-[rgb(var(--navy))] underline decoration-[rgb(var(--brass))]/40">{row.solicitor}</button></th>
-            {[num(row.prospects), num(row.primary), num(row.secondary), num(row.withAsk), usd(row.askTotal)].map((value, column) => <td key={column} className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{value}</td>)}
+            {[num(row.prospects), num(row.primary), num(row.secondary), num(row.withAsk), row.askReview + row.askMissing === row.prospects ? "Not available" : usd(row.askTotal), num(row.askReview), num(row.askMissing)].map((value, column) => <td key={column} className="whitespace-nowrap px-3 py-2 text-right tabular-nums">{value}</td>)}
           </tr>)}</tbody>
         </table>
       </div>
@@ -74,7 +73,7 @@ export function Portfolio<I extends PortfolioAskRow>({
     <section className={card} aria-label="Campaign portfolio">
       <h3 className="font-display text-xl text-[rgb(var(--navy))]">Campaign portfolio</h3>
       <p className="mb-3 text-sm text-[rgb(var(--ink))]/60">{subtitle}. Click a name to open the record.</p>
-      {model.rows.some(row => row.campaignAsk?.askConflict) && <p role="status" className="mb-3 text-sm text-[rgb(var(--ink))]/60">Some selected prospects have conflicting campaign asks and need review in their records. Totals use the current effective ask only.</p>}
+      {model.rows.some(row => row.campaignAsk?.askConflict) && <p role="status" className="mb-3 text-sm text-[rgb(var(--ink))]/60">Some selected prospects have conflicting campaign asks and need review in their records. These unresolved asks are excluded from totals until reviewed.</p>}
       {model.rows.some(row => row.campaignAsk?.askBlank) && <p className="mb-3 text-xs text-[rgb(var(--ink))]/55">Some selected campaign asks were explicitly cleared; they are not saved zero-dollar asks and add no amount to totals.</p>}
       <div className="mb-3"><DownloadButtons get={() => payload(false)} /></div>
       <p className="mb-2 text-xs text-[rgb(var(--ink))]/55">Downloads include the full solicitor selection; the table search and sort are for browsing.</p>

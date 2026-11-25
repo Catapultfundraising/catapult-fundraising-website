@@ -61,7 +61,7 @@ export function createProspectNotes({ records, prospects = [], tracking, overlay
       const body = canonical ? native.text === null ? "[Note text is NULL]" : native.text === "" ? "[Note explicitly blank]" : text(native.text) : text(a.note);
       const date = canonical ? native.date : a.sourceDate ?? a.date;
       const edited = a.editedAt || a.editedBy ? `\nEdited ${meta([a.editedAt, a.editedBy])}` : "";
-      parts.push(`${canonical ? "Current canonical history" : "Dashboard activity"}${prefix(Number(a.cptid))} · ${meta([a.kind, date, a.by, a.at])}\n${body}${edited}`);
+      parts.push(`${canonical ? "Campaign history" : "Dashboard activity"}${prefix(Number(a.cptid))} · ${meta([a.kind, date, a.by, a.at])}\n${body}${edited}`);
     }
     for (const n of direct.get(id) ?? []) appendDirect(n, Number(n.cptid));
     return parts.join("\n\n");

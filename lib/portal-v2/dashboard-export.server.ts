@@ -3,7 +3,6 @@ import { createProspectNotes } from "./prospect-notes";
 import { buildOverlay, type UpdateRow } from "./record-overlay";
 import { PROSPECT_NOTES_LABEL, reportExportFields } from "./report-fields";
 import { portfolioModel, portfolioAsk } from "./portfolio";
-import { directLaneEnabled } from "./direct-registration.server";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 import type { PortalClient } from "./clients";
 import { portalCampaignStateSafe } from "./server";
@@ -72,7 +71,7 @@ export async function reconstructDashboardExport(client: PortalClient, rawIntent
   requireCurrentSql(client, state);
   if (!data || !state || !tracking) throw new Error("Current complete records/manual/source view unavailable");
   const revision = (data as unknown as {directSourceRevision?:string}).directSourceRevision;
-  if (directLaneEnabled(client) && !pvasCanonicalEnabled(client) && (!revision || revision !== (tracking as unknown as {directSourceRevision?:string}).directSourceRevision)) throw new Error("Source changed while preparing export; reload and retry");
+  if (!pvasCanonicalEnabled(client) && (!revision || revision !== (tracking as unknown as {directSourceRevision?:string}).directSourceRevision)) throw new Error("Source changed while preparing export; reload and retry");
   const projection = currentRecordProjection(client, data, state, tracking);
   const notesFor = createProspectNotes({ records: data.records, prospects: state.prospects, tracking, overlay: buildOverlay(state.updates as UpdateRow[]) });
   const withNotes = (payload: CurrentExportPayload, rows: { cptid: number }[]): CurrentExportPayload => ({
@@ -108,14 +107,14 @@ export async function reconstructDashboardExport(client: PortalClient, rawIntent
     if (intent.summary) {
       const summary = intent.solicitor ? model.summary.filter(row => row.solicitor === intent.solicitor) : model.summary;
       return { title: "Solicitor assignments", subtitle: `${selection} · A prospect may appear under more than one solicitor; totals are not additive.`,
-        cols: [{label:"Solicitor"},{label:"Prospects",kind:"num"},{label:"Primary assignments",kind:"num"},{label:"Secondary assignments",kind:"num"},{label:"With a Campaign Ask",kind:"num"},{label:"Total Campaign Asks",kind:"usd"}],
-        sections: [{rows:summary.map(row=>[row.solicitor,row.prospects,row.primary,row.secondary,row.withAsk,row.askTotal])}] };
+        cols: [{label:"Solicitor"},{label:"Prospects",kind:"num"},{label:"Primary assignments",kind:"num"},{label:"Secondary assignments",kind:"num"},{label:"With a Campaign Ask",kind:"num"},{label:"Campaign Asks (known amounts)",kind:"usd"},{label:"Asks needing review",kind:"num"},{label:"Asks without an amount",kind:"num"}],
+        sections: [{rows:summary.map(row=>[row.solicitor,row.prospects,row.primary,row.secondary,row.withAsk,row.askTotal,row.askReview,row.askMissing])}] };
     }
     const payload = io.index("Portfolio prospects", selection, model.rows as never);
     const withAsks = { ...payload, cols: [...payload.cols, {label:"Campaign Ask",kind:"usd" as const},{label:"Campaign Ask review"}],
       sections: payload.sections.map(section=>({...section,rows:section.rows.map((row,i)=>{
         const ask=model.rows[i].campaignAsk;
-        return [...row, ask?.askConflict ? null : ask?.ask ?? null, ask?.askConflict ? "Merged asks need review" : ask?.askBlank ? "Explicitly cleared" : ask?.ask == null ? "Not recorded" : ""];
+        return [...row, ask?.askConflict || ask?.askBlank ? null : ask?.ask ?? null, ask?.askConflict ? "Merged asks need review" : ask?.askBlank ? "Explicitly cleared" : ask?.ask == null ? "Not recorded" : ""];
       })})) };
     return withNotes(withAsks, model.rows);
   }
@@ -130,7 +129,7 @@ export async function reconstructDashboardExport(client: PortalClient, rawIntent
   const raw = await io.snapshot();
   if (!raw) throw new Error("Current snapshot unavailable");
   const source = await directData(client, raw, "snapshot");
-  if (directLaneEnabled(client) && (source as unknown as {directSourceRevision?:string}).directSourceRevision !== revision) throw new Error("Source changed during export; reload and retry");
+  if ((source as unknown as {directSourceRevision?:string}).directSourceRevision !== revision) throw new Error("Source changed during export; reload and retry");
   const snapshot = currentDashboardSnapshot(client, { ...source, campaignGifts: state.gifts }, projection.index, tracking, state.updates as UpdateRow[]);
   try {
     const model = buildDashboardExportModel(client, {table:intent.table,parameters:intent.parameters,snapshot,index:projection.index,tracking});

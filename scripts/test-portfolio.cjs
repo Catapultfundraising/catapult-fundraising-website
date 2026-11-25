@@ -32,19 +32,23 @@ const rows = [
 const before = JSON.stringify(rows);
 let model = portfolioModel(rows, portfolioAsk);
 assert.deepEqual(model.rows.map(row => row.cptid), [1, 2, 3, 4, 7], "full index, either solicitor, any status, proven assignments only");
-assert.deepEqual(model.stats, { assigned: 5, withAsk: 3, askTotal: 600 });
+assert.deepEqual(model.stats, { assigned: 5, withAsk: 3, askTotal: 600, askReview: 0, askMissing: 1 });
 assert.deepEqual(model.solicitors, ["Alpha", "Beta"]);
 assert.deepEqual(model.summary, [
-  { solicitor: "Alpha", prospects: 3, primary: 2, secondary: 2, withAsk: 2, askTotal: 300 },
-  { solicitor: "Beta", prospects: 3, primary: 1, secondary: 2, withAsk: 2, askTotal: 400 },
+  { solicitor: "Alpha", prospects: 3, primary: 2, secondary: 2, withAsk: 2, askTotal: 300, askReview: 0, askMissing: 0 },
+  { solicitor: "Beta", prospects: 3, primary: 1, secondary: 2, withAsk: 2, askTotal: 400, askReview: 0, askMissing: 1 },
 ]);
 assert.deepEqual(portfolioModel(rows, portfolioAsk, "Alpha").rows.map(row => row.cptid), [1, 2, 3]);
 assert.deepEqual(portfolioModel(rows, portfolioAsk, "Beta").rows.map(row => row.cptid), [1, 4, 7]);
 assert.equal(portfolioModel(rows, portfolioAsk, "Absent").rows.length, 0);
-assert.deepEqual(portfolioModel([], portfolioAsk).stats, { assigned: 0, withAsk: 0, askTotal: 0 });
+assert.deepEqual(portfolioModel([], portfolioAsk).stats, { assigned: 0, withAsk: 0, askTotal: 0, askReview: 0, askMissing: 0 });
 assert.equal(portfolioAsk({ campaignAsk: { ask: 0 }, ask: 999 }), 0);
 assert.equal(portfolioAsk({ campaignAsk: { ask: null }, ask: 999 }), 0);
 assert.equal(portfolioAsk({ ask: 999 }), 0, "never use source snapshot/rating fallback");
+assert.equal(portfolioAsk({campaignAsk:{ask:999999,askConflict:true}}),0,"stale scalar cannot revive conflicting ask");
+assert.equal(portfolioAsk({campaignAsk:{ask:999999,askBlank:true}}),0,"stale scalar cannot revive explicitly cleared ask");
+const held=portfolioModel([fixture(101,"Alpha","",999999,{campaignAsk:{ask:999999,askConflict:true}}),fixture(102,"Alpha","",999999,{campaignAsk:{ask:999999,askBlank:true}})],portfolioAsk);
+assert.equal(held.stats.askTotal,0);assert.equal(held.stats.withAsk,0);assert.equal(held.stats.askReview,1);assert.equal(held.stats.askMissing,1);
 assert.equal(JSON.stringify(rows), before, "input remains immutable");
 // Compose existing ask owner with the model: manual zero/blank and merged-source
 // edits are not replaced by a source ask or capacity rating.
@@ -56,7 +60,7 @@ const updates = [
 ];
 const overlay = buildOverlay(updates), edits = askEdits(updates.map(row => ({ old_value: "0", ...row })));
 const amounts = [11, 12, 13].map(cptid => ({ cptid, solicitor: "Alpha", campaignAsk: effectiveAsk(cptid, overlay, edits, id => id === 11 ? 0 : 99999) }));
-assert.deepEqual(portfolioModel(amounts, portfolioAsk).stats, { assigned: 3, withAsk: 1, askTotal: 450 });
+assert.deepEqual(portfolioModel(amounts, portfolioAsk).stats, { assigned: 3, withAsk: 1, askTotal: 450, askReview: 0, askMissing: 1 });
 console.log("PASS full-index assignment selection, primary/secondary summaries, all statuses, blank/zero/merged ask composition, immutable and empty models");
 
 function nodes(tree, type, out = []) {

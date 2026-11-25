@@ -27,10 +27,10 @@ const clients=["jag","csnf","pvas","wcbhc","baq","imas"];
 const idx=cptid=>({cptid,name:`ZZTEST ${cptid}`,kind:"Individual",city:"Fixture",lifetime:10,gifts:1,largest:10,last:"2026-01-01",years:1,band:"",capMin:0});
 const allRecords=Object.fromEntries([1,2,3,4,5,7,8,9].map(c=>[c,{...idx(c),contact:{},summary:{lifetime:10,gifts:1,largest:10,first:"2026-01-01",last:"2026-01-01",years:1},gifts:[],notes:[],...records[c]}]));
 allRecords[1].portfolio={solicitor:"ZZTEST Lead",ask:100};allRecords[4].portfolio={secondary:"ZZTEST Lead",ask:50};allRecords[7].portfolio={solicitor:"ZZTEST Lead",ask:20};allRecords[8].portfolio={secondary:"ZZTEST Other",ask:0};
-const fixtureData={asOf:"2026-11-25",records:allRecords,index:Object.keys(allRecords).map(Number).map(idx)};
-const fixtureTracking={...tracking,pirs:{},prospects:{...tracking.prospects,1:{...tracking.prospects[1],solicitor:"ZZTEST Lead"},7:{status:"Committed"},8:{status:"Disqualified"},9:{solicitor:"ZZTEST Lead",status:"Hold"}}};
+const fixtureData={directSourceRevision:"ZZTEST revision",asOf:"2026-11-25",records:allRecords,index:Object.keys(allRecords).map(Number).map(idx)};
+const fixtureTracking={...tracking,directSourceRevision:"ZZTEST revision",pirs:{},prospects:{...tracking.prospects,1:{...tracking.prospects[1],solicitor:"ZZTEST Lead"},7:{status:"Committed"},8:{status:"Disqualified"},9:{solicitor:"ZZTEST Lead",status:"Hold"}}};
 const fixtureState={configured:true,prospects:[],gifts:[],batches:[],updates:[...updates,{id:3,cptid:9,field:"ask",new_value:"250",old_value:null}]};
-const snapshot={builtAt:"2026-11-25 13:00",client:"ZZTEST",pool:[{...idx(1),ask:100,rating:100,basis:"Committee",ds:"",capacity:""}],portfolio:[{...idx(1),ask:100}],board:[],top:[idx(1)],committed:[],stages:[]};
+const snapshot={directSourceRevision:"ZZTEST revision",builtAt:"2026-11-25 13:00",client:"ZZTEST",pool:[{...idx(1),ask:100,rating:100,basis:"Committee",ds:"",capacity:""}],portfolio:[{...idx(1),ask:100}],board:[],top:[idx(1)],committed:[],stages:[]};
 let capturedXlsx, authed=true;
 const prior=Module._load;
 Module._load=function(name,parent,isMain){
@@ -68,6 +68,15 @@ Module._load=function(name,parent,isMain){
   assert.ok(!aggregate.cols.some(c=>c.label===label),`${client} campaign-by-source remains aggregate`);
   await assert.rejects(()=>reconstructDashboardExport(client,{kind:"index",ids:[2]},{}),/merged\/deleted/);
  }
+ // Missing/mismatched parity must remain a hard hold, even if the direct mode
+ // is not enabled in a preview. Never weaken the existing integrity fences.
+ const revision=fixtureData.directSourceRevision;
+ delete fixtureData.directSourceRevision;
+ await assert.rejects(()=>reconstructDashboardExport("jag",{kind:"portfolio",solicitor:""},{}),/Source changed/);
+ fixtureData.directSourceRevision=revision;
+ snapshot.directSourceRevision="ZZTEST different revision";
+ await assert.rejects(()=>reconstructDashboardExport("jag",{kind:"table",table:"Pyramid.0"},{}),/Source changed/);
+ snapshot.directSourceRevision=revision;
  assert.throws(()=>validateExportIntent({kind:"portfolio",solicitor:"",ids:[1]}));
  assert.throws(()=>validateExportIntent({kind:"portfolio",solicitor:"",summary:"true"}));
  const {NextRequest}=require("next/server");
