@@ -1,3 +1,4 @@
+import { createProspectNotes } from "./prospect-notes";
 import { assignmentResolver } from "./effective-assignment";
 import { directLaneEnabled } from "./direct-registration.server";
 import { currentTracking, requireCurrentSql } from "./direct-source-state.server";
@@ -6,7 +7,7 @@ import { portalCampaignStateSafe } from "@/lib/portal-v2/server";
 import { buildOverlay, finalId, mergedSources, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 import { campaignRecords } from "@/lib/portal-v2/campaign-records";
 import { enrichProspectRecord, overlaidIndex, type Data, type Prospect } from "@/lib/portal-v2/records-route";
-import { parseCapacity, FIELD_BY_ID, XLSX_MAX_ROWS, queryErrors, reportNotes, runReport, sanitizeQuery, usesTracking, type ReportRow } from "@/lib/portal-v2/report-fields";
+import { parseCapacity, reportExportFields, FIELD_BY_ID, XLSX_MAX_ROWS, queryErrors, reportNotes, runReport, sanitizeQuery, usesTracking, type ReportRow } from "@/lib/portal-v2/report-fields";
 import type { PortalClient, PortalGift, PortalState } from "@/lib/portal-v2/clients";
 
 type Tracking = { prospects: Record<string, { status?: string; solicitor?: string; solicitor2?: string }> };
@@ -41,6 +42,7 @@ export function buildReportRows(data: NonNullable<Data>, state: PortalState | nu
     const base = data.records[String(c)];
     return base ? enrichProspectRecord(base as Parameters<typeof enrichProspectRecord>[0], pById.get(c)) as Rec : null;
   };
+  const notesFor = createProspectNotes({ records: data.records, prospects, tracking, overlay: o });
   return index.map((r) => {
     const rec = recOf(r.cptid);
     const p = pById.get(r.cptid);
@@ -59,7 +61,7 @@ export function buildReportRows(data: NonNullable<Data>, state: PortalState | nu
     const cm = camp.get(r.cptid);
     const a = assignment(r.cptid);
     const row: ReportRow = {
-      cptid: r.cptid, name: r.name, kind: r.kind ?? "", flags: (rec?.flags ?? (p ? ["Added on the dashboard"] : [])).join("; "),
+      notes: notesFor(r.cptid), cptid: r.cptid, name: r.name, kind: r.kind ?? "", flags: (rec?.flags ?? (p ? ["Added on the dashboard"] : [])).join("; "),
       lifetime: r.lifetime || 0, gifts: r.gifts || 0, largest: r.largest || 0, first, last: r.last || "", years: r.years || 0, band: r.band || "",
       ds: w?.rating?.value || x.ds || pick(screened, RATING_KEYS), capacity: w?.capacity?.value || x.capacity || pick(screened, CAP_KEYS),
       capacityMin: null, capacityRead: "",
@@ -95,13 +97,13 @@ export function reportRoute(client: PortalClient, auth: (r: NextRequest) => Prom
     // Fail closed: without SQL state, merges/deletes/staff edits can't be applied, so deleted or merged records would reappear.
     if (!state) return NextResponse.json({ error: "Dashboard edits (merges, deletes, contact and wealth edits) and campaign figures are unavailable right now, so reports are paused. Please try again shortly." }, { status: 503 });
     // Committee tracking unavailable: never show or export assignment fields as falsely blank.
-    if (!tracking && (directLaneEnabled(client) || usesTracking(query))) return NextResponse.json({ error: "Current committee tracking is unavailable; this report cannot assert a complete current view." }, { status: 503 });
+    if (!tracking && (directLaneEnabled(client) || usesTracking(query) || body?.format === "xlsx")) return NextResponse.json({ error: "Current committee tracking is unavailable; this report cannot assert a complete current view." }, { status: 503 });
     const rows = runReport(buildReportRows(data, state, tracking), query);
     const keep = ["cptid", ...query.fields.filter((f) => f !== "cptid")];
     if (body?.format === "xlsx") {
       if (!xlsx) return NextResponse.json({ error: "Excel export not configured" }, { status: 400 });
       if (rows.length > XLSX_MAX_ROWS) return NextResponse.json({ error: `This list has ${rows.length.toLocaleString()} records; Excel downloads are limited to ${XLSX_MAX_ROWS.toLocaleString()}. Add a filter.` }, { status: 413 });
-      const cols = query.fields.map((f) => FIELD_BY_ID.get(f)!);
+      const cols = reportExportFields(query.fields).map((f) => FIELD_BY_ID.get(f)!);
       const title = String(body.title ?? "").replace(/[^\w .,+&'()-]/g, " ").replace(/\s+/g, " ").trim().slice(0, 100) || "Custom Report";
       const buf = await xlsx.build({
         title, client: xlsx.clientName, subtitle: `${rows.length.toLocaleString()} records${data.asOf ? ` · Data as of ${data.asOf}` : ""} · ${xlsx.clientName}`,

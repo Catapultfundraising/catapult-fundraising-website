@@ -1,9 +1,10 @@
+import { createProspectNotes, gc2pSourceNotes } from "@/lib/portal-v2/prospect-notes";
 import { reportDataAsOf, committeeInsight, GiftLevelRows, BelowProspects } from "@/lib/portal-v2/gift-report-layout";
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
 import { currentDashboardSnapshot } from "@/lib/portal-v2/current-dashboard-snapshot";
 import { currentRecordProjection } from "@/lib/portal-v2/records-route";
-import { directData, currentTracking, directTrackingView, requireCurrentSql, sourceNoteReport, sourceAssignmentReport } from "@/lib/portal-v2/direct-source-state.server";
+import { directData, currentTracking, directTrackingView, requireCurrentSql, sourceAssignmentReport } from "@/lib/portal-v2/direct-source-state.server";
 import { askEdits, overlayCampaignAsks } from "@/lib/portal-v2/effective-ask";
 import { buildOverlay, type UpdateRow } from "@/lib/portal-v2/record-overlay";
 import { portalStateSafe } from "@/lib/portal-v2/server";
@@ -69,6 +70,8 @@ async function currentGET(req: NextRequest) {
   const tracking = report === "gc2p" ? await directTrackingView("pvas", await currentTracking("pvas", getPvasTracking)) : null;
   if (base && tracking && (base as unknown as { directSourceRevision?: string }).directSourceRevision !== (tracking as unknown as { directSourceRevision?: string }).directSourceRevision) throw new Error("Source changed during report");
   const recs = report === "gc2p" && tracking && (canonical || Object.keys(tracking.prospects).length) ? await getPvasRecords() : null;
+  if (report === "gc2p" && (!recs || !tracking)) throw new Error("Current complete prospect notes unavailable");
+  const notesFor = createProspectNotes({ records: recs?.records ?? {}, prospects: state?.prospects ?? [], tracking, overlay: buildOverlay(updates) });
   if (canonical && report==="gc2p" && (!recs || !tracking)) throw new Error("Current canonical ask records/tracking unavailable");
   const recordIndex = canonical && report==="gc2p" ?
     currentRecordProjection("pvas",recs!,state,tracking!).index as NonNullable<typeof recs>["index"] : recs?.index;
@@ -79,7 +82,6 @@ async function currentGET(req: NextRequest) {
   const dataAsOf = reportDataAsOf(snap.builtAt);
   const { chart, seated, notShown, removed, below, belowLevel } = seatGc2p(goal, snap.pool, tracking, extrasFromIndex(recordIndex, tracking, snap.pool));
   const stOf = (id: number) => tracking?.prospects[String(id)];
-  const lastAct = (id: number) => (tracking?.activity ?? []).filter((a) => a.cptid === id && a.kind !== "Committee update").sort((a, b) => (b.date + b.at).localeCompare(a.date + a.at))[0];
   // Exact compact goal ($1.75M, not the shared helper's rounded $1.8M).
   const goalTxt = goal >= 1e6 ? `$${parseFloat((goal / 1e6).toFixed(2))}M` : formatCompactDollars(goal);
   const short = "Palm Valley Animal Society";
@@ -234,10 +236,10 @@ async function currentGET(req: NextRequest) {
   const histTxt = (p: (typeof seated)[number]["people"][number]) =>
     p.lifetime > 0 ? `${usd(p.lifetime)} lifetime in ${n0(p.gifts)} gift${p.gifts === 1 ? "" : "s"}; largest ${usd(p.largest)}; last ${p.last || "n/a"}` : p.donorType || "Non-Donor";
   const noteTxt = (p: (typeof seated)[number]["people"][number]) => {
-    const a = lastAct(p.cptid);
     const basis = p.basis === "Committee" ? "Placed at this level by the committee." : "";
     const reason = stOf(p.cptid)?.reason;
-    return [a ? `${a.date} ${a.kind}: ${a.note}` : reason || basis, tracking?.pirs[String(p.cptid)] ? "PIR on file." : "", sourceNoteReport(tracking, p.cptid)].filter(Boolean).join("\n");
+    const notes = [notesFor(p.cptid), gc2pSourceNotes(p, recs?.records[String(p.cptid)])].filter(Boolean).join("\n\n");
+    return [notes || reason || basis, tracking?.pirs[String(p.cptid)] ? "PIR on file." : ""].filter(Boolean).join("\n");
   };
   const askTxt = (p: (typeof seated)[number]["people"][number]) => usd(p.ask || 0);
   const solOf = new Map(snap.pool.map((p) => [p.cptid, p.solicitor]));
@@ -403,7 +405,7 @@ async function currentGET(req: NextRequest) {
         ))}
         {below.length > 0 && <BelowProspects navy={NAVY} line={LINE}
           title={`Below ${formatDollars(belowLevel)} · ${below.length} prospects · ${usd(below.reduce((a, p) => a + (campaignAskAmount(p)), 0))}`}
-          rows={below.map(p => ({ cptid: p.cptid, name: p.name, ask: usd(campaignAskAmount(p)), lifetime: usd(p.lifetime) }))} />}
+          rows={below.map(p => ({ cptid: p.cptid, name: p.name, ask: usd(campaignAskAmount(p)), lifetime: usd(p.lifetime), notes: noteTxt(p) }))} />}
         <View wrap={false} style={{ marginTop: 6 }}>
           <Text style={{ fontFamily: "Fraunces", fontWeight: 700, fontSize: 13, marginBottom: 4 }}>Pipeline totals</Text>
           {seated.map((x) => (

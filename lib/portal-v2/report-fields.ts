@@ -9,7 +9,12 @@
 export type FieldKind = "text" | "usd" | "num" | "date";
 export interface ReportField { id: string; label: string; group: string; kind: FieldKind; help?: string }
 
+export const PROSPECT_NOTES_LABEL = "Prospect notes and activity";
+/** Downloads always include notes, even older saved lists that omit the field. */
+export const reportExportFields = (fields: string[]) => fields.includes("notes") ? fields : [...fields, "notes"];
+
 export const REPORT_FIELDS: ReportField[] = [
+  { id: "notes", label: PROSPECT_NOTES_LABEL, group: "Record", kind: "text", help: "Full current source notes and dashboard activity, with available dates and attribution. Removed history is excluded." },
   { id: "cptid", label: "CPTID", group: "Record", kind: "num" },
   { id: "name", label: "Name", group: "Record", kind: "text" },
   { id: "kind", label: "Record type", group: "Record", kind: "text" },
@@ -45,7 +50,7 @@ export const REPORT_FIELDS: ReportField[] = [
   { id: "solicitor2", label: "Secondary solicitor", group: "Committee tracking", kind: "text", help: "Dashboard edits win, then source portfolio; unassigned means both solicitor fields are empty." },
 ];
 export const FIELD_BY_ID = new Map(REPORT_FIELDS.map((f) => [f.id, f]));
-export const DEFAULT_FIELDS = ["cptid", "name", "kind", "city", "state", "phone", "email", "lifetime", "last"];
+export const DEFAULT_FIELDS = ["cptid", "name", "kind", "city", "state", "phone", "email", "lifetime", "last", "notes"];
 
 export type ReportValue = string | number | null;
 export type ReportRow = Record<string, ReportValue>;
@@ -168,7 +173,7 @@ export function describeFilters(q: ReportQuery): string[] {
 
 export const CAMPAIGN_FIELDS = ["campaignPledged", "campaignReceived"];
 export const usesCampaign = (q: ReportQuery) => q.filters.some((f) => CAMPAIGN_FIELDS.includes(f.field)) || CAMPAIGN_FIELDS.includes(q.sort?.field ?? "");
-const TRACKING_FIELDS = ["status", "solicitor", "solicitor2", "assignmentReview"];
+const TRACKING_FIELDS = ["notes", "status", "solicitor", "solicitor2", "assignmentReview"];
 export const usesTracking = (q: ReportQuery) => q.fields.some((f) => TRACKING_FIELDS.includes(f)) || q.filters.some((f) => TRACKING_FIELDS.includes(f.field)) || TRACKING_FIELDS.includes(q.sort?.field ?? "");
 export const XLSX_MAX_ROWS = 60_000;
 export const PDF_MAX_ROWS = 5_000;
