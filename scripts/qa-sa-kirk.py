@@ -12,6 +12,10 @@ filter_only=os.environ.get('SA_MEMBER_FILTER_PROOF')=='1'
 source_only=os.environ.get('SA_SOURCE_DISPLAY_PROOF')=='1'
 source_before=os.environ.get('SA_SOURCE_DISPLAY_BEFORE')=='1'
 fixture=json.loads(subprocess.check_output(['node','-e',"process.stdout.write(JSON.stringify(require('./scripts/sa-sponsorship-fixture.cjs')))"],cwd=root))
+final_only=os.environ.get('SA_FINAL_QUESTION_PROOF')=='1'
+final_before=os.environ.get('SA_FINAL_QUESTION_BEFORE')=='1'
+if final_only:
+ fixture['prospects']=[{**fixture['prospects'][0],'id':f'sample-{i+1}','organization':f'Sample Company {i+1:02}'} for i in range(23)]
 # Exercise multi-line dialing vs non-dialable annotated office provenance.
 fixture['prospects'][0]['directPhone']='+1 (202) 555-0104; +1 (202) 555-0105'
 fixture['prospects'][0]['officePhone']='+1 (202) 555-0100 (original file; not reverified)'
@@ -69,6 +73,90 @@ with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
    before=os.environ.get('SA_KIRK_BEFORE')=='1'
    articles=page.locator('.sa-prospect:visible')
    expect(articles.first).to_be_visible(timeout=10000)
+   if final_only:
+    question=page.locator('.sa-suggestions');suggestions=page.locator('#sa-other')
+    search=page.get_by_label('Find a company or contact')
+    next_page=page.get_by_role('button',name='Next →')
+    previous=page.get_by_role('button',name='← Previous')
+    def last_page():
+     next_page.click();expect(page.get_by_text('Page 2 of 3',exact=True)).to_be_visible()
+     next_page.click();expect(page.get_by_text('Page 3 of 3',exact=True)).to_be_visible()
+    def capture(name):
+     page.locator('.sa-pagination').scroll_into_view_if_needed()
+     page.screenshot(path=str(out/name))
+    assert question.count()==1 and suggestions.count()==1
+    capture('before-page1.png' if final_before else 'after-page1.png')
+    if final_before:
+     expect(question).to_be_visible()
+     last_page();expect(question).to_be_visible();capture('before-lastpage.png')
+     (out/'final-question-browser.txt').write_text('BEFORE reproduced: optional final question visible on both page 1 and page 3 of full synthetic roster.\n')
+    else:
+     expect(question).to_be_hidden()
+     next_page.click();expect(page.get_by_text('Page 2 of 3',exact=True)).to_be_visible();expect(question).to_be_hidden()
+     next_page.click();expect(page.get_by_text('Page 3 of 3',exact=True)).to_be_visible()
+     expect(question).to_be_visible();assert page.locator('.sa-suggestions:visible').count()==1
+     capture('after-lastpage.png')
+     # Even a query matching every company is not the full-roster review.
+     for query in ['Sample','Company 23','no matching fictional company']:
+      search.fill(query);expect(question).to_be_hidden()
+      if query=='Sample':
+       last_page();expect(question).to_be_hidden()
+      if query.startswith('no matching'):
+       expect(page.get_by_text('No companies match your search. Try a different company or contact name.')).to_be_visible()
+      search.fill('');expect(page.get_by_text('Page 1 of 3',exact=True)).to_be_visible();expect(question).to_be_hidden()
+     last_page();expect(question).to_be_visible()
+     # A navigation flush waits for the in-flight suggestion and latest draft.
+     held=[];payloads=[]
+     def hold(route):
+      if route.request.method=='POST' and not payloads:
+       payloads.append(json.loads(route.request.post_data));held.append(route)
+      else:route.continue_()
+     page.route('**/api/sa-sponsorship/review',hold)
+     suggestions.fill('Sample first pending suggestion')
+     expect(question.get_by_role('status')).to_contain_text('Saving…')
+     suggestions.fill('Sample latest suggestion before leaving')
+     previous.click()
+     expect(page.get_by_text('Saving changes before moving on…',exact=False)).to_be_visible()
+     expect(page.get_by_text('Page 3 of 3',exact=True)).to_be_visible()
+     held[0].continue_()
+     expect(page.get_by_text('Page 2 of 3',exact=True)).to_be_visible();expect(question).to_be_hidden()
+     page.unroute('**/api/sa-sponsorship/review',hold)
+     next_page.click();expect(suggestions).to_have_value('Sample latest suggestion before leaving')
+     expect(question.get_by_role('status')).to_contain_text('Suggestions saved · revision 2')
+     # Lost acknowledgement retains the draft/retry and blocks leaving.
+     attempts=[];failing=[True]
+     def lose_ack(route):
+      if route.request.method!='POST':route.continue_();return
+      attempts.append(json.loads(route.request.post_data))
+      if failing[0]:
+       if len(attempts)==1:assert route.fetch().status==200
+       route.abort('failed')
+      else:route.continue_()
+     page.route('**/api/sa-sponsorship/review',lose_ack)
+     suggestions.fill('Sample suggestion with lost acknowledgement');previous.click()
+     expect(question.get_by_role('button',name='Retry saving')).to_be_visible()
+     expect(page.get_by_text('Page 3 of 3',exact=True)).to_be_visible()
+     expect(suggestions).to_have_value('Sample suggestion with lost acknowledgement')
+     failing[0]=False;question.get_by_role('button',name='Retry saving').click()
+     expect(question.get_by_role('status')).to_contain_text('Suggestions saved · revision 3')
+     assert attempts[0]==attempts[1]
+     page.unroute('**/api/sa-sponsorship/review',lose_ack)
+     previous.click();expect(question).to_be_hidden();next_page.click()
+     expect(suggestions).to_have_value('Sample suggestion with lost acknowledgement')
+     page.reload(wait_until='networkidle');expect(question).to_be_hidden()
+     last_page();expect(suggestions).to_have_value('Sample suggestion with lost acknowledgement')
+     assert question.count()==1 and suggestions.count()==1
+     page.set_viewport_size({'width':390,'height':844});question.scroll_into_view_if_needed()
+     question.screenshot(path=str(out/'after-lastpage-mobile.png'))
+     assert page.evaluate('document.documentElement.scrollWidth <= window.innerWidth')
+     exported=req.get(endpoint+'admin',headers={'Authorization':'Bearer '+cron}).json()
+     assert exported['prospects']==fixture['prospects']
+     finals=[r for r in exported['responses'] if r['prospectId']=='other-companies']
+     assert len(finals)==3 and all(r['choiceVersion']=='suggestions-v1' and r['choice']=='' for r in finals)
+     assert not external,external
+     (out/'final-question-browser.txt').write_text('PASS: full roster page1/middle hidden; lastpage exactly once; matching-all/narrow/zero-result search hidden; clear resets page1; mounted draft and held-save navigation drain; lost-ack exact retry and blocked navigation; previous/next/reload resume; unchanged canonical export; mobile no overflow; fixture data only.\n')
+    print((out/'final-question-browser.txt').read_text())
+    context.close();browser.close();raise SystemExit(0)
    page.screenshot(path=str(out/('before-desktop.png' if before else 'after-desktop.png')),full_page=False)
    if before:
     expect(articles.first.get_by_role('heading',name='Giving & application',exact=True)).to_be_visible()
@@ -112,10 +200,12 @@ with tempfile.TemporaryDirectory(prefix='sa-private-fixture-') as storage:
     old.get_by_role('button',name='Clear selection / skip this company').click()
     expect(old.get_by_role('status')).to_contain_text('revision 4')
     page.get_by_label('Find a company or contact').fill('')
+    page.get_by_role('button',name='Next →').click()
     suggestions=page.get_by_label('Other company suggestions (optional)')
     suggestions.fill('Company: Sample Local Business; Contact: optional; Relationship: friend; How help: introduction')
     expect(page.locator('.sa-suggestions [role=status]')).to_contain_text('revision 1')
     page.reload(wait_until='networkidle')
+    page.get_by_role('button',name='Next →').click()
     expect(suggestions).to_have_value('Company: Sample Local Business; Contact: optional; Relationship: friend; How help: introduction')
     page.locator('.sa-suggestions').screenshot(path=str(out/'after-other-companies.png'))
     suggestions.fill('')
