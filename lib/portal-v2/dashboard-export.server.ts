@@ -100,12 +100,11 @@ export async function reconstructDashboardExport(client: PortalClient, rawIntent
     if (!record || record.cptid !== intent.id || !projection.index.some(r=>r.cptid===intent.id)) throw new ExportIntentError("This record was merged, deleted or changed. Reload it before downloading.");
     // Same client-specific six-column record model; only current server-owned record/tracking passed.
     const payload = io.record(record as never, tracking as never, true);
-    const trackingHeading = payload.sections.find(section => section.heading?.startsWith("Campaign tracking"))?.heading;
     // Replace only the old note/activity lanes, not gift-detail notes. The
     // centralized projection includes merged-source activity without duplicates.
     return { ...payload, notes: [], sections: [
       ...payload.sections.filter(section => !section.heading?.startsWith("Campaign tracking") && !section.heading?.startsWith("Imported source notes")),
-      { heading: [PROSPECT_NOTES_LABEL, trackingHeading].filter(Boolean).join(" · "),
+      { heading: PROSPECT_NOTES_LABEL,
         rows: [["Notes", notesFor(intent.id), ...Array(Math.max(0, payload.cols.length - 2)).fill("")]] },
     ] };
   }

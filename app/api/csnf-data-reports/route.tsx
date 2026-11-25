@@ -224,10 +224,7 @@ async function currentGET(req: NextRequest) {
   const histTxt = (p: (typeof seated)[number]["people"][number]) =>
     p.lifetime > 0 ? `${usd(p.lifetime)} lifetime in ${n0(p.gifts)} gift${p.gifts === 1 ? "" : "s"}; largest ${usd(p.largest)}; last ${p.last || "n/a"}` : "Non-donor";
   const noteTxt = (p: (typeof seated)[number]["people"][number]) => {
-    const basis = p.basis === "Committee" ? "Placed at this level by the committee." : p.basis.startsWith("Capacity") ? "Seated at low end of DonorSearch capacity." : "Not screened; seated at largest gift.";
-    const reason = stOf(p.cptid)?.reason;
-    const notes = [notesFor(p.cptid), gc2pSourceNotes(p, recs?.records[String(p.cptid)])].filter(Boolean).join("\n\n");
-    return [notes || reason || basis, tracking?.pirs[String(p.cptid)] ? "PIR on file." : ""].filter(Boolean).join("\n");
+    return [notesFor(p.cptid), gc2pSourceNotes(p, recs?.records[String(p.cptid)])].filter(Boolean).join("\n\n");
   };
   const statusTxt = (id: number) => stOf(id)?.status ?? "Unassigned";
   const solTxt = (id: number) => { const a = sourceAssignmentReport(tracking, id, "primarySolicitor", snap.pool.find(p => p.cptid === id)?.solicitor ?? ""); const b = sourceAssignmentReport(tracking, id, "secondarySolicitor", stOf(id)?.solicitor2 ?? ""); return b ? `${a}${a ? " / " : ""}2nd: ${b}` : a; };

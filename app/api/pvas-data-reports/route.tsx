@@ -236,10 +236,7 @@ async function currentGET(req: NextRequest) {
   const histTxt = (p: (typeof seated)[number]["people"][number]) =>
     p.lifetime > 0 ? `${usd(p.lifetime)} lifetime in ${n0(p.gifts)} gift${p.gifts === 1 ? "" : "s"}; largest ${usd(p.largest)}; last ${p.last || "n/a"}` : p.donorType || "Non-Donor";
   const noteTxt = (p: (typeof seated)[number]["people"][number]) => {
-    const basis = p.basis === "Committee" ? "Placed at this level by the committee." : "";
-    const reason = stOf(p.cptid)?.reason;
-    const notes = [notesFor(p.cptid), gc2pSourceNotes(p, recs?.records[String(p.cptid)])].filter(Boolean).join("\n\n");
-    return [notes || reason || basis, tracking?.pirs[String(p.cptid)] ? "PIR on file." : ""].filter(Boolean).join("\n");
+    return [notesFor(p.cptid), gc2pSourceNotes(p, recs?.records[String(p.cptid)])].filter(Boolean).join("\n\n");
   };
   const askTxt = (p: (typeof seated)[number]["people"][number]) => usd(p.ask || 0);
   const solOf = new Map(snap.pool.map((p) => [p.cptid, p.solicitor]));
