@@ -28,7 +28,7 @@ const idx=cptid=>({cptid,name:`ZZTEST ${cptid}`,kind:"Individual",city:"Fixture"
 const allRecords=Object.fromEntries([1,2,3,4,5,7,8,9].map(c=>[c,{...idx(c),contact:{},summary:{lifetime:10,gifts:1,largest:10,first:"2026-01-01",last:"2026-01-01",years:1},gifts:[],notes:[],...records[c]}]));
 allRecords[1].portfolio={solicitor:"ZZTEST Lead",ask:100};allRecords[4].portfolio={secondary:"ZZTEST Lead",ask:50};allRecords[7].portfolio={solicitor:"ZZTEST Lead",ask:20};allRecords[8].portfolio={secondary:"ZZTEST Other",ask:0};
 const fixtureData={asOf:"2026-11-25",records:allRecords,index:Object.keys(allRecords).map(Number).map(idx)};
-const fixtureTracking={...tracking,prospects:{...tracking.prospects,7:{status:"Committed"},8:{status:"Disqualified"},9:{solicitor:"ZZTEST Lead",status:"Hold"}}};
+const fixtureTracking={...tracking,prospects:{...tracking.prospects,1:{...tracking.prospects[1],solicitor:"ZZTEST Lead"},7:{status:"Committed"},8:{status:"Disqualified"},9:{solicitor:"ZZTEST Lead",status:"Hold"}}};
 const fixtureState={configured:true,prospects:[],gifts:[],batches:[],updates:[...updates,{id:3,cptid:9,field:"ask",new_value:"250",old_value:null}]};
 const snapshot={builtAt:"2026-11-25 13:00",client:"ZZTEST",pool:[{...idx(1),ask:100,rating:100}],portfolio:[{...idx(1),ask:100}],board:[],top:[idx(1)],committed:[],stages:[]};
 const prior=Module._load;
