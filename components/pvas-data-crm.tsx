@@ -10,6 +10,7 @@ import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayloa
 import type {ExportIntent} from "@/lib/portal-v2/dashboard-export-types";
 
 import { viewAssignment } from "@/lib/portal-v2/effective-assignment";
+import { CampaignProspectTag } from "@/components/campaign-prospect-tag";
 import { useCurrentCrmRead, currentAssignmentIndex } from "@/components/use-current-crm-read";
 import { DirectSourceNotes } from "@/components/direct-source-notes";
 import { manualAssignmentPatch } from "@/lib/portal-v2/manual-assignment-patch";
@@ -296,6 +297,7 @@ function RecordModal({ cptid, onClose }: { cptid: number; onClose: () => void })
             <FileText className="h-3.5 w-3.5" />View PIR
           </a>
         )}
+        <CampaignProspectTag row={{ cptid: r.cptid, ...r.assignment }} index={index} tracking={tracking} />
         {(["solicitor", "solicitor2"] as const).map((key) => {
           const a = viewAssignment({ cptid: r.cptid, ...r.assignment }, index, tracking);
           return <span key={key} className="rounded-full bg-[rgb(var(--paper))] px-2.5 py-0.5 text-xs">{key === "solicitor" ? "Primary solicitor" : "Secondary solicitor"}: {a[key] || "Unassigned"}</span>;
