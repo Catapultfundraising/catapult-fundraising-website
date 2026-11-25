@@ -3,6 +3,9 @@ import { createProspectNotes } from "./prospect-notes";
 import { buildOverlay, type UpdateRow } from "./record-overlay";
 import { PROSPECT_NOTES_LABEL, reportExportFields } from "./report-fields";
 import { portfolioModel, portfolioAsk } from "./portfolio";
+import { APPROVED_WEBSITE_DIRECT_REGISTRATIONS } from "./direct-registration.server";
+import { inspectDashboardReady } from "../dashboard-ready.server";
+import { validateReadyBuild } from "../dashboard-ready-model.server";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 import type { PortalClient } from "./clients";
 import { portalCampaignStateSafe } from "./server";
@@ -67,11 +70,23 @@ async function owners(client: PortalClient) {
 }
 export async function reconstructDashboardExport(client: PortalClient, rawIntent: unknown, presentation: { title?: unknown; subtitle?: unknown }): Promise<CurrentExportPayload> {
   const intent = validateExportIntent(rawIntent), io = await owners(client);
-  const [data, state, tracking] = await Promise.all([io.records(), portalCampaignStateSafe(client), currentTracking<AssignmentTracking>(client, io.tracking as () => Promise<AssignmentTracking>).then(t => directTrackingView(client, t))]);
+  // IMAS owns original client SQL, not the five-client direct-file lane. Its
+  // existing ready owner supplies one validated records/state/tracking/snapshot
+  // tuple. Registry membership is static authority, NEVER a disabled-mode flag.
+  // Registered clients still refuse missing parity/revisions even in previews.
+  const originalSqlOwner = !APPROVED_WEBSITE_DIRECT_REGISTRATIONS.some(owner => owner.client === client);
+  const paired = originalSqlOwner ? await inspectDashboardReady(client) : null;
+  if (paired) {
+    validateReadyBuild(paired.built);
+    if (!paired.freshness || !paired.freshness.generation || paired.freshness.stale !== false || paired.freshness.failedAt) throw new Error("Current paired report view unavailable; reload and retry");
+  }
+  const read = paired?.built.readyRead;
+  const [data, state, tracking] = read ? [read.records, read.state, read.tracking] as const :
+    await Promise.all([io.records(), portalCampaignStateSafe(client), currentTracking<AssignmentTracking>(client, io.tracking as () => Promise<AssignmentTracking>).then(t => directTrackingView(client, t))]);
   requireCurrentSql(client, state);
   if (!data || !state || !tracking) throw new Error("Current complete records/manual/source view unavailable");
   const revision = (data as unknown as {directSourceRevision?:string}).directSourceRevision;
-  if (!pvasCanonicalEnabled(client) && (!revision || revision !== (tracking as unknown as {directSourceRevision?:string}).directSourceRevision)) throw new Error("Source changed while preparing export; reload and retry");
+  if (!paired && !pvasCanonicalEnabled(client) && (!revision || revision !== (tracking as unknown as {directSourceRevision?:string}).directSourceRevision)) throw new Error("Source changed while preparing export; reload and retry");
   const projection = currentRecordProjection(client, data, state, tracking);
   const notesFor = createProspectNotes({ records: data.records, prospects: state.prospects, tracking, overlay: buildOverlay(state.updates as UpdateRow[]) });
   const withNotes = (payload: CurrentExportPayload, rows: { cptid: number }[]): CurrentExportPayload => ({
@@ -126,10 +141,10 @@ export async function reconstructDashboardExport(client: PortalClient, rawIntent
       cols: fields.map(c => ({label:c.label,kind:c.kind==="usd"?"usd":c.kind==="num"&&c.id!=="cptid"?"num":"text"})),
       sections:[{rows:rows.map(r=>fields.map(c=>c.id==="cptid"?String(r.cptid??""):r[c.id]??""))}],notes:reportNotes(query,true) };
   }
-  const raw = await io.snapshot();
+  const raw = paired ? paired.built.snapshot : await io.snapshot();
   if (!raw) throw new Error("Current snapshot unavailable");
-  const source = await directData(client, raw, "snapshot");
-  if ((source as unknown as {directSourceRevision?:string}).directSourceRevision !== revision) throw new Error("Source changed during export; reload and retry");
+  const source = paired ? raw : await directData(client, raw, "snapshot");
+  if (!paired && (source as unknown as {directSourceRevision?:string}).directSourceRevision !== revision) throw new Error("Source changed during export; reload and retry");
   const snapshot = currentDashboardSnapshot(client, { ...source, campaignGifts: state.gifts }, projection.index, tracking, state.updates as UpdateRow[]);
   try {
     const model = buildDashboardExportModel(client, {table:intent.table,parameters:intent.parameters,snapshot,index:projection.index,tracking});

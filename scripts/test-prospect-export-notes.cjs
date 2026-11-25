@@ -31,21 +31,24 @@ const fixtureData={directSourceRevision:"ZZTEST revision",asOf:"2026-11-25",reco
 const fixtureTracking={...tracking,directSourceRevision:"ZZTEST revision",pirs:{},prospects:{...tracking.prospects,1:{...tracking.prospects[1],solicitor:"ZZTEST Lead"},7:{status:"Committed"},8:{status:"Disqualified"},9:{solicitor:"ZZTEST Lead",status:"Hold"}}};
 const fixtureState={configured:true,prospects:[],gifts:[],batches:[],updates:[...updates,{id:3,cptid:9,field:"ask",new_value:"250",old_value:null}]};
 const snapshot={directSourceRevision:"ZZTEST revision",builtAt:"2026-11-25 13:00",client:"ZZTEST",pool:[{...idx(1),ask:100,rating:100,basis:"Committee",ds:"",capacity:""}],portfolio:[{...idx(1),ask:100}],board:[],top:[idx(1)],committed:[],stages:[]};
-let capturedXlsx, authed=true;
+let capturedXlsx, authed=true, expectPairedOnly=false, pairedCalls=0, pairedError=null;
+const pairedValue={built:{snapshot,records:fixtureData,readyRead:{records:fixtureData,state:fixtureState,tracking:fixtureTracking}},freshness:{generation:"00000000-0000-4000-8000-000000000001",builtAt:1,verifiedAt:2,stale:false}};
 const prior=Module._load;
 Module._load=function(name,parent,isMain){
+ if(name==="../dashboard-ready.server")return {inspectDashboardReady:async client=>{assert.equal(client,"imas");pairedCalls++;if(pairedError)throw pairedError;return pairedValue;}};
  if(/^@\/lib\/\w+-data-auth$/.test(name))return Object.fromEntries(clients.map(c=>[`is${c[0].toUpperCase()+c.slice(1)}DataAuthed`,async()=>authed]));
  if(/^@\/lib\/\w+-brand-xlsx$/.test(name))return {buildBrandedXlsx:async payload=>{capturedXlsx=payload;return Buffer.from("ZZTEST synthetic");}};
  if(/^@\/lib\/\w+-brand-pdf$/.test(name))return {registerBrandFonts:()=>{},preparedOn:()=>"2026-11-25",bs:{},NAVY:"#0E1E31",BRASS:"#B08D57",LINE:"#DCE1E7",CREAM:"#F5F2EC",LOGO_ASPECT:1,LOGO_URL:"https://example.test/unused.png"};
- if((/^\.\.\/\w+-data-store$/.test(name))||/^@\/lib\/\w+-data-store$/.test(name))return Object.fromEntries(clients.flatMap(c=>{const n=c[0].toUpperCase()+c.slice(1);return [[`get${n}Records`,async()=>fixtureData],[`get${n}Snapshot`,async()=>snapshot]];}));
- if(/^\.\.\/\w+-tracking$/.test(name)||/^@\/lib\/\w+-tracking$/.test(name))return Object.fromEntries(clients.map(c=>[`get${c[0].toUpperCase()+c.slice(1)}Tracking`,async()=>fixtureTracking]));
- if(name==="./server"||name==="@/lib/portal-v2/server")return {portalCampaignStateSafe:async()=>fixtureState,portalStateSafe:async()=>fixtureState};
+ if((/^\.\.\/\w+-data-store$/.test(name))||/^@\/lib\/\w+-data-store$/.test(name))return Object.fromEntries(clients.flatMap(c=>{const n=c[0].toUpperCase()+c.slice(1);return [[`get${n}Records`,async()=>{assert.equal(expectPairedOnly,false,"IMAS must not independently read records");return fixtureData;}],[`get${n}Snapshot`,async()=>{assert.equal(expectPairedOnly,false,"IMAS must not independently read snapshot");return snapshot;}]];}));
+ if(/^\.\.\/\w+-tracking$/.test(name)||/^@\/lib\/\w+-tracking$/.test(name))return Object.fromEntries(clients.map(c=>[`get${c[0].toUpperCase()+c.slice(1)}Tracking`,async()=>{assert.equal(expectPairedOnly,false,"IMAS must not independently read tracking");return fixtureTracking;}]));
+ if(name==="./server"||name==="@/lib/portal-v2/server")return {portalCampaignStateSafe:async()=>{assert.equal(expectPairedOnly,false,"IMAS must not independently read state");return fixtureState;},portalStateSafe:async()=>fixtureState};
  return prior.call(this,name,parent,isMain);
 };
 (async()=>{
  const {reconstructDashboardExport,validateExportIntent}=require("../lib/portal-v2/dashboard-export.server.ts");
  const label="Prospect notes and activity";
  for(const client of clients){
+  expectPairedOnly=client==="imas";
   const all=await reconstructDashboardExport(client,{kind:"portfolio",solicitor:""},{title:"CLIENT CANNOT REPLACE SERVER TITLE"});
   assert.equal(all.title,"Portfolio prospects");assert.deepEqual(all.sections[0].rows.map(r=>r[0]).sort((a,b)=>a-b),[1,4,7,8,9],`${client} full assignment index, all statuses, outside pools`);
   const chosen=await reconstructDashboardExport(client,{kind:"portfolio",solicitor:"ZZTEST Lead"},{});
@@ -68,15 +71,36 @@ Module._load=function(name,parent,isMain){
   assert.ok(!aggregate.cols.some(c=>c.label===label),`${client} campaign-by-source remains aggregate`);
   await assert.rejects(()=>reconstructDashboardExport(client,{kind:"index",ids:[2]},{}),/merged\/deleted/);
  }
+ expectPairedOnly=false;
+ assert.ok(pairedCalls>=10,"real IMAS reconstruction traversed paired authority for every export kind");
  // Missing/mismatched parity must remain a hard hold, even if the direct mode
  // is not enabled in a preview. Never weaken the existing integrity fences.
  const revision=fixtureData.directSourceRevision;
  delete fixtureData.directSourceRevision;
- await assert.rejects(()=>reconstructDashboardExport("jag",{kind:"portfolio",solicitor:""},{}),/Source changed/);
+ for(const client of clients.filter(c=>c!=="imas"))await assert.rejects(()=>reconstructDashboardExport(client,{kind:"portfolio",solicitor:""},{}),/Source changed/);
+ expectPairedOnly=true;
+ await reconstructDashboardExport("imas",{kind:"portfolio",solicitor:""},{});
+ expectPairedOnly=false;
  fixtureData.directSourceRevision=revision;
  snapshot.directSourceRevision="ZZTEST different revision";
- await assert.rejects(()=>reconstructDashboardExport("jag",{kind:"table",table:"Pyramid.0"},{}),/Source changed/);
+ for(const client of clients.filter(c=>c!=="imas"))await assert.rejects(()=>reconstructDashboardExport(client,{kind:"table",table:"Pyramid.0"},{}),/Source changed/);
  snapshot.directSourceRevision=revision;
+ expectPairedOnly=true;
+ pairedValue.freshness.stale=true;
+ await assert.rejects(()=>reconstructDashboardExport("imas",{kind:"portfolio",solicitor:""},{}),/paired report view/);
+ pairedValue.freshness.stale=false;pairedValue.freshness.failedAt=3;
+ await assert.rejects(()=>reconstructDashboardExport("imas",{kind:"portfolio",solicitor:""},{}),/paired report view/);
+ delete pairedValue.freshness.failedAt;
+ const fresh=pairedValue.freshness;pairedValue.freshness=undefined;
+ await assert.rejects(()=>reconstructDashboardExport("imas",{kind:"portfolio",solicitor:""},{}),/paired report view/);
+ pairedValue.freshness=fresh;
+ const read=pairedValue.built.readyRead;delete pairedValue.built.readyRead;
+ await assert.rejects(()=>reconstructDashboardExport("imas",{kind:"portfolio",solicitor:""},{}),/Incomplete ready build/);
+ pairedValue.built.readyRead=read;
+ pairedError=new Error("Displayed ready generation invalidated; reload");
+ await assert.rejects(()=>reconstructDashboardExport("imas",{kind:"portfolio",solicitor:""},{}),/generation invalidated/);
+ pairedError=null;expectPairedOnly=false;
+ console.log("PASS IMAS validated paired original-SQL owner without independent IO; absent/stale/failed/generation holds and all-five missing-revision fences");
  assert.throws(()=>validateExportIntent({kind:"portfolio",solicitor:"",ids:[1]}));
  assert.throws(()=>validateExportIntent({kind:"portfolio",solicitor:"",summary:"true"}));
  const {NextRequest}=require("next/server");

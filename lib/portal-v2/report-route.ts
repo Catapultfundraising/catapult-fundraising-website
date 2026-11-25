@@ -10,7 +10,7 @@ import { enrichProspectRecord, overlaidIndex, type Data, type Prospect } from "@
 import { parseCapacity, reportExportFields, FIELD_BY_ID, XLSX_MAX_ROWS, queryErrors, reportNotes, runReport, sanitizeQuery, usesTracking, type ReportRow } from "@/lib/portal-v2/report-fields";
 import type { PortalClient, PortalGift, PortalState } from "@/lib/portal-v2/clients";
 
-type Tracking = { prospects: Record<string, { status?: string; solicitor?: string; solicitor2?: string }> };
+type Tracking = { prospects: Record<string, { status?: string | null; solicitor?: string; solicitor2?: string }> };
 type Rec = { contact?: Record<string, string>; flags?: string[]; ds?: Record<string, string>; summary?: { first?: string; last?: string } };
 type XlsxBuilder = (o: { title: string; subtitle: string; client: string; cols: { label: string; kind?: "text" | "usd" | "num" | "pct" }[]; sections: { heading?: string; rows: (string | number | null)[][] }[]; notes?: string[] }) => Promise<Buffer | ArrayBuffer | Uint8Array>;
 const CONTACT = ["street", "city", "state", "zip", "phone", "mobile", "phone2", "phone3", "email", "email2", "email3", "workEmail"] as const;
