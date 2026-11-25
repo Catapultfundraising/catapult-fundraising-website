@@ -1,10 +1,11 @@
 import 'server-only';
 import { ReviewError, keys, object, type Roster } from './schema';
-export interface Presentation { rosterVersion:string; topProspectIds:string[] }
+export interface Presentation { rosterVersion:string; topProspectIds:string[]; includedProspectIds?:string[] }
 export function validatePresentation(input:unknown,roster:Roster):Presentation {
- const o=object(input);keys(o,['rosterVersion','topProspectIds']);
+ const o=object(input);keys(o,['rosterVersion','topProspectIds',...(Object.prototype.hasOwnProperty.call(o,'includedProspectIds')?['includedProspectIds']:[])]);
+ if(Object.prototype.hasOwnProperty.call(o,'includedProspectIds')&&(!Array.isArray(o.includedProspectIds)||o.includedProspectIds.length>1000||o.includedProspectIds.some(id=>typeof id!=='string'||!roster.prospects.some(p=>p.id===id))||new Set(o.includedProspectIds).size!==o.includedProspectIds.length))throw new ReviewError('Invalid explicit member inclusion.');
  if(o.rosterVersion!==roster.version||!Array.isArray(o.topProspectIds)||o.topProspectIds.length!==20||o.topProspectIds.some(id=>typeof id!=='string'||!roster.prospects.some(p=>p.id===id))||new Set(o.topProspectIds).size!==20)throw new ReviewError('Choose exactly twenty unique prospects from the active roster.');
- return {rosterVersion:roster.version,topProspectIds:o.topProspectIds as string[]};
+ return {rosterVersion:roster.version,topProspectIds:o.topProspectIds as string[],...(o.includedProspectIds?{includedProspectIds:o.includedProspectIds as string[]}: {})};
 }
 
 /** Strip source annotations, not arbitrary text/digits. Numeric area codes survive. */
@@ -22,7 +23,7 @@ export function usablePhone(value:string):boolean {
 const usableEmail=(value:string)=>value.length<=254&&/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
 export function memberPresentation(roster:Roster,config:Presentation|null):Roster {
  if(!config)return roster; // Approved metadata is installed separately; no accidental launch filter.
- const priority=new Set(config.topProspectIds);
+ const priority=new Set([...config.topProspectIds,...(config.includedProspectIds||[])]);
  const namedContact=(name:string)=>Boolean(name.trim())&&!/^(?:not (?:verified|available)|unknown|n\/?a|none|-)$/i.test(name.trim());
  return {...roster,prospects:roster.prospects.filter(p=>priority.has(p.id)||(namedContact(p.contactName)&&usableEmail(p.email)&&usablePhone(p.directPhone)))};
 }

@@ -1,8 +1,8 @@
 import type { Operation, Receipt } from './schema';
-export type Draft = Pick<Operation,'choice'|'comment'>;
+export type Draft = Pick<Operation,'choice'|'comment'|'choiceVersion'>;
 export type SavePhase = 'idle'|'dirty'|'saving'|'saved'|'error';
 type Sender = (operation:Readonly<Operation>)=>Promise<Receipt>;
-const same=(a:Draft,b:Draft)=>a.choice===b.choice&&a.comment===b.comment;
+const same=(a:Draft,b:Draft)=>a.choice===b.choice&&a.comment===b.comment&&a.choiceVersion===b.choiceVersion;
 /** One writer per prospect. Pending payloads never change after an ambiguous send. */
 export class ProspectAutosave {
  draft:Draft;
@@ -14,7 +14,7 @@ export class ProspectAutosave {
  private timer:ReturnType<typeof setTimeout>|undefined;
  private listeners=new Set<()=>void>();
  constructor(private memberId:string,private prospectId:string,private rosterVersion:string,receipt:Receipt|undefined,private send:Sender,private acknowledged:(receipt:Receipt)=>void,private delay=600){
-  this.receipt=receipt;this.draft={choice:receipt?.choice||'',comment:receipt?.comment||''};
+  this.receipt=receipt;this.draft={choice:receipt?.choice||'',comment:receipt?.comment||'',...(receipt?.choiceVersion?{choiceVersion:receipt.choiceVersion}:{})};
  }
  subscribe=(listener:()=>void)=>{this.listeners.add(listener);return()=>{this.listeners.delete(listener);};};
  private emit(){for(const listener of Array.from(this.listeners))listener();}

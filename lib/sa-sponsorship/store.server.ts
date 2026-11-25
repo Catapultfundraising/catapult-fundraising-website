@@ -28,15 +28,16 @@ export async function getRoster() { const active=await read<{version:string}>(`$
 export async function saveMember(member:Member){await create(`${prefix()}members/${member.id}.json`,member,saved=>same(saved,member));return member;}
 export async function memberFor(value:string|undefined){const session=verifyToken(value);if(!session)throw new ReviewError('Please enter the board access code to continue.',401);const member=await read<Member>(`${prefix()}members/${session.id}.json`);if(!member||member.id!==session.id||!equal(member.identityHash,session.identityHash)||!equal(member.identityHash,hash(JSON.stringify([member.name,member.email.toLowerCase()]))))throw new ReviewError('Session unavailable. Sign in again.',401);return member;}
 const receiptPath=(m:string,p:string,r:number)=>`${prefix()}answers/${m}/${p}/revision-${String(r).padStart(7,'0')}.json`;
-function operation(r:Receipt):Operation{return {operationId:r.operationId,rosterVersion:r.rosterVersion,prospectId:r.prospectId,revision:r.revision,choice:r.choice,comment:r.comment};}
+function operation(r:Receipt):Operation{return {operationId:r.operationId,rosterVersion:r.rosterVersion,prospectId:r.prospectId,revision:r.revision,choice:r.choice,comment:r.comment,...(Object.prototype.hasOwnProperty.call(r,'choiceVersion')?{choiceVersion:r.choiceVersion}:{})};}
 export async function responses(memberId:string,roster:Roster,prospectId?:string) {
- if(prospectId!==undefined&&!roster.prospects.some(p=>p.id===prospectId))throw new ReviewError('Unknown prospect.');
+ if(prospectId!==undefined&&prospectId!=='other-companies'&&!roster.prospects.some(p=>p.id===prospectId))throw new ReviewError('Unknown prospect.');
  const base=`${prefix()}answers/${memberId}/${prospectId?`${prospectId}/`:''}`;
- const keys=await paths(base),result:Receipt[]=[];
- for(let i=0;i<keys.length;i+=10){
-  const batch=await Promise.all(keys.slice(i,i+10).map(async key=>{
+ const receiptKeys=await paths(base),result:Receipt[]=[];
+ for(let i=0;i<receiptKeys.length;i+=10){
+  const batch=await Promise.all(receiptKeys.slice(i,i+10).map(async key=>{
    const r=await read<Receipt>(key);
    if(!r||r.memberId!==memberId||key!==receiptPath(memberId,r.prospectId,r.revision)||(prospectId!==undefined&&r.prospectId!==prospectId)||!Number.isFinite(Date.parse(r.savedAt))||new Date(r.savedAt).toISOString()!==r.savedAt)throw new Error('Receipt invalid');
+   keys(object(r),['operationId','rosterVersion','prospectId','revision','choice','comment','memberId','savedAt',...(Object.prototype.hasOwnProperty.call(r,'choiceVersion')?['choiceVersion']:[])]);
    validateOperation(operation(r),roster);return r;
   }));result.push(...batch);
  }
@@ -133,10 +134,46 @@ export async function redactActiveSourceLabels(input:unknown) {
 // Presentation only: canonical roster, historical receipts and save allowlist stay intact.
 export async function configurePresentation(input:unknown) {
  const roster=await getRoster(),config=validatePresentation(input,roster);
- await create(`${prefix()}presentation/${roster.version}.json`,config,saved=>same(validatePresentation(saved,roster),config));
+ const baseline={rosterVersion:config.rosterVersion,topProspectIds:config.topProspectIds};
+ await create(`${prefix()}presentation/${roster.version}.json`,baseline,saved=>same(validatePresentation(saved,roster),baseline));
+ if(config.includedProspectIds)await create(`${prefix()}presentation-inclusions/${roster.version}.json`,{includedProspectIds:config.includedProspectIds},saved=>same(saved,{includedProspectIds:config.includedProspectIds}));
  return {rosterVersion:roster.version,topProspectCount:config.topProspectIds.length,visibleProspectCount:memberPresentation(roster,config).prospects.length,canonicalProspectCount:roster.prospects.length};
 }
 export async function getPresentation(roster:Roster):Promise<Presentation|null>{
  const config=await read<Presentation>(`${prefix()}presentation/${roster.version}.json`);
- return config?validatePresentation(config,roster):null;
+ const additions=await read<{includedProspectIds:string[]}>(`${prefix()}presentation-inclusions/${roster.version}.json`);
+ return config?validatePresentation({...config,...(additions||{})},roster):null;
+}
+
+/** Reviewed same-version supplement: immutable intent/backup plus exact conditional replacement.
+ * Never changes existing contact identities or answers. No local-file overwrite path.
+ */
+export async function supplementRoster(input:unknown){
+ ready();if(localDir())throw new ReviewError('Supplement migration requires conditional private storage.',403);
+ const o=object(input);keys(o,['action','operationId','expectedRawDigest','roster']);
+ if(o.action!=='supplement-roster'||typeof o.operationId!=='string'||!UUID.test(o.operationId)||typeof o.expectedRawDigest!=='string'||!/^[a-f0-9]{64}$/.test(o.expectedRawDigest))throw new ReviewError('Invalid roster supplement.');
+ const targetRoster=validateRoster(o.roster),bytes=Buffer.from(JSON.stringify(targetRoster),'utf8'),targetDigest=rawHash(bytes);
+ const base=`${prefix()}roster-supplements/${o.operationId}/`;
+ type Intent={operationId:string;originalRawDigest:string;targetRawDigest:string;rosterVersion:string;authorizedAt:string};
+ const old=await read<Intent>(base+'intent.json');
+ if(old&&(old.operationId!==o.operationId||old.originalRawDigest!==o.expectedRawDigest||old.targetRawDigest!==targetDigest||old.rosterVersion!==targetRoster.version))throw new ReviewError('Conflicting supplement replay.',409);
+ let raw=await activeRawRoster(true);
+ if(old&&raw.digest===targetDigest&&raw.version===old.rosterVersion)return create(base+'receipt.json',old,saved=>same(saved,old));
+ if(raw.digest!==o.expectedRawDigest||raw.version!==targetRoster.version)throw new ReviewError('Roster changed. Review the exact baseline again.',409);
+ validateSupplement(raw.roster,targetRoster);
+ if(!raw.etag)throw new ReviewError('Conditional private storage is unavailable.',503);
+ const backup={encoding:'base64',rawBytes:raw.bytes.toString('base64'),rawDigest:raw.digest};
+ await create(base+'original.json',backup,saved=>same(saved,backup));
+ const intent:Intent={operationId:o.operationId,originalRawDigest:raw.digest,targetRawDigest:targetDigest,rosterVersion:raw.version,authorizedAt:old?.authorizedAt||new Date().toISOString()};
+ await create(base+'intent.json',intent,saved=>same(saved,intent));
+ const active=await read<{version:string}>(`${prefix()}active.json`);if(active?.version!==raw.version)throw new ReviewError('Active roster changed.',409);
+ try{await put(raw.key,bytes,{access:'private',contentType:'application/json',addRandomSuffix:false,ifMatch:raw.etag});}
+ catch(error){const diagnostic=conditionalDiagnostic(error,raw.etag);raw=await activeRawRoster();if(raw.version!==intent.rosterVersion||raw.digest!==targetDigest)throw new ReviewError('Conditional supplement was not confirmed. No blind overwrite attempted.',409,diagnostic);}
+ const verified=await activeRawRoster();if(verified.version!==intent.rosterVersion||verified.digest!==targetDigest)throw new ReviewError('Supplement could not be confirmed.',409);
+ return create(base+'receipt.json',intent,saved=>same(saved,intent));
+}
+/** Existing rows keep order, identity and every field except giving/application research. */
+export function validateSupplement(before:Roster,after:Roster){
+ if(before.schemaVersion!==after.schemaVersion||before.version!==after.version||before.checkedAt!==after.checkedAt||after.prospects.length<before.prospects.length)throw new ReviewError('Supplement must preserve roster identity and all existing companies.');
+ before.prospects.forEach((p,i)=>{const q=after.prospects[i];same({...p,portals:[]},{...q,portals:[]});});
 }
