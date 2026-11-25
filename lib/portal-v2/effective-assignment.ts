@@ -7,6 +7,8 @@ export const assignmentText = (v: unknown): string => {
   const s = String(v ?? "").trim();
   return /^unassigned$/i.test(s) ? "" : s;
 };
+/** A proven assignment in either column qualifies, even if the other is unresolved. */
+export const isCampaignProspect = (a: Partial<Assignment>) => !!(assignmentText(a.solicitor) || assignmentText(a.solicitor2));
 export const isUnassigned = (a: Assignment) => !a.assignmentConflict && !assignmentText(a.solicitor) && !assignmentText(a.solicitor2);
 
 /** SQL secondary edits include explicit blanks. Tracking saves encode cleared primary as absent. */
