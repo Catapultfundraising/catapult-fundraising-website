@@ -105,7 +105,7 @@ async function main() {
   const storage=new Map();let malformed=false,notices=0;
   const action=compile("lib/portal-v2/pvas-action.client.ts",{
     "./pvas-canonical":{pvasCanonicalEnabled:()=>true},
-    "../dashboard-ready.client":{noteDashboardRefreshResponse:(_c,r)=>{assert.equal(r.headers.get("X-Dashboard-Refresh"),"unconfirmed");notices++;}},
+    "../dashboard-ready.client":{dashboardReadStatus:()=>"current",noteDashboardRefreshResponse:(_c,r)=>{assert.equal(r.headers.get("X-Dashboard-Refresh"),"unconfirmed");notices++;}},
   },{crypto:require("node:crypto").webcrypto,
     sessionStorage:{getItem:k=>storage.get(k)??null,setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)},
     fetch:async(_url,init)=>{const b=JSON.parse(init.body);return Response.json(malformed?{}:{ok:true,requestId:b.requestId},

@@ -1,4 +1,5 @@
 "use client";
+import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { noteDashboardRefreshResponse } from "@/lib/dashboard-ready.client";
 import { fetchDashboardRecord, dashboardGeneration } from "@/lib/dashboard-ready.client";
 import {indexPayload as currentIndexPayload,recordPayload as currentRecordPayload} from "@/lib/portal-v2/jag-export-model";
@@ -365,7 +366,7 @@ function TrackingPanel({ cptid, assignment }: { cptid: number; assignment?: { so
   const post = async (body: Record<string, unknown>, which: string) => {
     setBusy(which); setMsg("");
     try {
-      const res = await fetch("/api/jag-data-tracking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, cptid, by }) });
+      const res = await pvasActionFetch("jag", "/api/jag-data-tracking", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ ...body, cptid, by }) });
       const j = await res.json().catch(() => ({ error: `Could not save (error ${res.status})` }));
       if (!res.ok) { setMsg(j.error ?? "Could not save"); return false; }
       if (noteDashboardRefreshResponse("jag", res)) { setMsg("Saved to SQL. Dashboard refresh unconfirmed; do not resubmit."); return true; }

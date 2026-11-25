@@ -1,4 +1,4 @@
-import { noteDashboardRefreshResponse } from "../dashboard-ready.client";
+import { noteDashboardRefreshResponse, dashboardReadStatus } from "../dashboard-ready.client";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 
 const inFlight = new Map<string, Promise<{id:string;at:string;existing:boolean}>>();
@@ -30,12 +30,19 @@ async function identity(scope: string, body: string): Promise<{ key: string; id:
 /** No automatic retry. Reconcile uncertain outcomes with the same requestId.
  * Existing monthly/direct uploads already own their own durable identities. */
 export async function pvasActionFetch(client: string, url: string, init: RequestInit): Promise<Response> {
+  // Dialog portals and record-modal siblings are outside the dashboard's inert
+  // presentation subtree. Hold writes at their shared transport boundary too.
+  const readOperations = ["getAsk", "matchDonor", "duplicates", "pirWealth", "pvasRequestStatus", "nativeGiftPageV2", "nativeGiftPageV3", "nativeCampaignStatusV3", "pvasHistoricalUploads"];
+  let operation: unknown;
+  try { operation = typeof init.body === "string" ? JSON.parse(init.body)?.op : undefined; } catch { /* malformed input is not a read */ }
+  if (dashboardReadStatus(client) !== "current" && !readOperations.includes(String(operation)))
+    return Response.json({ error: "Dashboard view is not current. Retry the dashboard read before saving. Do not resubmit an accepted change." }, { status: 409 });
   if (!pvasCanonicalEnabled(client)) { const response = await fetch(url, init); noteDashboardRefreshResponse(client, response); return response; }
   if (typeof init.body !== "string") throw new Error("Canonical action requires an exact JSON payload");
   const raw: unknown = JSON.parse(init.body);
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) throw new Error("Invalid canonical action");
   const data = raw as Record<string, unknown>;
-  if(["getAsk","matchDonor","duplicates","pirWealth","pvasRequestStatus","nativeGiftPageV2","nativeGiftPageV3","nativeCampaignStatusV3","pvasHistoricalUploads"].includes(String(data.op)))return fetch(url,init);
+  if(readOperations.includes(String(data.op)))return fetch(url,init);
   if(data.op==="nativeCampaignMutationV3")throw new Error("Use the saved original gift-change request.");
   const action = await identity(url, init.body);
   if (data.requestId !== undefined && data.requestId !== action.id) throw new Error("Conflicting canonical action identity");

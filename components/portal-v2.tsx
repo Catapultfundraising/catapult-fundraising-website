@@ -1,5 +1,5 @@
 "use client";
-import { loadDashboardReady, subscribeDashboardReady, invalidateDashboardReady, noteDashboardRefreshResponse } from "@/lib/dashboard-ready.client";
+import { loadDashboardReady, subscribeDashboardReady, invalidateDashboardReady, noteDashboardRefreshResponse, dashboardReadStatus, subscribeDashboardReadStatus, type DashboardReadStatus } from "@/lib/dashboard-ready.client";
 import { pvasActionFetch } from "@/lib/portal-v2/pvas-action.client";
 import { pendingCampaignChange, newCampaignRequestId, submitCampaignChange, checkCampaignChange } from "@/lib/portal-v2/pvas-native-mutation.client";
 import { pvasCanonicalEnabled } from "@/lib/portal-v2/pvas-canonical";
@@ -30,6 +30,7 @@ type V2State = PortalState & { dashboardRefreshUnconfirmed?: boolean; goal: numb
 interface Ctx { client: PortalClient; state: V2State | null; loading: boolean; reload: () => Promise<void> }
 const V2 = createContext<Ctx | null>(null);
 const usd = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", maximumFractionDigits: 0 });
+const usdCents = (n: number) => n.toLocaleString("en-US", { style: "currency", currency: "USD", minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const pct = (n: number) => `${(n * 100).toFixed(n < 0.1 ? 1 : 0)}%`;
 const card = "rounded-lg border border-[rgb(var(--line))] bg-white p-5";
 const input = "w-full rounded border border-[rgb(var(--line))] px-3 py-2 text-sm";
@@ -41,30 +42,39 @@ const td = "px-3 py-2 text-sm";
 export function PortalV2Provider({ client, children }: { client: PortalClient; children: React.ReactNode }) {
   const [state, setState] = useState<V2State | null>(null);
   const [loading, setLoading] = useState(true);
+  const [readStatus, setReadStatus] = useState<DashboardReadStatus>(() => dashboardReadStatus(client));
   const load = useCallback(async () => {
     try {
       await loadDashboardReady(client);
-    } catch { setState(previous => previous ? { ...previous, configured: false, error: "Current state unavailable; retained last good data, not current success" } : null); }
+    } catch { /* Shared read status marks retained presentation stale; never relabel it current. */ }
     finally { setLoading(false); }
   }, [client]);
   // Imperative reload is a post-save boundary: supersede every earlier read.
   const reload = useCallback(async () => { invalidateDashboardReady(client); await load(); }, [client, load]);
   useEffect(() => {
+    const unsubscribeStatus = subscribeDashboardReadStatus(client, setReadStatus);
     const unsubscribe = subscribeDashboardReady(client, bundle => { setState(bundle.state as unknown as V2State); setLoading(false); });
     const refresh = () => { void reload(); };
     const timer = window.setInterval(() => { void load(); }, 120_000);
-    const unconfirmed = () => setState(previous => previous ? { ...previous, dashboardRefreshUnconfirmed: true } : previous);
-    void load(); window.addEventListener("campaign-ask-refresh", refresh); window.addEventListener("dashboard-refresh-unconfirmed", unconfirmed);
-    return () => { window.clearInterval(timer); unsubscribe(); window.removeEventListener("campaign-ask-refresh", refresh); window.removeEventListener("dashboard-refresh-unconfirmed", unconfirmed); };
+    void load(); window.addEventListener("campaign-ask-refresh", refresh);
+    return () => { window.clearInterval(timer); unsubscribeStatus(); unsubscribe(); window.removeEventListener("campaign-ask-refresh", refresh); };
   }, [client, load, reload]);
   const freshness = state?.dashboardFreshness;
+  const retained = readStatus !== "current" || !!state?.dashboardRefreshUnconfirmed;
   return <V2.Provider value={{ client, state, loading, reload }}>
-    {state?.dashboardRefreshUnconfirmed && <div role="status" className="bg-amber-50 px-6 py-2 text-sm text-amber-950">SQL save committed. Dashboard refresh is unconfirmed; the retained view may precede your save. Do not resubmit the change. Waiting for a later verified SQL view.</div>}
+    {retained && <div role="status" className="bg-amber-50 px-6 py-3 text-sm text-amber-950">
+      {state ? "Showing the retained last validated view, not current data. It may precede your save. Controls are paused until a complete verified read succeeds." : "Dashboard data is unavailable. No current data has been loaded."}
+      {" "}Recovery only reads data; it never resubmits a saved change.
+      <button type="button" className={`${btn2} ml-3`} disabled={readStatus === "refreshing"} onClick={() => { void load(); }}>{readStatus === "refreshing" ? "Reading dashboard…" : "Retry dashboard read"}</button>
+    </div>}
+    {(state?.dashboardRefreshUnconfirmed || readStatus === "unconfirmed") && <div role="status" className="bg-amber-50 px-6 py-2 text-sm text-amber-950">SQL save committed. Dashboard refresh is unconfirmed; the retained view may precede your save. Do not resubmit the change. Waiting for a later verified SQL view.</div>}
     {freshness && <div role="status" className={`px-6 py-2 text-sm ${freshness.stale || freshness.failedAt ? "bg-amber-50 text-amber-950" : "bg-[rgb(var(--paper))] text-[rgb(var(--navy))]"}`}>
       SQL last verified {new Date(freshness.verifiedAt).toLocaleString("en-US")}.
-      {(freshness.stale || freshness.failedAt) && " Showing the last validated view while background refresh is pending or unavailable. Reload current SQL view to force a fresh read."}
+      {(freshness.stale || freshness.failedAt) && " Showing the last validated view while background refresh is pending or unavailable. Retry the dashboard read if needed."}
     </div>}
-    {children}
+    <fieldset disabled={retained} className="m-0 min-w-0 border-0 p-0" inert={retained} aria-label={retained ? "Retained dashboard — controls paused" : "Dashboard"}>
+      {children}
+    </fieldset>
   </V2.Provider>;
 }
 export function useCampaignDataStatus() { const { state, loading } = useV2(); return { loading, available: !!state && state.configured !== false && !state.error }; }
@@ -298,7 +308,7 @@ function AllGifts() {
           <tbody>{gso.sorted.map((g) => (
             <Fragment key={giftId(g)}>
               <tr className="border-b border-[rgb(var(--line))]"><td className={td}>{g._nativeGift ? g.gift_date ?? "Unknown date" : isoToUs(g.gift_date)}</td><td className={td}><NameLink name={g.donor_name} cptid={g.cptid} />{g.cptid ? <span className="text-xs text-[rgb(var(--ink))]/50"> · {g.cptid}</span> : null}</td>
-                <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{g.amountExact?usdExact(g.amountExact):usd(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usd(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
+                <td className={td}>{g.kind === "pledge" ? "Pledge" : "Gift"}</td><td className={`${td} text-right`}>{g.amountExact?usdExact(g.amountExact):usdCents(Number(g.amount))}{g.corrected ? <div className="text-[11px] text-[rgb(var(--ink))]/50">was {usdCents(g.corrected.from)}, corrected by {g.corrected.by}</div> : null}</td>
                 <td className={td}>{g.src}</td><td className={td}>{g.note ?? ""}</td>
                 <td className={`${td} whitespace-nowrap text-right`}>{(g._nativeGift || Number(g.id) > 0 || g.key) && <>
                   <button className="text-xs font-semibold text-[rgb(var(--navy))] hover:underline disabled:opacity-50" disabled={pvasCanonicalEnabled(client)&&(!state.databaseGiftEditsAvailable||pendingChange||g._nativeGift?.representation!=="native-campaign")} onClick={() => start(g, "edit")}>Edit</button>
@@ -333,7 +343,7 @@ function AllGifts() {
       {(voided.length > 0 || dbVoids.length > 0) && (
         <details className="mt-4"><summary className="cursor-pointer text-sm font-medium">Voided records ({voided.length + dbVoids.length}), not counted in totals</summary>
           <table className="mt-2 w-full"><tbody>
-            {voided.map((v) => <tr key={`v${v.id}`} className="border-b border-[rgb(var(--line))] text-[rgb(var(--ink))]/70"><td className={td}>{v.donor_name}</td><td className={td}>{v.kind}</td><td className={`${td} text-right`}>{usd(Number(v.amount))}</td><td className={td}>Reason: {v.void_reason}</td><td className={td}>{v.voided_by} · {v.voided_at ? new Date(v.voided_at).toLocaleString() : ""}</td></tr>)}
+            {voided.map((v) => <tr key={`v${v.id}`} className="border-b border-[rgb(var(--line))] text-[rgb(var(--ink))]/70"><td className={td}>{v.donor_name}</td><td className={td}>{v.kind}</td><td className={`${td} text-right`}>{usdCents(Number(v.amount))}</td><td className={td}>Reason: {v.void_reason}</td><td className={td}>{v.voided_by} · {v.voided_at ? new Date(v.voided_at).toLocaleString() : ""}</td></tr>)}
             {dbVoids.map((v) => <tr key={`o${v.id}`} className="border-b border-[rgb(var(--line))] text-[rgb(var(--ink))]/70"><td className={td}>{v.donor_name ?? v.gift_key}</td><td className={td}>database row</td><td className={td} /><td className={td}>Reason: {v.void_reason}</td><td className={td}>{v.created_by} · {new Date(v.created_at).toLocaleString()}</td></tr>)}
           </tbody></table>
         </details>
@@ -343,14 +353,17 @@ function AllGifts() {
 }
 
 function GiftForm() {
+  const submitting = useRef(false);
   const { client, reload } = useV2();
   const [by, setBy] = useBy();
   const [f, setF] = useState({ donorName: "", cptid: "", kind: "pledge", amount: "", date: "", note: "" });
   const [msg, setMsg] = useState(""); const [busy, setBusy] = useState(false);
   const [matches, setMatches] = useState<{ cptid: number; name: string; address: string; exact: boolean }[] | null>(null);
   const save = async (confirmNew = false, gift = f) => {
+    if (submitting.current || dashboardReadStatus(client) !== "current") return;
     if (pvasCanonicalEnabled(client)) { setMsg("New gift entry is unavailable."); return; }
     if (parseUsDateClient(gift.date) === null) { setMsg("Use MM/DD/YYYY for the date."); return; }
+    submitting.current = true;
     setBusy(true); setMsg("");
     try {
       let r;
@@ -369,8 +382,8 @@ function GiftForm() {
             scope:"campaign",credit:"hard",campaign:null,fund:null,type:null,note:gift.note,donorName:gift.donorName}}});
       }else r=await post(client, { op: "addGift", by, gift, confirmNew });
       if (r.matches) { setMatches(r.matches); setMsg(""); return; }
-      setMatches(null); setF({ donorName: "", cptid: "", kind: f.kind, amount: "", date: "", note: "" }); setMsg("Saved."); await reload();
-    } catch (e) { setMsg((e as Error).message); } finally { setBusy(false); }
+      setMatches(null); setF({ donorName: "", cptid: "", kind: f.kind, amount: "", date: "", note: "" }); setMsg("Saved. The entry was accepted. Do not resubmit it if the dashboard refresh is unavailable."); await reload();
+    } catch (e) { setMsg((e as Error).message); } finally { submitting.current = false; setBusy(false); }
   };
   if (pvasCanonicalEnabled(client)) return <p className="text-sm">New gift entry is unavailable. Existing gifts can be edited in Gift history.</p>;
   return (
@@ -500,7 +513,7 @@ export function UploadClientFile() {
                 <td className={td}>{c.changes.map((x) => `${x.field}: ${x.oldValue ?? "(blank)"} → ${x.newValue}`).join("; ")}</td></tr>))}</tbody></table></details>}
           {pv.gifts.length > 0 && <details><summary className="cursor-pointer font-medium">Gifts and pledges ({pv.gifts.length})</summary>
             <table className="mt-2 w-full"><tbody>{pv.gifts.slice(0, 300).map((g, i) => (
-              <tr key={i} className="border-b border-[rgb(var(--line))]"><td className={td}>Row {g.line}</td><td className={td}>{g.donorName}</td><td className={td}>{g.kind}</td><td className={`${td} text-right`}>{usd(g.amount)}</td><td className={td}>{g.date ?? ""}</td></tr>))}</tbody></table></details>}
+              <tr key={i} className="border-b border-[rgb(var(--line))]"><td className={td}>Row {g.line}</td><td className={td}>{g.donorName}</td><td className={td}>{g.kind}</td><td className={`${td} text-right`}>{usdCents(g.amount)}</td><td className={td}>{g.date ?? ""}</td></tr>))}</tbody></table></details>}
           <div className="flex gap-2"><button className={btn2} onClick={() => setPv(null)}>Cancel</button><button className={btn} disabled={busy} onClick={() => send(true)}>{busy ? "Saving…" : "Confirm and save"}</button></div>
         </div>
       )}

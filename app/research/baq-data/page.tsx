@@ -1,3 +1,4 @@
+import { DashboardSnapshotUnavailable } from "@/components/dashboard-snapshot-unavailable";
 import { getBaqSnapshot } from "@/lib/baq-data-store";
 import { BaqDataDashboard } from "@/components/baq-data-dashboard";
 
@@ -6,6 +7,6 @@ export const dynamic = "force-dynamic";
 
 export default async function BaqDataPage() {
   const data = await getBaqSnapshot();
-  if (!data) return <main className="mx-auto max-w-3xl p-10">BAQ data snapshot is not available yet.</main>;
+  if (!data) return <DashboardSnapshotUnavailable client="BAQ" />;
   return <BaqDataDashboard data={data} />;
 }
