@@ -96,6 +96,41 @@ const body=async r=>{assert.equal(r.headers.get('cache-control'),'private, no-st
  assert.equal((await review.POST(request('review',{...notes,operationId:randomUUID(),revision:4,choice:'unknown'},{cookie:c1}))).status,400);
  const noteHistory=(await body(await review.GET(request('review',undefined,{cookie:c1})))).responses.filter(r=>r.prospectId==='sample-2');assert.deepEqual(noteHistory.map(r=>[r.revision,r.choice,r.comment]),[[1,'',notes.comment],[2,'',''],[3,'B',notes.comment]]);
 
+ // Kirk wording is additive; legacy receipts and note edits retain exact old semantics.
+ const savedBeforeKirk=new Map(ledger);
+ const legacyNotes={...op,operationId:randomUUID(),revision:3,comment:'Original wording; notes updated only'};
+ assert.equal((await review.POST(request('review',legacyNotes,{cookie:c1}))).status,200);
+ const modern={...legacyNotes,operationId:randomUUID(),revision:4,choice:'D',choiceVersion:'kirk-v1'};
+ assert.equal((await review.POST(request('review',modern,{cookie:c1}))).status,200);
+ assert.equal((await review.POST(request('review',{...modern,choiceVersion:undefined},{cookie:c1}))).status,409,'wording is immutable operation content');
+ const suggestion={operationId:randomUUID(),rosterVersion:fixture.version,prospectId:'other-companies',revision:1,choice:'',comment:'Fictional company; contact; relationship; can introduce',choiceVersion:'suggestions-v1'};
+ for(const bad of [{...suggestion,choice:'A'},{...suggestion,choiceVersion:'kirk-v1'},{...suggestion,choiceVersion:undefined},{...suggestion,choiceVersion:null},{...suggestion,prospectId:'sample-3'},{...modern,choice:'O'},{...modern,choiceVersion:'future'}])assert.equal((await review.POST(request('review',{...bad,operationId:randomUUID()},{cookie:c1}))).status,400);
+ assert.equal((await review.POST(request('review',suggestion,{cookie:c1}))).status,200);
+ const clearSuggestion={...suggestion,operationId:randomUUID(),revision:2,comment:''};assert.equal((await review.POST(request('review',clearSuggestion,{cookie:c1}))).status,200);
+ const mineKirk=await body(await review.GET(request('review',undefined,{cookie:c1})));assert.equal(mineKirk.responses.filter(r=>r.prospectId==='other-companies').length,2);
+ assert.equal((await body(await review.GET(request('review',undefined,{cookie:c2})))).responses.length,0,'suggestions private');
+ const kirkExport=await body(await admin.GET(request('admin',undefined,{authorization})));assert.equal(kirkExport.responses.find(r=>r.operationId===modern.operationId).choiceVersion,'kirk-v1');assert.equal(Object.hasOwn(kirkExport.responses.find(r=>r.operationId===legacyNotes.operationId),'choiceVersion'),false);
+ for(const [k,v]of savedBeforeKirk)assert.equal(ledger.get(k),v,'all prior receipt/member/operation bytes preserved');
+ // Guarded same-version append15; never rewrite existing contacts or old answer rows.
+ const rawBeforeSupplement=ledger.get(rosterKey),priorRows=new Map(ledger),baselineSupplement=JSON.parse(rawBeforeSupplement);
+ const targetSupplement=structuredClone(baselineSupplement);targetSupplement.prospects[0].portals[0].status='Reviewed giving update';
+ for(let i=0;i<15;i++)targetSupplement.prospects.push({...targetSupplement.prospects[0],id:'added-'+i,organization:'Fictional added company '+i,contactName:'',email:'',directPhone:'',portals:[]});
+ const supplement={action:'supplement-roster',operationId:randomUUID(),expectedRawDigest:digest(rawBeforeSupplement),roster:targetSupplement};
+ assert.equal((await admin.PATCH(request('admin',supplement,{},'PATCH'))).status,401);
+ for(const change of [r=>r.prospects.shift(),r=>r.prospects.reverse(),r=>r.prospects[0].contactName='Changed',r=>r.version='new-version',r=>r.prospects.push(r.prospects[0])]){const bad=structuredClone(targetSupplement);change(bad);assert.ok((await admin.PATCH(request('admin',{...supplement,operationId:randomUUID(),roster:bad},{authorization},'PATCH'))).status>=400);assert.equal(ledger.get(rosterKey),rawBeforeSupplement);}
+ unstableHead=true;assert.equal((await admin.PATCH(request('admin',supplement,{authorization},'PATCH'))).status,409);unstableHead=false;assert.equal(ledger.get(rosterKey),rawBeforeSupplement);
+ raceConditional=true;assert.equal((await admin.PATCH(request('admin',supplement,{authorization},'PATCH'))).status,409,'conditional conflict never overwritten');
+ const retrySupplement={...supplement,operationId:randomUUID(),expectedRawDigest:digest(ledger.get(rosterKey))};
+ lost=true;const acceptedSupplement=await admin.PATCH(request('admin',retrySupplement,{authorization},'PATCH'));lost=false;assert.equal(acceptedSupplement.status,200);
+ const afterSupplement=new Map(ledger);assert.equal((await admin.PATCH(request('admin',retrySupplement,{authorization},'PATCH'))).status,200);assert.deepEqual([...ledger],[...afterSupplement],'supplement replay creates no writes');
+ assert.equal((await admin.PATCH(request('admin',{...retrySupplement,roster:{...targetSupplement,checkedAt:'2026-11-24'}},{authorization},'PATCH'))).status,409,'changed replay target fails');
+ assert.equal(JSON.parse(ledger.get(rosterKey)).prospects.length,baselineSupplement.prospects.length+15);
+ for(const [k,v]of priorRows)if(k!==rosterKey)assert.equal(ledger.get(k),v,'supplement preserves every existing non-roster row');
+ const supplementalBackup=JSON.parse(ledger.get(store.prefix()+'roster-supplements/'+retrySupplement.operationId+'/original.json'));assert.equal(Buffer.from(supplementalBackup.rawBytes,'base64').toString(),rawBeforeSupplement+' ');
+ assert.deepEqual((await store.getRoster()).prospects.slice(0,baselineSupplement.prospects.length).map(p=>({...p,portals:[]})),baselineSupplement.prospects.map(p=>({...p,portals:[]})));
+ // Restore isolated fixture for the independent display tests.
+ ledger.clear();for(const [k,v]of savedBeforeKirk)ledger.set(k,v);
+
  const presentation=require('../lib/sa-sponsorship/presentation.server.ts');
  for(const phone of ['+1 202-555-0100','+1 202-555-0100; +1 202-555-0101','+44 123 456 789','+44 123 456 7890','+1 202-555-0100 (company record)','(202) 555-0100 (original file; not reverified)','202-555-0100 (published office line)','+1-202-555-0100 (published office line)','+44 1 2345 6789 (company record)'])assert.equal(presentation.usablePhone(phone),true,phone);
  for(const phone of ['', '2026','2026-11-24','Checked 2026-11-24','Not verified: 2025550100','https://example.com/2025550100','(company record 2026)','+1234567890123456','202 555 (not verified)'])assert.equal(presentation.usablePhone(phone),false,phone);
@@ -125,6 +160,13 @@ const body=async r=>{assert.equal(r.headers.get('cache-control'),'private, no-st
  // Export with this roster only references this isolated synthetic member.
  const fullDisplayExport=await body(await admin.GET(request('admin',undefined,{authorization})));assert.deepEqual(Object.keys(fullDisplayExport).sort(),['members','prospects','responses','rosterVersion','schemaVersion']);assert.equal(fullDisplayExport.prospects.length,27);assert.equal(fullDisplayExport.responses.length,1,'admin preserves excluded histories');
  const allHistory=await store.responses(displayMember.id,displayRoster);assert.equal(allHistory.length,1);assert.equal(allHistory[0].prospectId,'display-24');
+ const inclusionSnapshot=new Map(ledger),inclusions={...config,includedProspectIds:['display-22']};
+ assert.equal((await admin.PUT(request('admin',inclusions,{authorization},'PUT'))).status,200);
+ const includedView=await body(await review.GET(request('review',undefined,{cookie:displayCookie})));assert.equal(includedView.roster.prospects.length,23);assert.ok(includedView.roster.prospects.some(p=>p.id==='display-22'));
+ for(const id of ['display-23','display-24','display-25','display-26'])assert.ok(!includedView.roster.prospects.some(p=>p.id===id),'rest of incomplete roster remains hidden');
+ for(const [k,v]of inclusionSnapshot)assert.equal(ledger.get(k),v,'inclusion preserves all prior objects including Top20 config');
+ for(const ids of [['unlisted'],['display-22','display-22']])assert.equal((await admin.PUT(request('admin',{...config,includedProspectIds:ids},{authorization},'PUT'))).status,400);
+ assert.equal((await admin.PUT(request('admin',{...config,includedProspectIds:['display-23']},{authorization},'PUT'))).status,409,'inclusion config create-only');
  ledger.clear();for(const [k,v]of originalLedger)ledger.set(k,v);
  const beforeProduction=[...ledger.entries()];process.env.VERCEL_ENV='production';assert.equal((await admin.POST(request('admin',fixture,{authorization}))).status,503);assert.equal((await review.GET(request('review',undefined,{cookie:c1}))).status,503);assert.deepEqual([...ledger.entries()],beforeProduction,'production gate never reads or writes collection');
  assert.ok([...ledger.keys()].every(k=>k.startsWith('sa-sponsorship/v1/preview/')));

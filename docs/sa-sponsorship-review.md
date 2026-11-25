@@ -277,3 +277,71 @@ checks the actual authenticated synthetic page on desktop/mobile, absent citatio
 preserved contact quality/fit and application details, numbers/extensions and
 company/giving links, plus byte-equivalent parsed admin roster fields and no
 response writes. `SA_SOURCE_DISPLAY_BEFORE=1` captures the pre-change state only.
+
+## Kirk committee feedback — November 25 (preview approval required)
+This section supersedes the older display/response wording above. No hosted
+preview-enable flag, production mutation, merge or exporter activation is part of
+this change. Review local synthetic proofs before approval.
+
+- Company display and DOM order are alphabetical (case-insensitive English full
+  organization name, stable ID tie-break). Canonical roster ordering is untouched.
+- Giving/application fields and links remain behind native `<details>/<summary>`
+  with a plus indicator, following the actual `/csnf` FAQ pattern. Closed by default.
+- `lib/sa-sponsorship/choices.ts` owns this client's exact Kirk A–D wording;
+  the shared other-client choices are unchanged. Every answer is optional. The
+  toolbar reports companies with saved input, not an implied completion quota.
+- Optional `choiceVersion:"kirk-v1"` distinguishes new A–D meanings. Omitted means
+  the original A–D/O meanings. Old in-flight writes remain valid. Legacy receipts
+  are never backfilled or rewritten; original wording is shown separately with
+  no new radio selected. Comment-only edits retain the original discriminator
+  (or its absence); choosing/clearing an answer explicitly changes the next revision.
+- The final optional OTHER-companies question is a private free-text suggestion
+  record: reserved `prospectId:"other-companies"`, `choiceVersion:"suggestions-v1"`,
+  and `choice:""`. No canonical company may use that ID. No other discriminator/
+  prospect/choice combination is allowed. Company/contact/relationship/how-help
+  are optional details in the text, maximum 2,000 characters. Existing per-member
+  private receipts, 600ms autosave, retry, navigation flush, clear/resume and export
+  machinery apply unchanged. No suggestions are shared with other members.
+- The five export top-level keys and `schemaVersion:1` remain unchanged. Optional
+  `choiceVersion` is present only on records that use it; never synthesize it for
+  legacy receipt hashes. Exporter must be upgraded **before** new responses can
+  enter the existing scheduled workbook pipeline. Reviewed offline exporter adds
+  a separate Answer Wording audit sheet and never moves existing staff columns.
+
+### Explicit requested-company display inclusions
+`PUT /admin` may additionally contain `includedProspectIds:[unique canonical IDs]`.
+The original Top20 config stays create-only and unchanged. Inclusions are saved
+separately at `presentation-inclusions/<rosterVersion>.json`, also create-only
+with exact idempotent replay. Member view becomes Top20 OR explicit requested
+inclusion OR the unchanged complete named-contact/work-email/direct-phone rule.
+No canonical roster/answer data is changed by display configuration. The final
+suggestion question is returned independently of company filtering.
+
+### Guarded reviewed roster supplement (separate post-approval operation)
+`PATCH /admin` action `supplement-roster` accepts exactly
+`{action,operationId:<UUIDv4>,expectedRawDigest:<authenticated raw header>,roster}`.
+It retains schema/version/roster checkedAt and all existing IDs, ordering and
+canonical/contact fields; only existing `portals` giving research may change,
+and new unique companies may append. This is not a general roster editor.
+Uses the existing configured admin bearer + same-origin protections, explicit
+collection gates and conditional private Blob storage; local-file mode rejects.
+The request is bound to exact baseline raw bytes and complete validated target.
+Stable canonical HEAD-before/after metadata binds uncached bytes to the unchanged
+strong ETag used in `ifMatch`. Private `roster-supplements/<operationId>/` stores
+exact original bytes, immutable intent and verified receipt. Lost acknowledgments
+resolve only by exact target digest; changed replay/conflict never blind-overwrites.
+Existing members/operations/answer receipts and the active pointer are untouched.
+
+Do not bump rosterVersion: that would invalidate old saved receipts. The offline
+exporter migration separately requires the exact reviewed baseline roster digest,
+exact target digest and baseline directory, validates unchanged existing canonical
+fields, retains every receipt/history/member anchor and staff cell, then updates/
+appends the directory and pins the new digest. No arbitrary digest acceptance.
+Private target rosters and source email/credentials must never enter Git/fixtures.
+
+Focused checks: existing two Node suites, unchanged `npx tsc --noEmit`, existing
+`qa-sa-sponsorship.py` race workflow, and new `qa-sa-kirk.py` local HTTPS Chromium
+workflow. New browser proof covers collapsed keyboard-accessible details,
+alphabetical order, legacy D/comment compatibility, new versioned choice,
+clear/skip, final suggestion autosave/resume/clear/private export, unchanged
+canonical export and mobile no-overflow. No broad app suite is required.

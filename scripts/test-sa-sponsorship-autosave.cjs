@@ -33,6 +33,15 @@ const ack=op=>({...op,memberId:'member',savedAt:'2026-11-24T12:00:00.000Z'});
  // While a navigation flush awaits, a later edit is drained before its promise resolves.
  sent=[];hold=deferred();const navigation=new ProspectAutosave('member','sample-5','version',undefined,op=>{sent.push({...op});return sent.length===1?hold.promise:Promise.resolve(ack(op));},()=>{});
  navigation.edit({comment:'before navigation'});const navigationWait=navigation.flush();navigation.edit({comment:'last edit before leaving'});hold.resolve(ack(sent[0]));await navigationWait;assert.equal(navigation.receipt.comment,'last edit before leaving');assert.equal(navigation.dirty,false);
+
+ // Old browser operations still omit the discriminator. Note-only changes never relabel history.
+ const oldReceipt={...ack({operationId:crypto.randomUUID(),rosterVersion:'version',prospectId:'legacy',revision:1,choice:'D',comment:'Old note'}),memberId:'member'};
+ const versions=[];const legacy=new ProspectAutosave('member','legacy','version',oldReceipt,async op=>{versions.push({...op});return ack(op);},()=>{});
+ legacy.edit({comment:'Updated note only'});await legacy.flush();assert.equal(Object.hasOwn(versions[0],'choiceVersion'),false);assert.equal(versions[0].choice,'D');
+ legacy.edit({choice:'D',choiceVersion:'kirk-v1'});await legacy.flush();assert.equal(versions[1].choiceVersion,'kirk-v1');assert.equal(versions[1].revision,3);
+ let versionCorrupt=true;const final=new ProspectAutosave('member','other-companies','version',undefined,async op=>{const r=ack(op);if(versionCorrupt)delete r.choiceVersion;return r;},()=>{});
+ final.edit({comment:'Other company: Sample. Contact: optional. Relationship: optional. How help: optional.',choiceVersion:'suggestions-v1'});await assert.rejects(final.flush());const finalId=final.pending.operationId;versionCorrupt=false;await final.flush();assert.equal(final.receipt.operationId,finalId);final.edit({comment:''});await final.flush();assert.equal(final.receipt.revision,2);assert.equal(final.receipt.comment,'');assert.equal(final.receipt.choiceVersion,'suggestions-v1');
+ legacy.dispose();final.dispose();
  for(const c of [save,notes,failed,mismatch,navigation])c.dispose();assert.equal(timers.size,0);
  console.log('PASS: serialized autosave, 600ms debounce, coalesced editable drafts, note-only/clearing, immutable retries, ack validation and navigation drain races.');
 })().catch(e=>{console.error(e);process.exitCode=1;}).finally(()=>{global.setTimeout=originalSet;global.clearTimeout=originalClear;});
