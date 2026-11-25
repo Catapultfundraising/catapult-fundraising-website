@@ -72,7 +72,7 @@ export function useCampaignAskSnapshot<T extends object>(snapshot: T, index?: ({
   const { client, state } = useV2();
   return useMemo(() => {
     const updates = (state?.updates ?? []) as UpdateRow[];
-    const readySnapshot = (state?.readySnapshot ?? snapshot) as T;
+    const readySnapshot = { ...(state?.readySnapshot ?? snapshot), ...(state ? { campaignGifts: state.gifts } : {}) } as T;
     if (state?.dashboardGeneration && (index as unknown as {dashboardGeneration?: string})?.dashboardGeneration !== state.dashboardGeneration)
       return { ...readySnapshot, directReadUnavailable: true };
     if (state?.directSourceRevision && (index as unknown as { directSourceRevision?: string })?.directSourceRevision !== state.directSourceRevision)

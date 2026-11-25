@@ -6,9 +6,9 @@ export type HelpClient = "jag" | "csnf" | "pvas" | "wcbhc" | "baq" | "imas";
 
 /** Tabs exactly as each dashboard renders them (its TABS constant plus Prospect Ratings). Tested against the source. */
 export const DASHBOARD_TABS: Record<HelpClient, readonly string[]> = {
-  jag: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Calling", "Feasibility", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
-  csnf: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Calling", "Database Health", "Alumni", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
-  pvas: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
+  jag: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Calling", "Feasibility", "Database Health", "Campaign Gifts", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
+  csnf: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Calling", "Database Health", "Alumni", "Campaign Gifts", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
+  pvas: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Gifts", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
   wcbhc: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Committee", "Campaign Prospects", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
   baq: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Committee", "Campaign Prospects", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
   imas: ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Committee", "Campaign Prospects", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload", "Prospect Ratings"],
@@ -163,11 +163,11 @@ const ALL_TOPICS: HelpTopic[] = [
     related: ["gifts-pledges"],
   },
   {
-    id: "campaign-gifts", kind: "section", tab: "Campaign Gifts", title: "Campaign Gifts", clients: ["wcbhc", "baq", "imas"],
-    summary: "Campaign gifts by payment type, committee pledges and every campaign gift.",
+    id: "campaign-gifts", kind: "section", tab: "Campaign Gifts", title: "Campaign Gifts", clients: ["jag", "csnf", "pvas", "wcbhc", "baq", "imas"],
+    summary: "Effective campaign gifts and pledges, including current corrections, Stewardship commitments and portal entries.",
     steps: [
-      "Review Gifts by type.",
-      "Check Pledges for committee pledges and verbal commitments, largest first.",
+      "Review Gifts by source.",
+      "Check Pledges for current commitments, largest first.",
       "Use Gifts for every campaign gift, newest first.",
     ],
     related: ["gifts-pledges"],

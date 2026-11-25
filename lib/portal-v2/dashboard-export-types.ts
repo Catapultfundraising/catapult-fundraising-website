@@ -1,3 +1,4 @@
+import { campaignLedgerTable } from "./campaign-ledger";
 import type { PortalClient } from "./clients";
 import { pvasExportTable } from "./pvas-export-model";
 import { jagExportTable } from "./jag-export-model";
@@ -23,6 +24,10 @@ export type CurrentExportPayload = {
   sections: { heading?: string; rows: ExportCell[][] }[]; notes?: string[]; intent?: ExportIntent;
 };
 export function buildDashboardExportModel(client: PortalClient, context: TableSource & { index: unknown[]; tracking: unknown }): TableModel {
+  // Old open tabs may still send Givebutter selectors; only PVAS owns a provider-only view.
+  if (client !== "pvas" && /^Givebutter\.[012]$/.test(context.table))
+    return campaignLedgerTable(context.table.replace("Givebutter.", "Campaign."), context.snapshot);
+  if (context.table.startsWith("Campaign.")) return campaignLedgerTable(context.table, context.snapshot);
   return ({ pvas: pvasExportTable, jag: jagExportTable, csnf: csnfExportTable, wcbhc: wcbhcExportTable, baq: baqExportTable, imas: imasExportTable })[client](context.table, context);
 }
 /** Exact existing cmpValues semantics, without importing a React/client component into server IO. */

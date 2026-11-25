@@ -91,7 +91,7 @@ export async function reconstructDashboardExport(client: PortalClient, rawIntent
   if (!raw) throw new Error("Current snapshot unavailable");
   const source = await directData(client, raw, "snapshot");
   if ((source as unknown as {directSourceRevision?:string}).directSourceRevision !== revision) throw new Error("Source changed during export; reload and retry");
-  const snapshot = currentDashboardSnapshot(client, source, projection.index, tracking, state.updates as UpdateRow[]);
+  const snapshot = currentDashboardSnapshot(client, { ...source, campaignGifts: state.gifts }, projection.index, tracking, state.updates as UpdateRow[]);
   try {
     const model = buildDashboardExportModel(client, {table:intent.table,parameters:intent.parameters,snapshot,index:projection.index,tracking});
     return tableExportPayload(model, intent);

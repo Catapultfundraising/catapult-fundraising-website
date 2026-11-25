@@ -10,6 +10,7 @@ import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
+import { CampaignGifts } from "@/components/campaign-gifts";
 import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
 import {
   Bar, BarChart, CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis, Legend,
@@ -34,7 +35,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Donors", "Add + Upload"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Reports", "Board", "Portfolio", "Recent Givebutter Activity", "Database Health", "Campaign Gifts", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -646,7 +647,7 @@ function Givebutter({ d }: { d: PvasSnapshot }) {
       <CampaignProgress />
       <Card className="border-[rgb(var(--brass))]/50 bg-[rgb(var(--brass))]/5">
         <p className="text-sm text-[rgb(var(--ink))]/75">
-          Online gifts and pledges recorded in Givebutter{g.from ? ` from ${g.from} to ${g.to}` : ""}. One Shelter. One Future. gifts and pledges count in the campaign total above, with Stewardship commitments taking precedence. Other Givebutter campaigns remain separate; lifetime giving is unchanged.
+          Online gifts and pledges recorded in Givebutter{g.from ? ` from ${g.from} to ${g.to}` : ""}. This provider activity is separate from the effective Campaign Gifts ledger. Use Campaign Gifts for current campaign totals, gifts and pledges; lifetime giving is unchanged.
         </p>
       </Card>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
@@ -725,6 +726,7 @@ function PvasDashboardBody({ data: snapshot }: { data: PvasSnapshot }) {
         {tab === "Donor Lookup" && <Lookup d={data} />}
         {tab === "Prospect Ratings" && (staff ? <BoardReviewAdmin client="pvas" /> : <StaffSignIn client="pvas" />)}
         {tab === "Overview" && <><CampaignProgress /><Overview d={data} /></>}
+        {tab === "Campaign Gifts" && <CampaignGifts snapshot={data} Table={Table} />}
         {tab === "Campaign Donors" && <CampaignDonors />}
         {tab === "Add + Upload" && <AddAndUpload />}
         {tab === "Gift Pyramid" && <Pyramid d={data} />}
