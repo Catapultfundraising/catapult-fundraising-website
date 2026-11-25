@@ -38,6 +38,7 @@ const state=g=>({configured:true,dashboardGeneration:g,goal:1000,prospects:[],up
 async function scenario(client,mode="ok"){
  const page=await browser.newPage({viewport:{width:1560,height:1100},extraHTTPHeaders:{"x-forwarded-proto":"https"}});
  const errors=[],requests=[],exports=[];let fail=mode==="unavailable";
+ await page.addInitScript(()=>localStorage.setItem("catapult_cookie_consent","necessary"));
  page.on("pageerror",e=>errors.push(e.stack));
  await page.route("**/*",async route=>{
   const req=route.request(),url=new URL(req.url());if(url.hostname!=="localhost")return route.abort();if(!url.pathname.startsWith("/api/"))return route.continue();requests.push({path:url.pathname,method:req.method(),op:req.method()==="POST"?JSON.parse(req.postData()||"{}").op:undefined});
@@ -90,6 +91,10 @@ async function scenario(client,mode="ok"){
  fail=true;await page.evaluate(()=>window.dispatchEvent(new Event("crm-index-refresh")));
  await page.getByText("Showing the retained last validated view, not current data.",{exact:false}).waitFor();
  assert.deepEqual(new Set(await ids()),new Set(names),"Retain prior paired list, not source fallback");
+ assert.equal(await page.getByRole("group",{name:"Retained dashboard — controls paused",exact:true}).getAttribute("disabled"),"");
+ assert.equal(await page.getByLabel("Solicitor",{exact:true}).isDisabled(),true);
+ fail=false;await page.getByRole("button",{name:"Retry dashboard read",exact:true}).click();await page.getByRole("group",{name:"Dashboard",exact:true}).waitFor();
+ assert.equal(await page.getByLabel("Solicitor",{exact:true}).isDisabled(),false);
  assert.equal(requests.filter(r=>r.method!=="GET"&&!r.path.endsWith("-data-export")&&r.op!=="getAsk").length,0);
  assert.deepEqual(errors,[]);console.log(`PASS mounted ${client}: actual nav click, all 7 full-index assigned records/status/clears/conflicts, solicitor filter, search/sort, current index export, record 102 + badge, retained read hold; no live APIs`);
  await page.close();
