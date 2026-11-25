@@ -123,7 +123,7 @@ export async function reconstructDashboardExport(client: PortalClient, rawIntent
       const summary = intent.solicitor ? model.summary.filter(row => row.solicitor === intent.solicitor) : model.summary;
       return { title: "Solicitor assignments", subtitle: `${selection} · A prospect may appear under more than one solicitor; totals are not additive.`,
         cols: [{label:"Solicitor"},{label:"Prospects",kind:"num"},{label:"Primary assignments",kind:"num"},{label:"Secondary assignments",kind:"num"},{label:"With a Campaign Ask",kind:"num"},{label:"Campaign Asks (known amounts)",kind:"usd"},{label:"Asks needing review",kind:"num"},{label:"Asks without an amount",kind:"num"}],
-        sections: [{rows:summary.map(row=>[row.solicitor,row.prospects,row.primary,row.secondary,row.withAsk,row.askTotal,row.askReview,row.askMissing])}] };
+        sections: [{rows:summary.map(row=>[row.solicitor,row.prospects,row.primary,row.secondary,row.withAsk,row.askReview + row.askMissing === row.prospects ? null : row.askTotal,row.askReview,row.askMissing])}] };
     }
     const payload = io.index("Portfolio prospects", selection, model.rows as never);
     const withAsks = { ...payload, cols: [...payload.cols, {label:"Campaign Ask",kind:"usd" as const},{label:"Campaign Ask review"}],

@@ -72,6 +72,12 @@ Module._load=function(name,parent,isMain){
   await assert.rejects(()=>reconstructDashboardExport(client,{kind:"index",ids:[2]},{}),/merged\/deleted/);
  }
  expectPairedOnly=false;
+ const priorUpdates=fixtureState.updates.length;
+ for(const cptid of [1,4,7,9])fixtureState.updates.push({id:100+cptid,cptid,field:"ask",new_value:"",old_value:"100"});
+ const unknownSummary=await reconstructDashboardExport("jag",{kind:"portfolio",solicitor:"ZZTEST Lead",summary:true},{});
+ assert.equal(unknownSummary.sections[0].rows[0][5],null,"all unknown/cleared summary amounts remain blank, not fabricated zero");
+ assert.equal(unknownSummary.sections[0].rows[0][7],4);
+ fixtureState.updates.splice(priorUpdates);
  assert.ok(pairedCalls>=10,"real IMAS reconstruction traversed paired authority for every export kind");
  // Missing/mismatched parity must remain a hard hold, even if the direct mode
  // is not enabled in a preview. Never weaken the existing integrity fences.
