@@ -1,3 +1,4 @@
+import { DashboardSnapshotUnavailable } from "@/components/dashboard-snapshot-unavailable";
 import { getWcbhcSnapshot } from "@/lib/wcbhc-data-store";
 import { WcbhcDataDashboard } from "@/components/wcbhc-data-dashboard";
 
@@ -6,6 +7,6 @@ export const dynamic = "force-dynamic";
 
 export default async function WcbhcDataPage() {
   const data = await getWcbhcSnapshot();
-  if (!data) return <main className="mx-auto max-w-3xl p-10">WCBHC data snapshot is not available yet.</main>;
+  if (!data) return <DashboardSnapshotUnavailable client="WCBHC" />;
   return <WcbhcDataDashboard data={data} />;
 }

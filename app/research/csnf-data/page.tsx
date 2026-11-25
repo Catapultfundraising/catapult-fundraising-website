@@ -1,3 +1,4 @@
+import { DashboardSnapshotUnavailable } from "@/components/dashboard-snapshot-unavailable";
 import { getCsnfSnapshot } from "@/lib/csnf-data-store";
 import { CsnfDataDashboard } from "@/components/csnf-data-dashboard";
 
@@ -6,6 +7,6 @@ export const dynamic = "force-dynamic";
 
 export default async function CsnfDataPage() {
   const data = await getCsnfSnapshot();
-  if (!data) return <main className="mx-auto max-w-3xl p-10">CSNF data snapshot is not available yet.</main>;
+  if (!data) return <DashboardSnapshotUnavailable client="CSNF" />;
   return <CsnfDataDashboard data={data} />;
 }

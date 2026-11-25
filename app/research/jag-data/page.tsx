@@ -1,3 +1,4 @@
+import { DashboardSnapshotUnavailable } from "@/components/dashboard-snapshot-unavailable";
 import { getJagSnapshot } from "@/lib/jag-data-store";
 import { JagDataDashboard } from "@/components/jag-data-dashboard";
 
@@ -6,6 +7,6 @@ export const dynamic = "force-dynamic";
 
 export default async function JagDataPage() {
   const data = await getJagSnapshot();
-  if (!data) return <main className="mx-auto max-w-3xl p-10">JAG data snapshot is not available yet.</main>;
+  if (!data) return <DashboardSnapshotUnavailable client="JAG" />;
   return <JagDataDashboard data={data} />;
 }

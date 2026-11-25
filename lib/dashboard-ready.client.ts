@@ -3,6 +3,20 @@ import { completePvasUploadHistory } from "./portal-v2/pvas-upload-history";
 import type { PortalClient } from "./portal-v2/clients";
 type Bundle = { mode?: "uncached"; generation?: string; index: unknown[]; tracking: unknown; state: Record<string, unknown>;
   directSourceRevision?: string };
+export type DashboardReadStatus = "current" | "refreshing" | "failed" | "unconfirmed";
+const readStatuses = new Map<string, DashboardReadStatus>();
+const statusListeners = new Map<string, Set<(status: DashboardReadStatus) => void>>();
+export function dashboardReadStatus(client: string): DashboardReadStatus { return readStatuses.get(client) ?? "current"; }
+export function subscribeDashboardReadStatus(client: string, listener: (status: DashboardReadStatus) => void) {
+  let set = statusListeners.get(client);
+  if (!set) { set = new Set(); statusListeners.set(client, set); }
+  set.add(listener);
+  return () => { set!.delete(listener); };
+}
+function publishReadStatus(client: string, status: DashboardReadStatus) {
+  readStatuses.set(client, status);
+  for (const listener of statusListeners.get(client) ?? []) listener(status);
+}
 const refreshBarriers = new Map<string, number>();
 /** Receipt remains committed; this flag is ONLY cache delivery uncertainty.
  * Never turn it into a write retry. Clear only on a later verified ready read. */
@@ -12,6 +26,7 @@ export function noteDashboardRefreshResponse(client: string, response: Response)
   const at = raw && /^[1-9][0-9]{0,15}$/.test(raw) ? Number(raw) : Date.now();
   refreshBarriers.set(client, Math.max(refreshBarriers.get(client) ?? 0, at));
   invalidateDashboardReady(client);
+  publishReadStatus(client, "unconfirmed");
   if (typeof window !== "undefined") window.dispatchEvent(new Event("dashboard-refresh-unconfirmed"));
   return true;
 }
@@ -20,6 +35,7 @@ const listeners = new Map<string, Set<(bundle: Bundle) => void>>();
 const epochs = new Map<string, number>();
 export function invalidateDashboardReady(client: string) {
   epochs.set(client, (epochs.get(client) ?? 0) + 1); selected.delete(client); pending.delete(client);
+  publishReadStatus(client, "refreshing");
 }
 const selected = new Map<string, Bundle>();
 export function subscribeDashboardReady(client: string, listener: (bundle: Bundle) => void) {
@@ -34,6 +50,7 @@ export function loadDashboardReady(client: string): Promise<Bundle> {
   const existing = pending.get(client);
   if (existing) return existing;
   const epoch = epochs.get(client) ?? 0, previous = selected.get(client);
+  if (dashboardReadStatus(client) !== "current") publishReadStatus(client, "refreshing");
   const job = (async () => {
     const r = await fetch(`/api/dashboard-ready?client=${encodeURIComponent(client)}${previous?.generation ? `&known=${encodeURIComponent(previous.generation)}` : ""}`, { cache: "no-store" });
     if (!r.ok) throw Error("Complete ready view unavailable");
@@ -63,7 +80,7 @@ export function loadDashboardReady(client: string): Promise<Bundle> {
       });
     }
     if (!bundle || bundle.mode !== "uncached" && typeof bundle.generation !== "string" || !Array.isArray(bundle.index) ||
-        !bundle.tracking || !bundle.state || bundle.state.configured !== true ||
+        !bundle.tracking || !bundle.state || bundle.state.configured !== true || bundle.state.error ||
         bundle.mode !== "uncached" && bundle.state.dashboardGeneration !== bundle.generation) throw Error("Incomplete ready view");
     const barrier = refreshBarriers.get(client);
     if (barrier) {
@@ -78,8 +95,14 @@ export function loadDashboardReady(client: string): Promise<Bundle> {
     if ((epochs.get(client) ?? 0) !== epoch) return selected.get(client) ?? pending.get(client) ?? loadDashboardReady(client);
     selected.set(client, bundle);
     for (const listener of listeners.get(client) ?? []) listener(bundle);
+    const freshness = bundle.state.dashboardFreshness as { stale?: boolean; failedAt?: number } | undefined;
+    publishReadStatus(client, bundle.state.dashboardRefreshUnconfirmed ? "unconfirmed" : freshness?.stale || freshness?.failedAt ? "failed" : "current");
     return bundle;
-  })().finally(() => { if (pending.get(client) === job) pending.delete(client); });
+  })().catch(error => {
+    // A superseded failure is not a verdict on the newer paired read.
+    if ((epochs.get(client) ?? 0) === epoch) publishReadStatus(client, "failed");
+    throw error;
+  }).finally(() => { if (pending.get(client) === job) pending.delete(client); });
   pending.set(client, job);
   return job;
 }
