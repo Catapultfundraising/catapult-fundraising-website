@@ -44,7 +44,7 @@ export function GiftLevelRows({ heading, columns, rows, empty }: {
 /** Fixed labels repeat only on the pages spanned by this table. The explicit
  * section break leaves the wide band tables behind; compact columns avoid gaps. */
 export function BelowProspects({ title, rows, navy, line }: {
-  title: string; rows: { cptid: number; name: string; ask: string; lifetime: string }[]; navy: string; line: string;
+  title: string; rows: { cptid: number; name: string; ask: string; lifetime: string; notes?: string }[]; navy: string; line: string;
 }) {
   const widths = [220, 80, 100, 120];
   return <View break style={{ marginBottom: 10, width: 520 }}>
@@ -55,9 +55,12 @@ export function BelowProspects({ title, rows, navy, line }: {
           <Text key={text} style={{ width: widths[i], fontSize: 7.4, fontWeight: 700, padding: 3, textAlign: i >= 2 ? "right" : "left" }}>{text}</Text>)}
       </View>
     </View>
-    {rows.map(row => <View key={row.cptid} wrap={false} style={{ flexDirection: "row", borderBottomWidth: 0.6, borderBottomColor: line }}>
-      {[row.name, String(row.cptid), row.ask, row.lifetime].map((text, i) =>
-        <Text key={i} style={{ width: widths[i], fontSize: 7.4, padding: 3, fontWeight: i === 0 ? 700 : 400, textAlign: i >= 2 ? "right" : "left" }}>{text}</Text>)}
+    {rows.map(row => <View key={row.cptid} style={{ borderBottomWidth: 0.6, borderBottomColor: line }}>
+      <View wrap={false} style={{ flexDirection: "row" }}>
+        {[row.name, String(row.cptid), row.ask, row.lifetime].map((text, i) =>
+          <Text key={i} style={{ width: widths[i], fontSize: 7.4, padding: 3, fontWeight: i === 0 ? 700 : 400, textAlign: i >= 2 ? "right" : "left" }}>{text}</Text>)}
+      </View>
+      {row.notes && <Text style={{ fontSize: 7.4, padding: 3, lineHeight: 1.35 }}>{row.notes}</Text>}
     </View>)}
   </View>;
 }

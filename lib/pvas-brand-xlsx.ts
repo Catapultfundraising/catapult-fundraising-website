@@ -1,3 +1,4 @@
+import { preserveWorkbookText } from "@/lib/brand-xlsx-text";
 import ExcelJS from "exceljs";
 import { safeSheetName, xmlSafe, finalizeXlsx } from "@/lib/jag-brand-xlsx";
 import { LOGO_URL, LOGO_ASPECT } from "@/lib/pvas-brand-pdf";
@@ -84,5 +85,6 @@ export async function buildBrandedXlsx(opts: {
     ws.getColumn(i + 1).width = Math.min(48, Math.max(10, w + 2));
   });
   ws.pageSetup = { orientation: opts.cols.length > 6 ? "landscape" : "portrait", fitToPage: true, fitToWidth: 1, fitToHeight: 0, printTitlesRow: "5:5" };
+  preserveWorkbookText(wb);
   return finalizeXlsx(await wb.xlsx.writeBuffer());
 }

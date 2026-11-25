@@ -11,7 +11,7 @@ import {pvasContactProfile,pvasCanonicalAsk,type PvasCanonicalAsk}from"./pvas-co
 import {readOutcome}from"./outcome";
 import { createViewMemo } from "./records-memo";
 
-export type Idx = { cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number; last: string; years: number; band: string; capMin: number };
+export type Idx = { campaignAsk?: ReturnType<typeof effectiveAsk>; cptid: number; name: string; kind?: string; city?: string; lifetime: number; gifts: number; largest: number; last: string; years: number; band: string; capMin: number };
 export type Data = { asOf?: string; index: Idx[]; records: Record<string, unknown> } | null;
 
 type Rec = { cptid: number; kind?: string; flags?: string[]; contact?: Record<string, string>; gifts?: { date?: string; amount: number; stage?: string; campaign?: string; type?: string }[];
@@ -71,6 +71,21 @@ const num = (v: unknown) => Number(v) || 0;
 const minDate = (a: string, b: string) => (!a ? b : !b ? a : a < b ? a : b);
 const maxDate = (a: string, b: string) => (!a ? b : !b ? a : a > b ? a : b);
 
+function recordCampaignAsk(cptid: number, o: Overlay, edits: ReturnType<typeof askEdits>, boardCampaignAsk: boolean, lookup: (c: number) => Full | null, canonicalOwnAsk?: {ask:number|null}) {
+  const baseAsk = (id: number) => {
+    const source = lookup(id);
+    const portfolio = source?.portfolio as { ask?: number; directAskPresent?: boolean; directManualAskPresent?: boolean } | undefined;
+    if (portfolio?.directAskPresent || portfolio?.directManualAskPresent) return portfolio.ask;
+    return portfolio?.ask ?? (boardCampaignAsk ? (source?.board as { active?: boolean; ask?: number }[] | undefined)?.find((b) => b.active && b.ask)?.ask : undefined);
+  };
+  // A present canonical option is current SQL authority, NOT historical manual
+  // edit attribution. Never enter old board/merged-source ask precedence here.
+  const ask: ReturnType<typeof effectiveAsk> = canonicalOwnAsk ?
+    {ask:canonicalOwnAsk.ask,askEdited:true,askBlank:canonicalOwnAsk.ask===null} :
+    effectiveAsk(cptid, o, edits, baseAsk, (id) => (lookup(id)?.portfolio as { directAskPresent?: boolean } | undefined)?.directAskPresent === true, (id) => (lookup(id)?.portfolio as { directManualAskPresent?: boolean } | undefined)?.directManualAskPresent === true);
+  return ask;
+}
+
 /** Fold merged duplicates into the surviving record and apply dashboard edits (contact, wealth). Client data itself is untouched. */
 function overlayRecord(base: Full, o: Overlay, edits: ReturnType<typeof askEdits>, boardCampaignAsk: boolean, lookup: (c: number) => Full | null, canonicalOwnAsk?: {ask:number|null}): Full {
   const r: Full = JSON.parse(JSON.stringify(base));
@@ -101,17 +116,7 @@ function overlayRecord(base: Full, o: Overlay, edits: ReturnType<typeof askEdits
     r.summary = sm;
     r.mergedFrom = merged;
   }
-  const baseAsk = (id: number) => {
-    const source = lookup(id);
-    const portfolio = source?.portfolio as { ask?: number; directAskPresent?: boolean; directManualAskPresent?: boolean } | undefined;
-    if (portfolio?.directAskPresent || portfolio?.directManualAskPresent) return portfolio.ask;
-    return portfolio?.ask ?? (boardCampaignAsk ? (source?.board as { active?: boolean; ask?: number }[] | undefined)?.find((b) => b.active && b.ask)?.ask : undefined);
-  };
-  // A present canonical option is current SQL authority, NOT historical manual
-  // edit attribution. Never enter old board/merged-source ask precedence here.
-  const ask: ReturnType<typeof effectiveAsk> = canonicalOwnAsk ?
-    {ask:canonicalOwnAsk.ask,askEdited:true,askBlank:canonicalOwnAsk.ask===null} :
-    effectiveAsk(r.cptid, o, edits, baseAsk, (id) => (lookup(id)?.portfolio as { directAskPresent?: boolean } | undefined)?.directAskPresent === true, (id) => (lookup(id)?.portfolio as { directManualAskPresent?: boolean } | undefined)?.directManualAskPresent === true);
+  const ask = recordCampaignAsk(r.cptid, o, edits, boardCampaignAsk, lookup, canonicalOwnAsk);
   // Preserve the survivor's metadata; otherwise inherit only a single unambiguous source portfolio.
   // A merge chain can contain multiple portfolios. Never choose whichever happens to be first.
   if (!canonicalOwnAsk && !r.portfolio && !ask.askConflict) {
@@ -241,16 +246,29 @@ export function currentRecordProjection(client:PortalClient,data:NonNullable<Dat
     // Committee/campaign-only donors can have a valid campaign CPTID but no master
     // donor record. Make them searchable without inventing cash/lifetime giving.
     const campaign = campaignRecords(state?.gifts ?? []);
+    const prospectById = new Map(prospects.map(p => [p.cptid, p]));
     const lookup = (c: number): Full | null => {
       const rec = data.records[String(c)] as Full | undefined;
-      const p = prospects.find((x) => x.cptid === c);
+      const p = prospectById.get(c);
       if (rec) return enrichProspectRecord(rec, p);
       return p ? prospectRecord(p) : (campaign.get(c) ?? null);
     };
     const assignment = assignmentResolver(data.records, tracking, (state?.updates ?? []) as UpdateRow[], o);
 
+const edits = askEdits((state?.updates ?? []) as UpdateRow[]);
+const boardCampaignAsk = client !== "wcbhc" && client !== "baq" && client !== "imas";
+const canonicalAsk = (cptid: number) => {
+  if (!pvasCanonicalEnabled(client)) return undefined;
+  const base = lookup(cptid);
+  const profile = pvasContactProfile(base?._canonicalContact, cptid);
+  const ask = profile.fields.ask;
+  if (!Object.hasOwn(profile.fields, "ask") || ask !== null && (typeof ask !== "number" || !Number.isFinite(ask)))
+    throw new Error("Invalid raw canonical ask");
+  return { ask };
+};
 let indexed: ReturnType<typeof overlaidIndex> | undefined;
-return {get index(){return indexed ??= overlaidIndex(data.index,prospects,campaign,o).map(r=>({...r,...assignment(r.cptid)}));},record(asked:number){
+return {get index(){return indexed ??= overlaidIndex(data.index,prospects,campaign,o).map(r=>({...r,...assignment(r.cptid),
+  campaignAsk: recordCampaignAsk(r.cptid, o, edits, boardCampaignAsk, lookup, canonicalAsk(r.cptid))}));},record(asked:number){
       const target = finalId(o, asked);
       const base = lookup(target);
       if (!base) return null;

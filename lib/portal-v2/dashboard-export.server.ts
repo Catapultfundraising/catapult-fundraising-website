@@ -1,4 +1,11 @@
 import "server-only";
+import { createProspectNotes } from "./prospect-notes";
+import { buildOverlay, type UpdateRow } from "./record-overlay";
+import { PROSPECT_NOTES_LABEL, reportExportFields } from "./report-fields";
+import { portfolioModel, portfolioAsk } from "./portfolio";
+import { APPROVED_WEBSITE_DIRECT_REGISTRATIONS } from "./direct-registration.server";
+import { inspectDashboardReady } from "../dashboard-ready.server";
+import { validateReadyBuild } from "../dashboard-ready-model.server";
 import { pvasCanonicalEnabled } from "./pvas-canonical";
 import type { PortalClient } from "./clients";
 import { portalCampaignStateSafe } from "./server";
@@ -8,7 +15,6 @@ import { currentDashboardSnapshot } from "./current-dashboard-snapshot";
 import { buildDashboardExportModel, tableExportPayload, type CurrentExportPayload, type ExportIntent } from "./dashboard-export-types";
 import { buildReportRows } from "./report-route";
 import { sanitizeQuery, queryErrors, FIELD_BY_ID, reportNotes, runReport, PDF_MAX_ROWS } from "./report-fields";
-import type { UpdateRow } from "./record-overlay";
 import type { AssignmentTracking } from "./effective-assignment";
 
 export class ExportIntentError extends Error { status = 400; }
@@ -19,6 +25,10 @@ function intentError(): never { throw new ExportIntentError("This export needs a
 export function validateExportIntent(v: unknown): ExportIntent {
   if (!object(v)) return intentError();
   switch (v.kind) {
+    case "portfolio":
+      if (!ownKeys(v, ["kind", "solicitor", "summary"]) || typeof v.solicitor !== "string" || v.solicitor.length > 300 ||
+          (v.summary !== undefined && typeof v.summary !== "boolean")) return intentError();
+      return v as ExportIntent;
     case "record":
       if (!ownKeys(v, ["kind", "id"]) || !id(v.id)) return intentError();
       return v as ExportIntent;
@@ -60,40 +70,89 @@ async function owners(client: PortalClient) {
 }
 export async function reconstructDashboardExport(client: PortalClient, rawIntent: unknown, presentation: { title?: unknown; subtitle?: unknown }): Promise<CurrentExportPayload> {
   const intent = validateExportIntent(rawIntent), io = await owners(client);
-  const [data, state, tracking] = await Promise.all([io.records(), portalCampaignStateSafe(client), currentTracking<AssignmentTracking>(client, io.tracking as () => Promise<AssignmentTracking>).then(t => directTrackingView(client, t))]);
+  // IMAS owns original client SQL, not the five-client direct-file lane. Its
+  // existing ready owner supplies one validated records/state/tracking/snapshot
+  // tuple. Registry membership is static authority, NEVER a disabled-mode flag.
+  // Registered clients still refuse missing parity/revisions even in previews.
+  const originalSqlOwner = !APPROVED_WEBSITE_DIRECT_REGISTRATIONS.some(owner => owner.client === client);
+  const paired = originalSqlOwner ? await inspectDashboardReady(client) : null;
+  if (paired) {
+    validateReadyBuild(paired.built);
+    if (!paired.freshness || !paired.freshness.generation || paired.freshness.stale !== false || paired.freshness.failedAt) throw new Error("Current paired report view unavailable; reload and retry");
+  }
+  const read = paired?.built.readyRead;
+  const [data, state, tracking] = read ? [read.records, read.state, read.tracking] as const :
+    await Promise.all([io.records(), portalCampaignStateSafe(client), currentTracking<AssignmentTracking>(client, io.tracking as () => Promise<AssignmentTracking>).then(t => directTrackingView(client, t))]);
   requireCurrentSql(client, state);
   if (!data || !state || !tracking) throw new Error("Current complete records/manual/source view unavailable");
   const revision = (data as unknown as {directSourceRevision?:string}).directSourceRevision;
-  if (!pvasCanonicalEnabled(client) && (!revision || revision !== (tracking as unknown as {directSourceRevision?:string}).directSourceRevision)) throw new Error("Source changed while preparing export; reload and retry");
+  if (!paired && !pvasCanonicalEnabled(client) && (!revision || revision !== (tracking as unknown as {directSourceRevision?:string}).directSourceRevision)) throw new Error("Source changed while preparing export; reload and retry");
   const projection = currentRecordProjection(client, data, state, tracking);
+  const notesFor = createProspectNotes({ records: data.records, prospects: state.prospects, tracking, overlay: buildOverlay(state.updates as UpdateRow[]) });
+  const withNotes = (payload: CurrentExportPayload, rows: { cptid: number }[]): CurrentExportPayload => ({
+    ...payload, cols: [...payload.cols, { label: PROSPECT_NOTES_LABEL }],
+    sections: payload.sections.map(section => ({ ...section, rows: section.rows.map((row, i) => [...row, notesFor(rows[i].cptid)]) })),
+  });
   const title = typeof presentation.title === "string" ? presentation.title.slice(0, 120) : "Current dashboard report";
   const subtitle = typeof presentation.subtitle === "string" ? presentation.subtitle.slice(0, 500) : "";
   if (intent.kind === "record") {
     const record = projection.record(intent.id);
     if (!record || record.cptid !== intent.id || !projection.index.some(r=>r.cptid===intent.id)) throw new ExportIntentError("This record was merged, deleted or changed. Reload it before downloading.");
     // Same client-specific six-column record model; only current server-owned record/tracking passed.
-    return io.record(record as never, tracking as never, true);
+    const payload = io.record(record as never, tracking as never, true);
+    const trackingHeading = payload.sections.find(section => section.heading?.startsWith("Campaign tracking"))?.heading;
+    // Replace only the old note/activity lanes, not gift-detail notes. The
+    // centralized projection includes merged-source activity without duplicates.
+    return { ...payload, notes: [], sections: [
+      ...payload.sections.filter(section => !section.heading?.startsWith("Campaign tracking") && !section.heading?.startsWith("Imported source notes")),
+      { heading: [PROSPECT_NOTES_LABEL, trackingHeading].filter(Boolean).join(" · "),
+        rows: [["Notes", notesFor(intent.id), ...Array(Math.max(0, payload.cols.length - 2)).fill("")]] },
+    ] };
   }
   if (intent.kind === "index") {
     const rows = new Map(projection.index.map(r => [r.cptid, r]));
     if (intent.ids.some(c => !rows.has(c))) throw new ExportIntentError("This selected list contains a merged/deleted record. Reload the list before downloading.");
-    return io.index(title, subtitle, intent.ids.map(c => rows.get(c)!) as never);
+    const chosen = intent.ids.map(c => rows.get(c)!);
+    return withNotes(io.index(title, subtitle, chosen as never), chosen);
+  }
+  if (intent.kind === "portfolio") {
+    const model = portfolioModel(projection.index, portfolioAsk, intent.solicitor);
+    if (intent.solicitor && !model.solicitors.includes(intent.solicitor)) throw new ExportIntentError("This solicitor selection changed. Reload Portfolio and download again.");
+    const selection = intent.solicitor ? `Primary or secondary solicitor: ${intent.solicitor}` : "All assigned prospects (primary or secondary; all statuses)";
+    if (intent.summary) {
+      const summary = intent.solicitor ? model.summary.filter(row => row.solicitor === intent.solicitor) : model.summary;
+      return { title: "Solicitor assignments", subtitle: `${selection} · A prospect may appear under more than one solicitor; totals are not additive.`,
+        cols: [{label:"Solicitor"},{label:"Prospects",kind:"num"},{label:"Primary assignments",kind:"num"},{label:"Secondary assignments",kind:"num"},{label:"With a Campaign Ask",kind:"num"},{label:"Campaign Asks (known amounts)",kind:"usd"},{label:"Asks needing review",kind:"num"},{label:"Asks without an amount",kind:"num"}],
+        sections: [{rows:summary.map(row=>[row.solicitor,row.prospects,row.primary,row.secondary,row.withAsk,row.askReview + row.askMissing === row.prospects ? null : row.askTotal,row.askReview,row.askMissing])}] };
+    }
+    const payload = io.index("Portfolio prospects", selection, model.rows as never);
+    const withAsks = { ...payload, cols: [...payload.cols, {label:"Campaign Ask",kind:"usd" as const},{label:"Campaign Ask review"}],
+      sections: payload.sections.map(section=>({...section,rows:section.rows.map((row,i)=>{
+        const ask=model.rows[i].campaignAsk;
+        return [...row, ask?.askConflict || ask?.askBlank ? null : ask?.ask ?? null, ask?.askConflict ? "Merged asks need review" : ask?.askBlank ? "Explicitly cleared" : ask?.ask == null ? "Not recorded" : ""];
+      })})) };
+    return withNotes(withAsks, model.rows);
   }
   if (intent.kind === "report") {
     const query = sanitizeQuery(intent.query), rows = runReport(buildReportRows(data, state, tracking), query);
     if (rows.length > PDF_MAX_ROWS) throw new ExportIntentError(`PDF is limited to ${PDF_MAX_ROWS.toLocaleString()} rows. Add a filter or download Excel.`);
-    const fields = query.fields.map(f => FIELD_BY_ID.get(f)!);
+    const fields = reportExportFields(query.fields).map(f => FIELD_BY_ID.get(f)!);
     return { title, subtitle: `${rows.length.toLocaleString()} records${data.asOf ? ` · Data as of ${data.asOf}` : ""}`,
       cols: fields.map(c => ({label:c.label,kind:c.kind==="usd"?"usd":c.kind==="num"&&c.id!=="cptid"?"num":"text"})),
       sections:[{rows:rows.map(r=>fields.map(c=>c.id==="cptid"?String(r.cptid??""):r[c.id]??""))}],notes:reportNotes(query,true) };
   }
-  const raw = await io.snapshot();
+  const raw = paired ? paired.built.snapshot : await io.snapshot();
   if (!raw) throw new Error("Current snapshot unavailable");
-  const source = await directData(client, raw, "snapshot");
-  if ((source as unknown as {directSourceRevision?:string}).directSourceRevision !== revision) throw new Error("Source changed during export; reload and retry");
+  const source = paired ? raw : await directData(client, raw, "snapshot");
+  if (!paired && (source as unknown as {directSourceRevision?:string}).directSourceRevision !== revision) throw new Error("Source changed during export; reload and retry");
   const snapshot = currentDashboardSnapshot(client, { ...source, campaignGifts: state.gifts }, projection.index, tracking, state.updates as UpdateRow[]);
   try {
     const model = buildDashboardExportModel(client, {table:intent.table,parameters:intent.parameters,snapshot,index:projection.index,tracking});
+    // Only constituent-level rows get prospect notes. Aggregate source/campaign
+    // and solicitor summaries have no CPTID and remain aggregate reports.
+    if (model.rows.some(row => typeof row.cptid === "number" && row.cptid > 0))
+      model.cols = [...model.cols, { key: "__prospectNotes", label: PROSPECT_NOTES_LABEL,
+        fmt: (_value, row) => notesFor(Number((row as Record<string, unknown>).cptid)) }];
     return tableExportPayload(model, intent);
   } catch (e) {
     if (/Unknown dashboard table selector|Unknown table sort field|Selected GC2P level/.test((e as Error).message)) throw new ExportIntentError((e as Error).message + ". Reload the report and try again.");

@@ -15,6 +15,7 @@ export type TableSource = { table: string; snapshot: unknown; parameters?: Table
 export type TableContext = Omit<TableSource, "table"> & { index: unknown[]; tracking: unknown };
 export type TableModel = { title: string; subtitle?: string; rows: TableRow[]; cols: TableColumn[] };
 export type ExportIntent =
+  | { kind: "portfolio"; solicitor: string; summary?: boolean }
   | { kind: "table"; table: string; parameters?: TableParameters; search?: string; sort?: { key: string; dir: 1 | -1 } | null }
   | { kind: "index"; ids: number[] }
   | { kind: "record"; id: number }
