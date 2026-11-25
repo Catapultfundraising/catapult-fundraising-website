@@ -3,12 +3,13 @@ import {buildDashboardExportModel,type TableSource} from "@/lib/portal-v2/dashbo
 
 import { dashboardDateLabels } from "@/lib/dashboard-dates";
 
-import { filterAssignments, isUnassigned, assignmentMembers, belongsToSolicitor } from "@/lib/portal-v2/effective-assignment";
+import { filterAssignments, isUnassigned } from "@/lib/portal-v2/effective-assignment";
 import { campaignAskAmount } from "@/lib/portal-v2/effective-ask";
 
 import { useMemo, useState } from "react";
 import { useUrlState } from "@/lib/use-url-state";
 import { SafeBoundary, NameLink, useRecordNav, cmpValues } from "@/components/dashboard-shared";
+import { Portfolio } from "@/components/portfolio";
 import { CampaignProspects } from "@/components/campaign-prospects";
 import { CampaignGifts } from "@/components/campaign-gifts";
 import { PortalV2Provider, useCampaignAskSnapshot, useCampaignDataStatus, CampaignProgress, CampaignDonors, AddAndUpload } from "@/components/portal-v2";
@@ -35,7 +36,7 @@ const short = (n: number) =>
 const num = (n: number) => n.toLocaleString("en-US");
 const pct = (a: number, b: number) => (b ? `${Math.round((a / b) * 100)}%` : "0%");
 
-const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Campaign Prospects", "Reports", "Committee", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload"] as const;
+const TABS = ["Donor Lookup", "Overview", "Gift Pyramid", "Gift Chart + GC2P", "Prospects", "Campaign Prospects", "Portfolio", "Reports", "Committee", "Campaign Gifts", "Database Health", "Campaign Donors", "Add + Upload"] as const;
 type Tab = (typeof TABS)[number];
 
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -571,47 +572,6 @@ function Health({ d }: { d: WcbhcSnapshot }) {
   );
 }
 
-function Portfolio({ d }: { d: WcbhcSnapshot }) {
-  const withAsk = d.portfolio.filter((p) => p.ask > 0);
-  const bySol = Array.from(new Set(d.portfolio.flatMap((p) => assignmentMembers(p)))).sort().map((s) => {
-    const ps = d.portfolio.filter((p) => belongsToSolicitor(p, s));
-    return { solicitor: s, prospects: ps.length, asks: ps.filter((p) => p.ask > 0).length, ask: ps.reduce((a, p) => a + p.ask, 0) };
-  }).sort((a, b) => b.ask - a.ask);
-  const ids = useIds();
-  const { tracking } = useCrm();
-  return (
-    <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <Stat label="Seated prospects" value={num(d.portfolio.length)} onClick={() => ids('Campaign prospects', "", d.portfolio)} />
-        <Stat label="With a solicitor or connection" value={num(d.portfolio.filter((p) => !isUnassigned({ solicitor: p.solicitor, solicitor2: p.solicitor2 ?? "" })).length)} onClick={() => ids('Prospects with a solicitor or connection', "", d.portfolio.filter((p) => !isUnassigned({ solicitor: p.solicitor, solicitor2: p.solicitor2 ?? "" })))} />
-        <Stat label="Identified, not yet rated" value={num(d.unrated?.length ?? 0)} onClick={() => ids('Identified, not yet rated', "", (d.unrated ?? []) as { cptid?: number }[])} />
-        <Stat label="Received, pledged or committed" value={num(d.committed.length)} note={short(d.committed.reduce((a, p) => a + p.ask, 0)) + " with amounts"} onClick={() => ids('Committed', "", d.committed)} />
-      </div>
-      <Card>
-        <H sub="Seated prospects by primary or secondary solicitor or connection (a prospect may appear in both)">Solicitor assignments</H>
-        <Table exportSource={{table:"Portfolio.0",snapshot:d,parameters:{}}} rowClick={(r: { solicitor: string }) => ids(`Solicitor: ${r.solicitor}`, "Prospects assigned to this solicitor", d.portfolio.filter((p) => belongsToSolicitor(p, r.solicitor)))} csvName="Prospects by Solicitor"   />
-      </Card>
-      <Card>
-        <H sub="Every prospect seated on the $12M gift chart, largest gift level first. Click a name to open the record.">Campaign prospects</H>
-        <Table exportSource={{table:"Portfolio.1",snapshot:d,parameters:{}}} csvName="Campaign Prospects"   />
-      </Card>
-      {!!d.unrated?.length && (
-        <Card>
-          <H sub="Identified but not yet rated: no capacity data or giving history to seat on yet">Pipeline, not yet seated</H>
-          <Table exportSource={{table:"Portfolio.2",snapshot:d,parameters:{}}} csvName="Pipeline Not Yet Seated"   />
-        </Card>
-      )}
-      {!!d.notSeated?.length && (
-        <Card>
-          <H sub="Named on the committee list but not seated, with the reason">Not seated</H>
-          <Table exportSource={{table:"Portfolio.3",snapshot:d,parameters:{}}} csvName="Not Seated"   />
-        </Card>
-      )}
-    </div>
-  );
-}
-
-
 export function WcbhcDataDashboard({ data }: { data: WcbhcSnapshot }) {
   return <CrmProvider><PortalV2Provider client="wcbhc"><WcbhcDashboardBody data={data} /></PortalV2Provider></CrmProvider>;
 }
@@ -666,6 +626,7 @@ function WcbhcDashboardBody({ data: snapshot }: { data: WcbhcSnapshot }) {
         {tab === "Gift Chart + GC2P" && <GiftChartTab d={data} />}
         {tab === "Prospects" && <Prospects d={data} />}
         {tab === "Campaign Prospects" && <CampaignProspects index={index} PeopleTable={PeopleTable} DownloadButtons={DownloadButtons} indexPayload={indexPayload} />}
+        {tab === "Portfolio" && <Portfolio index={index} committedCount={data.committed.length} PeopleTable={PeopleTable} DownloadButtons={DownloadButtons} indexPayload={indexPayload} />}
         {tab === "Reports" && <ReportsTab clientLabel={data.client} />}
         {tab === "Committee" && <Board d={data} />}
         {tab === "Database Health" && <Health d={data} />}
