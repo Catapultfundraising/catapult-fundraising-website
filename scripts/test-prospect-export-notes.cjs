@@ -28,11 +28,15 @@ const idx=cptid=>({cptid,name:`ZZTEST ${cptid}`,kind:"Individual",city:"Fixture"
 const allRecords=Object.fromEntries([1,2,3,4,5,7,8,9].map(c=>[c,{...idx(c),contact:{},summary:{lifetime:10,gifts:1,largest:10,first:"2026-01-01",last:"2026-01-01",years:1},gifts:[],notes:[],...records[c]}]));
 allRecords[1].portfolio={solicitor:"ZZTEST Lead",ask:100};allRecords[4].portfolio={secondary:"ZZTEST Lead",ask:50};allRecords[7].portfolio={solicitor:"ZZTEST Lead",ask:20};allRecords[8].portfolio={secondary:"ZZTEST Other",ask:0};
 const fixtureData={asOf:"2026-11-25",records:allRecords,index:Object.keys(allRecords).map(Number).map(idx)};
-const fixtureTracking={...tracking,prospects:{...tracking.prospects,1:{...tracking.prospects[1],solicitor:"ZZTEST Lead"},7:{status:"Committed"},8:{status:"Disqualified"},9:{solicitor:"ZZTEST Lead",status:"Hold"}}};
+const fixtureTracking={...tracking,pirs:{},prospects:{...tracking.prospects,1:{...tracking.prospects[1],solicitor:"ZZTEST Lead"},7:{status:"Committed"},8:{status:"Disqualified"},9:{solicitor:"ZZTEST Lead",status:"Hold"}}};
 const fixtureState={configured:true,prospects:[],gifts:[],batches:[],updates:[...updates,{id:3,cptid:9,field:"ask",new_value:"250",old_value:null}]};
-const snapshot={builtAt:"2026-11-25 13:00",client:"ZZTEST",pool:[{...idx(1),ask:100,rating:100}],portfolio:[{...idx(1),ask:100}],board:[],top:[idx(1)],committed:[],stages:[]};
+const snapshot={builtAt:"2026-11-25 13:00",client:"ZZTEST",pool:[{...idx(1),ask:100,rating:100,basis:"Committee",ds:"",capacity:""}],portfolio:[{...idx(1),ask:100}],board:[],top:[idx(1)],committed:[],stages:[]};
+let capturedXlsx, authed=true;
 const prior=Module._load;
 Module._load=function(name,parent,isMain){
+ if(/^@\/lib\/\w+-data-auth$/.test(name))return Object.fromEntries(clients.map(c=>[`is${c[0].toUpperCase()+c.slice(1)}DataAuthed`,async()=>authed]));
+ if(/^@\/lib\/\w+-brand-xlsx$/.test(name))return {buildBrandedXlsx:async payload=>{capturedXlsx=payload;return Buffer.from("ZZTEST synthetic");}};
+ if(/^@\/lib\/\w+-brand-pdf$/.test(name))return {registerBrandFonts:()=>{},preparedOn:()=>"2026-11-25",bs:{},NAVY:"#0E1E31",BRASS:"#B08D57",LINE:"#DCE1E7",CREAM:"#F5F2EC",LOGO_ASPECT:1,LOGO_URL:"https://example.test/unused.png"};
  if((/^\.\.\/\w+-data-store$/.test(name))||/^@\/lib\/\w+-data-store$/.test(name))return Object.fromEntries(clients.flatMap(c=>{const n=c[0].toUpperCase()+c.slice(1);return [[`get${n}Records`,async()=>fixtureData],[`get${n}Snapshot`,async()=>snapshot]];}));
  if(/^\.\.\/\w+-tracking$/.test(name)||/^@\/lib\/\w+-tracking$/.test(name))return Object.fromEntries(clients.map(c=>[`get${c[0].toUpperCase()+c.slice(1)}Tracking`,async()=>fixtureTracking]));
  if(name==="./server"||name==="@/lib/portal-v2/server")return {portalCampaignStateSafe:async()=>fixtureState,portalStateSafe:async()=>fixtureState};
@@ -66,5 +70,19 @@ Module._load=function(name,parent,isMain){
  }
  assert.throws(()=>validateExportIntent({kind:"portfolio",solicitor:"",ids:[1]}));
  assert.throws(()=>validateExportIntent({kind:"portfolio",solicitor:"",summary:"true"}));
+ const {NextRequest}=require("next/server");
+ for(const client of clients){
+  const route=require(`../app/api/${client}-data-reports/route.tsx`);
+  authed=false;
+  assert.equal((await route.GET(new NextRequest(`https://fixture.invalid/?report=gc2p&goal=1000000&format=xlsx`))).status,401);
+  authed=true;capturedXlsx=undefined;
+  const response=await route.GET(new NextRequest(`https://fixture.invalid/?report=gc2p&goal=1000000&format=xlsx`));
+  assert.equal(response.status,200,`${client} GC2P synthetic source`);
+  assert.ok(capturedXlsx,`${client} XLSX built`);
+  assert.ok(JSON.stringify(capturedXlsx).includes("ZZTEST FINAL SENTINEL"),`${client} specialized GC2P full activity notes`);
+  const below=capturedXlsx.sections.find(s=>s.heading?.startsWith("Below "));
+  for(const row of below.rows)assert.equal(row.length,capturedXlsx.cols.length,`${client} below-row note column alignment`);
+ }
+ console.log("PASS six specialized GC2P authenticated XLSX paths retain complete notes including below-threshold rows");
  console.log("PASS all-six authoritative portfolio/index/report/record/table exports, no aggregate notes, full roster selection");
 })().catch(e=>{console.error(e);process.exitCode=1;});
