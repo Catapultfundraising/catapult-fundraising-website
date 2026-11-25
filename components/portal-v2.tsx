@@ -382,7 +382,7 @@ function GiftForm() {
             scope:"campaign",credit:"hard",campaign:null,fund:null,type:null,note:gift.note,donorName:gift.donorName}}});
       }else r=await post(client, { op: "addGift", by, gift, confirmNew });
       if (r.matches) { setMatches(r.matches); setMsg(""); return; }
-      setMatches(null); setF({ donorName: "", cptid: "", kind: f.kind, amount: "", date: "", note: "" }); setMsg("Saved. The gift was accepted. Do not resubmit it if the dashboard refresh is unavailable."); await reload();
+      setMatches(null); setF({ donorName: "", cptid: "", kind: f.kind, amount: "", date: "", note: "" }); setMsg("Saved. The entry was accepted. Do not resubmit it if the dashboard refresh is unavailable."); await reload();
     } catch (e) { setMsg((e as Error).message); } finally { submitting.current = false; setBusy(false); }
   };
   if (pvasCanonicalEnabled(client)) return <p className="text-sm">New gift entry is unavailable. Existing gifts can be edited in Gift history.</p>;

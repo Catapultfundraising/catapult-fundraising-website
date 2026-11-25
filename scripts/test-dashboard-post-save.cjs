@@ -2,8 +2,10 @@
 // Install jsdom outside repo; QA_JSDOM_MODULE=/path/to/jsdom node scripts/test-dashboard-post-save.cjs
 const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict'),ts=require('typescript');
 const {JSDOM}=require(process.env.QA_JSDOM_MODULE||'jsdom');
-const dom=new JSDOM('<div id="root"></div>',{url:'https://fictional.invalid'});
+const dom=new JSDOM('<div id="root"></div>',{url:'https://fictional.invalid',pretendToBeVisual:true});
 for(const k of ['window','document','localStorage','sessionStorage','Event','MouseEvent','HTMLElement','HTMLInputElement'])global[k]=dom.window[k];
+for(const key of ['Node','NodeFilter','Element','CustomEvent','MutationObserver','HTMLButtonElement','HTMLFormElement','HTMLSelectElement','HTMLTextAreaElement','HTMLAnchorElement','HTMLFieldSetElement'])global[key]=dom.window[key];
+global.getComputedStyle=dom.window.getComputedStyle.bind(dom.window);
 global.IS_REACT_ACT_ENVIRONMENT=true;
 const React=require('react'),{act}=React,{createRoot}=require('react-dom/client');
 const cache=new Map(),rootDir=process.cwd(); let canonical=false;
@@ -12,12 +14,14 @@ function load(file){
  const m={exports:{}};cache.set(file,m);
  const req=name=>{
   if(name==='react')return React;
+  if(name==='lucide-react')return {X:()=>null};
   if(name.includes('pvas-canonical'))return {pvasCanonicalEnabled:c=>canonical&&c==='pvas'};
   if(name==='@/components/dashboard-shared')return {
    DateInput:p=>React.createElement('input',{'data-date':true,value:p.value,onChange:e=>p.onChange(e.target.value)}),
-   NameLink:p=>p.name,isoToUs:s=>s,parseUsDateClient:s=>!s?'':/^\d\d\/\d\d\/\d{4}$/.test(s)?'2026-11-25':null,
+   NameLink:p=>p.name,isoToUs:s=>s?"11/25/2026":"",parseUsDateClient:s=>!s?'':/^\d\d\/\d\d\/\d{4}$/.test(s)?'2026-11-25':null,
    useSort:rows=>({sorted:rows}),SortTh:p=>React.createElement('th',{},p.label),
   };
+  if(name==='@/components/ui/dialog')return load('components/ui/dialog.tsx');
   if(name.startsWith('@/components/'))return new Proxy({},{get:()=>()=>null});
   const candidate=name.startsWith('@/')?path.join(rootDir,name.slice(2)):name.startsWith('.')?path.resolve(path.dirname(path.join(rootDir,file)),name):null;
   if(candidate)for(const ext of ['.ts','.tsx'])if(fs.existsSync(candidate+ext))return load(path.relative(rootDir,candidate+ext));
@@ -36,7 +40,7 @@ function Observer(){observed=useV2();const status=useCampaignDataStatus();return
 function Crm({client}){const [index,setIndex]=React.useState(null),[tracking,setTracking]=React.useState(null),[loading,setLoading]=React.useState(true);useCurrentCrmRead(client,setIndex,setTracking,setLoading);crm={index,tracking,loading};return null;}
 function bundle(){return {generation:'fictional-'+generation,index:[{cptid:101,name:'Fictional donor'}],tracking:{prospects:{},revision:'strict-pair-'+generation},state:{configured:true,dashboardGeneration:'fictional-'+generation,dashboardFreshness:{verifiedAt:generation*10000,stale:false},goal:1000,prospects:[],updates:[],batches:[],gifts:[{id:1,cptid:101,donor_name:'Fictional donor',kind:'gift',amount:0.52,gift_date:'2026-11-25',source:'manual'}]}};}
 global.fetch=async(url,init)=>{
- if(init?.method==='POST'){writes++;mode='failed';return Response.json({ok:true},{headers:flagged?{'X-Dashboard-Refresh':'unconfirmed','X-Dashboard-Refresh-After':'15000'}:{}});}
+ if(init?.method==='POST'){if(JSON.parse(init.body).op==='matchDonor')return Response.json({matches:[]});writes++;mode='failed';return Response.json({ok:true},{headers:flagged?{'X-Dashboard-Refresh':'unconfirmed','X-Dashboard-Refresh-After':'15000'}:{}});}
  reads++;const capturedMode=mode,capturedBundle=bundle();if(release===true)await new Promise(r=>release=r);
  if(capturedMode==='failed')return Response.json({error:'Fictional ready outage'},{status:503});
  if(capturedMode==='malformed')capturedBundle.state.dashboardGeneration='different';
@@ -68,6 +72,19 @@ async function main(){
   assert.equal(reads,before+1,'one coordinated whole-pair read');assert.equal(writes,1);assert.equal(observed.state.dashboardGeneration,'fictional-2');assert.equal(crm.index.dashboardGeneration,'fictional-2');assert.ok(!button('Save').matches(':disabled'));
   await flush(()=>root.unmount());console.log('PASS mounted',client,'save receipt / failed ready / retained pair / blocked repeat / GET-only recovery / cents');
  }
+ // A real Radix edit dialog is open BEFORE the ready failure; its portal lives
+ // under body, outside the disabled fieldset. The common write boundary must hold it.
+ mode='ok';canonical=false;writes=0;localStorage.setItem('portal-v2-by','Fictional editor');ready.invalidateDashboardReady('wcbhc');await mount('wcbhc');
+ await flush(()=>button('Edit').click());assert.ok(document.querySelector('[role=dialog]'));assert.equal(document.querySelector('[role=dialog]').closest('fieldset'),null,'real Radix portal escapes fieldset');
+ mode='failed';await flush(()=>observed.reload());assert.ok(button('Save changes'));await flush(()=>button('Save changes').click());assert.equal(writes,0,'open portal cannot POST a mutation on retained state');assert.match(document.body.textContent,/Dashboard view is not current/);
+ const action=load('lib/portal-v2/pvas-action.client.ts');
+ assert.equal((await action.pvasActionFetch('wcbhc','/api/wcbhc-data-v2',{method:'POST',body:JSON.stringify({op:'matchDonor',name:'Fictional'})})).status,200,'read-only lookup remains allowed');
+ for(const client of ['wcbhc','csnf','jag','baq','imas','pvas']){await flush(()=>ready.invalidateDashboardReady(client));const response=await action.pvasActionFetch(client,`/api/${client}-data-tracking`,{method:'POST',body:JSON.stringify({type:'activity',cptid:101})});assert.equal(response.status,409);}
+ assert.equal(writes,0,'record-modal sibling tracking mutations held for all six clients');
+ const native=load('lib/portal-v2/pvas-native-mutation.client.ts');
+ await assert.rejects(native.submitCampaignChange('/api/pvas-data-v2',{}),/Dashboard view is not current/);
+ assert.equal(sessionStorage.length,0,'blocked native submit creates no phantom pending intent');
+ await flush(()=>root.unmount());console.log('PASS actual open Radix portal + all-six tracking boundary held; matchDonor still read-only');
  // Mounted late-pre-save read cannot overwrite a failed post-save boundary.
  mode='ok';generation=1;ready.invalidateDashboardReady('wcbhc');await mount('wcbhc');
  release=true;const old=ready.loadDashboardReady('wcbhc').catch(()=>{});await tick();const unblock=release;release=false;

@@ -1,4 +1,4 @@
-import { noteDashboardRefreshResponse } from "../dashboard-ready.client";
+import { noteDashboardRefreshResponse, dashboardReadStatus } from "../dashboard-ready.client";
 import { campaignBody, campaignReceipt, campaignStatus, campaignStatusBody, type CampaignBody } from "./pvas-native-mutation-v3";
 const KEY = "pvas:campaign-change:v3:nativeCampaignMutationV3";
 const uncertain = "This change is not yet confirmed. Check its status before making another change.";
@@ -29,6 +29,7 @@ export async function checkCampaignChange(url: string) {
   return result;
 }
 export async function submitCampaignChange(url: string, input: CampaignBody) {
+  if (dashboardReadStatus("pvas") !== "current") throw new Error("Dashboard view is not current. Retry the dashboard read before saving. Do not resubmit an accepted change.");
   if (url !== "/api/pvas-data-v2") throw new Error("Gift change is outside this dashboard.");
   const body = campaignBody(input);
   if (pendingCampaignChange()) throw new Error(uncertain);
