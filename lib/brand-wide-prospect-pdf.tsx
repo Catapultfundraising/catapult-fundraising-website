@@ -1,3 +1,4 @@
+import { PROSPECT_NOTES_LABEL } from "./portal-v2/report-fields";
 import { Font, Text, View } from "@react-pdf/renderer";
 import type { bs } from "./jag-brand-pdf";
 import type { ExportCol, ExportSection } from "./jag-brand-xlsx";
@@ -5,7 +6,7 @@ import type { ExportCol, ExportSection } from "./jag-brand-xlsx";
 // A fifteen-column prospect roster cannot fit legibly on Letter landscape.
 // Retain every field in bounded metadata bands, with full-width, splittable notes.
 export function isWideProspectTable(cols: ExportCol[]) {
-  return cols.length >= 10 && cols.some(c => c.label === "Prospect Notes");
+  return cols.length >= 10 && cols.some(c => c.label === PROSPECT_NOTES_LABEL);
 }
 const COMBINING_MARK = new RegExp("\\p{Mark}", "u");
 export type BoundedPdfText = (text: string, width: number, bold?: boolean) => string;
@@ -50,8 +51,8 @@ export function WideProspectRows({ cols, rows, width, styles, format, bound }: {
   format: (value: string | number | null, kind?: string) => string;
   bound: BoundedPdfText;
 }) {
-  const metadata = cols.map((col, index) => ({ col, index })).filter(({ col }) => col.label !== "Prospect Notes");
-  const notes = cols.map((col, index) => ({ col, index })).filter(({ col }) => col.label === "Prospect Notes");
+  const metadata = cols.map((col, index) => ({ col, index })).filter(({ col }) => col.label !== PROSPECT_NOTES_LABEL);
+  const notes = cols.map((col, index) => ({ col, index })).filter(({ col }) => col.label === PROSPECT_NOTES_LABEL);
   const bands = Array.from({ length: Math.ceil(metadata.length / 6) }, (_, i) => metadata.slice(i * 6, i * 6 + 6));
   const label = { fontSize: 7, fontWeight: 700 as const, opacity: 0.7, marginBottom: 2 };
   return <>{rows.map((row, ri) => <View key={ri} style={[ri % 2 ? styles.trAlt : styles.tr, { flexDirection: "column", marginBottom: 7 }]} wrap>

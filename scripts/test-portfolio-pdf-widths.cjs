@@ -4,8 +4,14 @@ const fs = require('node:fs'), path = require('node:path'), Module = require('no
 for (const ext of ['.ts','.tsx']) require.extensions[ext]=(m,f)=>m._compile(ts.transpileModule(fs.readFileSync(f,'utf8'),{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2017,jsx:ts.JsxEmit.ReactJSX,esModuleInterop:true}}).outputText,f);
 const proofDir=process.env.EXPORT_RENDER_PROOF_DIR||fs.mkdtempSync(path.join(require('node:os').tmpdir(),'portfolio-width-proof-'));
 const load=Module._load;
-let authoritative;
+let authoritative, fixtureData, fixtureTracking, fixtureState, fixtureSnapshot;
+const clients=['jag','csnf','pvas','wcbhc','baq','imas'];
 Module._load=function(n,p,main){
+ if(n==='server-only')return {};
+ if(n==='../dashboard-ready.server')return {inspectDashboardReady:async()=>({built:{snapshot:fixtureSnapshot,records:fixtureData,readyRead:{records:fixtureData,state:fixtureState,tracking:fixtureTracking}},freshness:{generation:'00000000-0000-4000-8000-000000000001',builtAt:1,verifiedAt:2,stale:false}})};
+ if(/^\.\.\/\w+-data-store$/.test(n))return Object.fromEntries(clients.flatMap(c=>{const name=c[0].toUpperCase()+c.slice(1);return [[`get${name}Records`,async()=>fixtureData],[`get${name}Snapshot`,async()=>fixtureSnapshot]];}));
+ if(/^\.\.\/\w+-tracking$/.test(n))return Object.fromEntries(clients.map(c=>[`get${c[0].toUpperCase()+c.slice(1)}Tracking`,async()=>fixtureTracking]));
+ if(n==='./server')return {portalCampaignStateSafe:async()=>fixtureState};
  if(/^@\/lib\/[a-z]+-data-auth$/.test(n))return new Proxy({},{get:()=>async()=>true});
  if(n==='@/lib/portal-v2/pvas-canonical')return {pvasCanonicalEnabled:()=>false};
  if(n==='@/lib/portal-v2/dashboard-export.server')return {ExportIntentError:class extends Error{},reconstructDashboardExport:async()=>authoritative};
@@ -42,17 +48,30 @@ async function verify(bytes,label){
 }
 (async()=>{
  const only=process.argv[2];
+ const {reconstructDashboardExport}=require('../lib/portal-v2/dashboard-export.server.ts');
+ const {PROSPECT_NOTES_LABEL,REPORT_FIELDS,FIELD_BY_ID}=require('../lib/portal-v2/report-fields.ts');
  const {registerBrandFonts}=require('../lib/jag-brand-pdf.tsx');registerBrandFonts();
  const {loadBoundedPdfText,isWideProspectTable}=require('../lib/brand-wide-prospect-pdf.tsx');
  const bound=await loadBoundedPdfText();
  const identity='VeryLongIdentity'+ 'José_é_🌱_'.repeat(20)+'\r\nUNCHANGED_LINE';
  const wrapped=bound(identity,112);assert.equal(wrapped.replace(/\s/g,''),identity.replace(/\s/g,''));assert.ok(wrapped.includes('\r\n'));assert.equal(wrapped.split('-').length,identity.split('-').length);assert.ok(!/\ud83c\n/.test(wrapped));
  assert.ok(!isWideProspectTable([{label:'Solicitor'},{label:'Prospects'}]));
- for(const client of ['jag','csnf','pvas','wcbhc','baq','imas']){
+ for(const client of clients){
   if(only&&only!==client)continue;
-  const {indexPayload}=require(`../lib/portal-v2/${client}-export-model.ts`);
-  const base=indexPayload('Portfolio prospects','Synthetic all assigned',people);
-  authoritative={...base,cols:[...base.cols,{label:'Campaign Ask',kind:'usd'},{label:'Campaign Ask review'},{label:'Prospect Notes'}],sections:base.sections.map(s=>({...s,rows:s.rows.map((r,i)=>[...r,i?null:1234567,i?'Explicitly cleared':'',i===2?'Source URL: '+url+'\r\nUnicode author: José café.':i?'AFTER_ROW_SENTINEL':note])}))};
+  const records=Object.fromEntries(people.map((r,i)=>[r.cptid,{...r,contact:{},summary:{lifetime:r.lifetime,gifts:r.gifts,largest:r.largest,last:r.last,first:r.last,years:1},gifts:[],portfolio:{solicitor:r.solicitor,secondary:r.solicitor2,...(!i?{ask:1234567}:{})},notes:[i===2?'Source URL: '+url+'\r\nUnicode author: José café.':i?'AFTER_ROW_SENTINEL':note]}]));
+  fixtureData={directSourceRevision:'Synthetic revision',asOf:'2026-11-25',records,index:people};
+  fixtureTracking={directSourceRevision:'Synthetic revision',prospects:{},activity:[],pirs:{}};
+  fixtureState={configured:true,prospects:[],gifts:[],batches:[],updates:[{id:1,cptid:people[1].cptid,field:'ask',new_value:'',old_value:'100'}]};
+  fixtureSnapshot={directSourceRevision:'Synthetic revision',builtAt:'2026-11-25 13:00',client:'Synthetic',pool:[],portfolio:[],board:[],top:[],committed:[],stages:[]};
+  authoritative=await reconstructDashboardExport(client,{kind:'portfolio',solicitor:''},{});
+  assert.equal(authoritative.cols.at(-1).label,PROSPECT_NOTES_LABEL);
+  assert.ok(isWideProspectTable(authoritative.cols),'actual authoritative Portfolio notes label must activate wide layout');
+  for(const selected of [false,true]){
+   const fields=REPORT_FIELDS.filter(f=>f.id!=='notes').slice(0,12).map(f=>f.id);if(selected)fields.splice(1,0,'notes');
+   const report=await reconstructDashboardExport(client,{kind:'report',query:{fields}},{});
+   assert.equal(report.cols.filter(c=>c.label===FIELD_BY_ID.get('notes').label).length,1);
+   assert.ok(isWideProspectTable(report.cols),'actual selected and auto-appended report-builder notes activate wide layout');
+  }
   const unchanged=JSON.stringify(authoritative);assert.equal(authoritative.cols.length,15);fs.mkdirSync(proofDir,{recursive:true});fs.writeFileSync(path.join(proofDir,client+'-payload.json'),JSON.stringify(authoritative,null,2));
   const {POST}=require(process.env.PORTFOLIO_PDF_ROUTE_SOURCE || `../app/api/${client}-data-export/route.tsx`),response=await POST({json:async()=>({format:'pdf',intent:{kind:'portfolio',solicitor:''}})});
   assert.equal(response.status,200);await verify(Buffer.from(await response.arrayBuffer()),client);assert.equal(JSON.stringify(authoritative),unchanged);
