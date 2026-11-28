@@ -15,12 +15,13 @@ describe("campaign platform", () => {
     assert.equal(t.gifts.length, 7); assert.equal(t.constituents!.length, 14);
     assert.equal(buildDashboard(t).raised, 250000 + 100000 + 50000 + 25000 * 2 + 10000 + 5000);
   });
-  it("GC2P is built from the enriched upload and skips current donors", async () => {
+  it("GC2P is built from the enriched upload and includes donors as candidates for further gifts", async () => {
     const e = await enrichTenant(await sampleTenant(), sampleProvider);
     const d = buildDashboard(e);
     assert.ok(d.seats.length > 0);
     assert.ok(d.seats.every((s) => s.prospect.ds));
-    assert.equal(d.seats.find((s) => s.prospect.name === "Harbor Family Trust"), undefined);
+    const donorNames = new Set(e.gifts.map((g) => g.donor));
+    assert.ok(d.seats.some((s) => donorNames.has(s.prospect.name)), "donors can be seated for further gifts");
     assert.ok(d.seats.every((s) => s.level <= s.prospect.capacity));
   });
   it("never re-searches a record that already has a result", async () => {

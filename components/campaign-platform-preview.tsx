@@ -97,7 +97,7 @@ export function CampaignPlatformPreview() {
             <label className="text-sm">Organization<input className="mt-1 w-full border rounded px-2 py-1" value={name} onChange={(e) => setName(e.target.value)} /></label>
             <label className="text-sm">Campaign goal ($100,000 to $500,000,000)<input type="number" className="mt-1 w-full border rounded px-2 py-1" value={goal} onChange={(e) => setGoal(Number(e.target.value))} /></label>
           </section>
-          <UploadStep title="1. Constituent file (donors with gifts or pledges, plus prospects with no gift yet)" fields={GIFT_FIELDS} table={gt} setTable={setGt} map={gm} setMap={setGm} sample={SAMPLE_GIFTS_CSV} sampleName="sample-constituents.csv" />
+          <UploadStep title="1. Constituent file (your donors and constituents, with or without gifts)" fields={GIFT_FIELDS} table={gt} setTable={setGt} map={gm} setMap={setGm} sample={SAMPLE_GIFTS_CSV} sampleName="sample-constituents.csv" />
           {problems.length > 0 && <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-3"><p className="font-medium">Some rows were skipped:</p><ul className="list-disc pl-5">{problems.map((p) => <li key={p}>{p}</li>)}</ul></div>}
           <button disabled={!giftsReady || !goalOk || !!progress} onClick={create} className="rounded px-5 py-2 text-white disabled:opacity-40" style={{ background: NAVY }}>{progress ? `Adding ratings ${progress[0]} of ${progress[1]}` : "Add ratings and create my dashboard"}</button>
         </>
@@ -126,7 +126,7 @@ export function CampaignPlatformPreview() {
 
           <section className="rounded-lg border bg-white p-5">
             <h3 className="font-semibold mb-2">Gift Chart to Prospects</h3>
-            {dash.seats.length + dash.unseated.length === 0 ? <p className="text-sm text-gray-500">Include people with no gift yet in your file to see them seated at open gift levels.</p> : (
+            {dash.seats.length + dash.unseated.length === 0 ? <p className="text-sm text-gray-500">Upload and screen your constituent file to see ranked prospects seated at open gift levels.</p> : (
               <>
                 <table className="w-full text-sm">
                   <thead><tr className="text-left text-gray-500"><th>Seat at level</th><th>Prospect</th><th>DS rating</th><th>Review</th><th className="text-right">Ask capacity</th></tr></thead>

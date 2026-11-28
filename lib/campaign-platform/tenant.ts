@@ -136,26 +136,25 @@ export function buildProspects(rows: string[][], m: FieldMap) {
   return { prospects, problems };
 }
 
-/** GC2P source: the uploaded file itself. Ask = larger of DonorSearch capacity and giving history; a separate prospect list still works as a fallback. */
+/** GC2P candidates are generated from the uploaded constituent file. Everyone screened and not excluded is a candidate, donors included (they can give again).
+ *  Ask capacity = larger of DonorSearch capacity, largest gift and giving to date, less what they have already given to this campaign. */
 export function prospectsOf(t: TenantRecord): Prospect[] {
-  const fromFile = (t.constituents ?? []).filter((c) => c.given === 0 && c.ds && !c.excluded).map((c) => ({ name: c.name, capacity: Math.max(c.ds!.capacity, c.largest ?? 0, c.given), ds: c.ds, given: c.given }));
-  return fromFile.length ? fromFile : t.prospects;
+  return (t.constituents ?? []).filter((c) => c.ds && !c.excluded).map((c) => ({ name: c.name, capacity: Math.max(Math.max(c.ds!.capacity, c.largest ?? 0, c.given) - c.given, 0), ds: c.ds, given: c.given }));
 }
 
 export type Seat = { level: number; prospect: Prospect };
 export type Dashboard = { chart: GiftChart; levels: CampaignLevel[]; raised: number; pledges: number; gifts: number; donors: number; pctOfGoal: number; seats: Seat[]; unseated: Prospect[]; openSlots: Record<number, number> };
 
-/** GC2P: seat open prospects, largest capacity first, at the highest level they can reach that still has an open slot. Prospects already giving are skipped. */
+/** GC2P: seat open prospects, largest capacity first, at the highest level they can reach that still has an open slot. Donors are candidates for further gifts; their remaining capacity is used. */
 export function buildDashboard(t: TenantRecord): Dashboard {
   const chart = buildGiftChart(t.goal);
   const pg: PortalGift[] = t.gifts.map((g, i) => ({ id: i, cptid: null, donor_name: g.donor, kind: g.kind, amount: g.amount, gift_date: g.date }));
   const c = campaignByLevel(chart, pg);
   const open: Record<number, number> = {}; c.levels.forEach((l) => (open[l.level] = l.remaining));
   const levelsDesc = c.levels.map((l) => l.level).sort((a, b) => b - a);
-  const giving = new Set(t.gifts.map((g) => g.donor.trim().toLowerCase()));
   const seats: Seat[] = []; const unseated: Prospect[] = [];
   for (const p of [...prospectsOf(t)].sort((a, b) => b.capacity - a.capacity)) {
-    if (giving.has(p.name.trim().toLowerCase())) continue;
+    if (p.capacity <= 0) continue;
     const lvl = levelsDesc.find((l) => l <= p.capacity && open[l] > 0);
     if (lvl === undefined) { unseated.push(p); continue; }
     open[lvl]--; seats.push({ level: lvl, prospect: p });
