@@ -73,17 +73,23 @@ export function CampaignPlatformPreview() {
     const r = await fetch("/api/campaign-platform/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: em, password: pw }) });
     const j = await r.json(); if (!r.ok) { setMsg(j.error ?? "Sign-in failed"); return; }
     setWho(j.email); setPw(""); setMsg("");
-    const c = await fetch("/api/campaign-platform/campaigns").then((x) => x.json()); if (c.campaigns?.[0]) setTenant(c.campaigns[0]);
+    const c = await fetch("/api/campaign-platform/campaigns").then((x) => x.json()).catch(() => ({}));
+    if (c.campaigns?.[0]) setTenant(c.campaigns[0]); else setMsg(c.error ? `Could not load saved campaigns: ${c.error}` : "No saved campaign on this account yet. Create one below and it will save automatically.");
   }
   async function register() {
     const r = await fetch("/api/campaign-platform/register", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: em, password: pw }) });
     const j = await r.json(); if (!r.ok) { setMsg(j.error ?? "Could not create account"); return; }
     setWho(j.email); setPw(""); setMsg("Account created. Upload your file to build your first campaign.");
   }
-  async function signOut() { await fetch("/api/campaign-platform/login", { method: "DELETE" }); setWho(null); setTenant(null); }
-  async function saveRemote() {
-    if (!tenant) return; const r = await fetch("/api/campaign-platform/campaigns", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(tenant) });
-    setMsg(r.ok ? "Saved to your account" : "Save failed");
+  async function signOut() { await fetch("/api/campaign-platform/login", { method: "DELETE" }); setWho(null); setTenant(null); setGt(null); setMsg(""); }
+  async function saveRemote(t: TenantRecord | null = tenant, auto = false) {
+    if (!t) return false;
+    try {
+      const r = await fetch("/api/campaign-platform/campaigns", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(t) });
+      const j = await r.json().catch(() => ({}));
+      setMsg(r.ok ? (auto ? "Saved to your account automatically" : "Saved to your account") : `Save failed: ${j.error ?? r.status}. Your data is still in this browser.`);
+      return r.ok;
+    } catch { setMsg("Save failed (network). Your data is still in this browser."); return false; }
   }
   useEffect(() => { try { const s = localStorage.getItem(KEY); if (s) setTenant(JSON.parse(s)); } catch {} }, []);
 
@@ -99,6 +105,7 @@ export function CampaignPlatformPreview() {
     // Sample DonorSearch results only (fictitious). Live searches arrive with the server-side queue.
     const t = await enrichTenant(base, sampleProvider, (d, n) => setProgress([d, n]));
     setProgress(null); localStorage.setItem(KEY, JSON.stringify(t)); setTenant(t);
+    if (who) await saveRemote(t, true);
   }
   function reset() { localStorage.removeItem(KEY); setTenant(null); setGt(null); setProblems([]); }
 
@@ -113,7 +120,7 @@ export function CampaignPlatformPreview() {
       </header>
 
       <section className="rounded-lg border bg-white p-4 text-sm flex flex-wrap items-center gap-3">
-        {who ? (<><span>Signed in as <b>{who}</b></span>{tenant && <button className="rounded px-3 py-1 text-white" style={{ background: NAVY }} onClick={saveRemote}>Save campaign</button>}<button className="underline text-gray-500" onClick={signOut}>Sign out</button></>) : (<>
+        {who ? (<><span>Signed in as <b>{who}</b></span>{tenant && <button className="rounded px-3 py-1 text-white" style={{ background: NAVY }} onClick={() => saveRemote()}>Save campaign</button>}<button className="underline text-gray-500" onClick={signOut}>Sign out</button></>) : (<>
           <input className="border rounded px-2 py-1" placeholder="Email" value={em} onChange={(e) => setEm(e.target.value)} />
           <input className="border rounded px-2 py-1" type="password" placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} />
           <button className="rounded px-3 py-1 text-white" style={{ background: NAVY }} onClick={signIn}>Sign in</button>
