@@ -5,9 +5,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatDollars } from "@/lib/gift-chart";
 import {
-  GIFT_FIELDS, PROSPECT_FIELDS, SAMPLE_GIFTS_CSV, SAMPLE_PROSPECTS_CSV, autoMap, buildDashboard, buildGifts, buildProspects, readTable,
+  GIFT_FIELDS, SAMPLE_GIFTS_CSV, autoMap, buildDashboard, buildGifts, buildProspects, readTable,
   type FieldMap, type TenantRecord,
 } from "@/lib/campaign-platform/tenant";
+import { enrichTenant, enrichedCsv, sampleProvider } from "@/lib/campaign-platform/enrich";
 
 const NAVY = "#15212e"; const GOLD = "#b28c46";
 const KEY = "catapult-campaign-platform-preview:v1";
@@ -57,25 +58,26 @@ export function CampaignPlatformPreview() {
   const [name, setName] = useState("Sample Community Foundation");
   const [goal, setGoal] = useState(2_500_000);
   const [gt, setGt] = useState<Table>(null); const [gm, setGm] = useState<FieldMap>({});
-  const [pt, setPt] = useState<Table>(null); const [pm, setPm] = useState<FieldMap>({});
+  const [progress, setProgress] = useState<[number, number] | null>(null);
   const [tenant, setTenant] = useState<TenantRecord | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
 
   useEffect(() => { try { const s = localStorage.getItem(KEY); if (s) setTenant(JSON.parse(s)); } catch {} }, []);
 
   const giftsReady = !!gt && GIFT_FIELDS.every((f) => !f.required || gm[f.key] >= 0);
-  const prospectsReady = !pt || PROSPECT_FIELDS.every((f) => !f.required || pm[f.key] >= 0);
   const goalOk = goal >= 100_000 && goal <= 500_000_000;
 
-  function create() {
+  async function create() {
     if (!gt) return;
-    const g = buildGifts(gt.rows, gm); const p = pt ? buildProspects(pt.rows, pm) : { prospects: [], problems: [] };
-    setProblems([...g.problems, ...p.problems].slice(0, 8));
-    if (!g.gifts.length) return;
-    const t: TenantRecord = { id: `t-${Date.now()}`, name: name.trim() || "My campaign", goal, createdAt: new Date().toISOString(), gifts: g.gifts, prospects: p.prospects };
-    localStorage.setItem(KEY, JSON.stringify(t)); setTenant(t);
+    const g = buildGifts(gt.rows, gm);
+    setProblems(g.problems.slice(0, 8));
+    if (!g.constituents.length) return;
+    const base: TenantRecord = { id: `t-${Date.now()}`, name: name.trim() || "My campaign", goal, createdAt: new Date().toISOString(), gifts: g.gifts, prospects: [], constituents: g.constituents };
+    // Sample DonorSearch results only (fictitious). Live searches arrive with the server-side queue.
+    const t = await enrichTenant(base, sampleProvider, (d, n) => setProgress([d, n]));
+    setProgress(null); localStorage.setItem(KEY, JSON.stringify(t)); setTenant(t);
   }
-  function reset() { localStorage.removeItem(KEY); setTenant(null); setGt(null); setPt(null); setProblems([]); }
+  function reset() { localStorage.removeItem(KEY); setTenant(null); setGt(null); setProblems([]); }
 
   const dash = useMemo(() => (tenant ? buildDashboard(tenant) : null), [tenant]);
 
@@ -84,7 +86,7 @@ export function CampaignPlatformPreview() {
       <header>
         <p className="text-xs uppercase tracking-widest" style={{ color: GOLD }}>Internal preview · sample data only</p>
         <h1 className="text-3xl font-semibold">Campaign platform: upload to dashboard</h1>
-        <p className="text-gray-600 text-sm">Upload a giving file and a prospect list. The platform builds the campaign dashboard, gift chart and Gift Chart to Prospects. Nothing leaves this browser.</p>
+        <p className="text-gray-600 text-sm">Upload one constituent file. The platform adds DonorSearch ratings (sample results in this preview), then builds the campaign dashboard, gift chart and Gift Chart to Prospects from that file. Nothing leaves this browser.</p>
       </header>
 
       {!tenant || !dash ? (
@@ -93,10 +95,9 @@ export function CampaignPlatformPreview() {
             <label className="text-sm">Organization<input className="mt-1 w-full border rounded px-2 py-1" value={name} onChange={(e) => setName(e.target.value)} /></label>
             <label className="text-sm">Campaign goal ($100,000 to $500,000,000)<input type="number" className="mt-1 w-full border rounded px-2 py-1" value={goal} onChange={(e) => setGoal(Number(e.target.value))} /></label>
           </section>
-          <UploadStep title="1. Giving file (gifts and pledges)" fields={GIFT_FIELDS} table={gt} setTable={setGt} map={gm} setMap={setGm} sample={SAMPLE_GIFTS_CSV} sampleName="sample-gifts.csv" />
-          <UploadStep title="2. Prospect list (optional, used for Gift Chart to Prospects)" fields={PROSPECT_FIELDS} table={pt} setTable={setPt} map={pm} setMap={setPm} sample={SAMPLE_PROSPECTS_CSV} sampleName="sample-prospects.csv" />
+          <UploadStep title="1. Constituent file (donors with gifts or pledges, plus prospects with no gift yet)" fields={GIFT_FIELDS} table={gt} setTable={setGt} map={gm} setMap={setGm} sample={SAMPLE_GIFTS_CSV} sampleName="sample-constituents.csv" />
           {problems.length > 0 && <div className="text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded p-3"><p className="font-medium">Some rows were skipped:</p><ul className="list-disc pl-5">{problems.map((p) => <li key={p}>{p}</li>)}</ul></div>}
-          <button disabled={!giftsReady || !prospectsReady || !goalOk} onClick={create} className="rounded px-5 py-2 text-white disabled:opacity-40" style={{ background: NAVY }}>Create my dashboard</button>
+          <button disabled={!giftsReady || !goalOk || !!progress} onClick={create} className="rounded px-5 py-2 text-white disabled:opacity-40" style={{ background: NAVY }}>{progress ? `Adding ratings ${progress[0]} of ${progress[1]}` : "Add ratings and create my dashboard"}</button>
         </>
       ) : (
         <>
@@ -123,16 +124,17 @@ export function CampaignPlatformPreview() {
 
           <section className="rounded-lg border bg-white p-5">
             <h3 className="font-semibold mb-2">Gift Chart to Prospects</h3>
-            {tenant.prospects.length === 0 ? <p className="text-sm text-gray-500">Upload a prospect list to see prospects seated at open gift levels.</p> : (
+            {dash.seats.length + dash.unseated.length === 0 ? <p className="text-sm text-gray-500">Include people with no gift yet in your file to see them seated at open gift levels.</p> : (
               <>
                 <table className="w-full text-sm">
-                  <thead><tr className="text-left text-gray-500"><th>Seat at level</th><th>Prospect</th><th className="text-right">Capacity</th></tr></thead>
-                  <tbody>{dash.seats.map((s, i) => <tr key={i} className="border-t"><td>{formatDollars(s.level)}</td><td>{s.prospect.name}</td><td className="text-right">{formatDollars(s.prospect.capacity)}</td></tr>)}</tbody>
+                  <thead><tr className="text-left text-gray-500"><th>Seat at level</th><th>Prospect</th><th>DS rating</th><th>Review</th><th className="text-right">Ask capacity</th></tr></thead>
+                  <tbody>{dash.seats.map((s, i) => <tr key={i} className="border-t"><td>{formatDollars(s.level)}</td><td>{s.prospect.name}</td><td>{s.prospect.ds?.rating ?? ""}</td><td>{s.prospect.ds?.confidence === "review" ? "Check match" : ""}</td><td className="text-right">{formatDollars(s.prospect.capacity)}</td></tr>)}</tbody>
                 </table>
                 {dash.unseated.length > 0 && <p className="text-xs text-gray-500 mt-2">No open level fits: {dash.unseated.map((p) => p.name).join(", ")}</p>}
               </>
             )}
-            <p className="text-xs text-gray-500 mt-3">Prospects who already gave are left out. PIR ordering from this screen comes in a later step.</p>
+            <button className="text-xs underline text-gray-500 mt-3" onClick={() => download("enriched-constituents.csv", enrichedCsv(tenant))}>Download enriched file</button>
+            <p className="text-xs text-gray-500 mt-1">Ratings here are fictitious samples. Prospects who already gave are left out. PIR ordering from this screen comes in a later step.</p>
           </section>
         </>
       )}

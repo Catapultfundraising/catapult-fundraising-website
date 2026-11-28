@@ -4,14 +4,17 @@ import { parseCsv } from "@/lib/portal-v2/csv-parse";
 import { buildGiftChart, type GiftChart } from "@/lib/gift-chart";
 import { campaignByLevel, type PortalGift, type CampaignLevel } from "@/lib/portal-v2/clients";
 
-export type TenantRecord = { id: string; name: string; goal: number; createdAt: string; gifts: Gift[]; prospects: Prospect[] };
+export type TenantRecord = { id: string; name: string; goal: number; createdAt: string; gifts: Gift[]; prospects: Prospect[]; constituents?: Constituent[] };
+export type Constituent = { name: string; state: string; given: number; ds?: DsResult };
+export type DsResult = { rating: string; capacity: number; source: "sample" | "donorsearch"; confidence: "high" | "review" };
 export type Gift = { donor: string; amount: number; kind: "gift" | "pledge"; date: string | null };
-export type Prospect = { name: string; capacity: number };
+export type Prospect = { name: string; capacity: number; ds?: DsResult; given?: number };
 
 export type FieldMap = Record<string, number>; // field -> column index (-1 = not mapped)
 export const GIFT_FIELDS = [
   { key: "donor", label: "Donor name", required: true, hints: ["donor", "name", "constituent", "full name"] },
-  { key: "amount", label: "Amount", required: true, hints: ["amount", "gift amount", "total", "value"] },
+  { key: "amount", label: "Gift amount (blank = not given yet)", required: false, hints: ["amount", "gift amount", "total", "value"] },
+  { key: "state", label: "State (for DonorSearch)", required: false, hints: ["state"] },
   { key: "kind", label: "Gift or pledge", required: false, hints: ["type", "kind", "gift type", "pledge"] },
   { key: "date", label: "Date", required: false, hints: ["date", "gift date"] },
 ] as const;
@@ -49,15 +52,23 @@ export function money(s: string | undefined): number | null {
   return neg ? -Math.abs(n) : n;
 }
 
+/** One file holds everyone: rows with an amount are gifts/pledges; rows without are prospects not yet giving. */
 export function buildGifts(rows: string[][], m: FieldMap) {
   const gifts: Gift[] = []; const problems: string[] = [];
+  const people = new Map<string, Constituent>();
   rows.forEach((r, i) => {
-    const donor = (r[m.donor] ?? "").trim(); const amount = money(r[m.amount]);
-    if (!donor || amount === null || amount <= 0) { problems.push(`Row ${i + 2}: needs a donor name and a positive amount`); return; }
+    const donor = (r[m.donor] ?? "").trim(); const raw = m.amount >= 0 ? (r[m.amount] ?? "").trim() : "";
+    const amount = raw ? money(raw) : 0;
+    if (!donor || amount === null || amount < 0) { problems.push(`Row ${i + 2}: needs a donor name and a valid amount (or leave the amount blank)`); return; }
+    const key = donor.toLowerCase();
+    const c = people.get(key) ?? { name: donor, state: m.state >= 0 ? (r[m.state] ?? "").trim() : "", given: 0 };
+    people.set(key, c);
+    if (amount === 0) return;
     const k = m.kind >= 0 ? (r[m.kind] ?? "").toLowerCase() : "";
     gifts.push({ donor, amount, kind: k.includes("pledge") ? "pledge" : "gift", date: m.date >= 0 ? (r[m.date] ?? "").trim() || null : null });
+    c.given += amount;
   });
-  return { gifts, problems };
+  return { gifts, constituents: [...people.values()], problems };
 }
 export function buildProspects(rows: string[][], m: FieldMap) {
   const prospects: Prospect[] = []; const problems: string[] = [];
@@ -67,6 +78,12 @@ export function buildProspects(rows: string[][], m: FieldMap) {
     prospects.push({ name, capacity });
   });
   return { prospects, problems };
+}
+
+/** GC2P source: the uploaded file itself. Ask = larger of DonorSearch capacity and giving history; a separate prospect list still works as a fallback. */
+export function prospectsOf(t: TenantRecord): Prospect[] {
+  const fromFile = (t.constituents ?? []).filter((c) => c.given === 0 && c.ds).map((c) => ({ name: c.name, capacity: Math.max(c.ds!.capacity, c.given), ds: c.ds, given: c.given }));
+  return fromFile.length ? fromFile : t.prospects;
 }
 
 export type Seat = { level: number; prospect: Prospect };
@@ -81,7 +98,7 @@ export function buildDashboard(t: TenantRecord): Dashboard {
   const levelsDesc = c.levels.map((l) => l.level).sort((a, b) => b - a);
   const giving = new Set(t.gifts.map((g) => g.donor.trim().toLowerCase()));
   const seats: Seat[] = []; const unseated: Prospect[] = [];
-  for (const p of [...t.prospects].sort((a, b) => b.capacity - a.capacity)) {
+  for (const p of [...prospectsOf(t)].sort((a, b) => b.capacity - a.capacity)) {
     if (giving.has(p.name.trim().toLowerCase())) continue;
     const lvl = levelsDesc.find((l) => l <= p.capacity && open[l] > 0);
     if (lvl === undefined) { unseated.push(p); continue; }
@@ -90,17 +107,26 @@ export function buildDashboard(t: TenantRecord): Dashboard {
   return { chart, levels: c.levels, raised: c.raised, pledges: c.totalPledges, gifts: c.totalGifts, donors: c.donors.length, pctOfGoal: t.goal ? c.raised / t.goal : 0, seats, unseated, openSlots: open };
 }
 
-export const SAMPLE_GIFTS_CSV = `Donor Name,Amount,Type,Date
-Harbor Family Trust,250000,Pledge,2026-09-14
-Alder Foundation,100000,Gift,2026-09-30
-Marisol & Dean Ortega,50000,Pledge,2026-10-05
-Kestrel Bank,25000,Gift,2026-10-12
-Priya Nand,25000,Gift,2026-10-20
-Westfield Rotary,10000,Gift,2026-11-01
-Tom Albrecht,10000,Pledge,2026-11-03
-Linda Park,5000,Gift,2026-11-08
-Greene Hardware,2500,Gift,2026-11-10
-Ruth Calloway,1000,Gift,2026-11-12
+export const SAMPLE_GIFTS_CSV = `Donor Name,Amount,Type,Date,State
+Harbor Family Trust,250000,Pledge,2026-09-14,NJ
+Alder Foundation,100000,Gift,2026-09-30,NJ
+Marisol & Dean Ortega,50000,Pledge,2026-10-05,NJ
+Kestrel Bank,25000,Gift,2026-10-12,NJ
+Priya Nand,25000,Gift,2026-10-20,NJ
+Westfield Rotary,10000,Gift,2026-11-01,NJ
+Tom Albrecht,10000,Pledge,2026-11-03,NJ
+Linda Park,5000,Gift,2026-11-08,NJ
+Greene Hardware,2500,Gift,2026-11-10,NJ
+Ruth Calloway,1000,Gift,2026-11-12,NJ
+Ellis Family Fund,,,,NJ
+Bright Horizon Partners,,,,NJ
+Dr. Samuel Reyes,,,,NJ
+Naomi Fitch,,,,NJ
+Corliss Construction,,,,NJ
+Janet & Rob Whitaker,,,,NJ
+Oakmont Credit Union,,,,NJ
+Miguel Santos,,,,NJ
+Evelyn Strand,,,,NJ
 `;
 export const SAMPLE_PROSPECTS_CSV = `Prospect,Capacity
 Ellis Family Fund,250000
