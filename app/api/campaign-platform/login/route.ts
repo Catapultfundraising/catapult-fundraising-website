@@ -6,7 +6,9 @@ export const dynamic = "force-dynamic";
 export async function GET() { const s = await currentSession(); return NextResponse.json({ email: s?.email ?? null }); }
 export async function POST(req: Request) {
   const b = await req.json().catch(() => ({}));
-  const s = await (await getStore()).verify(String(b.email ?? ""), String(b.password ?? ""));
+  let s;
+  try { s = await (await getStore()).verify(String(b.email ?? ""), String(b.password ?? "")); }
+  catch (e) { return NextResponse.json({ error: `Account service problem (not a wrong password): ${(e as Error).message}` }, { status: 503 }); }
   if (!s) return NextResponse.json({ error: "Email or password not recognized" }, { status: 401 });
   const res = NextResponse.json({ email: s.email });
   res.cookies.set(COOKIE, signSession(s, secret()), { httpOnly: true, secure: true, sameSite: "lax", path: "/", maxAge: 12 * 3600 });
