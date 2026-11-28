@@ -64,6 +64,22 @@ export function CampaignPlatformPreview() {
   const [tenant, setTenant] = useState<TenantRecord | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
 
+  const [who, setWho] = useState<string | null>(null); const [em, setEm] = useState(""); const [pw, setPw] = useState(""); const [msg, setMsg] = useState("");
+  useEffect(() => { fetch("/api/campaign-platform/login").then((r) => r.json()).then(async (j) => {
+    setWho(j.email ?? null);
+    if (j.email) { const c = await fetch("/api/campaign-platform/campaigns").then((r) => r.json()); if (c.campaigns?.[0]) setTenant(c.campaigns[0]); }
+  }).catch(() => {}); }, []);
+  async function signIn() {
+    const r = await fetch("/api/campaign-platform/login", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: em, password: pw }) });
+    const j = await r.json(); if (!r.ok) { setMsg(j.error ?? "Sign-in failed"); return; }
+    setWho(j.email); setPw(""); setMsg("");
+    const c = await fetch("/api/campaign-platform/campaigns").then((x) => x.json()); if (c.campaigns?.[0]) setTenant(c.campaigns[0]);
+  }
+  async function signOut() { await fetch("/api/campaign-platform/login", { method: "DELETE" }); setWho(null); setTenant(null); }
+  async function saveRemote() {
+    if (!tenant) return; const r = await fetch("/api/campaign-platform/campaigns", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(tenant) });
+    setMsg(r.ok ? "Saved to your account" : "Save failed");
+  }
   useEffect(() => { try { const s = localStorage.getItem(KEY); if (s) setTenant(JSON.parse(s)); } catch {} }, []);
 
   const giftsReady = !!gt && GIFT_FIELDS.every((f) => !f.required || gm[f.key] >= 0);
@@ -90,6 +106,15 @@ export function CampaignPlatformPreview() {
         <h1 className="text-3xl font-semibold">Campaign platform: upload to dashboard</h1>
         <p className="text-gray-600 text-sm">Upload one constituent file. The platform adds DonorSearch ratings (sample results in this preview), then builds the campaign dashboard, gift chart and Gift Chart to Prospects from that file. Nothing leaves this browser.</p>
       </header>
+
+      <section className="rounded-lg border bg-white p-4 text-sm flex flex-wrap items-center gap-3">
+        {who ? (<><span>Signed in as <b>{who}</b></span>{tenant && <button className="rounded px-3 py-1 text-white" style={{ background: NAVY }} onClick={saveRemote}>Save campaign</button>}<button className="underline text-gray-500" onClick={signOut}>Sign out</button></>) : (<>
+          <input className="border rounded px-2 py-1" placeholder="Email" value={em} onChange={(e) => setEm(e.target.value)} />
+          <input className="border rounded px-2 py-1" type="password" placeholder="Password" value={pw} onChange={(e) => setPw(e.target.value)} />
+          <button className="rounded px-3 py-1 text-white" style={{ background: NAVY }} onClick={signIn}>Sign in</button>
+          <span className="text-gray-500">Sign in to save and reopen campaigns. Without signing in, data stays in this browser.</span></>)}
+        {msg && <span className="text-gray-600">{msg}</span>}
+      </section>
 
       {!tenant || !dash ? (
         <>
