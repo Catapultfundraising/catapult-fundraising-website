@@ -15,11 +15,11 @@ export const sampleProvider: Provider = async (c) => {
   return { rating, capacity, source: "sample", confidence: h % 5 === 0 ? "review" : "high" };
 };
 
-/** Append results to every constituent that has none. Existing results are never re-fetched (no double billing). */
+/** Append results to every constituent that has none. Existing results are never re-fetched, and deceased / do-not-solicit records are never searched (no wasted billing). */
 export async function enrichTenant(t: TenantRecord, provider: Provider, onProgress?: (done: number, total: number) => void): Promise<TenantRecord> {
   const list = t.constituents ?? []; const out: Constituent[] = []; let done = 0;
   for (const c of list) {
-    out.push(c.ds ? c : { ...c, ds: await provider(c) });
+    out.push(c.ds || c.excluded ? c : { ...c, ds: await provider(c) });
     onProgress?.(++done, list.length);
   }
   return { ...t, constituents: out };

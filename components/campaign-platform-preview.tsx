@@ -5,7 +5,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { formatDollars } from "@/lib/gift-chart";
 import {
-  GIFT_FIELDS, SAMPLE_GIFTS_CSV, autoMap, buildDashboard, buildGifts, buildProspects, readTable,
+  GIFT_FIELDS, SAMPLE_GIFTS_CSV, TEMPLATE_CSV, autoMap, buildDashboard, buildGifts, buildProspects, readTable,
   type FieldMap, type TenantRecord,
 } from "@/lib/campaign-platform/tenant";
 import { enrichTenant, enrichedCsv, sampleProvider } from "@/lib/campaign-platform/enrich";
@@ -18,7 +18,7 @@ function download(name: string, text: string) {
   const a = document.createElement("a"); a.href = URL.createObjectURL(new Blob([text], { type: "text/csv" })); a.download = name; a.click();
 }
 
-function UploadStep<F extends { key: string; label: string; required: boolean; hints: readonly string[] }>({ title, fields, table, setTable, map, setMap, sample, sampleName }: {
+function UploadStep<F extends { key: string; label: string; required: boolean; hints: readonly string[]; group?: string }>({ title, fields, table, setTable, map, setMap, sample, sampleName }: {
   title: string; fields: readonly F[]; table: Table; setTable: (t: Table) => void; map: FieldMap; setMap: (m: FieldMap) => void; sample: string; sampleName: string;
 }) {
   const [err, setErr] = useState("");
@@ -32,15 +32,17 @@ function UploadStep<F extends { key: string; label: string; required: boolean; h
         <input type="file" accept=".csv,text/csv" onChange={async (e) => { const f = e.target.files?.[0]; if (f) await load(await f.text()); }} />
         <button className="underline" style={{ color: GOLD }} onClick={() => load(sample)}>Use sample data</button>
         <button className="underline text-gray-500" onClick={() => download(sampleName, sample)}>Download sample file</button>
+        <button className="underline text-gray-500" onClick={() => download("campaign-data-template.csv", TEMPLATE_CSV)}>Download blank template (all recommended fields)</button>
       </div>
       {err && <p className="text-sm text-red-700">{err}</p>}
       {table && (
         <div className="space-y-2">
           <p className="text-sm text-gray-600">{table.rows.length} rows found. Check that each field matches the right column.</p>
+          <p className="text-xs text-gray-500">Only a name is required. Fields not in your file can stay unmatched, but more fields give better ratings and matching. Deceased and do-not-solicit rows are left out of ratings and GC2P.</p>
           <div className="grid gap-2 sm:grid-cols-2">
             {fields.map((f) => (
               <label key={f.key} className="text-sm flex items-center gap-2">
-                <span className="w-36">{f.label}{f.required && " *"}</span>
+                <span className="w-44 text-xs">{f.group ? `${f.group}: ` : ""}{f.label}{f.required && " *"}</span>
                 <select className="border rounded px-2 py-1 flex-1" value={map[f.key] ?? -1} onChange={(e) => setMap({ ...map, [f.key]: Number(e.target.value) })}>
                   <option value={-1}>{f.required ? "Choose a column" : "Not in my file"}</option>
                   {table.headers.map((h, i) => <option key={i} value={i}>{h}</option>)}
